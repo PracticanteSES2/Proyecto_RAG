@@ -4,17 +4,85 @@ class RAGAnswerEngine:
         self,
         retriever,
         default_limit=5,
+        answer_synthesizer=None,
         min_score=0.35,
     ):
 
         self.retriever = retriever
+        self.answer_synthesizer = (
+            answer_synthesizer
+        )
         self.default_limit = (
             default_limit
         )
         self.min_score = (
             min_score
         )
+    def _synthesize_answer(
+        self,
+        question,
+        results
+    ):
 
+        contexts = [
+            result.get(
+                "text",
+                ""
+            )
+            for result in results
+            if result.get(
+                "text"
+            )
+        ]
+
+
+        # ========================================================
+        # FALLBACK SIN LLM
+        # ========================================================
+
+        fallback_answer = (
+            "\n\n".join(
+                contexts
+            )
+        )
+
+
+        if (
+            self.answer_synthesizer
+            is None
+        ):
+
+            return fallback_answer
+
+
+        # ========================================================
+        # SÍNTESIS CON QWEN
+        # ========================================================
+
+        synthesis = (
+            self.answer_synthesizer
+            .synthesize_rag(
+                question=question,
+                sources=results
+            )
+        )
+
+
+        if (
+            synthesis.get(
+                "status"
+            )
+            == "success"
+        ):
+
+            return synthesis.get(
+                "answer"
+            )
+
+
+        # Si Ollama falla, el RAG
+        # continúa funcionando.
+        return fallback_answer
 
     # ========================================================
     # HELPERS
@@ -136,14 +204,15 @@ class RAGAnswerEngine:
 
     def _build_context_response(
         self,
+        question,
         results,
     ):
         """
-        Empaqueta la evidencia recuperada.
+        Empaqueta la evidencia recuperada y, si existe un
+        AnswerSynthesizer, utiliza Qwen para redactar la respuesta.
 
-        Por ahora `answer` continúa siendo texto recuperado.
-        En el siguiente paso será reemplazado por
-        AnswerSynthesizer.
+        Si el LLM no está configurado o falla, conserva el fallback
+        extractivo con los chunks recuperados.
         """
 
         if not results:
@@ -154,6 +223,7 @@ class RAGAnswerEngine:
                 "contexts": [],
                 "sources": [],
                 "retrieval_mode": "open",
+                "synthesis_mode": "none",
             }
 
         contexts = [
@@ -167,14 +237,30 @@ class RAGAnswerEngine:
             )
         ]
 
+        answer = self._synthesize_answer(
+            question=question,
+            results=results,
+        )
+
+        fallback_answer = "\n\n".join(
+            contexts
+        )
+
+        synthesis_mode = (
+            "llm"
+            if self.answer_synthesizer is not None
+            and answer
+            and answer != fallback_answer
+            else "extractive"
+        )
+
         return {
             "status": "success",
-            "answer": "\n\n".join(
-                contexts
-            ),
+            "answer": answer,
             "contexts": contexts,
             "sources": results,
             "retrieval_mode": "open",
+            "synthesis_mode": synthesis_mode,
         }
 
 
@@ -200,8 +286,16 @@ class RAGAnswerEngine:
             )
         )
 
+        question = (
+            intent_data.get(
+                "original_question"
+            )
+            or ""
+        )
+
         return self._build_context_response(
-            results
+            question=question,
+            results=results,
         )
 
 
@@ -225,8 +319,16 @@ class RAGAnswerEngine:
             )
         )
 
+        question = (
+            intent_data.get(
+                "original_question"
+            )
+            or ""
+        )
+
         return self._build_context_response(
-            results
+            question=question,
+            results=results,
         )
 
 
@@ -245,8 +347,16 @@ class RAGAnswerEngine:
             )
         )
 
+        question = (
+            intent_data.get(
+                "original_question"
+            )
+            or ""
+        )
+
         return self._build_context_response(
-            results
+            question=question,
+            results=results,
         )
 
 
