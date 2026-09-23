@@ -1,0 +1,52 @@
+{
+  "workspace": "Gestion Clinica",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "source_file": "13 Documentacion Tablero Hospitalizacion Parcial.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\13 Documentacion Tablero Hospitalizacion Parcial.docx",
+  "dashboards": [
+    {
+      "name": "13 Documentacion Tablero Hospitalizacion Parcial",
+      "description": "DOCUMENTACION DE HOSPITALIZACION PARCIAL Este tablero muestra el conteo mensual de pacientes que recibió hospitalización parcial y las compañías aseguradoras a las cuales pertenecen dichos pacientes, este tablero colabora en el entendimiento del comportamiento de esta variable de hospitalización parcial y su conteo. Para realizar este tablero se utilizó la siguiene consulta: SELECT *, CAST(FECHA_INGRESO_CAMA AS DATE)FECHA FROM ATC_HOSPI_PARCIAL",
+      "sql_queries": [],
+      "documented_measures": [
+        {
+          "table": "HOSPITALIZACION_PARCIAL",
+          "name": "ATEHP2024",
+          "expression": "ATEHP2024 = \nCALCULATE(\n [ATENCION_HP],\n Calendario[Año] = 2024\n )"
+        },
+        {
+          "table": "HOSPITALIZACION_PARCIAL",
+          "name": "ATEHP2025",
+          "expression": "ATEHP2025 = \nCALCULATE(\n [ATENCION_HP],\n Calendario[Año] = 2025\n )"
+        },
+        {
+          "table": "HOSPITALIZACION_PARCIAL",
+          "name": "ATEHP2026",
+          "expression": "ATEHP2026 = \nCALCULATE(\n [ATENCION_HP],\n Calendario[Año] = 2026\n )"
+        },
+        {
+          "table": "HOSPITALIZACION_PARCIAL",
+          "name": "ATENCIONHP",
+          "expression": "ATENCION_HP = \nCOUNTROWS ( 'HOSPITALIZACION_PARCIAL' )"
+        }
+      ],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtros y segmentadores",
+        "Aplica los filtros dependiendo de la selección que se haga en cada uno, ya sea por aseguradora, año, mes y diagnóstico, junto con la opción de mostrar proyección.",
+        "Gráfico de Cantidad de Hospitalización Parcial",
+        "Muestra el conteo general y los comportamientos de hospitalizaciones parciales durante los meses de los últimos 3 años y su proyección esperada.",
+        "Tabla de Hospitalizaciones Parciales",
+        "Muestra el conteo mensual de hospitalizaciones parciales durante los últimos 3 años.",
+        "Tabla de Aseguradoras",
+        "Muestra los pacientes totales atendidos en hospitalización parcial que están asociados a una empresa aseguradora especifica",
+        "Indicadores de Atenciones",
+        "Informan acerca del total de atenciones y su promedio mensual en el área de hospitalización parcial"
+      ],
+      "indicators": [],
+      "other_sections": []
+    }
+  ]
+}

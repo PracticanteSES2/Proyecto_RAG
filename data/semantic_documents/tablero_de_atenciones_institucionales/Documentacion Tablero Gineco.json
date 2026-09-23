@@ -1,0 +1,31 @@
+{
+  "workspace": "Gestion Clinica",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "source_file": "Documentacion Tablero Gineco.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\Documentacion Tablero Gineco.docx",
+  "dashboards": [
+    {
+      "name": "GINECO",
+      "description": "Este tablero permite analizar el comportamiento de las atenciones en ginecología, visualizando su evolución mensual y facilitando el seguimiento del volumen de atenciones en esta área.",
+      "sql_queries": [
+        "SELECT DIM_PACIENTES.PACNUMDOC, AINCONSEC AS 'NUM_INGRESO', DIM_ASEGURADORA.GDENOMBRE, DIM_INGRESO.AINFECING AS 'MES_INGRESO',\nSUBSTRING(CONVERT(CHAR(38), AINFECING,121), 12, 8) AS 'HORA_INGRESO',\nCASE WHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%NUEVA%' THEN 'NUEVA EPS'\nWHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%SURA%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%ARL SURA%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%SEGUROS DE VIDA SURA%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%SURAMERICANA%' THEN 'SURA'\nWHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%SANITAS%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%COLSANITAS%'\nAND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%MEDISANITAS%' THEN 'SANITAS'\nWHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%MALLAMAS%' THEN 'MALLAMAS'\nELSE DIM_ASEGURADORA.GDENOMBRE END ASEGURADORA\n,DIM_INGRESO.GENDETCON OID_ASEGURADORA\nFROM DIM_INGRESO\nINNER JOIN DIM_ASEGURADORA ON DIM_INGRESO.GENDETCON = DIM_ASEGURADORA.OID\nINNER JOIN DIM_PACIENTES ON DIM_INGRESO.GENPACIEN = DIM_PACIENTES.OID\nWHERE\nCAST(AINFECING AS DATE) BETWEEN '2023-01-01' AND CAST(GETDATE() AS DATE)\nAND AINCAUING='9'\nGROUP BY DIM_PACIENTES.PACNUMDOC, AINCONSEC, DIM_ASEGURADORA.GDENOMBRE, DIM_INGRESO.AINFECING, AINFECING, DIM_INGRESO.GENDETCON\nORDER BY AINFECING"
+      ],
+      "documented_measures": [],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtros",
+        "Permiten segmentar la información por Aseguradora, Año y Mes, facilitando el análisis de las atenciones en ginecología según los criterios seleccionados.",
+        "Gráfico de columnas – Atenciones en gineco por mes y año",
+        "Muestra la cantidad de atenciones realizadas en ginecología por mes, permitiendo comparar el comportamiento entre diferentes años e identificar tendencias en la atención.",
+        "Tabla de detalle anual",
+        "Presenta el consolidado mensual de atenciones en ginecología por año, permitiendo validar y comparar el comportamiento histórico de este indicador.",
+        "Principio del formulario",
+        "Final del formulario"
+      ],
+      "indicators": [],
+      "other_sections": []
+    }
+  ]
+}

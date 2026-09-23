@@ -1,0 +1,8 @@
+pandas
+python-docx
+sentence-transformers
+qdrant-client
+pyadomd
+pythonnet
+python-dotenv
+ollama

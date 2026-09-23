@@ -1,0 +1,83 @@
+{
+  "workspace": "Gestion Clinica",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "source_file": "Documentacion Tablero Atencion Domiciliaria.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\Documentacion Tablero Atencion Domiciliaria.docx",
+  "dashboards": [
+    {
+      "name": "ATENCIÓN DOMICILIARIA",
+      "description": "Este tablero permite analizar el comportamiento de las atenciones domiciliarias realizadas por la institución, facilitando el seguimiento del volumen de atenciones, su evolución mensual y su distribución por aseguradora.",
+      "sql_queries": [
+        "ATENCION_DOMICILIARIA\nSELECT *\nFROM ATC_DOMICILIARIA"
+      ],
+      "documented_measures": [
+        {
+          "table": "ATENCION DOMICILIARIA",
+          "name": "ATENCION_DM",
+          "expression": "COUNTROWS(\n'ATENCION DOMICILIARIA'\n)"
+        },
+        {
+          "table": "ATENCION DOMICILIARIA",
+          "name": "PROM_ATENCION_AD",
+          "expression": "VAR MaxYearModelo =\nCALCULATE ( MAX ( Calendario[Año] ), ALL ( Calendario ) )\n\n-- Detecta si hay cualquier filtro de tiempo (año/mes/fecha)\nVAR HayFiltroTiempo =\nISCROSSFILTERED ( Calendario[Date] )\n|| ISFILTERED ( Calendario[Año] )\n|| ISFILTERED ( Calendario[Mes] )\n\nVAR AniosSel =\nFILTER ( VALUES ( Calendario[Año] ), NOT ISBLANK ( Calendario[Año] ) )\n\nRETURN\nIF (\nNOT HayFiltroTiempo,\n-- Default: año anterior SOLO cuando no hay filtros\nCALCULATE (\nDIVIDE ( COUNT ('ATENCION DOMICILIARIA'[INGRESO] ), 12, 0 ),\nCalendario[Año] = MaxYearModelo - 1\n),\n-- Si hay 1 o varios años seleccionados: SUMA de promedios por año\nSUMX (\nAniosSel,\nVAR AnioActual = Calendario[Año]\nRETURN\nCALCULATE (\nDIVIDE ( COUNT ( 'ATENCION DOMICILIARIA'[INGRESO] ), 12, 0 ),\nKEEPFILTERS ( Calendario[Año] = AnioActual )\n)\n)\n)"
+        },
+        {
+          "table": "ATENCION DOMICILIARIA",
+          "name": "ATEN_DOM2024",
+          "expression": "CALCULATE(\n[ATENCION_DM],\nCalendario[Año] = 2024\n)"
+        },
+        {
+          "table": "ATENCION DOMICILIARIA",
+          "name": "ATEN_DOM2025",
+          "expression": "CALCULATE(\n[ATENCION_DM],\nCalendario[Año] = 2025\n)"
+        },
+        {
+          "table": "ATENCION DOMICILIARIA",
+          "name": "ATEN_DOM2026",
+          "expression": "CALCULATE(\n[ATENCION_DM],\nCalendario[Año] = 2026\n)"
+        },
+        {
+          "table": "ATENCION DOMICILIARIA",
+          "name": "PROYECCION_ATD",
+          "expression": "VAR AnnoActual = MAX ( Calendario[Año] )\nVAR MesActual = MAX ( Calendario[Mes] )\n\n-- Atenciones del mismo mes del año anterior (si AnnoActual=2026 => toma 2025)\nVAR Ate2024 =\nCALCULATE (\n[ATEN_DOM2025],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = AnnoActual - 1,\nCalendario[Mes] = MesActual\n)\n\n-- Atenciones del mismo mes pero dos años atrás (si AnnoActual=2026 => toma 2024)\nVAR Ate2025 =\nCALCULATE (\n[ATEN_DOM2024],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = AnnoActual - 2,\nCalendario[Mes] = MesActual\n)\n\n-- % crecimiento del mes (2025 vs 2024)\nVAR Crec =\nDIVIDE ( Ate2024 - Ate2025, Ate2025 )\n\n-- Valor proyectado\nVAR Proy =\nIF (\nNOT ISBLANK ( Ate2024 )\n&& NOT ISBLANK ( Ate2025 )\n&& Ate2025 <> 0,\nAte2024 * ( 1 + Crec )\n)\n\n-- Control desde el segmentador\nVAR Mostrar =\nSELECTEDVALUE ( MostrarProyeccion[Opcion], \"NO\" )\n\nRETURN\nIF ( Mostrar = \"SI\", Proy )"
+        }
+      ],
+      "calculated_columns": [
+        {
+          "table": "PORCENTAJE_OCUP",
+          "name": "OCUPADA",
+          "expression": "IF(PORCENTAJE_OCUP[ESTADO]=\"OCUPADA\" || PORCENTAJE_OCUP[ESTADO]=\"2\",1,0)"
+        },
+        {
+          "table": "PORCENTAJE_OCUP",
+          "name": "DISPONIBLE",
+          "expression": "IF(PORCENTAJE_OCUP[estado]=\"OCUPADA\" || PORCENTAJE_OCUP[estado]=\"1\" ||PORCENTAJE_OCUP[estado]=\"DESOCUPADA\" || PORCENTAJE_OCUP[estado]=\"MANTENIMIENTO\" || PORCENTAJE_OCUP[estado]=\"2\" || PORCENTAJE_OCUP[estado]=\"5\" || PORCENTAJE_OCUP[estado]=\"DISPONIBLE\",1,0)"
+        },
+        {
+          "table": "PORCENTAJE_OCUP",
+          "name": "servicio_uni",
+          "expression": "IF(SEARCH(\"CRIT\",PORCENTAJE_OCUP[SERVICIO],1,0)<>0,\"CUIDADO CRÍTICO OBSTETRICO\",PORCENTAJE_OCUP[SERVICIO])"
+        }
+      ],
+      "filters": [],
+      "visuals": [
+        "Filtros",
+        "Permiten segmentar la información por Aseguradora, Año, Mes y Diagnóstico, facilitando el análisis de las atenciones domiciliarias según los criterios seleccionados.",
+        "Opción – Mostrar proyección",
+        "Permite activar o desactivar la visualización de la proyección de atenciones, facilitando analizar la tendencia estimada del servicio.",
+        "Gráfico de líneas – Cantidad mensual de atención domiciliaria",
+        "Muestra la cantidad de atenciones domiciliarias registradas por mes, permitiendo comparar su comportamiento entre diferentes años y visualizar su tendencia.",
+        "Tabla – Atenciones por aseguradora",
+        "Presenta la cantidad de atenciones domiciliarias registradas por aseguradora, permitiendo identificar la distribución de pacientes por entidad.",
+        "Tabla de detalle anual",
+        "Muestra el consolidado mensual de atenciones domiciliarias por año, permitiendo analizar y comparar el comportamiento histórico de este indicador.",
+        "Tarjetas de indicadores",
+        "Atenciones: muestra el total de atenciones domiciliarias registradas.",
+        "Promedio atenciones: presenta el promedio mensual de atenciones realizadas."
+      ],
+      "indicators": [],
+      "other_sections": []
+    }
+  ]
+}

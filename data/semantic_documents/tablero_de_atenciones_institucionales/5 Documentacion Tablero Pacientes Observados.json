@@ -1,0 +1,29 @@
+{
+  "workspace": "Gestion Clinica",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "source_file": "5 Documentacion Tablero Pacientes Observados.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\5 Documentacion Tablero Pacientes Observados.docx",
+  "dashboards": [
+    {
+      "name": "PACIENTES OBSERVADOS",
+      "description": "Este tablero muestra el grafico histórico de pacientes observados efectivamente cada año, una tabla que distingue estos valores y el promedio mensual y diario de pacientes. Es de importancia para determinar la efectividad en los servicios de triage. Para la realización de este tablero se utilizó la siguiente consulta: SELECT DIM_PACIENTES.PACNUMDOC, DIM_ASEGURADORA.GDENOMBRE, CONVERT(VARCHAR(20), DIM_INGRESO.AINFECING, 103)+' '+CONVERT(VARCHAR(8), DIM_INGRESO.AINFECING, 114) AS FECHA_INGRESO, cast(AINFECING as date) fecha, GASNOMBRE ,CASE WHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%NUEVA%' THEN 'NUEVA EPS' WHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%SURA%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%SEGUROS DE VIDA SURA%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%SURAMERICANA%' THEN 'SURA' WHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%SANITAS%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%COLSANITAS%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%MEDISANITAS%' THEN 'SANITAS' WHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%MALLAMAS%' THEN 'MALLAMAS' ELSE DIM_ASEGURADORA.GDENOMBRE END ASEGURADORA ,DIM_ASEGURADORA.GENTERCER1 ,CASE WHEN DATEDIFF(YY,DIM_PACIENTES.GPAFECNAC,DIM_INGRESO.AINFECING)<18 THEN 'MENORES DE EDAD' ELSE 'MAYORES DE EDAD' END MENORES ,DIM_INGRESO.HCENTRIAGE ,GENPACIEN ,CASE WHEN DATEDIFF(YEAR,GPAFECNAC,AINFECING)<18 THEN 'MENORES DE EDAD' ELSE 'MAYORES DE EDAD' END MENORES ,GENTERCER_DW.TERNOMCOM FROM DIM_INGRESO LEFT OUTER JOIN DIM_PACIENTES ON DIM_INGRESO.GENPACIEN = DIM_PACIENTES.OID LEFT OUTER JOIN DIM_ASEGURADORA ON DIM_INGRESO.GENDETCON = DIM_ASEGURADORA.OID LEFT OUTER JOIN AREA_SERVICIO ON DIM_INGRESO.GENARESER = AREA_SERVICIO.OID LEFT JOIN GENTERCER_DW ON DIM_ASEGURADORA.GENTERCER1=GENTERCER_DW.OID WHERE CAST(DIM_INGRESO.AINFECING AS DATE) BETWEEN '2022-01-01' AND CAST(GETDATE() AS DATE) AND DIM_INGRESO.AINTIPING='1' AND DIM_INGRESO.AINURGCON = '0' AND GENARESER IN (2,42)---('2', '42') 2=urgencias 42=ginecop Medidas utilizadas en este tablero Promedio Mensual de Observaciones Promedio_OBS_Dinamico = VAR Hoy = TODAY() VAR AnioCerrado = YEAR(Hoy) - 1 VAR AnioContexto = SELECTEDVALUE('Calendario'[Año], AnioCerrado) -- 1. Calculamos la suma total de TODO el año seleccionado (ignorando el mes de la fila) VAR SumaTotalAnual = CALCULATE( COUNT(OBSERVADOS[HCENTRIAGE]), 'Calendario'[Año] = AnioContexto, REMOVEFILTERS('Calendario'[Mes]) -- Limpia cualquier jerarquía de mes ) -- 2. Contamos cuántos meses tienen datos en ese año (hasta hoy) VAR CantidadMeses = CALCULATE( DISTINCTCOUNT('Calendario'[Mes]), 'Calendario'[Año] = AnioContexto, 'Calendario'[Date] <= Hoy, REMOVEFILTERS('Calendario'[Mes]), NOT ISBLANK(OBSERVADOS[HCENTRIAGE]) -- Solo cuenta meses que realmente tuvieron actividad ) -- 3. Resultado final: Suma de todo el año / Número de meses RETURN IF( CantidadMeses > 0, DIVIDE(SumaTotalAnual, CantidadMeses), BLANK() ) Premedio de Observacion Diario Promedio_OBS_Diario_Dinamico = VAR Hoy = TODAY() VAR AnioCerrado = YEAR(Hoy) - 1 -- 1. Determinamos el año objetivo VAR AnioSeleccionado = SELECTEDVALUE('Calendario'[Año]) VAR AnioAFiltar = IF( ISFILTERED('Calendario'[Año]), AnioSeleccionado, AnioCerrado ) -- 2. Evaluamos el contexto para aplicar el cálculo RETURN IF( ISFILTERED('Calendario'[Mes]), -- SI HAY MES: Promedio diario del mes AVERAGEX( KEEPFILTERS(VALUES('Calendario'[Date])), -- KEEPFILTERS asegura que el promedio sea por día CALCULATE(COUNT(OBSERVADOS[HCENTRIAGE])) ), -- SI NO HAY MES: Promedio diario del año CALCULATE( AVERAGEX( KEEPFILTERS(VALUES('Calendario'[Date])), CALCULATE(COUNT(OBSERVADOS[HCENTRIAGE])) ), 'Calendario'[Año] = AnioAFiltar, ALL('Calendario'[Mes]) ) )",
+      "sql_queries": [],
+      "documented_measures": [],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtros por asegurador, fecha y edad",
+        "Seleccionan como se desean ver los datos en relación con la selección de filtros",
+        "Gráfico de pacientes Observados por mes",
+        "Representa el conteo de pacientes observados en triage en cada uno de los meses de los últimos 3 años, es importante para determinar la cantidad de pacientes que ingresa a observación y su comparación al pasar los años.",
+        "Tabla de Observación de pacientes en años anteriores",
+        "Muestra la suma mensual de los pacientes ingresados a observación en los 2 años anteriores.",
+        "Tarjetas de conteo de observaciones",
+        "Muestran las observaciones totales, el promedio mensual de observaciones y tambien su promedio por día."
+      ],
+      "indicators": [],
+      "other_sections": []
+    }
+  ]
+}

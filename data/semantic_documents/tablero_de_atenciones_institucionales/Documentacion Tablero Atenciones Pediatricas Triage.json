@@ -1,0 +1,117 @@
+{
+  "workspace": "Gestion Clinica",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "source_file": "Documentacion Tablero Atenciones Pediatricas Triage.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\Documentacion Tablero Atenciones Pediatricas Triage.docx",
+  "dashboards": [
+    {
+      "name": "ATENCIONES PEDIÁTRICAS TRIAGE",
+      "description": "Este tablero permite analizar el comportamiento de los triages pediátricos registrados en urgencias, visualizando su evolución mensual y la distribución según la clasificación del triage.",
+      "sql_queries": [
+        "SELECT DIM_TRIAGE.OID AS 'OID_TRIAGE',\nDIM_TRIAGE.GPADOCUME,\nDIM_HCNCLAURGTR.HCCODIGO,\nDIM_TRIAGE.GPANOMBRE,\nDIM_TRIAGE.GPASEGNOM,\nDIM_TRIAGE.GPAAPELLI,\nDIM_TRIAGE.GPASEGAPE,\nDIM_ENTIDAD.ENTNOMBRE,\nDIM_TRIAGE.HCTFECTRI,\nCASE\nWHEN DIM_HCNCONTRDT.HCCFECTUR IS NULL THEN CONVERT(VARCHAR(20), HCTFECTRI, 103)+' '+CONVERT(VARCHAR(8), HCTFECTRI, 114)\nELSE CONVERT(VARCHAR(20), DIM_HCNCONTRDT.HCCFECTUR, 103)+' '+CONVERT(VARCHAR(8), DIM_HCNCONTRDT.HCCFECTUR, 114)\nEND 'LLEGADA_PORTERO',\nCONVERT(VARCHAR(20),DIM_TRIAGE.HCTFECTRI,103) + ' ' +\nCONVERT(VARCHAR(8),DIM_TRIAGE.HCTFECTRI,114) AS FECHA_TRIAGE,\nCASE WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I' THEN 'I'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'I-G' THEN 'EMERGENCIA OBSTETRICA'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'II' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'II-G' THEN 'URGENCIA MEDICA OBSTETRICA'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'III' THEN 'III'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'III-G' THEN 'URGENCIA OBSTETRICA'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIIU' THEN 'III'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIP' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIS' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV' THEN 'IV'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV-G' THEN 'NO URGENTE OBSTETRICA'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'M' THEN 'MUERTO'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'V' THEN 'V'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'V-G' THEN 'CONSULTA EXTERNA OBSTETRICA'\nEND 'DESCRI_TRIGE',\nCASE WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I' THEN 'I'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'I-G' THEN 'I-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'II' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'II-G' THEN 'II-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'III' THEN 'III'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'III-G' THEN 'III-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIIU' THEN 'III'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIP' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIS' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV' THEN 'IV'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV-G' THEN 'IV-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'M' THEN 'MUERTO'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'V' THEN 'V'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'V-G' THEN 'V-G'\nEND 'CLASIFICACION_TRIAGE',\nDATEPART(HOUR, DIM_TRIAGE.HCTFECTRI) AS HORA,\nFORMAT(\n--CASE\n--WHEN\n--DATEPART(MINUTE, DIM_TRIAGE.HCTFECTRI) < 30 THEN\nDATEADD(MINUTE, -DATEPART(MINUTE, DIM_TRIAGE.HCTFECTRI), DIM_TRIAGE.HCTFECTRI)\n--ELSE\n-- DATEADD(MINUTE, 30 - DATEPART(MINUTE, DIM_TRIAGE.HCTFECTRI), DIM_TRIAGE.HCTFECTRI)\n--END\n, 'hh:mm tt') AS TramoHorario,\nCASE WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=2 THEN '1. LUNES'\nWHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=3 THEN '2. MARTES'\nWHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=4 THEN '3. MIÉRCOLES'\nWHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=5 THEN '4. JUEVES'\nWHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=6 THEN '5. VIERNES'\nWHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=7 THEN '6. SÁBADO'\nWHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=1 THEN '7. DOMINGO'\nend DIA_SEMANA,\nDATEDIFF(MI,DIM_HCNCONTRDT.HCCFECTUR, DIM_TRIAGE.HCTFECTRI) AS 'MIN',\nYEAR(DIM_TRIAGE.HCTFECTRI) AÑO,\nMONTH(DIM_TRIAGE.HCTFECTRI) MES,\nCASE WHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%NUEVA%' THEN 'NUEVA EPS'\nWHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%SURA%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%SEGUROS DE VIDA SURA%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%SURAMERICANA%' THEN 'SURA'\nWHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%SANITAS%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%COLSANITAS%'\nAND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%MEDISANITAS%' THEN 'SANITAS'\nWHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%MALLAMAS%' THEN 'MALLAMAS'\nELSE DIM_ENTIDAD.ENTNOMBRE END ASEGURADORA\n,CAST(DIM_TRIAGE.HCTFECTRI AS DATE) FECHA\n,DIM_ENTIDAD.GENTERCER1\n,CASE WHEN HCTEDAD <18 THEN 'MENORES DE EDAD'\nELSE 'MAYORES DE EDAD' END MENORES\n,DIM_ENTIDAD.OID OID_ASEGURADORA\n,GENTERCER_DW.TERNOMCOM\n--,AdmisionTriage.Oid\nFROM DIM_TRIAGE\nLEFT OUTER JOIN DIM_ENTIDAD ON DIM_ENTIDAD.OID = DIM_TRIAGE.GEENENTADM\nINNER JOIN DIM_HCNCLAURGTR ON DIM_TRIAGE.HCNCLAURGTR = DIM_HCNCLAURGTR.OID\nLEFT OUTER JOIN DIM_HCNCONTRDT ON DIM_HCNCONTRDT.OID = DIM_TRIAGE.HCNCONTRDT\nLEFT JOIN GENTERCER_DW ON DIM_ENTIDAD.GENTERCER1=GENTERCER_DW.OID\n--LEFT JOIN [172.16.104.10\\DINAMICA].PLANILLAUSUARIO.DBO.ADMISIONTRIAGE ON AdmisionTriage.Documento=DIM_TRIAGE.GPADOCUME AND CAST(AdmisionTriage.HoraEntrada AS date)= CAST(DIM_TRIAGE.HCTFECTRI AS DATE) AND DIM_TRIAGE.GEENENTADM=AdmisionTriage.Aseguradora\nWHERE DIM_HCNCLAURGTR.HCCODIGO NOT IN ('UA')\nAND CAST(DIM_TRIAGE.HCTFECTRI AS DATE) BETWEEN '2023-01-01' AND CAST(GETDATE() AS DATE)\nORDER BY DIM_TRIAGE.HCTFECTRI"
+      ],
+      "documented_measures": [
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "TRIAGES_2024",
+          "expression": "CALCULATE(\nCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2024\n)"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "TRIAGES_2023",
+          "expression": "CALCULATE(\nCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2023\n)"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "PROMEDIO_TRIAGE_2024",
+          "expression": "CALCULATE(\nAVERAGE(OPORTUNIDAD_TRIAGE[MIN]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2024\n)"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "PROMEDIO_TRIAGE_2023",
+          "expression": "CALCULATE(\nAVERAGE(OPORTUNIDAD_TRIAGE[MIN]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2023\n)"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "TRIAGES_2025",
+          "expression": "CALCULATE(\nCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2025\n)"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "PROMEDIO_TRIAGE_2025",
+          "expression": "CALCULATE(\nAVERAGE(OPORTUNIDAD_TRIAGE[MIN]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2025\n)"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "TRIAGES_PEDIATRICOS_2025",
+          "expression": "CALCULATE(\nCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2025,\nOPORTUNIDAD_TRIAGE[MENORES]=\"MENORES DE EDAD\"\n)"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "PROMEDIO_TRIAGES_PEDIATRICOS_2025",
+          "expression": "CALCULATE(\nAVERAGE(OPORTUNIDAD_TRIAGE[TIEMPO_TRIAGE_PROM]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2025,\nOPORTUNIDAD_TRIAGE[MENORES]=\"MENORES DE EDAD\"\n)"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "Triages_Año_Anterior",
+          "expression": "CALCULATE (\n[TOTAL_TRIAGES],\nSAMEPERIODLASTYEAR ( Calendario[Date] )\n)"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "TOTAL_TRIAGES",
+          "expression": "DISTINCTCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE])"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "Crecimiento_TRIAGES",
+          "expression": "DIVIDE (\n[TOTAL_TRIAGES] - [Triages_Año_Anterior],\n[Triages_Año_Anterior]\n)"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "Proyeccion_TRIAGES",
+          "expression": "VAR TRIAnt = [Triages_Año_Anterior]\nVAR CrecAnt =\nCALCULATE (\n[Crecimiento_TRIAGES],\nSAMEPERIODLASTYEAR ( Calendario[Date] )\n)\nRETURN\nTRIAnt + (TRIAnt * CrecAnt)"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "Proyeccion_Mensual_Visible",
+          "expression": "VAR AnnoActual = MAX ( Calendario[Año] )\nVAR MesActual = MAX ( Calendario[Mes] )\n\n-- Cirugías del mismo mes del año anterior\nVAR CirAnt =\nCALCULATE (\n[TOTAL_TRIAGES],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = AnnoActual - 1,\nCalendario[Mes] = MesActual\n)\n\n-- Cirugías del mismo mes pero dos años atrás\nVAR CirAntAnt =\nCALCULATE (\n[TOTAL_TRIAGES],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = AnnoActual - 2,\nCalendario[Mes] = MesActual\n)\n\n-- % de crecimiento del mes (año N-1 vs año N-2)\nVAR Crec = DIVIDE ( CirAnt - CirAntAnt, CirAntAnt )\n\n-- Valor proyectado\nVAR Proy = IF (\nNOT ISBLANK ( CirAnt ) && NOT ISBLANK ( CirAntAnt ),\nCirAnt * ( 1 + Crec )\n)\n\n-- Control desde el segmentador\nVAR Mostrar = SELECTEDVALUE ( MostrarProyeccion[Opcion], \"NO\" )\n\nRETURN\nIF ( Mostrar = \"SI\", Proy )"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "TRIAGES_2026",
+          "expression": "CALCULATE(\nCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2026\n)"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "PROMEDIO_TRIAGE_2026",
+          "expression": "CALCULATE(\nAVERAGE(OPORTUNIDAD_TRIAGE[MIN]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2026\n)"
+        }
+      ],
+      "calculated_columns": [
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "TIEMPO_TRIAGE_PROM",
+          "expression": "DATEDIFF(OPORTUNIDAD_TRIAGE[LLEGADA_PORTERO],OPORTUNIDAD_TRIAGE[FECHA_TRIAGE],MINUTE)"
+        }
+      ],
+      "filters": [],
+      "visuals": [
+        "Filtros",
+        "Permiten segmentar la información por Aseguradora, Año y Mes, facilitando el análisis de los triages pediátricos según los criterios seleccionados.",
+        "Botones de navegación",
+        "Los botones General, Urgencias y Obstetricia permiten cambiar la visualización del tablero para consultar la información correspondiente a cada tipo de atención.",
+        "Tarjetas de indicadores",
+        "Muestran el total de triages registrados en el año actual y el promedio mensual de triages, permitiendo tener una visión rápida del comportamiento del indicador.",
+        "Gráfico de líneas – Triages por mes",
+        "Presenta la cantidad de triages pediátricos registrados por mes, permitiendo comparar su comportamiento entre diferentes años.",
+        "Gráfico circular – Triages pediátricos por clasificación",
+        "Muestra la distribución de los triages según su nivel de clasificación, permitiendo identificar la proporción de cada categoría.",
+        "Tabla de detalle anual",
+        "Presenta el consolidado mensual de triages pediátricos por año, permitiendo analizar su comportamiento histórico."
+      ],
+      "indicators": [],
+      "other_sections": []
+    }
+  ]
+}

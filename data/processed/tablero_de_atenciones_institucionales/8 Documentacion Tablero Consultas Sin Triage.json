@@ -1,0 +1,491 @@
+{
+  "source_file": "8 Documentacion Tablero Consultas Sin Triage.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\8 Documentacion Tablero Consultas Sin Triage.docx",
+  "source_folder": "tablero_de_atenciones_institucionales",
+  "workspace": "Gestion Clinica",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "document_group": null,
+  "dashboards": [
+    {
+      "name": "CONSULTAS SIN TRIAGE",
+      "source_file": "8 Documentacion Tablero Consultas Sin Triage.docx",
+      "blocks": [
+        {
+          "index": 1,
+          "type": "paragraph",
+          "text": "Este tablero muestra la información de consultas asignadas con cita previa o en orden de llegada, sin pasar por una revisión de gravedad, este tablero es importante para visualizar la información de prestación de servicios efectiva del hospital.",
+          "style": "Normal"
+        },
+        {
+          "index": 3,
+          "type": "paragraph",
+          "text": "Para realizar este tablero se utilizó la siguiente consulta:",
+          "style": "Normal"
+        },
+        {
+          "index": 4,
+          "type": "paragraph",
+          "text": "SELECT GENPACIEN.PACNUMDOC AS DOCUMENTO,",
+          "style": "Normal"
+        },
+        {
+          "index": 5,
+          "type": "paragraph",
+          "text": "CASE WHEN HCNCLAURGTR.HCCODIGO = 'I' THEN 'EMERGENCIA - I'",
+          "style": "Normal"
+        },
+        {
+          "index": 6,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'I-G' THEN 'EMERGENCIA OBSTETRICA - I-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 7,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'II' THEN 'URGENCIA MEDICA - II'",
+          "style": "Normal"
+        },
+        {
+          "index": 8,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'II-G' THEN 'URGENCIA MEDICA OBSTETRICA - II-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 9,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'III' THEN 'DIFERIDA - III'",
+          "style": "Normal"
+        },
+        {
+          "index": 10,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'III-G' THEN 'URGENCIA OBSTETRICA - III-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 11,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'IIIU' THEN 'DIFERIDA - III'",
+          "style": "Normal"
+        },
+        {
+          "index": 12,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'IIP' THEN 'URGENCIA MEDICA - II'",
+          "style": "Normal"
+        },
+        {
+          "index": 13,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'IIS' THEN 'URGENCIA MEDICA - II'",
+          "style": "Normal"
+        },
+        {
+          "index": 14,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'IV' THEN 'DIFERIDA/NO URGENTE - IV'",
+          "style": "Normal"
+        },
+        {
+          "index": 15,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'IV-G' THEN 'NO URGENTE OBSTETRICA - IV-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 16,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'M' THEN 'MUERTO'",
+          "style": "Normal"
+        },
+        {
+          "index": 17,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'V' THEN 'CONSULTA EXTERNA - V'",
+          "style": "Normal"
+        },
+        {
+          "index": 18,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'V-G' THEN 'CONSULTA EXTERNA OBSTETRICA - V-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 19,
+          "type": "paragraph",
+          "text": "END 'TIPO_TRIAGE',",
+          "style": "Normal"
+        },
+        {
+          "index": 20,
+          "type": "paragraph",
+          "text": "GENPACIEN.GPANOMCOM AS 'USUARIO',",
+          "style": "Normal"
+        },
+        {
+          "index": 21,
+          "type": "paragraph",
+          "text": "GEENENTADM.ENTNOMBRE,",
+          "style": "Normal"
+        },
+        {
+          "index": 22,
+          "type": "paragraph",
+          "text": "CASE WHEN HCNCONTRDT.HCCFECTUR IS NULL THEN CONVERT(VARCHAR(20), HCTFECTRI, 103)+' '+CONVERT(VARCHAR(8), HCTFECTRI, 114)",
+          "style": "Normal"
+        },
+        {
+          "index": 23,
+          "type": "paragraph",
+          "text": "ELSE CONVERT(VARCHAR(20), HCNCONTRDT.HCCFECTUR, 103)+' '+CONVERT(VARCHAR(8), HCNCONTRDT.HCCFECTUR, 114)",
+          "style": "Normal"
+        },
+        {
+          "index": 24,
+          "type": "paragraph",
+          "text": "END 'LLEGADA_PORTERO',",
+          "style": "Normal"
+        },
+        {
+          "index": 25,
+          "type": "paragraph",
+          "text": "CONVERT(VARCHAR(20),HCNTRIAGE.HCTFECTRI,103) + ' ' + CASE",
+          "style": "Normal"
+        },
+        {
+          "index": 26,
+          "type": "paragraph",
+          "text": "WHEN HCNCONTRDT.HCCFECSAL IS NULL THEN",
+          "style": "Normal"
+        },
+        {
+          "index": 27,
+          "type": "paragraph",
+          "text": "CONVERT(VARCHAR(8),HCNTRIAGE.HCTFECTRI,114)",
+          "style": "Normal"
+        },
+        {
+          "index": 28,
+          "type": "paragraph",
+          "text": "ELSE CONVERT(VARCHAR(8),HCNTRIAGE.HCTFECTRI,114) END AS 'FECHA_TRIAGE',----HCNCONTRDT.HCCFECSAL",
+          "style": "Normal"
+        },
+        {
+          "index": 29,
+          "type": "paragraph",
+          "text": "CONVERT(VARCHAR(20),ADNINGRESO.AINFECING,103) + ' ' +",
+          "style": "Normal"
+        },
+        {
+          "index": 30,
+          "type": "paragraph",
+          "text": "CONVERT(VARCHAR(8),ADNINGRESO.AINFECING,114) AS 'FECHA_ADMISION',",
+          "style": "Normal"
+        },
+        {
+          "index": 31,
+          "type": "paragraph",
+          "text": "CONVERT(VARCHAR(20),FOL.HCFECFOLI,103) + ' ' +",
+          "style": "Normal"
+        },
+        {
+          "index": 32,
+          "type": "paragraph",
+          "text": "CONVERT(VARCHAR(8),FOL.HCFECFOLI,114) AS 'PRUEBA',",
+          "style": "Normal"
+        },
+        {
+          "index": 33,
+          "type": "paragraph",
+          "text": "ADNINGRESO.AINCONSEC,",
+          "style": "Normal"
+        },
+        {
+          "index": 34,
+          "type": "paragraph",
+          "text": "CAST(AINFECING AS DATE) FECHA,",
+          "style": "Normal"
+        },
+        {
+          "index": 35,
+          "type": "paragraph",
+          "text": "CASE WHEN HCNCLAURGTR.HCCODIGO = 'I' THEN 'I'",
+          "style": "Normal"
+        },
+        {
+          "index": 36,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'I-G' THEN 'I-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 37,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'II' THEN 'II'",
+          "style": "Normal"
+        },
+        {
+          "index": 38,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'II-G' THEN 'II-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 39,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'III' THEN 'III'",
+          "style": "Normal"
+        },
+        {
+          "index": 40,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'III-G' THEN 'III-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 41,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'IIIU' THEN 'III'",
+          "style": "Normal"
+        },
+        {
+          "index": 42,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'IIP' THEN 'II'",
+          "style": "Normal"
+        },
+        {
+          "index": 43,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'IIS' THEN 'II'",
+          "style": "Normal"
+        },
+        {
+          "index": 44,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'IV' THEN 'IV'",
+          "style": "Normal"
+        },
+        {
+          "index": 45,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'IV-G' THEN 'IV-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 46,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'M' THEN 'MUERTO'",
+          "style": "Normal"
+        },
+        {
+          "index": 47,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'V' THEN 'V'",
+          "style": "Normal"
+        },
+        {
+          "index": 48,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO = 'V-G' THEN 'V-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 49,
+          "type": "paragraph",
+          "text": "WHEN HCNCLAURGTR.HCCODIGO IS NULL THEN 'SIN TRIAGE'",
+          "style": "Normal"
+        },
+        {
+          "index": 50,
+          "type": "paragraph",
+          "text": "END CLASIFICACION_TRIAGE",
+          "style": "Normal"
+        },
+        {
+          "index": 51,
+          "type": "paragraph",
+          "text": ",GENTERCER_DW.TERNOMCOM",
+          "style": "Normal"
+        },
+        {
+          "index": 52,
+          "type": "paragraph",
+          "text": "FROM DIM_INGRESO ADNINGRESO",
+          "style": "Normal"
+        },
+        {
+          "index": 53,
+          "type": "paragraph",
+          "text": "LEFT OUTER JOIN DIM_TRIAGE HCNTRIAGE ON ADNINGRESO.OID = HCNTRIAGE.ADNINGRESO",
+          "style": "Normal"
+        },
+        {
+          "index": 54,
+          "type": "paragraph",
+          "text": "LEFT OUTER JOIN DIM_HCNCLAURGTR HCNCLAURGTR ON HCNTRIAGE.HCNCLAURGTR = HCNCLAURGTR.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 55,
+          "type": "paragraph",
+          "text": "LEFT OUTER JOIN DIM_MEDICO GENMEDICO ON HCNTRIAGE.GENMEDICO = GENMEDICO.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 56,
+          "type": "paragraph",
+          "text": "LEFT OUTER JOIN DIM_DIAGNOSTICO GENDIAGNO ON HCNTRIAGE.GENDIAGNO1 = GENDIAGNO.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 57,
+          "type": "paragraph",
+          "text": "INNER JOIN DIM_PACIENTES GENPACIEN ON GENPACIEN.OID = ADNINGRESO.GENPACIEN",
+          "style": "Normal"
+        },
+        {
+          "index": 58,
+          "type": "paragraph",
+          "text": "LEFT OUTER JOIN DIM_HCNCONTRDT HCNCONTRDT ON HCNCONTRDT.OID = HCNTRIAGE.HCNCONTRDT",
+          "style": "Normal"
+        },
+        {
+          "index": 59,
+          "type": "paragraph",
+          "text": "RIGHT JOIN DIM_ENTIDAD GEENENTADM ON GEENENTADM.OID = ADNINGRESO.GEENENTADM",
+          "style": "Normal"
+        },
+        {
+          "index": 60,
+          "type": "paragraph",
+          "text": "LEFT JOIN DIM_ASEGURADORA ON ADNINGRESO.GENDETCON=DIM_ASEGURADORA.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 61,
+          "type": "paragraph",
+          "text": "LEFT JOIN GENTERCER_DW ON DIM_ASEGURADORA.GENTERCER1=GENTERCER_DW.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 62,
+          "type": "paragraph",
+          "text": "OUTER APPLY (SELECT TOP 1 HCFECFOLI",
+          "style": "Normal"
+        },
+        {
+          "index": 63,
+          "type": "paragraph",
+          "text": "FROM DIM_FOLIO HCNFOLIO",
+          "style": "Normal"
+        },
+        {
+          "index": 64,
+          "type": "paragraph",
+          "text": "WHERE HCNFOLIO.ADNINGRESO = ADNINGRESO.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 65,
+          "type": "paragraph",
+          "text": "ORDER BY HCFECFOLI ASC ) FOL",
+          "style": "Normal"
+        },
+        {
+          "index": 66,
+          "type": "paragraph",
+          "text": "WHERE CAST(ADNINGRESO.AINFECING AS DATE) BETWEEN '2024-01-01' AND CAST(GETDATE() AS DATE)",
+          "style": "Normal"
+        },
+        {
+          "index": 67,
+          "type": "paragraph",
+          "text": "AND ADNINGRESO.AINURGCON = '0'",
+          "style": "Normal"
+        },
+        {
+          "index": 68,
+          "type": "paragraph",
+          "text": "AND ADNINGRESO.AINESTADO NOT IN ('2','4')",
+          "style": "Normal"
+        },
+        {
+          "index": 69,
+          "type": "paragraph",
+          "text": "AND ADNINGRESO.AINCAUING not in ('11')",
+          "style": "Normal"
+        },
+        {
+          "index": 70,
+          "type": "paragraph",
+          "text": "and ADNINGRESO.GENARESER IN ('2')",
+          "style": "Normal"
+        },
+        {
+          "index": 71,
+          "type": "paragraph",
+          "text": "order by ADNINGRESO.AINCAUING, ADNINGRESO.GENARESER",
+          "style": "Normal"
+        },
+        {
+          "index": 73,
+          "type": "paragraph",
+          "text": "DESCRIPCION DE LAS VISUALIZACIONES",
+          "style": "Normal"
+        },
+        {
+          "index": 74,
+          "type": "paragraph",
+          "text": "Tarjetas de filtrado",
+          "style": "Normal"
+        },
+        {
+          "index": 75,
+          "type": "paragraph",
+          "text": "Filtran la información de acuerdo con la opción seleccionada por asegurador, año o mes",
+          "style": "Normal"
+        },
+        {
+          "index": 78,
+          "type": "paragraph",
+          "text": "Gráfico de conteo de consultas",
+          "style": "Normal"
+        },
+        {
+          "index": 79,
+          "type": "paragraph",
+          "text": "Representa el conteo mensual de las atenciones realizadas en el hospital sin pasar por el área de triage durante los últimos 3 años.",
+          "style": "Normal"
+        },
+        {
+          "index": 81,
+          "type": "paragraph",
+          "text": "Tabla de Conteo de Consultas",
+          "style": "Normal"
+        },
+        {
+          "index": 82,
+          "type": "paragraph",
+          "text": "Muestra el conteo de consultas sin triage mes a mes durante los últimos 3 años.",
+          "style": "Normal"
+        },
+        {
+          "index": 85,
+          "type": "paragraph",
+          "text": "Tarjetas de promedio y porcentaje",
+          "style": "Normal"
+        },
+        {
+          "index": 86,
+          "type": "paragraph",
+          "text": "Muestran el promedio mensual de consultas sin triage y su porcentaje respecto al total de servicios prestados en el hospital.",
+          "style": "Normal"
+        }
+      ]
+    }
+  ]
+}

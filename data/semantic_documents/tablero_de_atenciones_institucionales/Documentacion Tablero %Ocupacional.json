@@ -1,0 +1,53 @@
+{
+  "workspace": "Gestion Clinica",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "source_file": "Documentacion Tablero %Ocupacional.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\Documentacion Tablero %Ocupacional.docx",
+  "dashboards": [
+    {
+      "name": "PORCENTAJE OCUPACIONAL",
+      "description": "Este tablero permite analizar el porcentaje de ocupación de camas por servicio, facilitando el seguimiento del comportamiento de la ocupación hospitalaria a lo largo del tiempo.",
+      "sql_queries": [
+        "PORCENTAJE_OCUP\nSELECT\ncase when co.codcama is null then ec.codcama else co.codcama end codcama,\nCASE WHEN cast(co.fechades as date) IS NULL THEN CAST(EC.fechades AS DATE) ELSE CAST(CO.FECHADES AS DATE) END fecha,\nCASE when co.codcama like '%crit%' or ec.codcama like '%crit%' then 'CUIDADO CRÍTICO OBSTETRICO'\nWHEN co.servicio IS NULL AND EC.CODCAMA NOT LIKE '%CRIT%' THEN EC.SERVICIO\nWHEN CO.SERVICIO IS NULL AND EC.CODCAMA LIKE '%CRIT%' THEN 'CUIDADO CRÍTICO OBSTETRICO'\nWHEN CO.SERVICIO IS NOT NULL AND CO.CODCAMA LIKE '%CRIT%' THEN 'CUIDADO CRÍTICO OBSTETRICO'\nWHEN CO.SERVICIO IS NOT NULL AND CO.CODCAMA NOT LIKE '%CRIT%' THEN CO.SERVICIO\nELSE CO.SERVICIO END SERVICIO,\nCASE\nWHEN co.codcama IS NOT NULL THEN 'OCUPADA' -- Si hay registro en camas ocupadas, se marca como ocupada\nwhen co.codcama is null and ec.estado is not null then 'DISPONIBLE'-- Si no hay registro en camas ocupadas, se toma el estado de la tabla de estados\nEND AS estado\nFROM\n[dwses].[dbo].[estados_camas] ec\nLEFT JOIN\n[dwses].[dbo]"
+      ],
+      "documented_measures": [
+        {
+          "table": "PORCENTAJE_OCUP",
+          "name": "%OCUPACIONALC",
+          "expression": "SUM(PORCENTAJE_OCUP[OCUPADA])/SUM(PORCENTAJE_OCUP[DISPONIBLE])"
+        }
+      ],
+      "calculated_columns": [
+        {
+          "table": "PORCENTAJE_OCUP",
+          "name": "OCUPADA",
+          "expression": "IF(PORCENTAJE_OCUP[ESTADO]=\"OCUPADA\" || PORCENTAJE_OCUP[ESTADO]=\"2\",1,0)"
+        },
+        {
+          "table": "PORCENTAJE_OCUP",
+          "name": "DISPONIBLE",
+          "expression": "IF(PORCENTAJE_OCUP[estado]=\"OCUPADA\" || PORCENTAJE_OCUP[estado]=\"1\" ||PORCENTAJE_OCUP[estado]=\"DESOCUPADA\" || PORCENTAJE_OCUP[estado]=\"MANTENIMIENTO\" || PORCENTAJE_OCUP[estado]=\"2\" || PORCENTAJE_OCUP[estado]=\"5\" || PORCENTAJE_OCUP[estado]=\"DISPONIBLE\",1,0)"
+        },
+        {
+          "table": "PORCENTAJE_OCUP",
+          "name": "servicio_uni",
+          "expression": "IF(SEARCH(\"CRIT\",PORCENTAJE_OCUP[SERVICIO],1,0)<>0,\"CUIDADO CRÍTICO OBSTETRICO\",PORCENTAJE_OCUP[SERVICIO])"
+        }
+      ],
+      "filters": [],
+      "visuals": [
+        "Filtros",
+        "Permiten segmentar la información por Servicio, Año y Mes, facilitando el análisis del porcentaje de ocupación según los criterios seleccionados.",
+        "Gráfico de líneas – Porcentaje ocupacional por año y mes",
+        "Muestra la evolución del porcentaje de ocupación hospitalaria por mes, permitiendo analizar tendencias y variaciones en los diferentes años.",
+        "Tabla de detalle anual",
+        "Presenta el consolidado mensual del porcentaje de ocupación por año, permitiendo validar y comparar el comportamiento histórico del indicador.",
+        "Tabla – Porcentaje ocupacional por servicio",
+        "Muestra el porcentaje de ocupación registrado en cada servicio, facilitando identificar las áreas con mayor o menor nivel de ocupación."
+      ],
+      "indicators": [],
+      "other_sections": []
+    }
+  ]
+}

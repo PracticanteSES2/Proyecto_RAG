@@ -1,0 +1,281 @@
+{
+  "source_file": "Documentacion Tablero Referencia y Contrareferencia.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\Documentacion Tablero Referencia y Contrareferencia.docx",
+  "source_folder": "tablero_de_atenciones_institucionales",
+  "workspace": "Gestion Clinica",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "document_group": null,
+  "dashboards": [
+    {
+      "name": "REFERENCIA Y CONTRARREFERENCIA",
+      "source_file": "Documentacion Tablero Referencia y Contrareferencia.docx",
+      "blocks": [
+        {
+          "index": 1,
+          "type": "paragraph",
+          "text": "Este tablero permite analizar el comportamiento de las solicitudes de referencia y contrarreferencia, identificando su estado, evolución mensual y distribución general, con el fin de evaluar la gestión y el resultado de las solicitudes realizadas.",
+          "style": "Normal"
+        },
+        {
+          "index": 3,
+          "type": "paragraph",
+          "text": "CONSULTA UTILIZADA PARA CREAR ESTE TABLERO",
+          "style": "Normal"
+        },
+        {
+          "index": 4,
+          "type": "paragraph",
+          "text": "REFERENCIA",
+          "style": "Normal"
+        },
+        {
+          "index": 5,
+          "type": "paragraph",
+          "text": "select A.*",
+          "style": "Normal"
+        },
+        {
+          "index": 6,
+          "type": "paragraph",
+          "text": ",D.NOMBRE NOMBRE_ESTADO",
+          "style": "Normal"
+        },
+        {
+          "index": 7,
+          "type": "paragraph",
+          "text": ",C.NOMBRE NOMBRE_CAUSA",
+          "style": "Normal"
+        },
+        {
+          "index": 8,
+          "type": "paragraph",
+          "text": ",CASE WHEN F.GDENOMBRE LIKE '%NUEVA%' THEN 'NUEVA EPS'",
+          "style": "Normal"
+        },
+        {
+          "index": 9,
+          "type": "paragraph",
+          "text": "WHEN F.GDENOMBRE LIKE '%SURA%' AND F.GDENOMBRE NOT LIKE '%ARL SURA%' AND F.GDENOMBRE NOT LIKE '%SEGUROS DE VIDA SURA%' AND F.GDENOMBRE NOT LIKE '%SURAMERICANA%' THEN 'SURA'",
+          "style": "Normal"
+        },
+        {
+          "index": 10,
+          "type": "paragraph",
+          "text": "WHEN F.GDENOMBRE LIKE '%SANITAS%' AND F.GDENOMBRE NOT LIKE '%COLSANITAS%'",
+          "style": "Normal"
+        },
+        {
+          "index": 11,
+          "type": "paragraph",
+          "text": "AND F.GDENOMBRE NOT LIKE '%MEDISANITAS%' THEN 'SANITAS'",
+          "style": "Normal"
+        },
+        {
+          "index": 12,
+          "type": "paragraph",
+          "text": "WHEN F.GDENOMBRE LIKE '%MALLAMAS%' THEN 'MALLAMAS'",
+          "style": "Normal"
+        },
+        {
+          "index": 13,
+          "type": "paragraph",
+          "text": "ELSE F.GDENOMBRE END ASEGURADORA",
+          "style": "Normal"
+        },
+        {
+          "index": 14,
+          "type": "paragraph",
+          "text": ",F.OID OID_ASEGURADORA",
+          "style": "Normal"
+        },
+        {
+          "index": 15,
+          "type": "paragraph",
+          "text": "from fact_referencia A",
+          "style": "Normal"
+        },
+        {
+          "index": 16,
+          "type": "paragraph",
+          "text": "LEFT JOIN DIM_CAUSAS_RECEPCION B ON A.OID=B.RECEPCIONOID",
+          "style": "Normal"
+        },
+        {
+          "index": 17,
+          "type": "paragraph",
+          "text": "LEFT JOIN DIM_CAUSAS C ON B.OIDCAUSA=C.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 18,
+          "type": "paragraph",
+          "text": "LEFT JOIN DIM_ESTADOS_ACEPTACION D ON A.ESTADOSOID=D.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 19,
+          "type": "paragraph",
+          "text": "LEFT JOIN DIM_PACIENTES E ON A.PACIENTEIDEN=E.PACNUMDOC",
+          "style": "Normal"
+        },
+        {
+          "index": 20,
+          "type": "paragraph",
+          "text": "LEFT JOIN DIM_ASEGURADORA F ON E.GENDETCON=F.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 21,
+          "type": "paragraph",
+          "text": "WHERE CAST(FECHALLAM AS DATE) BETWEEN '2023-01-01' AND CAST(GETDATE() AS DATE)",
+          "style": "Normal"
+        },
+        {
+          "index": 23,
+          "type": "paragraph",
+          "text": "DESCRIPCIÓN DE LOS VISUALES",
+          "style": "Normal"
+        },
+        {
+          "index": 24,
+          "type": "paragraph",
+          "text": "Filtros",
+          "style": "Normal"
+        },
+        {
+          "index": 25,
+          "type": "paragraph",
+          "text": "Permiten segmentar la información por Estado, Aseguradora, Año y Mes, facilitando el análisis de las solicitudes según los criterios seleccionados.",
+          "style": "Normal"
+        },
+        {
+          "index": 27,
+          "type": "paragraph",
+          "text": "Gráfico de columnas – Solicitudes por mes, año y estado",
+          "style": "Normal"
+        },
+        {
+          "index": 28,
+          "type": "paragraph",
+          "text": "Muestra la cantidad de solicitudes registradas por mes, clasificadas según su estado (Aceptado, Con ingreso, Es urgencia vital, No aceptado y Trámite por SES), permitiendo analizar su comportamiento en el tiempo.",
+          "style": "Normal"
+        },
+        {
+          "index": 30,
+          "type": "paragraph",
+          "text": "Tabla de detalle anual",
+          "style": "Normal"
+        },
+        {
+          "index": 31,
+          "type": "paragraph",
+          "text": "Presenta el consolidado mensual de solicitudes por estado y año, permitiendo validar y analizar el comportamiento histórico de las solicitudes gestionadas.",
+          "style": "Normal"
+        },
+        {
+          "index": 33,
+          "type": "paragraph",
+          "text": "Gráfico circular – Solicitudes por estado",
+          "style": "Normal"
+        },
+        {
+          "index": 34,
+          "type": "paragraph",
+          "text": "Muestra la distribución porcentual de las solicitudes según su estado, facilitando identificar la proporción de cada tipo dentro del total de solicitudes registradas.",
+          "style": "Normal"
+        },
+        {
+          "index": 36,
+          "type": "paragraph",
+          "text": "Botón – Motivos no aceptación",
+          "style": "Normal"
+        },
+        {
+          "index": 37,
+          "type": "paragraph",
+          "text": "Permite acceder a un tablero adicional donde se visualizan los motivos por los cuales las solicitudes no fueron aceptadas.",
+          "style": "Normal"
+        }
+      ]
+    },
+    {
+      "name": "MOTIVOS DE NO ACEPTACIÓN",
+      "source_file": "Documentacion Tablero Referencia y Contrareferencia.docx",
+      "blocks": [
+        {
+          "index": 40,
+          "type": "paragraph",
+          "text": "Este tablero permite analizar los motivos por los cuales las solicitudes de referencia no fueron aceptadas, facilitando identificar las principales causas y su comportamiento en el tiempo.",
+          "style": "Normal"
+        },
+        {
+          "index": 45,
+          "type": "paragraph",
+          "text": "DESCRIPCIÓN DE LOS VISUALES",
+          "style": "Normal"
+        },
+        {
+          "index": 46,
+          "type": "paragraph",
+          "text": "Filtros",
+          "style": "Normal"
+        },
+        {
+          "index": 47,
+          "type": "paragraph",
+          "text": "Permiten segmentar la información por Causa, Aseguradora, Año y Mes, facilitando el análisis de las solicitudes según los criterios seleccionados.",
+          "style": "Normal"
+        },
+        {
+          "index": 49,
+          "type": "paragraph",
+          "text": "Gráfico de barras – Solicitudes por causa",
+          "style": "Normal"
+        },
+        {
+          "index": 50,
+          "type": "paragraph",
+          "text": "Muestra la cantidad de solicitudes clasificadas según el motivo de no aceptación, permitiendo identificar las causas más frecuentes.",
+          "style": "Normal"
+        },
+        {
+          "index": 52,
+          "type": "paragraph",
+          "text": "Gráfico circular – Distribución de solicitudes por causa",
+          "style": "Normal"
+        },
+        {
+          "index": 53,
+          "type": "paragraph",
+          "text": "Presenta la proporción de solicitudes según cada motivo de no aceptación, facilitando visualizar el peso de cada causa dentro del total.",
+          "style": "Normal"
+        },
+        {
+          "index": 57,
+          "type": "paragraph",
+          "text": "Tabla de detalle anual",
+          "style": "Normal"
+        },
+        {
+          "index": 58,
+          "type": "paragraph",
+          "text": "Muestra el consolidado mensual de solicitudes por causa y año, permitiendo analizar su comportamiento histórico.",
+          "style": "Normal"
+        },
+        {
+          "index": 60,
+          "type": "paragraph",
+          "text": "Tabla – Solicitudes por servicio",
+          "style": "Normal"
+        },
+        {
+          "index": 61,
+          "type": "paragraph",
+          "text": "Presenta la cantidad de solicitudes registradas por servicio, permitiendo identificar en qué áreas se concentran las solicitudes relacionadas con las causas analizadas.",
+          "style": "Normal"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "workspace": "Gestion Clinica",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "source_file": "1 Documentacion Tablero Inicio.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\1 Documentacion Tablero Inicio.docx",
+  "dashboards": [
+    {
+      "name": "ATENCIONES INSTITUCIONALES – INICIO",
+      "description": "Este tablero permite visualizar el comportamiento general de las atenciones institucionales, incluyendo el tiempo promedio de estancia, el total de egresos, el porcentaje ocupacional y el promedio de giro de camas, facilitando el seguimiento estratégico de los principales indicadores asistenciales.",
+      "sql_queries": [],
+      "documented_measures": [],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Tarjetas de indicadores y filtros",
+        "Muestran el conteo total de egresos y el total de camas instaladas, e incluyen los filtros de segmentación (Aseguradora, años, mes y servicio), permitiendo analizar el comportamiento general de los indicadores según los criterios seleccionados.",
+        "Botones de navegación",
+        "Permiten acceder a las diferentes áreas y servicios institucionales, facilitando la navegación entre los distintos tableros del sistema.",
+        "Gráfico de líneas – Egresos",
+        "Presenta la salida de pacientes a través del paso de los meses durante los últimos dos años",
+        "Gráfico de líneas – Promedio Estancia",
+        "Muestra el comportamiento mensual de estancias de pacientes por año, facilitando el análisis comparativo y el detalle ocupacional.",
+        "Gráfico de líneas – Porcentaje Ocupacional",
+        "Visualiza el detalle mensual del porcentaje de ocupación, permitiendo evaluar el comportamiento del flujo de ocupación hospitalario.",
+        "Gráfico de Líneas – Giro cama",
+        "Visualiza el promedio en horas del giro de las camas en las diferentes áreas del hospital, evaluando esta métrica mensualmente durante los últimos dos años."
+      ],
+      "indicators": [],
+      "other_sections": []
+    }
+  ]
+}

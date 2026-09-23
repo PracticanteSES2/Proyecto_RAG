@@ -1,0 +1,575 @@
+{
+  "source_file": "5 Documentacion Tablero Pacientes Observados.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\5 Documentacion Tablero Pacientes Observados.docx",
+  "source_folder": "tablero_de_atenciones_institucionales",
+  "workspace": "Gestion Clinica",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "document_group": null,
+  "dashboards": [
+    {
+      "name": "PACIENTES OBSERVADOS",
+      "source_file": "5 Documentacion Tablero Pacientes Observados.docx",
+      "blocks": [
+        {
+          "index": 1,
+          "type": "paragraph",
+          "text": "Este tablero muestra el grafico histórico de pacientes observados efectivamente cada año, una tabla que distingue estos valores y el promedio mensual y diario de pacientes. Es de importancia para determinar la efectividad en los servicios de triage.",
+          "style": "Normal"
+        },
+        {
+          "index": 3,
+          "type": "paragraph",
+          "text": "Para la realización de este tablero se utilizó la siguiente consulta:",
+          "style": "Normal"
+        },
+        {
+          "index": 4,
+          "type": "paragraph",
+          "text": "SELECT DIM_PACIENTES.PACNUMDOC, DIM_ASEGURADORA.GDENOMBRE,",
+          "style": "Normal"
+        },
+        {
+          "index": 5,
+          "type": "paragraph",
+          "text": "CONVERT(VARCHAR(20), DIM_INGRESO.AINFECING, 103)+' '+CONVERT(VARCHAR(8), DIM_INGRESO.AINFECING, 114) AS FECHA_INGRESO,",
+          "style": "Normal"
+        },
+        {
+          "index": 6,
+          "type": "paragraph",
+          "text": "cast(AINFECING as date) fecha,",
+          "style": "Normal"
+        },
+        {
+          "index": 7,
+          "type": "paragraph",
+          "text": "GASNOMBRE",
+          "style": "Normal"
+        },
+        {
+          "index": 8,
+          "type": "paragraph",
+          "text": ",CASE WHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%NUEVA%' THEN 'NUEVA EPS'",
+          "style": "Normal"
+        },
+        {
+          "index": 9,
+          "type": "paragraph",
+          "text": "WHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%SURA%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%SEGUROS DE VIDA SURA%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%SURAMERICANA%' THEN 'SURA'",
+          "style": "Normal"
+        },
+        {
+          "index": 10,
+          "type": "paragraph",
+          "text": "WHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%SANITAS%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%COLSANITAS%'",
+          "style": "Normal"
+        },
+        {
+          "index": 11,
+          "type": "paragraph",
+          "text": "AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%MEDISANITAS%' THEN 'SANITAS'",
+          "style": "Normal"
+        },
+        {
+          "index": 12,
+          "type": "paragraph",
+          "text": "WHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%MALLAMAS%' THEN 'MALLAMAS'",
+          "style": "Normal"
+        },
+        {
+          "index": 13,
+          "type": "paragraph",
+          "text": "ELSE DIM_ASEGURADORA.GDENOMBRE END ASEGURADORA",
+          "style": "Normal"
+        },
+        {
+          "index": 14,
+          "type": "paragraph",
+          "text": ",DIM_ASEGURADORA.GENTERCER1",
+          "style": "Normal"
+        },
+        {
+          "index": 15,
+          "type": "paragraph",
+          "text": ",CASE WHEN DATEDIFF(YY,DIM_PACIENTES.GPAFECNAC,DIM_INGRESO.AINFECING)<18 THEN 'MENORES DE EDAD'",
+          "style": "Normal"
+        },
+        {
+          "index": 16,
+          "type": "paragraph",
+          "text": "ELSE 'MAYORES DE EDAD' END MENORES",
+          "style": "Normal"
+        },
+        {
+          "index": 17,
+          "type": "paragraph",
+          "text": ",DIM_INGRESO.HCENTRIAGE",
+          "style": "Normal"
+        },
+        {
+          "index": 18,
+          "type": "paragraph",
+          "text": ",GENPACIEN",
+          "style": "Normal"
+        },
+        {
+          "index": 19,
+          "type": "paragraph",
+          "text": ",CASE WHEN DATEDIFF(YEAR,GPAFECNAC,AINFECING)<18 THEN 'MENORES DE EDAD' ELSE 'MAYORES DE EDAD' END MENORES",
+          "style": "Normal"
+        },
+        {
+          "index": 20,
+          "type": "paragraph",
+          "text": ",GENTERCER_DW.TERNOMCOM",
+          "style": "Normal"
+        },
+        {
+          "index": 21,
+          "type": "paragraph",
+          "text": "FROM DIM_INGRESO",
+          "style": "Normal"
+        },
+        {
+          "index": 22,
+          "type": "paragraph",
+          "text": "LEFT OUTER JOIN DIM_PACIENTES ON DIM_INGRESO.GENPACIEN = DIM_PACIENTES.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 23,
+          "type": "paragraph",
+          "text": "LEFT OUTER JOIN DIM_ASEGURADORA ON DIM_INGRESO.GENDETCON = DIM_ASEGURADORA.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 24,
+          "type": "paragraph",
+          "text": "LEFT OUTER JOIN AREA_SERVICIO ON DIM_INGRESO.GENARESER = AREA_SERVICIO.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 25,
+          "type": "paragraph",
+          "text": "LEFT JOIN GENTERCER_DW ON DIM_ASEGURADORA.GENTERCER1=GENTERCER_DW.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 26,
+          "type": "paragraph",
+          "text": "WHERE",
+          "style": "Normal"
+        },
+        {
+          "index": 27,
+          "type": "paragraph",
+          "text": "CAST(DIM_INGRESO.AINFECING AS DATE) BETWEEN '2022-01-01' AND CAST(GETDATE() AS DATE)",
+          "style": "Normal"
+        },
+        {
+          "index": 28,
+          "type": "paragraph",
+          "text": "AND DIM_INGRESO.AINTIPING='1'",
+          "style": "Normal"
+        },
+        {
+          "index": 29,
+          "type": "paragraph",
+          "text": "AND DIM_INGRESO.AINURGCON = '0'",
+          "style": "Normal"
+        },
+        {
+          "index": 30,
+          "type": "paragraph",
+          "text": "AND GENARESER IN (2,42)---('2', '42') 2=urgencias 42=ginecop",
+          "style": "Normal"
+        },
+        {
+          "index": 32,
+          "type": "paragraph",
+          "text": "Medidas utilizadas en este tablero",
+          "style": "Normal"
+        },
+        {
+          "index": 33,
+          "type": "paragraph",
+          "text": "Promedio Mensual de Observaciones",
+          "style": "Normal"
+        },
+        {
+          "index": 34,
+          "type": "paragraph",
+          "text": "Promedio_OBS_Dinamico =",
+          "style": "Normal"
+        },
+        {
+          "index": 35,
+          "type": "paragraph",
+          "text": "VAR Hoy = TODAY()",
+          "style": "Normal"
+        },
+        {
+          "index": 36,
+          "type": "paragraph",
+          "text": "VAR AnioCerrado = YEAR(Hoy) - 1",
+          "style": "Normal"
+        },
+        {
+          "index": 37,
+          "type": "paragraph",
+          "text": "VAR AnioContexto = SELECTEDVALUE('Calendario'[Año], AnioCerrado)",
+          "style": "Normal"
+        },
+        {
+          "index": 39,
+          "type": "paragraph",
+          "text": "-- 1. Calculamos la suma total de TODO el año seleccionado (ignorando el mes de la fila)",
+          "style": "Normal"
+        },
+        {
+          "index": 40,
+          "type": "paragraph",
+          "text": "VAR SumaTotalAnual =",
+          "style": "Normal"
+        },
+        {
+          "index": 41,
+          "type": "paragraph",
+          "text": "CALCULATE(",
+          "style": "Normal"
+        },
+        {
+          "index": 42,
+          "type": "paragraph",
+          "text": "COUNT(OBSERVADOS[HCENTRIAGE]),",
+          "style": "Normal"
+        },
+        {
+          "index": 43,
+          "type": "paragraph",
+          "text": "'Calendario'[Año] = AnioContexto,",
+          "style": "Normal"
+        },
+        {
+          "index": 44,
+          "type": "paragraph",
+          "text": "REMOVEFILTERS('Calendario'[Mes]) -- Limpia cualquier jerarquía de mes",
+          "style": "Normal"
+        },
+        {
+          "index": 45,
+          "type": "paragraph",
+          "text": ")",
+          "style": "Normal"
+        },
+        {
+          "index": 47,
+          "type": "paragraph",
+          "text": "-- 2. Contamos cuántos meses tienen datos en ese año (hasta hoy)",
+          "style": "Normal"
+        },
+        {
+          "index": 48,
+          "type": "paragraph",
+          "text": "VAR CantidadMeses =",
+          "style": "Normal"
+        },
+        {
+          "index": 49,
+          "type": "paragraph",
+          "text": "CALCULATE(",
+          "style": "Normal"
+        },
+        {
+          "index": 50,
+          "type": "paragraph",
+          "text": "DISTINCTCOUNT('Calendario'[Mes]),",
+          "style": "Normal"
+        },
+        {
+          "index": 51,
+          "type": "paragraph",
+          "text": "'Calendario'[Año] = AnioContexto,",
+          "style": "Normal"
+        },
+        {
+          "index": 52,
+          "type": "paragraph",
+          "text": "'Calendario'[Date] <= Hoy,",
+          "style": "Normal"
+        },
+        {
+          "index": 53,
+          "type": "paragraph",
+          "text": "REMOVEFILTERS('Calendario'[Mes]),",
+          "style": "Normal"
+        },
+        {
+          "index": 54,
+          "type": "paragraph",
+          "text": "NOT ISBLANK(OBSERVADOS[HCENTRIAGE]) -- Solo cuenta meses que realmente tuvieron actividad",
+          "style": "Normal"
+        },
+        {
+          "index": 55,
+          "type": "paragraph",
+          "text": ")",
+          "style": "Normal"
+        },
+        {
+          "index": 57,
+          "type": "paragraph",
+          "text": "-- 3. Resultado final: Suma de todo el año / Número de meses",
+          "style": "Normal"
+        },
+        {
+          "index": 58,
+          "type": "paragraph",
+          "text": "RETURN",
+          "style": "Normal"
+        },
+        {
+          "index": 59,
+          "type": "paragraph",
+          "text": "IF(",
+          "style": "Normal"
+        },
+        {
+          "index": 60,
+          "type": "paragraph",
+          "text": "CantidadMeses > 0,",
+          "style": "Normal"
+        },
+        {
+          "index": 61,
+          "type": "paragraph",
+          "text": "DIVIDE(SumaTotalAnual, CantidadMeses),",
+          "style": "Normal"
+        },
+        {
+          "index": 62,
+          "type": "paragraph",
+          "text": "BLANK()",
+          "style": "Normal"
+        },
+        {
+          "index": 63,
+          "type": "paragraph",
+          "text": ")",
+          "style": "Normal"
+        },
+        {
+          "index": 64,
+          "type": "paragraph",
+          "text": "Premedio de Observacion Diario",
+          "style": "Normal"
+        },
+        {
+          "index": 65,
+          "type": "paragraph",
+          "text": "Promedio_OBS_Diario_Dinamico =",
+          "style": "Normal"
+        },
+        {
+          "index": 66,
+          "type": "paragraph",
+          "text": "VAR Hoy = TODAY()",
+          "style": "Normal"
+        },
+        {
+          "index": 67,
+          "type": "paragraph",
+          "text": "VAR AnioCerrado = YEAR(Hoy) - 1",
+          "style": "Normal"
+        },
+        {
+          "index": 69,
+          "type": "paragraph",
+          "text": "-- 1. Determinamos el año objetivo",
+          "style": "Normal"
+        },
+        {
+          "index": 70,
+          "type": "paragraph",
+          "text": "VAR AnioSeleccionado = SELECTEDVALUE('Calendario'[Año])",
+          "style": "Normal"
+        },
+        {
+          "index": 71,
+          "type": "paragraph",
+          "text": "VAR AnioAFiltar = IF( ISFILTERED('Calendario'[Año]), AnioSeleccionado, AnioCerrado )",
+          "style": "Normal"
+        },
+        {
+          "index": 73,
+          "type": "paragraph",
+          "text": "-- 2. Evaluamos el contexto para aplicar el cálculo",
+          "style": "Normal"
+        },
+        {
+          "index": 74,
+          "type": "paragraph",
+          "text": "RETURN",
+          "style": "Normal"
+        },
+        {
+          "index": 75,
+          "type": "paragraph",
+          "text": "IF(",
+          "style": "Normal"
+        },
+        {
+          "index": 76,
+          "type": "paragraph",
+          "text": "ISFILTERED('Calendario'[Mes]),",
+          "style": "Normal"
+        },
+        {
+          "index": 77,
+          "type": "paragraph",
+          "text": "-- SI HAY MES: Promedio diario del mes",
+          "style": "Normal"
+        },
+        {
+          "index": 78,
+          "type": "paragraph",
+          "text": "AVERAGEX(",
+          "style": "Normal"
+        },
+        {
+          "index": 79,
+          "type": "paragraph",
+          "text": "KEEPFILTERS(VALUES('Calendario'[Date])), -- KEEPFILTERS asegura que el promedio sea por día",
+          "style": "Normal"
+        },
+        {
+          "index": 80,
+          "type": "paragraph",
+          "text": "CALCULATE(COUNT(OBSERVADOS[HCENTRIAGE]))",
+          "style": "Normal"
+        },
+        {
+          "index": 81,
+          "type": "paragraph",
+          "text": "),",
+          "style": "Normal"
+        },
+        {
+          "index": 82,
+          "type": "paragraph",
+          "text": "-- SI NO HAY MES: Promedio diario del año",
+          "style": "Normal"
+        },
+        {
+          "index": 83,
+          "type": "paragraph",
+          "text": "CALCULATE(",
+          "style": "Normal"
+        },
+        {
+          "index": 84,
+          "type": "paragraph",
+          "text": "AVERAGEX(",
+          "style": "Normal"
+        },
+        {
+          "index": 85,
+          "type": "paragraph",
+          "text": "KEEPFILTERS(VALUES('Calendario'[Date])),",
+          "style": "Normal"
+        },
+        {
+          "index": 86,
+          "type": "paragraph",
+          "text": "CALCULATE(COUNT(OBSERVADOS[HCENTRIAGE]))",
+          "style": "Normal"
+        },
+        {
+          "index": 87,
+          "type": "paragraph",
+          "text": "),",
+          "style": "Normal"
+        },
+        {
+          "index": 88,
+          "type": "paragraph",
+          "text": "'Calendario'[Año] = AnioAFiltar,",
+          "style": "Normal"
+        },
+        {
+          "index": 89,
+          "type": "paragraph",
+          "text": "ALL('Calendario'[Mes])",
+          "style": "Normal"
+        },
+        {
+          "index": 90,
+          "type": "paragraph",
+          "text": ")",
+          "style": "Normal"
+        },
+        {
+          "index": 91,
+          "type": "paragraph",
+          "text": ")",
+          "style": "Normal"
+        },
+        {
+          "index": 92,
+          "type": "paragraph",
+          "text": "DESCRIPCION DE LOS VISUALES",
+          "style": "Normal"
+        },
+        {
+          "index": 93,
+          "type": "paragraph",
+          "text": "Filtros por asegurador, fecha y edad",
+          "style": "Normal"
+        },
+        {
+          "index": 94,
+          "type": "paragraph",
+          "text": "Seleccionan como se desean ver los datos en relación con la selección de filtros",
+          "style": "Normal"
+        },
+        {
+          "index": 96,
+          "type": "paragraph",
+          "text": "Gráfico de pacientes Observados por mes",
+          "style": "Normal"
+        },
+        {
+          "index": 97,
+          "type": "paragraph",
+          "text": "Representa el conteo de pacientes observados en triage en cada uno de los meses de los últimos 3 años, es importante para determinar la cantidad de pacientes que ingresa a observación y su comparación al pasar los años.",
+          "style": "Normal"
+        },
+        {
+          "index": 99,
+          "type": "paragraph",
+          "text": "Tabla de Observación de pacientes en años anteriores",
+          "style": "Normal"
+        },
+        {
+          "index": 100,
+          "type": "paragraph",
+          "text": "Muestra la suma mensual de los pacientes ingresados a observación en los 2 años anteriores.",
+          "style": "Normal"
+        },
+        {
+          "index": 103,
+          "type": "paragraph",
+          "text": "Tarjetas de conteo de observaciones",
+          "style": "Normal"
+        },
+        {
+          "index": 104,
+          "type": "paragraph",
+          "text": "Muestran las observaciones totales, el promedio mensual de observaciones y tambien su promedio por día.",
+          "style": "Normal"
+        }
+      ]
+    }
+  ]
+}

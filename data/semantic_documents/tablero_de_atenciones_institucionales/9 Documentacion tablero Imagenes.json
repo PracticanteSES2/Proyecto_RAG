@@ -1,0 +1,95 @@
+{
+  "workspace": "Gestion Clinica",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "source_file": "9 Documentacion tablero Imagenes.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\9 Documentacion tablero Imagenes.docx",
+  "dashboards": [
+    {
+      "name": "DE IMAGENES",
+      "description": "Este tablero permite visualizar y analizar el comportamiento mensual de las imágenes diagnósticas generadas en la institución, mediante indicadores de cantidad total y promedios de producción. Incorpora filtros por entidad, año, mes y tipo de ingreso, que facilitan el análisis segmentado de la información. La visualización apoya el seguimiento del desempeño del proceso de imágenes, la identificación de tendencias y la toma de decisiones operativas relacionadas con la gestión de la capacidad y la demanda del servicio.",
+      "sql_queries": [
+        "SELECT A.*,\nDATEDIFF(YEAR, C.GPAFECNAC, A.FECHA)EDAD\nFROM CONSOLIDADO_IMAGENES_DWSES A\nLEFT JOIN DIM_INGRESO B ON A.INGRESO=B.AINCONSEC\nLEFT JOIN DIM_PACIENTES C ON B.GENPACIEN=C.OID\nMEDIDAS CREADAS EN ESTE TABLERO"
+      ],
+      "documented_measures": [],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtros del tablero\nEl tablero cuenta con filtros por Asegurador, Año, Mes y Tipo de Ingreso, que permiten segmentar la información y analizar las imágenes realizadas según diferentes criterios de selección.",
+        "Gráfico de líneas – Cantidad mensual de imágenes\nMuestra la cantidad mensual de imágenes realizadas, Permitiendo identificar tendencias, variaciones y comparar el comportamiento entre diferentes años.",
+        "Tarjetas de indicadores",
+        "El panel presenta filtros por edad y opción de proyección, junto con indicadores que muestran el promedio de imágenes y total de imágenes producidas, permitiendo visualizar rápidamente el comportamiento operativo del servicio.",
+        "Tabla de detalle\nMuestra el total de imágenes por mes y año, permitiendo validar la información presentada en los gráficos y realizar análisis detallados.",
+        "TABLERO DE AREA DE SERVICIO IMAGENES",
+        "Este tablero permite analizar el comportamiento operativo del servicio de imágenes por área diagnóstica, facilitando la evaluación de la demanda asistencial y el seguimiento de su evolución en el tiempo. Incluye segmentación por asegurador, período y tipo de ingreso, permitiendo evaluar la variación del servicio en diferentes contextos de atención.",
+        "Filtros",
+        "Permiten segmentar la información por Asegurador, Año, Mes y Tipo de ingreso, facilitando el análisis de las imágenes diagnósticas según los criterios seleccionados.",
+        "Gráfico de barras – Cantidad de imágenes por área de servicio",
+        "Muestra la cantidad total de imágenes diagnósticas realizadas por cada área de servicio, permitiendo identificar los servicios con mayor volumen de producción.",
+        "Tarjetas de indicadores",
+        "Cantidad de imágenes: muestra el total de imágenes diagnósticas registradas en el periodo seleccionado.",
+        "Promedio imágenes: muestra el promedio de imágenes realizadas en el periodo analizado.",
+        "Tabla de detalle anual",
+        "Presenta el consolidado mensual de imágenes diagnósticas, permitiendo analizar el comportamiento y variación del volumen de estudios a lo largo del tiempo."
+      ],
+      "indicators": [],
+      "other_sections": [
+        {
+          "section": "sql",
+          "table": [
+            [
+              "Tabla",
+              "Nombre Medida",
+              "DAX"
+            ],
+            [
+              "CONSOLIDADO_IMAGENES_2025",
+              "PROM_IMAGENES",
+              "VAR MaxYearModelo =\nCALCULATE ( MAX ( Calendario[Año] ), ALL ( Calendario ) )\n\nVAR TotalAniosModelo =\nCALCULATE ( DISTINCTCOUNT ( Calendario[Año] ), ALL ( Calendario ) )\n\nVAR AniosSel =\nFILTER ( VALUES ( Calendario[Año] ), NOT ISBLANK ( Calendario[Año] ) )\n\nVAR HayFiltroAnioReal =\nCOUNTROWS ( AniosSel ) < TotalAniosModelo\n\nRETURN\nIF (\nNOT HayFiltroAnioReal,\n-- Default: año anterior (RESPETA Mes y demás filtros)\nCALCULATE (\nDIVIDE ( SUM ( CONSOLIDADO_IMAGENES_2025[CANTIDAD] ), 12, 0 ),\nREMOVEFILTERS ( Calendario[Año] ),\nCalendario[Año] = MaxYearModelo - 1\n),\n-- Si hay 1 o varios años seleccionados: suma de promedios por año (RESPETA Mes)\nSUMX (\nAniosSel,\nVAR AnioActual = Calendario[Año]\nRETURN\nCALCULATE (\nDIVIDE ( SUM ( CONSOLIDADO_IMAGENES_2025[CANTIDAD] ), 12, 0 ),\nKEEPFILTERS ( Calendario[Año] = AnioActual )\n)\n)\n)"
+            ],
+            [
+              "CONSOLIDADO_IMAGENES_2025",
+              "TOTAL_ESTUDIOS",
+              "VAR MaxYearModelo =\nCALCULATE ( MAX ( Calendario[Año] ), ALL ( Calendario ) )\n\nVAR TotalAniosModelo =\nCALCULATE ( DISTINCTCOUNT ( Calendario[Año] ), ALL ( Calendario ) )\n\nVAR AniosSel =\nFILTER ( VALUES ( Calendario[Año] ), NOT ISBLANK ( Calendario[Año] ) )\n\nVAR HayFiltroAnioReal =\nCOUNTROWS ( AniosSel ) < TotalAniosModelo\n\nRETURN\nIF (\nNOT HayFiltroAnioReal,\n-- Default: año anterior (RESPETA Mes y demás filtros)\nCALCULATE (\nCOUNTROWS ( CONSOLIDADO_IMAGENES_2025 ),\nREMOVEFILTERS ( Calendario[Año] ),\nCalendario[Año] = MaxYearModelo - 1\n),\n-- Si hay 1 o varios años seleccionados: suma por año (RESPETA Mes)\nSUMX (\nAniosSel,\nVAR AnioActual = Calendario[Año]\nRETURN\nCALCULATE (\nCOUNTROWS ( CONSOLIDADO_IMAGENES_2025 ),\nKEEPFILTERS ( Calendario[Año] = AnioActual )\n)\n)\n)"
+            ],
+            [
+              "CONSOLIDADO_IMAGENES_2025",
+              "CANTIDAD_IMAGENES",
+              "VAR MaxYearModelo =\nCALCULATE ( MAX ( Calendario[Año] ), ALL ( Calendario ) )\n\nVAR TotalAniosModelo =\nCALCULATE ( DISTINCTCOUNT ( Calendario[Año] ), ALL ( Calendario ) )\n\nVAR AniosSel =\nFILTER ( VALUES ( Calendario[Año] ), NOT ISBLANK ( Calendario[Año] ) )\n\nVAR HayFiltroAnioReal =\nCOUNTROWS ( AniosSel ) < TotalAniosModelo\n\nRETURN\nIF (\nNOT HayFiltroAnioReal,\n\n-- DEFAULT: año anterior PERO RESPETANDO MES\nCALCULATE (\nSUM ( CONSOLIDADO_IMAGENES_2025[CANTIDAD] ),\nREMOVEFILTERS ( Calendario[Año] ),\nCalendario[Año] = MaxYearModelo - 1\n),\n\n-- CON AÑO SELECCIONADO: respeta mes y demás filtros\nSUMX (\nAniosSel,\nVAR AnioActual = Calendario[Año]\nRETURN\nCALCULATE (\nSUM ( CONSOLIDADO_IMAGENES_2025[CANTIDAD] ),\nKEEPFILTERS ( Calendario[Año] = AnioActual )\n)\n)\n)"
+            ],
+            [
+              "CONSOLIDADO_IMAGENES_2025",
+              "IMAGENES",
+              "SUM(CONSOLIDADO_IMAGENES_2025[CANTIDAD])"
+            ],
+            [
+              "CONSOLIDADO_IMAGENES_2025",
+              "IMG_2024",
+              "CALCULATE(\n[IMAGENES],\nCalendario[Año]=2024)"
+            ],
+            [
+              "CONSOLIDADO_IMAGENES_2025",
+              "IMG_2025",
+              "CALCULATE(\n[IMAGENES],\nCalendario[Año]=2025)"
+            ],
+            [
+              "CONSOLIDADO_IMAGENES_2025",
+              "IMG_2026",
+              "CALCULATE(\n[IMAGENES],\nCalendario[Año]=2026)"
+            ],
+            [
+              "CONSOLIDADO_IMAGENES_2025",
+              "IMG_2023",
+              "CALCULATE([ATE_IMAGENES],\nCalendario[Año]=2023)"
+            ],
+            [
+              "CONSOLIDADO_IMAGENES_2025",
+              "PROYECCION_IMGA",
+              "VAR AnnoActual =\nCOALESCE ( SELECTEDVALUE ( Calendario[Año] ), 2026 ) -- <-- cambio clave\n\nVAR MesActual = MAX ( Calendario[Mes] )\n\nVAR BasePrev =\nIF (\nAnnoActual = 2025,\nCALCULATE (\n[IMG_2024],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = 2024,\nCalendario[Mes] = MesActual\n),\nCALCULATE (\n[IMG_2025],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = 2025,\nCalendario[Mes] = MesActual\n)\n)\n\nVAR BasePrevPrev =\nIF (\nAnnoActual = 2025,\nCALCULATE (\n[IMG_2023],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = 2023,\nCalendario[Mes] = MesActual\n),\nCALCULATE (\n[IMG_2024],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = 2024,\nCalendario[Mes] = MesActual\n)\n)\n\nVAR Crec =\nDIVIDE ( BasePrev - BasePrevPrev, BasePrevPrev )\n\nVAR Proy =\nIF (\nNOT ISBLANK ( BasePrev )\n&& NOT ISBLANK ( BasePrevPrev )\n&& BasePrevPrev <> 0,\nBasePrev * ( 1 + Crec )\n)\n\nVAR Mostrar =\nSELECTEDVALUE ( MostrarProyeccion[Opcion], \"NO\" )\n\nRETURN\nIF ( Mostrar = \"SI\" && ( AnnoActual = 2025 || AnnoActual = 2026 ), Proy )"
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,258 @@
+{
+  "workspace": "Gestion Clinica",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "source_file": "12 Documentacion Tablero Consultas Obstetricas.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\12 Documentacion Tablero Consultas Obstetricas.docx",
+  "dashboards": [
+    {
+      "name": "TRIAGES OBSTÉTRICOS",
+      "description": "Este tablero permite visualizar y analizar el comportamiento de los triages obstétricos registrados en el servicio de urgencias, facilitando el seguimiento del volumen de atenciones y la distribución de los casos según su clasificación de triage. Para este tablero se realizo la siguiente consulta: SELECT DIM_TRIAGE.OID AS 'OID_TRIAGE', DIM_TRIAGE.GPADOCUME, DIM_HCNCLAURGTR.HCCODIGO, DIM_TRIAGE.GPANOMBRE, DIM_TRIAGE.GPASEGNOM, DIM_TRIAGE.GPAAPELLI, DIM_TRIAGE.GPASEGAPE, DIM_ENTIDAD.ENTNOMBRE, DIM_TRIAGE.HCTFECTRI, CASE WHEN DIM_HCNCONTRDT.HCCFECTUR IS NULL THEN CONVERT(VARCHAR(20), HCTFECTRI, 103)+' '+CONVERT(VARCHAR(8), HCTFECTRI, 114) ELSE CONVERT(VARCHAR(20), DIM_HCNCONTRDT.HCCFECTUR, 103)+' '+CONVERT(VARCHAR(8), DIM_HCNCONTRDT.HCCFECTUR, 114) END 'LLEGADA_PORTERO', CONVERT(VARCHAR(20),DIM_TRIAGE.HCTFECTRI,103) + ' ' + CONVERT(VARCHAR(8),DIM_TRIAGE.HCTFECTRI,114) AS FECHA_TRIAGE, CASE WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I' THEN 'I' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I-G' THEN 'EMERGENCIA OBSTETRICA' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'II' THEN 'II' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'II-G' THEN 'URGENCIA MEDICA OBSTETRICA' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'III' THEN 'III' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'III-G' THEN 'URGENCIA OBSTETRICA' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIIU' THEN 'III' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIP' THEN 'II' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIS' THEN 'II' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV' THEN 'IV' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV-G' THEN 'NO URGENTE OBSTETRICA' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'M' THEN 'MUERTO' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'V' THEN 'V' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'V-G' THEN 'CONSULTA EXTERNA OBSTETRICA' END 'DESCRI_TRIGE', CASE WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I' THEN 'I' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I-G' THEN 'I-G' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'II' THEN 'II' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'II-G' THEN 'II-G' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'III' THEN 'III' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'III-G' THEN 'III-G' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIIU' THEN 'III' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIP' THEN 'II' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIS' THEN 'II' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV' THEN 'IV' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV-G' THEN 'IV-G' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'M' THEN 'MUERTO' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'V' THEN 'V' WHEN DIM_HCNCLAURGTR.HCCODIGO = 'V-G' THEN 'V-G' END 'CLASIFICACION_TRIAGE', DATEPART(HOUR, DIM_TRIAGE.HCTFECTRI) AS HORA, FORMAT( --CASE --WHEN --DATEPART(MINUTE, DIM_TRIAGE.HCTFECTRI) < 30 THEN DATEADD(MINUTE, -DATEPART(MINUTE, DIM_TRIAGE.HCTFECTRI), DIM_TRIAGE.HCTFECTRI) --ELSE -- DATEADD(MINUTE, 30 - DATEPART(MINUTE, DIM_TRIAGE.HCTFECTRI), DIM_TRIAGE.HCTFECTRI) --END , 'hh:mm tt') AS TramoHorario, CASE WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=2 THEN '1. LUNES' WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=3 THEN '2. MARTES' WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=4 THEN '3. MIÉRCOLES' WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=5 THEN '4. JUEVES' WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=6 THEN '5. VIERNES' WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=7 THEN '6. SÁBADO' WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=1 THEN '7. DOMINGO' end DIA_SEMANA, CASE WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I' THEN 2 ELSE DATEDIFF(MI,DIM_HCNCONTRDT.HCCFECTUR, DIM_TRIAGE.HCTFECTRI) END AS 'MIN', YEAR(DIM_TRIAGE.HCTFECTRI) AÑO, MONTH(DIM_TRIAGE.HCTFECTRI) MES, CASE WHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%NUEVA%' THEN 'NUEVA EPS' WHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%SURA%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%SEGUROS DE VIDA SURA%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%SURAMERICANA%' THEN 'SURA' WHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%SANITAS%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%COLSANITAS%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%MEDISANITAS%' THEN 'SANITAS' WHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%MALLAMAS%' THEN 'MALLAMAS' ELSE DIM_ENTIDAD.ENTNOMBRE END ASEGURADORA ,CAST(DIM_TRIAGE.HCTFECTRI AS DATE) FECHA ,DIM_ENTIDAD.GENTERCER1 ,CASE WHEN HCTEDAD <18 THEN 'MENORES DE EDAD' ELSE 'MAYORES DE EDAD' END MENORES ,DIM_ENTIDAD.OID OID_ASEGURADORA ,GENTERCER_DW.TERNOMCOM --,AdmisionTriage.Oid FROM DIM_TRIAGE LEFT OUTER JOIN DIM_ENTIDAD ON DIM_ENTIDAD.OID = DIM_TRIAGE.GEENENTADM INNER JOIN DIM_HCNCLAURGTR ON DIM_TRIAGE.HCNCLAURGTR = DIM_HCNCLAURGTR.OID LEFT OUTER JOIN DIM_HCNCONTRDT ON DIM_HCNCONTRDT.OID = DIM_TRIAGE.HCNCONTRDT LEFT JOIN GENTERCER_DW ON DIM_ENTIDAD.GENTERCER1=GENTERCER_DW.OID --LEFT JOIN PLANILLAUSUARIO.DBO.ADMISIONTRIAGE ON AdmisionTriage.Documento=DIM_TRIAGE.GPADOCUME AND CAST(AdmisionTriage.HoraEntrada AS date)= CAST(DIM_TRIAGE.HCTFECTRI AS DATE) AND DIM_TRIAGE.GEENENTADM=AdmisionTriage.Aseguradora WHERE DIM_HCNCLAURGTR.HCCODIGO NOT IN ('UA') AND CAST(DIM_TRIAGE.HCTFECTRI AS DATE) BETWEEN '2023-01-01' AND CAST(GETDATE() AS DATE) ORDER BY DIM_TRIAGE.HCTFECTRI",
+      "sql_queries": [],
+      "documented_measures": [
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "TRIAGES_2024",
+          "expression": "TRIAGES_2024 = \nCALCULATE(\n COUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\n YEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2024\n )"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "TRIAGES_2025",
+          "expression": "TRIAGES_2025 = \nCALCULATE(\n COUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\n YEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2025\n )"
+        },
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "TRIAGES_2026",
+          "expression": "TRIAGES_2026 = \nCALCULATE(\n COUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\n YEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2026\n )"
+        }
+      ],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtros",
+        "Permiten segmentar la información por Asegurador, Año y Mes, además de filtrar por mayores o menores de edad, facilitando el análisis de los triages según los criterios seleccionados.",
+        "Gráfico de líneas – Triages por mes",
+        "Muestra el comportamiento mensual de los triages obstétricos, permitiendo analizar la variación de las atenciones entre los diferentes periodos.",
+        "Tarjetas de indicadores",
+        "Total triages: muestra el total de triages registrados en el periodo seleccionado.",
+        "Promedio mensual triages: presenta el promedio mensual de triages realizados.",
+        "Gráfico circular – Triages por clasificación",
+        "Muestra la distribución de los triages obstétricos según su clasificación, permitiendo identificar la proporción de atenciones por nivel de prioridad.",
+        "Tabla de detalle anual",
+        "Presenta el consolidado mensual de triages obstétricos, permitiendo analizar el comportamiento de las atenciones a lo largo del tiempo.",
+        "Botones de navegación",
+        "Permiten navegar entre las diferentes áreas del tablero, accediendo a las vistas de Oportunidad Triage, Consultas Urgencias, Pacientes Observadas, Partos y abortos, facilitando el análisis de los indicadores del servicio obstétrico."
+      ],
+      "indicators": [],
+      "other_sections": []
+    },
+    {
+      "name": "OPORTUNIDAD TRIAGE OBSTÉTRICO",
+      "description": "Este tablero permite analizar los tiempos de oportunidad en la clasificación del triage obstétrico, facilitando el seguimiento del tiempo promedio que transcurre desde la llegada del paciente hasta la asignación de su clasificación de triage.",
+      "sql_queries": [
+        "SELECT DIM_TRIAGE.OID AS 'OID_TRIAGE',\nDIM_TRIAGE.GPADOCUME,\nDIM_HCNCLAURGTR.HCCODIGO,\nDIM_TRIAGE.GPANOMBRE,\nDIM_TRIAGE.GPASEGNOM,\nDIM_TRIAGE.GPAAPELLI,\nDIM_TRIAGE.GPASEGAPE,\nDIM_ENTIDAD.ENTNOMBRE,\nDIM_TRIAGE.HCTFECTRI,\nCASE\nWHEN DIM_HCNCONTRDT.HCCFECTUR IS NULL THEN CONVERT(VARCHAR(20), HCTFECTRI, 103)+' '+CONVERT(VARCHAR(8), HCTFECTRI, 114)\nELSE CONVERT(VARCHAR(20), DIM_HCNCONTRDT.HCCFECTUR, 103)+' '+CONVERT(VARCHAR(8), DIM_HCNCONTRDT.HCCFECTUR, 114)\nEND 'LLEGADA_PORTERO',\nCONVERT(VARCHAR(20),DIM_TRIAGE.HCTFECTRI,103) + ' ' +\nCONVERT(VARCHAR(8),DIM_TRIAGE.HCTFECTRI,114) AS FECHA_TRIAGE,\nCASE WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I' THEN 'I'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'I-G' THEN 'EMERGENCIA OBSTETRICA'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'II' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'II-G' THEN 'URGENCIA MEDICA OBSTETRICA'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'III' THEN 'III'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'III-G' THEN 'URGENCIA OBSTETRICA'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIIU' THEN 'III'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIP' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIS' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV' THEN 'IV'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV-G' THEN 'NO URGENTE OBSTETRICA'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'M' THEN 'MUERTO'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'V' THEN 'V'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'V-G' THEN 'CONSULTA EXTERNA OBSTETRICA'\nEND 'DESCRI_TRIGE',\nCASE WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I' THEN 'I'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'I-G' THEN 'I-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'II' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'II-G' THEN 'II-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'III' THEN 'III'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'III-G' THEN 'III-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIIU' THEN 'III'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIP' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIS' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV' THEN 'IV'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV-G' THEN 'IV-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'M' THEN 'MUERTO'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'V' THEN 'V'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'V-G' THEN 'V-G'\nEND 'CLASIFICACION_TRIAGE',\nDATEPART(HOUR, DIM_TRIAGE.HCTFECTRI) AS HORA,\nFORMAT(\n--CASE\n--WHEN\n--DATEPART(MINUTE, DIM_TRIAGE.HCTFECTRI) < 30 THEN\nDATEADD(MINUTE, -DATEPART(MINUTE, DIM_TRIAGE.HCTFECTRI), DIM_TRIAGE.HCTFECTRI)\n--ELSE\n-- DATEADD(MINUTE, 30 - DATEPART(MINUTE, DIM_TRIAGE.HCTFECTRI), DIM_TRIAGE.HCTFECTRI)\n--END\n, 'hh:mm tt') AS TramoHorario,\nCASE WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=2 THEN '1. LUNES'\nWHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=3 THEN '2. MARTES'\nWHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=4 THEN '3. MIÉRCOLES'\nWHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=5 THEN '4. JUEVES'\nWHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=6 THEN '5. VIERNES'\nWHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=7 THEN '6. SÁBADO'\nWHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=1 THEN '7. DOMINGO'\nend DIA_SEMANA,\nDATEDIFF(MI,DIM_HCNCONTRDT.HCCFECTUR, DIM_TRIAGE.HCTFECTRI) AS 'MIN',\nYEAR(DIM_TRIAGE.HCTFECTRI) AÑO,\nMONTH(DIM_TRIAGE.HCTFECTRI) MES,\nCASE WHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%NUEVA%' THEN 'NUEVA EPS'\nWHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%SURA%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%SEGUROS DE VIDA SURA%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%SURAMERICANA%' THEN 'SURA'\nWHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%SANITAS%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%COLSANITAS%'\nAND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%MEDISANITAS%' THEN 'SANITAS'\nWHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%MALLAMAS%' THEN 'MALLAMAS'\nELSE DIM_ENTIDAD.ENTNOMBRE END ASEGURADORA\n,CAST(DIM_TRIAGE.HCTFECTRI AS DATE) FECHA\n,DIM_ENTIDAD.GENTERCER1\n,CASE WHEN HCTEDAD <18 THEN 'MENORES DE EDAD'\nELSE 'MAYORES DE EDAD' END MENORES\n,DIM_ENTIDAD.OID OID_ASEGURADORA\n,GENTERCER_DW.TERNOMCOM\n--,AdmisionTriage.Oid\nFROM DIM_TRIAGE\nLEFT OUTER JOIN DIM_ENTIDAD ON DIM_ENTIDAD.OID = DIM_TRIAGE.GEENENTADM\nINNER JOIN DIM_HCNCLAURGTR ON DIM_TRIAGE.HCNCLAURGTR = DIM_HCNCLAURGTR.OID\nLEFT OUTER JOIN DIM_HCNCONTRDT ON DIM_HCNCONTRDT.OID = DIM_TRIAGE.HCNCONTRDT\nLEFT JOIN GENTERCER_DW ON DIM_ENTIDAD.GENTERCER1=GENTERCER_DW.OID\n--LEFT JOIN [172.16.104.10\\DINAMICA].PLANILLAUSUARIO.DBO.ADMISIONTRIAGE ON AdmisionTriage.Documento=DIM_TRIAGE.GPADOCUME AND CAST(AdmisionTriage.HoraEntrada AS date)= CAST(DIM_TRIAGE.HCTFECTRI AS DATE) AND DIM_TRIAGE.GEENENTADM=AdmisionTriage.Aseguradora\nWHERE DIM_HCNCLAURGTR.HCCODIGO NOT IN ('UA')\nAND CAST(DIM_TRIAGE.HCTFECTRI AS DATE) BETWEEN '2023-01-01' AND CAST(GETDATE() AS DATE)\nORDER BY DIM_TRIAGE.HCTFECTRI"
+      ],
+      "documented_measures": [
+        {
+          "table": "OPORTUNIDAD_TRIAGE",
+          "name": "Crecimiento_TRIAGES =",
+          "expression": "DIVIDE ( [TOTAL_TRIAGES] - [Triages_Año_Anterior] [Triages_Año_Anterior])"
+        }
+      ],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtros",
+        "Permiten segmentar la información por Clasificación de Triage, Asegurador, Año y Mes, además de filtrar por mayores o menores de edad, facilitando el análisis de los tiempos de atención según los criterios seleccionados.",
+        "Gráfico de líneas – Oportunidad para la clasificación de triage",
+        "Muestra el tiempo promedio mensual en la clasificación del triage obstétrico, permitiendo analizar la variación de los tiempos de atención entre los diferentes periodos.",
+        "Tabla de detalle anual",
+        "Presenta el consolidado mensual del tiempo de oportunidad en la clasificación del triage obstétrico, permitiendo analizar el comportamiento histórico de los tiempos de atención durante el año."
+      ],
+      "indicators": [],
+      "other_sections": []
+    },
+    {
+      "name": "PACIENTES OBSERVADOS OBSTETRICIA",
+      "description": "Este tablero permite visualizar y analizar el comportamiento de los pacientes obstétricos en estado de observación, facilitando el seguimiento del volumen de pacientes atendidos bajo esta condición y su variación a lo largo del tiempo.",
+      "sql_queries": [
+        "SELECT DIM_PACIENTES.PACNUMDOC, DIM_ASEGURADORA.GDENOMBRE,\nCONVERT(VARCHAR(20), DIM_INGRESO.AINFECING, 103)+' '+CONVERT(VARCHAR(8), DIM_INGRESO.AINFECING, 114) AS FECHA_INGRESO,\ncast(AINFECING as date) fecha,\nGASNOMBRE\n,CASE WHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%NUEVA%' THEN 'NUEVA EPS'\nWHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%SURA%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%SEGUROS DE VIDA SURA%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%SURAMERICANA%' THEN 'SURA'\nWHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%SANITAS%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%COLSANITAS%'\nAND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%MEDISANITAS%' THEN 'SANITAS'\nWHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%MALLAMAS%' THEN 'MALLAMAS'\nELSE DIM_ASEGURADORA.GDENOMBRE END ASEGURADORA\n,DIM_ASEGURADORA.GENTERCER1\n,CASE WHEN DATEDIFF(YY,DIM_PACIENTES.GPAFECNAC,DIM_INGRESO.AINFECING)<18 THEN 'MENORES DE EDAD'\nELSE 'MAYORES DE EDAD' END MENORES\n,DIM_INGRESO.HCENTRIAGE\n,GENPACIEN\n,CASE WHEN DATEDIFF(YEAR,GPAFECNAC,AINFECING)<18 THEN 'MENORES DE EDAD' ELSE 'MAYORES DE EDAD' END MENORES\n,GENTERCER_DW.TERNOMCOM\nFROM DIM_INGRESO\nLEFT OUTER JOIN DIM_PACIENTES ON DIM_INGRESO.GENPACIEN = DIM_PACIENTES.OID\nLEFT OUTER JOIN DIM_ASEGURADORA ON DIM_INGRESO.GENDETCON = DIM_ASEGURADORA.OID\nLEFT OUTER JOIN AREA_SERVICIO ON DIM_INGRESO.GENARESER = AREA_SERVICIO.OID\nLEFT JOIN GENTERCER_DW ON DIM_ASEGURADORA.GENTERCER1=GENTERCER_DW.OID\nWHERE\nCAST(DIM_INGRESO.AINFECING AS DATE) BETWEEN '2022-01-01' AND CAST(GETDATE() AS DATE)\nAND DIM_INGRESO.AINTIPING='1'\nAND DIM_INGRESO.AINURGCON = '0'\nAND GENARESER IN (2,42)---('2', '42') 2=urgencias 42=ginecop"
+      ],
+      "documented_measures": [
+        {
+          "table": "OBSERVADOS",
+          "name": "OBSERVADOS_2024 =",
+          "expression": "CALCULATE(\n COUNT(OBSERVADOS[HCENTRIAGE]), YEAR(OBSERVADOS[fecha]) = 2024\n )"
+        },
+        {
+          "table": "OBSERVADOS",
+          "name": "OBSERVADOS_2025=",
+          "expression": "CALCULATE(\n COUNT(OBSERVADOS[HCENTRIAGE]), YEAR(OBSERVADOS[fecha]) = 2025\n )"
+        },
+        {
+          "table": "CALENDARIO",
+          "name": "Promedio_OBS_Dinamico",
+          "expression": "Promedio_OBS_Dinamico = \nVAR Hoy = TODAY()\nVAR AnioCerrado = YEAR(Hoy) - 1\nVAR AnioContexto = SELECTEDVALUE('Calendario'[Año], AnioCerrado)\n-- 1. Calculamos la suma total de TODO el año seleccionado (ignorando el mes de la fila)\nVAR SumaTotalAnual = \n CALCULATE(\n COUNT(OBSERVADOS[HCENTRIAGE]),\n 'Calendario'[Año] = AnioContexto,\n REMOVEFILTERS('Calendario'[Mes]) -- Limpia cualquier jerarquía de mes\n )\n-- 2. Contamos cuántos meses tienen datos en ese año (hasta hoy)\nVAR CantidadMeses = \n CALCULATE(\n DISTINCTCOUNT('Calendario'[Mes]),\n 'Calendario'[Año] = AnioContexto,\n 'Calendario'[Date] <= Hoy,\n REMOVEFILTERS('Calendario'[Mes]),\n NOT ISBLANK(OBSERVADOS[HCENTRIAGE]) -- Solo cuenta meses que realmente tuvieron actividad\n )\n-- 3. Resultado final: Suma de todo el año / Número de meses\nRETURN\n IF(\n CantidadMeses > 0, \n DIVIDE(SumaTotalAnual, CantidadMeses), \n BLANK()\n)"
+        }
+      ],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtros",
+        "Permiten segmentar la información por Asegurador, Año y Mes, además de filtrar por mayores o menores de edad, facilitando el análisis de los pacientes observados según los criterios seleccionados.",
+        "Gráfico de líneas – Pacientes observados por mes",
+        "Muestra el comportamiento mensual de los pacientes obstétricos en observación, permitiendo analizar la variación de los casos entre los diferentes periodos.",
+        "Tarjetas de indicadores",
+        "Observados año actual: muestra el total de pacientes obstétricos en observación registrados durante el año en curso.",
+        "Promedio pacientes observados: presenta el promedio de pacientes en observación durante el periodo analizado.",
+        "Tabla de detalle anual",
+        "Presenta el consolidado mensual de pacientes obstétricos en observación, permitiendo analizar el comportamiento de estos casos a lo largo del año."
+      ],
+      "indicators": [],
+      "other_sections": []
+    },
+    {
+      "name": "PARTOS",
+      "description": "Este tablero permite analizar el comportamiento de los partos atendidos en la institución, diferenciando entre partos vaginales y cesáreas, con el fin de evaluar su distribución y tendencia en el tiempo.",
+      "sql_queries": [],
+      "documented_measures": [
+        {
+          "table": "PARTOS_DRIVE",
+          "name": "RELACION",
+          "expression": "RELACIÓN = SUM(PARTOS_DRIVE[VAGINALES])/SUM(PARTOS_DRIVE[CESÁREAS])"
+        }
+      ],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtros",
+        "Permiten segmentar la información por Tipo de parto, Aseguradora, Año y Mes, facilitando el análisis de los partos según los criterios seleccionados.",
+        "Gráfico de columnas – Partos por tipo",
+        "Muestra la cantidad de partos por mes, permitiendo comparar su comportamiento entre los diferentes años y analizar la variación en el tiempo.",
+        "Tabla de detalle anual",
+        "Presenta el consolidado mensual de partos registrados por año, permitiendo validar y comparar el comportamiento histórico de este indicador.",
+        "Tarjeta – Relación partos vaginales / cesáreas",
+        "Indica la relación entre la cantidad de partos vaginales y cesáreas, permitiendo evaluar la proporción entre ambos tipos de atención obstétrica.",
+        "Tarjeta Total y Promedio de Partos\nRealiza el conteo total de los partos realizados y su promedio mensual."
+      ],
+      "indicators": [],
+      "other_sections": []
+    },
+    {
+      "name": "CONSULTAS OBSTÉTRICAS",
+      "description": "Este tablero permite visualizar y analizar el comportamiento de las consultas obstétricas prioritarias, facilitando el seguimiento del volumen de atenciones y la distribución de los casos según su clasificación de triage.",
+      "sql_queries": [
+        "CONSULTA_URGENCIAS\nSELECT DIM_TRIAGE.OID AS 'OID_TRIAGE', DIM_TRIAGE.GPADOCUME AS DOCUMENTO,\nCASE WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I' THEN 'I'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'I-G' THEN 'EMERGENCIA OBSTETRICA - I-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'II' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'II-G' THEN 'URGENCIA MEDICA OBSTETRICA - II-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'III' THEN 'III'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'III-G' THEN 'URGENCIA OBSTETRICA - III-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIIU' THEN 'III'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIP' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIS' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV' THEN 'IV'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV-G' THEN 'NO URGENTE OBSTETRICA - IV-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'M' THEN 'MUERTO'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'V' THEN 'V'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'V-G' THEN 'CONSULTA EXTERNA OBSTETRICA - V-G'\nEND 'TIPO_TRIAGE',\nCASE WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I' THEN 'I'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'I-G' THEN 'I-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'II' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'II-G' THEN 'II-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'III' THEN 'III'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'III-G' THEN 'III-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIIU' THEN 'III'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIP' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIS' THEN 'II'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV' THEN 'IV'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV-G' THEN 'IV-G'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'M' THEN 'MUERTO'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'V' THEN 'V'\nWHEN DIM_HCNCLAURGTR.HCCODIGO = 'V-G' THEN 'V-G'\nEND 'CLASIFICACION_TRIAGE',\nDIM_TRIAGE.GPANOMBRE AS NOM1,\nDIM_TRIAGE.GPASEGNOM AS NOM2,\nDIM_TRIAGE.GPAAPELLI AS NOM3,\nDIM_TRIAGE.GPASEGAPE AS NOM4,\nDIM_ENTIDAD.ENTNOMBRE,\nCASE\nWHEN DIM_HCNCONTRDT.HCCFECTUR IS NULL THEN CONVERT(VARCHAR(20), HCTFECTRI, 103)+' '+CONVERT(VARCHAR(8), HCTFECTRI, 114)\nELSE CONVERT(VARCHAR(20), DIM_HCNCONTRDT.HCCFECTUR, 103)+' '+CONVERT(VARCHAR(8), DIM_HCNCONTRDT.HCCFECTUR, 114)\nEND 'LLEGADA_PORTERO',\nCASE WHEN DIM_HCNCONTRDT.HCCFECSAL IS NULL THEN\nDIM_TRIAGE.HCTFECTRI end as 'FECHA_TRIAGE',\nDIM_INGRESO.AINFECING AS 'FECHA_ADMISION',\nFOL.HCFECFOLI AS 'FECHA_FOLIO',\nCASE WHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%NUEVA%' THEN 'NUEVA EPS'\nWHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%SURA%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%ARL SURA%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%SEGUROS DE VIDA SURA%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%SURAMERICANA%' THEN 'SURA'\nWHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%SANITAS%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%COLSANITAS%'\nAND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%MEDISANITAS%' THEN 'SANITAS'\nWHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%MALLAMAS%' THEN 'MALLAMAS'\nELSE DIM_ENTIDAD.ENTNOMBRE END ASEGURADORA,\nDATEDIFF(MINUTE,HCTFECTRI,CASE WHEN CAST(HCTFECTRI AS DATE)>='2025-08-01' AND DIM_HCNCLAURGTR.HCCODIGO = 'II' THEN DIM_INGRESO.AINFECING ELSE HCFECFOLI END) TIEMPO_PARA_CONSULTA,\nCASE WHEN DATEDIFF(YEAR,GPAFECNAC,HCTFECTRI)<18 THEN 'MENORES' ELSE 'MAYORES' END MENORES_EDAD,\nGENTERCER_DW.OID OID_TERCERO,\nGENTERCER_DW.TERNOMCOM\nFROM DIM_TRIAGE\nRIGHT JOIN DIM_HCNCLAURGTR ON DIM_TRIAGE.HCNCLAURGTR = DIM_HCNCLAURGTR.OID\nRIGHT JOIN DIM_MEDICO ON DIM_TRIAGE.GENMEDICO = DIM_MEDICO.OID\nLEFT OUTER JOIN DIM_DIAGNOSTICO ON DIM_TRIAGE.GENDIAGNO1 = DIM_DIAGNOSTICO.OID\nLEFT OUTER JOIN DIM_HCNCONTRDT ON DIM_HCNCONTRDT.OID = DIM_TRIAGE.HCNCONTRDT\nLEFT OUTER JOIN DIM_INGRESO ON DIM_INGRESO.OID = DIM_TRIAGE.ADNINGRESO\nRIGHT JOIN DIM_ENTIDAD ON DIM_INGRESO.GEENENTADM = DIM_ENTIDAD.OID\nLEFT JOIN DIM_PACIENTES ON DIM_PACIENTES.OID=DIM_INGRESO.GENPACIEN\nLEFT JOIN DIM_ASEGURADORA ON DIM_INGRESO.GENDETCON=DIM_ASEGURADORA.OID\nLEFT JOIN GENTERCER_DW ON DIM_ASEGURADORA.GENTERCER1=GENTERCER_DW.OID\nOUTER APPLY (SELECT TOP 1 HCFECFOLI\nFROM DIM_FOLIO\nWHERE DIM_FOLIO.ADNINGRESO = DIM_INGRESO.OID\nORDER BY HCFECFOLI ASC ) FOL\nWHERE\nCAST(DIM_TRIAGE.HCTFECTRI AS DATE) BETWEEN '2023-01-01' AND CAST(GETDATE() AS DATE)\nAND DIM_HCNCLAURGTR.HCCODIGO NOT IN ('UA')\nand DIM_INGRESO.AINESTADO not in ('2','4')\nORDER BY DIM_HCNCONTRDT.HCCFECTUR"
+      ],
+      "documented_measures": [
+        {
+          "table": "CONSULTA_URGENCIAS",
+          "name": "PRIORITARIAS_2025 =",
+          "expression": "CALCULATE(\n COUNT(CONSULTA_URGENCIAS[OID_TRIAGE]),\n YEAR(CONSULTA_URGENCIAS[FECHA_FOLIO]) = YEAR(TODAY()\n ))"
+        },
+        {
+          "table": "CONSULTA_URGENCIAS",
+          "name": "PRIORITARIAS_2024",
+          "expression": "CALCULATE(\n COUNT(CONSULTA_URGENCIAS[OID_TRIAGE]),\n YEAR(CONSULTA_URGENCIAS[FECHA_FOLIO]) = YEAR(TODAY()-1)\n )"
+        }
+      ],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtros",
+        "Permiten segmentar la información por EPS, Año y Mes, además de filtrar por mayores o menores de edad, facilitando el análisis de las consultas según los criterios seleccionados.",
+        "Gráfico de líneas – Consultas prioritarias",
+        "Muestra el comportamiento mensual de las consultas obstétricas prioritarias, permitiendo analizar la variación de las atenciones entre los diferentes periodos.",
+        "Tarjetas de indicadores",
+        "Consultas prioritarias año actual: muestra el total de consultas registradas en el año en curso.",
+        "Promedio mensual de consultas prioritarias: presenta el promedio mensual de consultas realizadas.",
+        "Gráfico circular – Consultas por clasificación de triage",
+        "Muestra la distribución de las consultas obstétricas según su clasificación de triage, permitiendo identificar la proporción de casos atendidos por nivel de prioridad.",
+        "Tabla de detalle anual",
+        "Presenta el consolidado mensual de consultas obstétricas, permitiendo analizar el comportamiento de las atenciones a lo largo del año.",
+        "Botones de navegación",
+        "Permiten cambiar entre las vistas de Atenciones y Oportunidad de consulta, facilitando el análisis de los indicadores del servicio."
+      ],
+      "indicators": [],
+      "other_sections": []
+    },
+    {
+      "name": "OPORTUNIDAD CONSULTA OBSTÉTRICA",
+      "description": "Este tablero permite analizar los tiempos de oportunidad en la atención de consultas obstétricas prioritarias, facilitando el seguimiento del tiempo promedio de atención y la evaluación del comportamiento de este indicador a lo largo del tiempo.",
+      "sql_queries": [
+        "SELECT DIM_PACIENTES.PACNUMDOC, DIM_ASEGURADORA.GDENOMBRE,\nCONVERT(VARCHAR(20), DIM_INGRESO.AINFECING, 103)+' '+CONVERT(VARCHAR(8), DIM_INGRESO.AINFECING, 114) AS FECHA_INGRESO,\ncast(AINFECING as date) fecha,\nGASNOMBRE\n,CASE WHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%NUEVA%' THEN 'NUEVA EPS'\nWHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%SURA%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%SEGUROS DE VIDA SURA%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%SURAMERICANA%' THEN 'SURA'\nWHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%SANITAS%' AND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%COLSANITAS%'\nAND DIM_ASEGURADORA.GDENOMBRE NOT LIKE '%MEDISANITAS%' THEN 'SANITAS'\nWHEN DIM_ASEGURADORA.GDENOMBRE LIKE '%MALLAMAS%' THEN 'MALLAMAS'\nELSE DIM_ASEGURADORA.GDENOMBRE END ASEGURADORA\n,DIM_ASEGURADORA.GENTERCER1\n,CASE WHEN DATEDIFF(YY,DIM_PACIENTES.GPAFECNAC,DIM_INGRESO.AINFECING)<18 THEN 'MENORES DE EDAD'\nELSE 'MAYORES DE EDAD' END MENORES\n,DIM_INGRESO.HCENTRIAGE\n,GENPACIEN\n,CASE WHEN DATEDIFF(YEAR,GPAFECNAC,AINFECING)<18 THEN 'MENORES DE EDAD' ELSE 'MAYORES DE EDAD' END MENORES\n,GENTERCER_DW.TERNOMCOM\nFROM DIM_INGRESO\nLEFT OUTER JOIN DIM_PACIENTES ON DIM_INGRESO.GENPACIEN = DIM_PACIENTES.OID\nLEFT OUTER JOIN DIM_ASEGURADORA ON DIM_INGRESO.GENDETCON = DIM_ASEGURADORA.OID\nLEFT OUTER JOIN AREA_SERVICIO ON DIM_INGRESO.GENARESER = AREA_SERVICIO.OID\nLEFT JOIN GENTERCER_DW ON DIM_ASEGURADORA.GENTERCER1=GENTERCER_DW.OID\nWHERE\nCAST(DIM_INGRESO.AINFECING AS DATE) BETWEEN '2022-01-01' AND CAST(GETDATE() AS DATE)\nAND DIM_INGRESO.AINTIPING='1'\nAND DIM_INGRESO.AINURGCON = '0'\nAND GENARESER IN (2,42)---('2', '42') 2=urgencias 42=ginecop"
+      ],
+      "documented_measures": [],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtros",
+        "Permiten segmentar la información por Clasificación de Triage, Asegurador, Año y Mes, además de filtrar por mayores o menores de edad, facilitando el análisis de los tiempos de atención según los criterios seleccionados.",
+        "Gráfico de líneas – Tiempo de oportunidad consulta prioritaria",
+        "Muestra el tiempo promedio mensual de oportunidad en la atención de consultas obstétricas prioritarias, permitiendo analizar la variación de los tiempos de atención entre los diferentes periodos.",
+        "Indicador – Oportunidad año actual",
+        "Muestra el tiempo promedio de oportunidad en la atención de consultas obstétricas durante el año actual, permitiendo evaluar el desempeño del indicador en el periodo analizado.",
+        "Tabla de detalle anual",
+        "Presenta el consolidado mensual del tiempo de oportunidad en consultas obstétricas prioritarias, permitiendo analizar el comportamiento histórico de los tiempos de atención durante el año."
+      ],
+      "indicators": [],
+      "other_sections": []
+    },
+    {
+      "name": "DE PARTOS",
+      "description": "Este tablero nos muestra la información relacionada a todos los partos realizados en el hospital cada mes y mostrando el histórico de este servicio. Para realizar este tablero se tuvo en cuenta la información obenida desde esta URL: https://servicioses-my.sharepoint.com/personal/auxepidemiologia_ses_com_co/Documents/GESTANTES/partos%20MSPS-BLO2P3ALSURP01%20(1).xlsx",
+      "sql_queries": [],
+      "documented_measures": [
+        {
+          "table": "PARTOS_DRIVE",
+          "name": "RELACION",
+          "expression": "RELACIÓN = SUM(PARTOS_DRIVE[VAGINALES])/SUM(PARTOS_DRIVE[CESÁREAS])"
+        },
+        {
+          "table": "PARTOS_DRIVE",
+          "name": "Total_Partos_Dinamico",
+          "expression": "Total_Partos_Dinamico = \nVAR Hoy = TODAY()\nVAR AnioCerrado = YEAR(Hoy) - 1 -- 2025\n\n-- 1. Capturamos el año del segmentador. \n-- Si no hay nada seleccionado, usamos el año cerrado.\nVAR AnioA_Calcular = SELECTEDVALUE('Calendario'[Año], AnioCerrado)\n\n-- 2. Calculamos el total\nRETURN\nCALCULATE(\n COUNTROWS(PARTOS_DRIVE),\n REMOVEFILTERS('Calendario'),\n 'Calendario'[Año] = AnioA_Calcular\n )"
+        },
+        {
+          "table": "PARTOS_DRIVE",
+          "name": "Promedio_Partos_Dinamico",
+          "expression": "Promedio_Partos_Dinamico = \nVAR AnioCerrado = YEAR(TODAY())-1\nVAR AnioSeleccionado = SELECTEDVALUE('Calendario'[Año])\nVAR AnioAUsar = COALESCE(AnioSeleccionado, AnioCerrado)\n\nRETURN\nCALCULATE(\n AVERAGEX ( DISTINCT('Calendario'[Mes]), CALCULATE(COUNTROWS('PARTOS_DRIVE'))\n ),\n ALL('Calendario'[Año]),\n 'Calendario'[Año] = AnioAUsar\n)"
+        }
+      ],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtro de tipo de parto",
+        "Tarjeta que aplica el filtro del tipo de parto dependiendo del botón seleccionado.",
+        "Gráfico de Partos",
+        "Muestra el conteo total de partos realizados durante cada mes y contiene también el histórico de los últimos 3 meses, este grafico permite observar los comportamientos de esta variable.",
+        "Tabla de Conteo de Partos",
+        "Muestra la información completa de los partos realizados por mes durante los últimos tres años hasta la fecha.",
+        "Indicadores de Información",
+        "Estos indicadores muestran la relación de partos entre vaginales y cesáreas, el total de partos y su promedio mensual."
+      ],
+      "indicators": [],
+      "other_sections": []
+    },
+    {
+      "name": "DE ABORTOS",
+      "description": "Representa el conteo de abortos registrados en la institución, ya sea por IVE (Interrupción voluntaria de Embarazo) o aborto no seguro. Es importante para llevar un registro visual de las métricas de este suceso y su comportamiento en base al tiempo. Para la realización de este tablero se obtuvo la información de la siguiente URL: https://servicioses-my.sharepoint.com/personal/auxepidemiologia_ses_com_co/Documents/GESTANTES/partos%20MSPS-BLO2P3ALSURP01%20(1).xlsx",
+      "sql_queries": [],
+      "documented_measures": [],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtro Tipo de Aborto",
+        "Tarjeta que aplica el filtro del tipo de aborto dependiendo del botón seleccionado.",
+        "Gráfico de Abortos",
+        "Muestra el conteo total de abortos realizados durante cada mes y contiene también el histórico de los últimos 3 meses, este grafico permite observar los comportamientos de esta variable.",
+        "Tabla de Conteo de Abortos",
+        "Muestra la información completa de los abortos realizados por mes durante los últimos tres años hasta la fecha.",
+        "Indicadores de Información",
+        "Estos indicadores muestran el total de abortos y su promedio mensual."
+      ],
+      "indicators": [],
+      "other_sections": []
+    }
+  ]
+}

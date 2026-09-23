@@ -1,0 +1,827 @@
+{
+  "source_file": "2 Documentacion Tablero Triage.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\2 Documentacion Tablero Triage.docx",
+  "source_folder": "tablero_de_atenciones_institucionales",
+  "workspace": "Gestion Clinica",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "document_group": null,
+  "dashboards": [
+    {
+      "name": "TRIAGE",
+      "source_file": "2 Documentacion Tablero Triage.docx",
+      "blocks": [
+        {
+          "index": 1,
+          "type": "paragraph",
+          "text": "Este tablero permite analizar el comportamiento de los triages institucionales, visualizando su evolución en el tiempo, su distribución por clasificación y los principales indicadores operativos, facilitando el seguimiento del volumen de atención en el servicio de urgencias.",
+          "style": "Normal"
+        },
+        {
+          "index": 4,
+          "type": "paragraph",
+          "text": "PARA CREAR ESTE TABLERO SE UTILIZO LA SIGUIENTE CONSULTA",
+          "style": "Normal"
+        },
+        {
+          "index": 5,
+          "type": "paragraph",
+          "text": "SELECT DIM_TRIAGE.OID AS 'OID_TRIAGE',",
+          "style": "Normal"
+        },
+        {
+          "index": 6,
+          "type": "paragraph",
+          "text": "DIM_TRIAGE.GPADOCUME,",
+          "style": "Normal"
+        },
+        {
+          "index": 7,
+          "type": "paragraph",
+          "text": "DIM_HCNCLAURGTR.HCCODIGO,",
+          "style": "Normal"
+        },
+        {
+          "index": 8,
+          "type": "paragraph",
+          "text": "DIM_TRIAGE.GPANOMBRE,",
+          "style": "Normal"
+        },
+        {
+          "index": 9,
+          "type": "paragraph",
+          "text": "DIM_TRIAGE.GPASEGNOM,",
+          "style": "Normal"
+        },
+        {
+          "index": 10,
+          "type": "paragraph",
+          "text": "DIM_TRIAGE.GPAAPELLI,",
+          "style": "Normal"
+        },
+        {
+          "index": 11,
+          "type": "paragraph",
+          "text": "DIM_TRIAGE.GPASEGAPE,",
+          "style": "Normal"
+        },
+        {
+          "index": 12,
+          "type": "paragraph",
+          "text": "DIM_ENTIDAD.ENTNOMBRE,",
+          "style": "Normal"
+        },
+        {
+          "index": 13,
+          "type": "paragraph",
+          "text": "DIM_TRIAGE.HCTFECTRI,",
+          "style": "Normal"
+        },
+        {
+          "index": 14,
+          "type": "paragraph",
+          "text": "CASE",
+          "style": "Normal"
+        },
+        {
+          "index": 15,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCONTRDT.HCCFECTUR IS NULL THEN CONVERT(VARCHAR(20), HCTFECTRI, 103)+' '+CONVERT(VARCHAR(8), HCTFECTRI, 114)",
+          "style": "Normal"
+        },
+        {
+          "index": 16,
+          "type": "paragraph",
+          "text": "ELSE CONVERT(VARCHAR(20), DIM_HCNCONTRDT.HCCFECTUR, 103)+' '+CONVERT(VARCHAR(8), DIM_HCNCONTRDT.HCCFECTUR, 114)",
+          "style": "Normal"
+        },
+        {
+          "index": 17,
+          "type": "paragraph",
+          "text": "END 'LLEGADA_PORTERO',",
+          "style": "Normal"
+        },
+        {
+          "index": 18,
+          "type": "paragraph",
+          "text": "CONVERT(VARCHAR(20),DIM_TRIAGE.HCTFECTRI,103) + ' ' +",
+          "style": "Normal"
+        },
+        {
+          "index": 19,
+          "type": "paragraph",
+          "text": "CONVERT(VARCHAR(8),DIM_TRIAGE.HCTFECTRI,114) AS FECHA_TRIAGE,",
+          "style": "Normal"
+        },
+        {
+          "index": 20,
+          "type": "paragraph",
+          "text": "CASE WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I' THEN 'I'",
+          "style": "Normal"
+        },
+        {
+          "index": 21,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I-G' THEN 'EMERGENCIA OBSTETRICA'",
+          "style": "Normal"
+        },
+        {
+          "index": 22,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'II' THEN 'II'",
+          "style": "Normal"
+        },
+        {
+          "index": 23,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'II-G' THEN 'URGENCIA MEDICA OBSTETRICA'",
+          "style": "Normal"
+        },
+        {
+          "index": 24,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'III' THEN 'III'",
+          "style": "Normal"
+        },
+        {
+          "index": 25,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'III-G' THEN 'URGENCIA OBSTETRICA'",
+          "style": "Normal"
+        },
+        {
+          "index": 26,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIIU' THEN 'III'",
+          "style": "Normal"
+        },
+        {
+          "index": 27,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIP' THEN 'II'",
+          "style": "Normal"
+        },
+        {
+          "index": 28,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIS' THEN 'II'",
+          "style": "Normal"
+        },
+        {
+          "index": 29,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV' THEN 'IV'",
+          "style": "Normal"
+        },
+        {
+          "index": 30,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV-G' THEN 'NO URGENTE OBSTETRICA'",
+          "style": "Normal"
+        },
+        {
+          "index": 31,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'M' THEN 'MUERTO'",
+          "style": "Normal"
+        },
+        {
+          "index": 32,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'V' THEN 'V'",
+          "style": "Normal"
+        },
+        {
+          "index": 33,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'V-G' THEN 'CONSULTA EXTERNA OBSTETRICA'",
+          "style": "Normal"
+        },
+        {
+          "index": 34,
+          "type": "paragraph",
+          "text": "END 'DESCRI_TRIGE',",
+          "style": "Normal"
+        },
+        {
+          "index": 36,
+          "type": "paragraph",
+          "text": "CASE WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I' THEN 'I'",
+          "style": "Normal"
+        },
+        {
+          "index": 37,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'I-G' THEN 'I-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 38,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'II' THEN 'II'",
+          "style": "Normal"
+        },
+        {
+          "index": 39,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'II-G' THEN 'II-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 40,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'III' THEN 'III'",
+          "style": "Normal"
+        },
+        {
+          "index": 41,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'III-G' THEN 'III-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 42,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIIU' THEN 'III'",
+          "style": "Normal"
+        },
+        {
+          "index": 43,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIP' THEN 'II'",
+          "style": "Normal"
+        },
+        {
+          "index": 44,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IIS' THEN 'II'",
+          "style": "Normal"
+        },
+        {
+          "index": 45,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV' THEN 'IV'",
+          "style": "Normal"
+        },
+        {
+          "index": 46,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'IV-G' THEN 'IV-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 47,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'M' THEN 'MUERTO'",
+          "style": "Normal"
+        },
+        {
+          "index": 48,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'V' THEN 'V'",
+          "style": "Normal"
+        },
+        {
+          "index": 49,
+          "type": "paragraph",
+          "text": "WHEN DIM_HCNCLAURGTR.HCCODIGO = 'V-G' THEN 'V-G'",
+          "style": "Normal"
+        },
+        {
+          "index": 50,
+          "type": "paragraph",
+          "text": "END 'CLASIFICACION_TRIAGE',",
+          "style": "Normal"
+        },
+        {
+          "index": 51,
+          "type": "paragraph",
+          "text": "DATEPART(HOUR, DIM_TRIAGE.HCTFECTRI) AS HORA,",
+          "style": "Normal"
+        },
+        {
+          "index": 52,
+          "type": "paragraph",
+          "text": "FORMAT(",
+          "style": "Normal"
+        },
+        {
+          "index": 53,
+          "type": "paragraph",
+          "text": "--CASE",
+          "style": "Normal"
+        },
+        {
+          "index": 54,
+          "type": "paragraph",
+          "text": "--WHEN",
+          "style": "Normal"
+        },
+        {
+          "index": 55,
+          "type": "paragraph",
+          "text": "--DATEPART(MINUTE, DIM_TRIAGE.HCTFECTRI) < 30 THEN",
+          "style": "Normal"
+        },
+        {
+          "index": 56,
+          "type": "paragraph",
+          "text": "DATEADD(MINUTE, -DATEPART(MINUTE, DIM_TRIAGE.HCTFECTRI), DIM_TRIAGE.HCTFECTRI)",
+          "style": "Normal"
+        },
+        {
+          "index": 57,
+          "type": "paragraph",
+          "text": "--ELSE",
+          "style": "Normal"
+        },
+        {
+          "index": 58,
+          "type": "paragraph",
+          "text": "-- DATEADD(MINUTE, 30 - DATEPART(MINUTE, DIM_TRIAGE.HCTFECTRI), DIM_TRIAGE.HCTFECTRI)",
+          "style": "Normal"
+        },
+        {
+          "index": 59,
+          "type": "paragraph",
+          "text": "--END",
+          "style": "Normal"
+        },
+        {
+          "index": 60,
+          "type": "paragraph",
+          "text": ", 'hh:mm tt') AS TramoHorario,",
+          "style": "Normal"
+        },
+        {
+          "index": 61,
+          "type": "paragraph",
+          "text": "CASE WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=2 THEN '1. LUNES'",
+          "style": "Normal"
+        },
+        {
+          "index": 62,
+          "type": "paragraph",
+          "text": "WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=3 THEN '2. MARTES'",
+          "style": "Normal"
+        },
+        {
+          "index": 63,
+          "type": "paragraph",
+          "text": "WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=4 THEN '3. MIÉRCOLES'",
+          "style": "Normal"
+        },
+        {
+          "index": 64,
+          "type": "paragraph",
+          "text": "WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=5 THEN '4. JUEVES'",
+          "style": "Normal"
+        },
+        {
+          "index": 65,
+          "type": "paragraph",
+          "text": "WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=6 THEN '5. VIERNES'",
+          "style": "Normal"
+        },
+        {
+          "index": 66,
+          "type": "paragraph",
+          "text": "WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=7 THEN '6. SÁBADO'",
+          "style": "Normal"
+        },
+        {
+          "index": 67,
+          "type": "paragraph",
+          "text": "WHEN DATEPART(DW,DIM_TRIAGE.HCTFECTRI)=1 THEN '7. DOMINGO'",
+          "style": "Normal"
+        },
+        {
+          "index": 68,
+          "type": "paragraph",
+          "text": "end DIA_SEMANA,",
+          "style": "Normal"
+        },
+        {
+          "index": 69,
+          "type": "paragraph",
+          "text": "DATEDIFF(MI,DIM_HCNCONTRDT.HCCFECTUR, DIM_TRIAGE.HCTFECTRI) AS 'MIN',",
+          "style": "Normal"
+        },
+        {
+          "index": 70,
+          "type": "paragraph",
+          "text": "YEAR(DIM_TRIAGE.HCTFECTRI) AÑO,",
+          "style": "Normal"
+        },
+        {
+          "index": 71,
+          "type": "paragraph",
+          "text": "MONTH(DIM_TRIAGE.HCTFECTRI) MES,",
+          "style": "Normal"
+        },
+        {
+          "index": 72,
+          "type": "paragraph",
+          "text": "CASE WHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%NUEVA%' THEN 'NUEVA EPS'",
+          "style": "Normal"
+        },
+        {
+          "index": 73,
+          "type": "paragraph",
+          "text": "WHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%SURA%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%SEGUROS DE VIDA SURA%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%SURAMERICANA%' THEN 'SURA'",
+          "style": "Normal"
+        },
+        {
+          "index": 74,
+          "type": "paragraph",
+          "text": "WHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%SANITAS%' AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%COLSANITAS%'",
+          "style": "Normal"
+        },
+        {
+          "index": 75,
+          "type": "paragraph",
+          "text": "AND DIM_ENTIDAD.ENTNOMBRE NOT LIKE '%MEDISANITAS%' THEN 'SANITAS'",
+          "style": "Normal"
+        },
+        {
+          "index": 76,
+          "type": "paragraph",
+          "text": "WHEN DIM_ENTIDAD.ENTNOMBRE LIKE '%MALLAMAS%' THEN 'MALLAMAS'",
+          "style": "Normal"
+        },
+        {
+          "index": 77,
+          "type": "paragraph",
+          "text": "ELSE DIM_ENTIDAD.ENTNOMBRE END ASEGURADORA",
+          "style": "Normal"
+        },
+        {
+          "index": 78,
+          "type": "paragraph",
+          "text": ",CAST(DIM_TRIAGE.HCTFECTRI AS DATE) FECHA",
+          "style": "Normal"
+        },
+        {
+          "index": 79,
+          "type": "paragraph",
+          "text": ",DIM_ENTIDAD.GENTERCER1",
+          "style": "Normal"
+        },
+        {
+          "index": 80,
+          "type": "paragraph",
+          "text": ",CASE WHEN HCTEDAD <18 THEN 'MENORES DE EDAD'",
+          "style": "Normal"
+        },
+        {
+          "index": 81,
+          "type": "paragraph",
+          "text": "ELSE 'MAYORES DE EDAD' END MENORES",
+          "style": "Normal"
+        },
+        {
+          "index": 82,
+          "type": "paragraph",
+          "text": ",DIM_ENTIDAD.OID OID_ASEGURADORA",
+          "style": "Normal"
+        },
+        {
+          "index": 83,
+          "type": "paragraph",
+          "text": ",GENTERCER_DW.TERNOMCOM",
+          "style": "Normal"
+        },
+        {
+          "index": 84,
+          "type": "paragraph",
+          "text": "--,AdmisionTriage.Oid",
+          "style": "Normal"
+        },
+        {
+          "index": 85,
+          "type": "paragraph",
+          "text": "FROM DIM_TRIAGE",
+          "style": "Normal"
+        },
+        {
+          "index": 86,
+          "type": "paragraph",
+          "text": "LEFT OUTER JOIN DIM_ENTIDAD ON DIM_ENTIDAD.OID = DIM_TRIAGE.GEENENTADM",
+          "style": "Normal"
+        },
+        {
+          "index": 87,
+          "type": "paragraph",
+          "text": "INNER JOIN DIM_HCNCLAURGTR ON DIM_TRIAGE.HCNCLAURGTR = DIM_HCNCLAURGTR.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 88,
+          "type": "paragraph",
+          "text": "LEFT OUTER JOIN DIM_HCNCONTRDT ON DIM_HCNCONTRDT.OID = DIM_TRIAGE.HCNCONTRDT",
+          "style": "Normal"
+        },
+        {
+          "index": 89,
+          "type": "paragraph",
+          "text": "LEFT JOIN GENTERCER_DW ON DIM_ENTIDAD.GENTERCER1=GENTERCER_DW.OID",
+          "style": "Normal"
+        },
+        {
+          "index": 90,
+          "type": "paragraph",
+          "text": "--LEFT JOIN [172.16.104.10\\DINAMICA].PLANILLAUSUARIO.DBO.ADMISIONTRIAGE ON AdmisionTriage.Documento=DIM_TRIAGE.GPADOCUME AND CAST(AdmisionTriage.HoraEntrada AS date)= CAST(DIM_TRIAGE.HCTFECTRI AS DATE) AND DIM_TRIAGE.GEENENTADM=AdmisionTriage.Aseguradora",
+          "style": "Normal"
+        },
+        {
+          "index": 91,
+          "type": "paragraph",
+          "text": "WHERE DIM_HCNCLAURGTR.HCCODIGO NOT IN ('UA')",
+          "style": "Normal"
+        },
+        {
+          "index": 92,
+          "type": "paragraph",
+          "text": "AND CAST(DIM_TRIAGE.HCTFECTRI AS DATE) BETWEEN '2023-01-01' AND CAST(GETDATE() AS DATE)",
+          "style": "Normal"
+        },
+        {
+          "index": 93,
+          "type": "paragraph",
+          "text": "ORDER BY DIM_TRIAGE.HCTFECTRI",
+          "style": "Normal"
+        },
+        {
+          "index": 94,
+          "type": "paragraph",
+          "text": "MEDIDAS UTILIZADAS EN ESTE TABLERO",
+          "style": "Normal"
+        },
+        {
+          "type": "table",
+          "rows": [
+            [
+              "Tabla",
+              "Nombre Medida",
+              "DAX"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "TRIAGES_2024",
+              "CALCULATE(\nCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2024\n)"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "TRIAGES_2023",
+              "CALCULATE(\nCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2023\n)"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "PROMEDIO_TRIAGE_2024",
+              "CALCULATE(\nAVERAGE(OPORTUNIDAD_TRIAGE[MIN]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2024\n)"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "PROMEDIO_TRIAGE_2023",
+              "CALCULATE(\nAVERAGE(OPORTUNIDAD_TRIAGE[MIN]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2023\n)"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "TRIAGES_2025",
+              "CALCULATE(\nCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2025\n)"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "PROMEDIO_TRIAGE_2025",
+              "CALCULATE(\nAVERAGE(OPORTUNIDAD_TRIAGE[MIN]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2025\n)"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "TRIAGES_PEDIATRICOS_2025",
+              "CALCULATE(\nCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2025,\nOPORTUNIDAD_TRIAGE[MENORES]=\"MENORES DE EDAD\"\n)"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "PROMEDIO_TRIAGES_PEDIATRICOS_2025",
+              "CALCULATE(\nAVERAGE(OPORTUNIDAD_TRIAGE[TIEMPO_TRIAGE_PROM]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2025,\nOPORTUNIDAD_TRIAGE[MENORES]=\"MENORES DE EDAD\"\n)"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "Triages_Año_Anterior",
+              "CALCULATE (\n[TOTAL_TRIAGES],\nSAMEPERIODLASTYEAR ( Calendario[Date] )\n)"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "TOTAL_TRIAGES",
+              "DISTINCTCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE])"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "Crecimiento_TRIAGES",
+              "DIVIDE (\n[TOTAL_TRIAGES] - [Triages_Año_Anterior],\n[Triages_Año_Anterior]\n)"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "Proyeccion_TRIAGES",
+              "VAR TRIAnt = [Triages_Año_Anterior]\nVAR CrecAnt =\nCALCULATE (\n[Crecimiento_TRIAGES],\nSAMEPERIODLASTYEAR ( Calendario[Date] )\n)\nRETURN\nTRIAnt + (TRIAnt * CrecAnt)"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "Proyeccion_Mensual_Visible",
+              "VAR AnnoActual = MAX ( Calendario[Año] )\nVAR MesActual = MAX ( Calendario[Mes] )\n\n-- Cirugías del mismo mes del año anterior\nVAR CirAnt =\nCALCULATE (\n[TOTAL_TRIAGES],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = AnnoActual - 1,\nCalendario[Mes] = MesActual\n)\n\n-- Cirugías del mismo mes pero dos años atrás\nVAR CirAntAnt =\nCALCULATE (\n[TOTAL_TRIAGES],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = AnnoActual - 2,\nCalendario[Mes] = MesActual\n)\n\n-- % de crecimiento del mes (año N-1 vs año N-2)\nVAR Crec = DIVIDE ( CirAnt - CirAntAnt, CirAntAnt )\n\n-- Valor proyectado\nVAR Proy = IF (\nNOT ISBLANK ( CirAnt ) && NOT ISBLANK ( CirAntAnt ),\nCirAnt * ( 1 + Crec )\n)\n\n-- Control desde el segmentador\nVAR Mostrar = SELECTEDVALUE ( MostrarProyeccion[Opcion], \"NO\" )\n\nRETURN\nIF ( Mostrar = \"SI\", Proy )"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "TRIAGES_2026",
+              "CALCULATE(\nCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2026\n)"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "PROMEDIO_TRIAGE_2026",
+              "CALCULATE(\nAVERAGE(OPORTUNIDAD_TRIAGE[MIN]),\nYEAR(OPORTUNIDAD_TRIAGE[FECHA]) = 2026\n)"
+            ]
+          ],
+          "index": 95
+        },
+        {
+          "index": 100,
+          "type": "paragraph",
+          "text": "COLUMNAS CALCULADAS UTILIZADAS EN ESTE TABLERO",
+          "style": "Normal"
+        },
+        {
+          "type": "table",
+          "rows": [
+            [
+              "Tabla",
+              "Columna",
+              "DAX"
+            ],
+            [
+              "OPORTUNIDAD_TRIAGE",
+              "TIEMPO_TRIAGE_PROM",
+              "DATEDIFF(OPORTUNIDAD_TRIAGE[LLEGADA_PORTERO],OPORTUNIDAD_TRIAGE[FECHA_TRIAGE],MINUTE)"
+            ]
+          ],
+          "index": 101
+        },
+        {
+          "index": 103,
+          "type": "paragraph",
+          "text": "DESCRIPCION DE LOS VISUALES",
+          "style": "Normal"
+        },
+        {
+          "index": 104,
+          "type": "paragraph",
+          "text": "Tarjetas de indicadores, filtros y segmentadores",
+          "style": "Normal"
+        },
+        {
+          "index": 105,
+          "type": "paragraph",
+          "text": "Muestran el total de triages del año actual y el promedio mensual de triages. Incluyen filtros por Asegurador, Año, Mes y Día, así como segmentadores para grupo etario (mayores y menores de edad)",
+          "style": "Normal"
+        },
+        {
+          "index": 107,
+          "type": "paragraph",
+          "text": "Tarjetas de indicadores y selector de proyección",
+          "style": "Normal"
+        },
+        {
+          "index": 108,
+          "type": "paragraph",
+          "text": "Muestran el total de triages del año actual y el promedio mensual de triages. Incluyen la opción Mostrar proyección, que permite activar o desactivar la visualización de la proyección en los gráficos del tablero.",
+          "style": "Normal"
+        },
+        {
+          "index": 111,
+          "type": "paragraph",
+          "text": "Botones de navegación y segmentador de grupo etario",
+          "style": "Normal"
+        },
+        {
+          "index": 112,
+          "type": "paragraph",
+          "text": "Permiten cambiar entre las vistas General, Urgencias y Obstetricia, actualizando el gráfico de oportunidad de clasificación de triage y la tabla de detalle anual. También permiten segmentar la información por mayores o menores de edad para realizar análisis específicos según el grupo etario.",
+          "style": "Normal"
+        },
+        {
+          "index": 115,
+          "type": "paragraph",
+          "text": "Gráfico de líneas – Triages por mes",
+          "style": "Normal"
+        },
+        {
+          "index": 116,
+          "type": "paragraph",
+          "text": "Presenta la evolución mensual de los triages, permitiendo comparar el comportamiento entre años y visualizar la proyección cuando está habilitada, facilitando la identificación de tendencias en la demanda de atención.",
+          "style": "Normal"
+        },
+        {
+          "index": 118,
+          "type": "paragraph",
+          "text": "Gráfico circular – Triages por clasificación",
+          "style": "Normal"
+        },
+        {
+          "index": 119,
+          "type": "paragraph",
+          "text": "Muestra la distribución de los triages según su nivel de clasificación, permitiendo identificar la proporción de cada tipo de triage dentro del total de atenciones.",
+          "style": "Normal"
+        },
+        {
+          "index": 121,
+          "type": "paragraph",
+          "text": "Tabla de detalle anual",
+          "style": "Normal"
+        },
+        {
+          "index": 122,
+          "type": "paragraph",
+          "text": "Presenta el consolidado de triages por mes y año, permitiendo realizar análisis comparativos entre períodos y validar el comportamiento histórico del indicador.",
+          "style": "Normal"
+        },
+        {
+          "index": 125,
+          "type": "paragraph",
+          "text": "Botón Oportunidad Triage",
+          "style": "Normal"
+        },
+        {
+          "index": 126,
+          "type": "paragraph",
+          "text": "Permite navegar a otro tablero donde se visualiza el análisis de la oportunidad en la atención del triage, facilitando el seguimiento del tiempo de respuesta en este proceso.",
+          "style": "Normal"
+        }
+      ]
+    },
+    {
+      "name": "OPORTUNIDAD DE TRIAGE",
+      "source_file": "2 Documentacion Tablero Triage.docx",
+      "blocks": [
+        {
+          "index": 129,
+          "type": "paragraph",
+          "text": "Este tablero permite analizar el tiempo de oportunidad en la clasificación de triage, visualizando su comportamiento a lo largo del tiempo y facilitando la evaluación del cumplimiento en los tiempos de atención según los criterios establecidos.",
+          "style": "Normal"
+        },
+        {
+          "index": 135,
+          "type": "paragraph",
+          "text": "DESCRIPCIÓN DE LOS VISUALES",
+          "style": "Normal"
+        },
+        {
+          "index": 136,
+          "type": "paragraph",
+          "text": "Filtros y segmentadores",
+          "style": "Normal"
+        },
+        {
+          "index": 137,
+          "type": "paragraph",
+          "text": "Permiten segmentar la información por Clasificación de Triage, Asegurador, Año y Mes, así como por grupo etario (mayores o menores de edad), facilitando el análisis del indicador según diferentes criterios.",
+          "style": "Normal"
+        },
+        {
+          "index": 139,
+          "type": "paragraph",
+          "text": "Botones de navegación y segmentador de grupo etario",
+          "style": "Normal"
+        },
+        {
+          "index": 140,
+          "type": "paragraph",
+          "text": "Permiten cambiar entre las vistas General, Urgencias y Obstetricia, actualizando el gráfico de oportunidad de clasificación de triage y la tabla de detalle anual. También permiten segmentar la información por mayores o menores de edad para realizar análisis específicos según el grupo etario.",
+          "style": "Normal"
+        },
+        {
+          "index": 142,
+          "type": "paragraph",
+          "text": "Gráfico de líneas – Oportunidad para la clasificación de triage",
+          "style": "Normal"
+        },
+        {
+          "index": 143,
+          "type": "paragraph",
+          "text": "Muestra el comportamiento mensual del tiempo de oportunidad en la clasificación de triage, permitiendo comparar los resultados entre diferentes años e identificar tendencias en los tiempos de atención.",
+          "style": "Normal"
+        },
+        {
+          "index": 145,
+          "type": "paragraph",
+          "text": "Tabla de detalle anual",
+          "style": "Normal"
+        },
+        {
+          "index": 146,
+          "type": "paragraph",
+          "text": "Presenta el consolidado mensual del indicador por año, permitiendo validar y comparar el comportamiento histórico del tiempo de oportunidad en la clasificación de triage.",
+          "style": "Normal"
+        }
+      ]
+    }
+  ]
+}

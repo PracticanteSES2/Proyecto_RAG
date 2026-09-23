@@ -1,0 +1,210 @@
+{
+  "source_file": "Documentacion Tablero Atencion Domiciliaria.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\Documentacion Tablero Atencion Domiciliaria.docx",
+  "source_folder": "tablero_de_atenciones_institucionales",
+  "workspace": "Gestion Clinica",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "document_group": null,
+  "dashboards": [
+    {
+      "name": "ATENCIÓN DOMICILIARIA",
+      "source_file": "Documentacion Tablero Atencion Domiciliaria.docx",
+      "blocks": [
+        {
+          "index": 1,
+          "type": "paragraph",
+          "text": "Este tablero permite analizar el comportamiento de las atenciones domiciliarias realizadas por la institución, facilitando el seguimiento del volumen de atenciones, su evolución mensual y su distribución por aseguradora.",
+          "style": "Normal"
+        },
+        {
+          "index": 3,
+          "type": "paragraph",
+          "text": "CONSULTA UTILIZADA PARA CREAR ESTE TABLERO",
+          "style": "Normal"
+        },
+        {
+          "index": 4,
+          "type": "paragraph",
+          "text": "ATENCION_DOMICILIARIA",
+          "style": "Normal"
+        },
+        {
+          "index": 5,
+          "type": "paragraph",
+          "text": "SELECT *",
+          "style": "Normal"
+        },
+        {
+          "index": 6,
+          "type": "paragraph",
+          "text": "FROM ATC_DOMICILIARIA",
+          "style": "Normal"
+        },
+        {
+          "index": 8,
+          "type": "paragraph",
+          "text": "MEDIDAS UTILIZADAS EN ESTE TABLERO",
+          "style": "Normal"
+        },
+        {
+          "type": "table",
+          "rows": [
+            [
+              "Tabla",
+              "Nombre Medida",
+              "DAX"
+            ],
+            [
+              "ATENCION DOMICILIARIA",
+              "ATENCION_DM",
+              "COUNTROWS(\n'ATENCION DOMICILIARIA'\n)"
+            ],
+            [
+              "ATENCION DOMICILIARIA",
+              "PROM_ATENCION_AD",
+              "VAR MaxYearModelo =\nCALCULATE ( MAX ( Calendario[Año] ), ALL ( Calendario ) )\n\n-- Detecta si hay cualquier filtro de tiempo (año/mes/fecha)\nVAR HayFiltroTiempo =\nISCROSSFILTERED ( Calendario[Date] )\n|| ISFILTERED ( Calendario[Año] )\n|| ISFILTERED ( Calendario[Mes] )\n\nVAR AniosSel =\nFILTER ( VALUES ( Calendario[Año] ), NOT ISBLANK ( Calendario[Año] ) )\n\nRETURN\nIF (\nNOT HayFiltroTiempo,\n-- Default: año anterior SOLO cuando no hay filtros\nCALCULATE (\nDIVIDE ( COUNT ('ATENCION DOMICILIARIA'[INGRESO] ), 12, 0 ),\nCalendario[Año] = MaxYearModelo - 1\n),\n-- Si hay 1 o varios años seleccionados: SUMA de promedios por año\nSUMX (\nAniosSel,\nVAR AnioActual = Calendario[Año]\nRETURN\nCALCULATE (\nDIVIDE ( COUNT ( 'ATENCION DOMICILIARIA'[INGRESO] ), 12, 0 ),\nKEEPFILTERS ( Calendario[Año] = AnioActual )\n)\n)\n)"
+            ],
+            [
+              "ATENCION DOMICILIARIA",
+              "ATEN_DOM2024",
+              "CALCULATE(\n[ATENCION_DM],\nCalendario[Año] = 2024\n)"
+            ],
+            [
+              "ATENCION DOMICILIARIA",
+              "ATEN_DOM2025",
+              "CALCULATE(\n[ATENCION_DM],\nCalendario[Año] = 2025\n)"
+            ],
+            [
+              "ATENCION DOMICILIARIA",
+              "ATEN_DOM2026",
+              "CALCULATE(\n[ATENCION_DM],\nCalendario[Año] = 2026\n)"
+            ],
+            [
+              "ATENCION DOMICILIARIA",
+              "PROYECCION_ATD",
+              "VAR AnnoActual = MAX ( Calendario[Año] )\nVAR MesActual = MAX ( Calendario[Mes] )\n\n-- Atenciones del mismo mes del año anterior (si AnnoActual=2026 => toma 2025)\nVAR Ate2024 =\nCALCULATE (\n[ATEN_DOM2025],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = AnnoActual - 1,\nCalendario[Mes] = MesActual\n)\n\n-- Atenciones del mismo mes pero dos años atrás (si AnnoActual=2026 => toma 2024)\nVAR Ate2025 =\nCALCULATE (\n[ATEN_DOM2024],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = AnnoActual - 2,\nCalendario[Mes] = MesActual\n)\n\n-- % crecimiento del mes (2025 vs 2024)\nVAR Crec =\nDIVIDE ( Ate2024 - Ate2025, Ate2025 )\n\n-- Valor proyectado\nVAR Proy =\nIF (\nNOT ISBLANK ( Ate2024 )\n&& NOT ISBLANK ( Ate2025 )\n&& Ate2025 <> 0,\nAte2024 * ( 1 + Crec )\n)\n\n-- Control desde el segmentador\nVAR Mostrar =\nSELECTEDVALUE ( MostrarProyeccion[Opcion], \"NO\" )\n\nRETURN\nIF ( Mostrar = \"SI\", Proy )"
+            ]
+          ],
+          "index": 9
+        },
+        {
+          "index": 11,
+          "type": "paragraph",
+          "text": "COLUMNAS CALCULADAS UTILIZADAS EN ESTE TABLERO",
+          "style": "Normal"
+        },
+        {
+          "type": "table",
+          "rows": [
+            [
+              "Tabla",
+              "Columna",
+              "DAX"
+            ],
+            [
+              "PORCENTAJE_OCUP",
+              "OCUPADA",
+              "IF(PORCENTAJE_OCUP[ESTADO]=\"OCUPADA\" || PORCENTAJE_OCUP[ESTADO]=\"2\",1,0)"
+            ],
+            [
+              "PORCENTAJE_OCUP",
+              "DISPONIBLE",
+              "IF(PORCENTAJE_OCUP[estado]=\"OCUPADA\" || PORCENTAJE_OCUP[estado]=\"1\" ||PORCENTAJE_OCUP[estado]=\"DESOCUPADA\" || PORCENTAJE_OCUP[estado]=\"MANTENIMIENTO\" || PORCENTAJE_OCUP[estado]=\"2\" || PORCENTAJE_OCUP[estado]=\"5\" || PORCENTAJE_OCUP[estado]=\"DISPONIBLE\",1,0)"
+            ],
+            [
+              "PORCENTAJE_OCUP",
+              "servicio_uni",
+              "IF(SEARCH(\"CRIT\",PORCENTAJE_OCUP[SERVICIO],1,0)<>0,\"CUIDADO CRÍTICO OBSTETRICO\",PORCENTAJE_OCUP[SERVICIO])"
+            ]
+          ],
+          "index": 12
+        },
+        {
+          "index": 14,
+          "type": "paragraph",
+          "text": "DESCRIPCIÓN DE LOS VISUALES",
+          "style": "Normal"
+        },
+        {
+          "index": 15,
+          "type": "paragraph",
+          "text": "Filtros",
+          "style": "Normal"
+        },
+        {
+          "index": 16,
+          "type": "paragraph",
+          "text": "Permiten segmentar la información por Aseguradora, Año, Mes y Diagnóstico, facilitando el análisis de las atenciones domiciliarias según los criterios seleccionados.",
+          "style": "Normal"
+        },
+        {
+          "index": 20,
+          "type": "paragraph",
+          "text": "Opción – Mostrar proyección",
+          "style": "Normal"
+        },
+        {
+          "index": 21,
+          "type": "paragraph",
+          "text": "Permite activar o desactivar la visualización de la proyección de atenciones, facilitando analizar la tendencia estimada del servicio.",
+          "style": "Normal"
+        },
+        {
+          "index": 23,
+          "type": "paragraph",
+          "text": "Gráfico de líneas – Cantidad mensual de atención domiciliaria",
+          "style": "Normal"
+        },
+        {
+          "index": 24,
+          "type": "paragraph",
+          "text": "Muestra la cantidad de atenciones domiciliarias registradas por mes, permitiendo comparar su comportamiento entre diferentes años y visualizar su tendencia.",
+          "style": "Normal"
+        },
+        {
+          "index": 26,
+          "type": "paragraph",
+          "text": "Tabla – Atenciones por aseguradora",
+          "style": "Normal"
+        },
+        {
+          "index": 27,
+          "type": "paragraph",
+          "text": "Presenta la cantidad de atenciones domiciliarias registradas por aseguradora, permitiendo identificar la distribución de pacientes por entidad.",
+          "style": "Normal"
+        },
+        {
+          "index": 30,
+          "type": "paragraph",
+          "text": "Tabla de detalle anual",
+          "style": "Normal"
+        },
+        {
+          "index": 31,
+          "type": "paragraph",
+          "text": "Muestra el consolidado mensual de atenciones domiciliarias por año, permitiendo analizar y comparar el comportamiento histórico de este indicador.",
+          "style": "Normal"
+        },
+        {
+          "index": 33,
+          "type": "paragraph",
+          "text": "Tarjetas de indicadores",
+          "style": "Normal"
+        },
+        {
+          "index": 34,
+          "type": "paragraph",
+          "text": "Atenciones: muestra el total de atenciones domiciliarias registradas.",
+          "style": "Normal"
+        },
+        {
+          "index": 35,
+          "type": "paragraph",
+          "text": "Promedio atenciones: presenta el promedio mensual de atenciones realizadas.",
+          "style": "Normal"
+        }
+      ]
+    }
+  ]
+}

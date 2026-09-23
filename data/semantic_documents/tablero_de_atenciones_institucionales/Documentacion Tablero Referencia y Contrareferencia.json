@@ -1,0 +1,55 @@
+{
+  "workspace": "Gestion Clinica",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "source_file": "Documentacion Tablero Referencia y Contrareferencia.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\Documentacion Tablero Referencia y Contrareferencia.docx",
+  "dashboards": [
+    {
+      "name": "REFERENCIA Y CONTRARREFERENCIA",
+      "description": "Este tablero permite analizar el comportamiento de las solicitudes de referencia y contrarreferencia, identificando su estado, evolución mensual y distribución general, con el fin de evaluar la gestión y el resultado de las solicitudes realizadas.",
+      "sql_queries": [
+        "REFERENCIA\nselect A.*\n,D.NOMBRE NOMBRE_ESTADO\n,C.NOMBRE NOMBRE_CAUSA\n,CASE WHEN F.GDENOMBRE LIKE '%NUEVA%' THEN 'NUEVA EPS'\nWHEN F.GDENOMBRE LIKE '%SURA%' AND F.GDENOMBRE NOT LIKE '%ARL SURA%' AND F.GDENOMBRE NOT LIKE '%SEGUROS DE VIDA SURA%' AND F.GDENOMBRE NOT LIKE '%SURAMERICANA%' THEN 'SURA'\nWHEN F.GDENOMBRE LIKE '%SANITAS%' AND F.GDENOMBRE NOT LIKE '%COLSANITAS%'\nAND F.GDENOMBRE NOT LIKE '%MEDISANITAS%' THEN 'SANITAS'\nWHEN F.GDENOMBRE LIKE '%MALLAMAS%' THEN 'MALLAMAS'\nELSE F.GDENOMBRE END ASEGURADORA\n,F.OID OID_ASEGURADORA\nfrom fact_referencia A\nLEFT JOIN DIM_CAUSAS_RECEPCION B ON A.OID=B.RECEPCIONOID\nLEFT JOIN DIM_CAUSAS C ON B.OIDCAUSA=C.OID\nLEFT JOIN DIM_ESTADOS_ACEPTACION D ON A.ESTADOSOID=D.OID\nLEFT JOIN DIM_PACIENTES E ON A.PACIENTEIDEN=E.PACNUMDOC\nLEFT JOIN DIM_ASEGURADORA F ON E.GENDETCON=F.OID\nWHERE CAST(FECHALLAM AS DATE) BETWEEN '2023-01-01' AND CAST(GETDATE() AS DATE)"
+      ],
+      "documented_measures": [],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtros",
+        "Permiten segmentar la información por Estado, Aseguradora, Año y Mes, facilitando el análisis de las solicitudes según los criterios seleccionados.",
+        "Gráfico de columnas – Solicitudes por mes, año y estado",
+        "Muestra la cantidad de solicitudes registradas por mes, clasificadas según su estado (Aceptado, Con ingreso, Es urgencia vital, No aceptado y Trámite por SES), permitiendo analizar su comportamiento en el tiempo.",
+        "Tabla de detalle anual",
+        "Presenta el consolidado mensual de solicitudes por estado y año, permitiendo validar y analizar el comportamiento histórico de las solicitudes gestionadas.",
+        "Gráfico circular – Solicitudes por estado",
+        "Muestra la distribución porcentual de las solicitudes según su estado, facilitando identificar la proporción de cada tipo dentro del total de solicitudes registradas.",
+        "Botón – Motivos no aceptación",
+        "Permite acceder a un tablero adicional donde se visualizan los motivos por los cuales las solicitudes no fueron aceptadas."
+      ],
+      "indicators": [],
+      "other_sections": []
+    },
+    {
+      "name": "MOTIVOS DE NO ACEPTACIÓN",
+      "description": "Este tablero permite analizar los motivos por los cuales las solicitudes de referencia no fueron aceptadas, facilitando identificar las principales causas y su comportamiento en el tiempo.",
+      "sql_queries": [],
+      "documented_measures": [],
+      "calculated_columns": [],
+      "filters": [],
+      "visuals": [
+        "Filtros",
+        "Permiten segmentar la información por Causa, Aseguradora, Año y Mes, facilitando el análisis de las solicitudes según los criterios seleccionados.",
+        "Gráfico de barras – Solicitudes por causa",
+        "Muestra la cantidad de solicitudes clasificadas según el motivo de no aceptación, permitiendo identificar las causas más frecuentes.",
+        "Gráfico circular – Distribución de solicitudes por causa",
+        "Presenta la proporción de solicitudes según cada motivo de no aceptación, facilitando visualizar el peso de cada causa dentro del total.",
+        "Tabla de detalle anual",
+        "Muestra el consolidado mensual de solicitudes por causa y año, permitiendo analizar su comportamiento histórico.",
+        "Tabla – Solicitudes por servicio",
+        "Presenta la cantidad de solicitudes registradas por servicio, permitiendo identificar en qué áreas se concentran las solicitudes relacionadas con las causas analizadas."
+      ],
+      "indicators": [],
+      "other_sections": []
+    }
+  ]
+}

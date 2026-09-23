@@ -1,0 +1,584 @@
+{
+  "source_file": "15 Documentacion Tablero Unidad Cardioneurovascular.docx",
+  "relative_path": "tablero_de_atenciones_institucionales\\15 Documentacion Tablero Unidad Cardioneurovascular.docx",
+  "source_folder": "tablero_de_atenciones_institucionales",
+  "workspace": "Gestion Clinica",
+  "semantic_model_key": "tablero_de_atenciones_institucionales",
+  "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+  "document_group": null,
+  "dashboards": [
+    {
+      "name": "DE UNIDAD CARDIOVASCULAR",
+      "source_file": "15 Documentacion Tablero Unidad Cardioneurovascular.docx",
+      "blocks": [
+        {
+          "index": 2,
+          "type": "paragraph",
+          "text": "Este tablero permite visualizar y analizar el comportamiento mensual de las atenciones realizadas en la Unidad Cardiovascular, mediante indicadores de cantidad y promedios. Incorpora filtros por asegurador, año y mes, que facilitan el análisis segmentado de la información. La visualización apoya el seguimiento del desempeño del servicio y la toma de decisiones operativas.",
+          "style": "No Spacing"
+        },
+        {
+          "index": 6,
+          "type": "paragraph",
+          "text": "CONSULTA UTILIZADA PARA REALIZAR ESTE TABLERO",
+          "style": "No Spacing"
+        },
+        {
+          "index": 8,
+          "type": "paragraph",
+          "text": "SELECT ADNINGRESO.AINCONSEC AS 'INGRESO',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 10,
+          "type": "paragraph",
+          "text": "CONVERT(date, SLNSERPRO.SERFECSER) AS FECHA_SERVICIO,",
+          "style": "No Spacing"
+        },
+        {
+          "index": 12,
+          "type": "paragraph",
+          "text": "GENPACIEN.PACNUMDOC AS 'IDENTIFICACION',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 13,
+          "type": "paragraph",
+          "text": "SLNSERPRO.SERCANTID AS 'CANTIDAD',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 14,
+          "type": "paragraph",
+          "text": "GENTERCER.TERNOMCOM AS 'ASEGURADOR',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 15,
+          "type": "paragraph",
+          "text": "GENARESER.GASNOMBRE AS 'SERVICIO',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 16,
+          "type": "paragraph",
+          "text": "GENSERIPS.SIPCODCUP AS 'CUPS',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 17,
+          "type": "paragraph",
+          "text": "GENSERIPS.SIPDESCUP AS 'SERVICIO',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 18,
+          "type": "paragraph",
+          "text": "CASE WHEN ADNINGRESO.AINTIPING = '1' THEN 'AMBULATORIO'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 19,
+          "type": "paragraph",
+          "text": "ELSE 'HOSPITALARIO' END AS 'TIPO_INGRESO',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 20,
+          "type": "paragraph",
+          "text": "GENMEDICO.GMENOMCOM AS 'MEDICO',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 21,
+          "type": "paragraph",
+          "text": "RTRIM(GENPACIEN.PACPRINOM) + ' ' + RTRIM(GENPACIEN.PACSEGNOM) + ' ' +",
+          "style": "No Spacing"
+        },
+        {
+          "index": 22,
+          "type": "paragraph",
+          "text": "RTRIM(GENPACIEN.PACPRIAPE) + ' ' + RTRIM(GENPACIEN.PACSEGAPE) AS 'PACIENTE',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 23,
+          "type": "paragraph",
+          "text": "GENPACIENT.PACTELEFONO AS 'TELEFONO',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 25,
+          "type": "paragraph",
+          "text": "CASE",
+          "style": "No Spacing"
+        },
+        {
+          "index": 26,
+          "type": "paragraph",
+          "text": "WHEN GENSERIPS.SIPCODCUP IN ('385720', '877201', '878201', '380803', '380810', '395081', '395061', '878902', '876390', '395024', '895801', '395031', '395216', '395220', '878101', '395302', '385820', '878111',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 27,
+          "type": "paragraph",
+          "text": "'878301', '878401', '872202', '878903', '876132', '385920', '877210', '389106', '380910', '380702', '387300', '395213', '380308', '395060', '386301', '395001', '395030', '380307', '395205', '387301', '385320', '352102', '380303') THEN 'Cirugía Vascular'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 28,
+          "type": "paragraph",
+          "text": "WHEN GENSERIPS.SIPCODCUP IN ('355204','351401') THEN 'Cirugía Cardiovascular'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 29,
+          "type": "paragraph",
+          "text": "WHEN GENSERIPS.SIPCODCUP IN ('996102', '378604', '378001', '378301', '378901', '378401', '378902', '289548', '378501', '378502', '378503', '378504', '372801', '373406', '378102', '378606', '996101', '378505',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 30,
+          "type": "paragraph",
+          "text": "'379003', '378903', '373413', '372802', '378904', '373412', '378607', '378201', '372101', '389107','378905') THEN 'Electrofisiología'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 31,
+          "type": "paragraph",
+          "text": "WHEN GENSERIPS.SIPCODCUP IN ('876122', '360101', '876110', '360402', '876130', '386402', '376100', '380404', '372302', '876131', '372301', '876121', '372102', '876140', '355102', '360600', '360102', '876123',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 32,
+          "type": "paragraph",
+          "text": "'360201', '360601', '352203', '372702', '355205','876120','376101','352103','360501','370102','360202') THEN 'Hemodinamia'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 33,
+          "type": "paragraph",
+          "text": "WHEN GENSERIPS.SIPCODCUP IN ('874133', '385120', '395010', '882840', '891000', '385220', '380110', '874301', '875101', '395018', '874132', '874130','395104') THEN 'Neurointervencionismo'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 34,
+          "type": "paragraph",
+          "text": "WHEN GENSERIPS.SIPCODCUP IN ('887002','874122') THEN 'Procedimiento de Imágenes'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 35,
+          "type": "paragraph",
+          "text": "WHEN GENSERIPS.SIPCODCUP IN ('877112', '877110', '385620', '549002', '549012', '876241', '992506', '550202', '877816', '877812', '510301', '877602', '510002', '385206', '876320', '380401', '380403', '874112',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 36,
+          "type": "paragraph",
+          "text": "'877603', '380003', '876190', '549006', '385520', '549004', '380703', '385108', '876136', '380602', '399902', '3720102','380603') THEN 'Radiología intervencionista'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 37,
+          "type": "paragraph",
+          "text": "ELSE 'OTRO' END AS 'ESPECIALIDAD',",
+          "style": "No Spacing"
+        },
+        {
+          "index": 38,
+          "type": "paragraph",
+          "text": "CASE",
+          "style": "No Spacing"
+        },
+        {
+          "index": 39,
+          "type": "paragraph",
+          "text": "WHEN GENTERCER.TERNOMCOM LIKE '%NUEVA%' THEN 'NUEVA_EPS'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 40,
+          "type": "paragraph",
+          "text": "WHEN GENTERCER.TERNOMCOM LIKE '%EPS Y MEDICINA PREPAGADA SURAMERICANA S.A%' THEN 'EPS_SURA'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 41,
+          "type": "paragraph",
+          "text": "WHEN GENTERCER.TERNOMCOM LIKE '%FIDEICOMISOS PATRIMONIOS AUTONOMOS FIDUCIARIA LA PREVISORA S.A%' THEN 'FOMAG'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 42,
+          "type": "paragraph",
+          "text": "WHEN GENTERCER.TERNOMCOM LIKE '%SEGUROS%' THEN 'ASEGURADORAS Y MP'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 43,
+          "type": "paragraph",
+          "text": "WHEN GENTERCER.TERNOMCOM LIKE '%SALUD TOTAL%' THEN 'SALUD TOTAL'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 44,
+          "type": "paragraph",
+          "text": "WHEN GENTERCER.TERNOMCOM LIKE '%COLMEDICA%' THEN 'ASEGURADORAS Y MP'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 45,
+          "type": "paragraph",
+          "text": "WHEN GENTERCER.TERNOMCOM LIKE '%COLSANITAS%' THEN 'ASEGURADORAS Y MP'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 46,
+          "type": "paragraph",
+          "text": "WHEN GENTERCER.TERNOMCOM LIKE '%DIRECCION TERRITORIAL%' THEN 'DTSC'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 47,
+          "type": "paragraph",
+          "text": "WHEN GENTERCER.TERNOMCOM LIKE '% SANITAS %' THEN 'EPS SANITAS'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 48,
+          "type": "paragraph",
+          "text": "WHEN GENTERCER.TERNOMCOM LIKE '%MEDPLUS MEDICINA PREPAGADA SA%' THEN 'ASEGURADORAS Y MP'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 49,
+          "type": "paragraph",
+          "text": "WHEN GENTERCER.TERNOMCOM LIKE '%UNIVERSIDAD NACIONAL DE COLOMBIA%' THEN 'UNISALUD'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 50,
+          "type": "paragraph",
+          "text": "WHEN GENTERCER.TERNOMCOM LIKE '%MEDISANITAS S. A. COMPAÑIA DE MEDICINA PREPAGADA%' THEN 'ASEGURADORAS Y MP'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 51,
+          "type": "paragraph",
+          "text": "ELSE 'OTRAS' END AS 'AGRUPA'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 52,
+          "type": "paragraph",
+          "text": "FROM SLNSERPRO",
+          "style": "No Spacing"
+        },
+        {
+          "index": 53,
+          "type": "paragraph",
+          "text": "INNER JOIN DIM_INGRESO ADNINGRESO ON ADNINGRESO.OID = SLNSERPRO.ADNINGRES1",
+          "style": "No Spacing"
+        },
+        {
+          "index": 54,
+          "type": "paragraph",
+          "text": "INNER JOIN SLNSERHOJ ON SLNSERPRO.OID = SLNSERHOJ.OID",
+          "style": "No Spacing"
+        },
+        {
+          "index": 55,
+          "type": "paragraph",
+          "text": "INNER JOIN DIM_GENSERIPS GENSERIPS ON GENSERIPS.OID = SLNSERHOJ.GENSERIPS1",
+          "style": "No Spacing"
+        },
+        {
+          "index": 56,
+          "type": "paragraph",
+          "text": "INNER JOIN AREA_SERVICIO GENARESER ON GENSERIPS.GENARESER1 = GENARESER.OID",
+          "style": "No Spacing"
+        },
+        {
+          "index": 57,
+          "type": "paragraph",
+          "text": "INNER JOIN DIM_MEDICO GENMEDICO ON GENMEDICO.OID = SLNSERPRO.GENMEDICO1",
+          "style": "No Spacing"
+        },
+        {
+          "index": 58,
+          "type": "paragraph",
+          "text": "INNER JOIN DIM_ASEGURADORA GENDETCON ON GENDETCON.OID = ADNINGRESO.GENDETCON",
+          "style": "No Spacing"
+        },
+        {
+          "index": 59,
+          "type": "paragraph",
+          "text": "INNER JOIN DIM_PACIENTES GENPACIEN ON GENPACIEN.OID = ADNINGRESO.GENPACIEN",
+          "style": "No Spacing"
+        },
+        {
+          "index": 60,
+          "type": "paragraph",
+          "text": "INNER JOIN GENPACIENT ON GENPACIENT.GENPACIEN = GENPACIEN.OID",
+          "style": "No Spacing"
+        },
+        {
+          "index": 61,
+          "type": "paragraph",
+          "text": "INNER JOIN DIM_ORDEN_SERVICIOS SLNORDSER ON SLNORDSER.OID = SLNSERPRO.SLNORDSER1",
+          "style": "No Spacing"
+        },
+        {
+          "index": 62,
+          "type": "paragraph",
+          "text": "INNER JOIN GENTERCER_DW GENTERCER ON GENTERCER.OID = GENDETCON.GENTERCER1",
+          "style": "No Spacing"
+        },
+        {
+          "index": 63,
+          "type": "paragraph",
+          "text": "WHERE CAST(SLNSERPRO.SERFECSER AS DATE) >= '2024-01-01'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 64,
+          "type": "paragraph",
+          "text": "AND",
+          "style": "No Spacing"
+        },
+        {
+          "index": 65,
+          "type": "paragraph",
+          "text": "GENARESER.GASCODIGO = '108' AND ADNINGRESO.AINESTADO not in ('2', '4') AND SLNORDSER.SOSESTADO != 2",
+          "style": "No Spacing"
+        },
+        {
+          "index": 66,
+          "type": "paragraph",
+          "text": "AND GENPACIENT.PACTELPRINC = '1'",
+          "style": "No Spacing"
+        },
+        {
+          "index": 67,
+          "type": "paragraph",
+          "text": "GROUP BY ADNINGRESO.AINCONSEC, SLNSERPRO.SERFECSER,",
+          "style": "No Spacing"
+        },
+        {
+          "index": 68,
+          "type": "paragraph",
+          "text": "GENPACIEN.PACNUMDOC,",
+          "style": "No Spacing"
+        },
+        {
+          "index": 69,
+          "type": "paragraph",
+          "text": "SLNSERPRO.SERCANTID,",
+          "style": "No Spacing"
+        },
+        {
+          "index": 70,
+          "type": "paragraph",
+          "text": "GENDETCON.GDENOMBRE,",
+          "style": "No Spacing"
+        },
+        {
+          "index": 71,
+          "type": "paragraph",
+          "text": "GENARESER.GASNOMBRE,",
+          "style": "No Spacing"
+        },
+        {
+          "index": 72,
+          "type": "paragraph",
+          "text": "GENSERIPS.SIPCODCUP,",
+          "style": "No Spacing"
+        },
+        {
+          "index": 73,
+          "type": "paragraph",
+          "text": "GENSERIPS.SIPDESCUP,",
+          "style": "No Spacing"
+        },
+        {
+          "index": 74,
+          "type": "paragraph",
+          "text": "ADNINGRESO.AINTIPING,",
+          "style": "No Spacing"
+        },
+        {
+          "index": 75,
+          "type": "paragraph",
+          "text": "GENMEDICO.GMENOMCOM,",
+          "style": "No Spacing"
+        },
+        {
+          "index": 76,
+          "type": "paragraph",
+          "text": "GENPACIEN.PACPRINOM, GENPACIEN.PACSEGNOM, GENPACIEN.PACPRIAPE, GENPACIEN.PACSEGAPE, GENPACIENT.PACTELEFONO, GENTERCER.TERNOMCOM",
+          "style": "No Spacing"
+        },
+        {
+          "index": 77,
+          "type": "paragraph",
+          "text": "ORDER BY GENPACIEN.PACNUMDOC",
+          "style": "No Spacing"
+        },
+        {
+          "index": 79,
+          "type": "paragraph",
+          "text": "MEDIDAS CREADAS EN ESTE TABLERO",
+          "style": "No Spacing"
+        },
+        {
+          "type": "table",
+          "rows": [
+            [
+              "Tabla",
+              "Nombre Medida",
+              "DAX"
+            ],
+            [
+              "UNIDAD_CARDIOVASCULAR",
+              "PROM_ATENCIONESUCAR",
+              "VAR MaxYearModelo =\nCALCULATE ( MAX ( Calendario[Año] ), ALL ( Calendario ) )\n\n-- Detecta si hay cualquier filtro de tiempo (año/mes/fecha)\nVAR HayFiltroTiempo =\nISCROSSFILTERED ( Calendario[Date] )\n|| ISFILTERED ( Calendario[Año] )\n|| ISFILTERED ( Calendario[Mes] )\n\nVAR AniosSel =\nFILTER ( VALUES ( Calendario[Año] ), NOT ISBLANK ( Calendario[Año] ) )\n\nRETURN\nIF (\nNOT HayFiltroTiempo,\n-- Default: año anterior SOLO cuando no hay filtros\nCALCULATE (\nDIVIDE ( COUNT ( UNIDAD_CARDIOVASCULAR[INGRESO] ), 12, 0 ),\nCalendario[Año] = MaxYearModelo - 1\n),\n-- Si hay 1 o varios años seleccionados: SUMA de promedios por año\nSUMX (\nAniosSel,\nVAR AnioActual = Calendario[Año]\nRETURN\nCALCULATE (\nDIVIDE ( COUNT ( UNIDAD_CARDIOVASCULAR[INGRESO] ), 12, 0 ),\nKEEPFILTERS ( Calendario[Año] = AnioActual )\n)\n)\n)"
+            ],
+            [
+              "UNIDAD_CARDIOVASCULAR",
+              "PROM_GENERALUCAR",
+              ""
+            ],
+            [
+              "UNIDAD_CARDIOVASCULAR",
+              "CANT_ATENCIONESUCAR",
+              "VAR MaxYearModelo =\nCALCULATE ( MAX ( Calendario[Año] ), ALL ( Calendario ) )\n\nVAR AnioSeleccionado =\nSELECTEDVALUE ( Calendario[Año] )\n\nVAR AnioAUsar =\nIF ( ISBLANK ( AnioSeleccionado ), MaxYearModelo - 1, AnioSeleccionado )\n\nRETURN\nCALCULATE (\nSUM ( UNIDAD_CARDIOVASCULAR[CANTIDAD] ),\nFILTER ( ALL ( Calendario ), Calendario[Año] = AnioAUsar )\n)"
+            ],
+            [
+              "UNIDAD_CARDIOVASCULAR",
+              "ATENCIONES",
+              "SUM('UNIDAD_CARDIOVASCULAR'[CANTIDAD])"
+            ],
+            [
+              "UNIDAD_CARDIOVASCULAR",
+              "ATE2025",
+              "CALCULATE(\n[ATENCIONES],\nCalendario[Año] = 2025\n)"
+            ],
+            [
+              "UNIDAD_CARDIOVASCULAR",
+              "ATE2024",
+              "CALCULATE(\n[ATENCIONES],\nCalendario[Año] = 2024\n)"
+            ],
+            [
+              "UNIDAD_CARDIOVASCULAR",
+              "ATE2026",
+              "CALCULATE(\n[ATENCIONES],\nCalendario[Año] = 2026\n)"
+            ],
+            [
+              "UNIDAD_CARDIOVASCULAR",
+              "PROYECCION_ATEN",
+              "VAR AnnoActual = MAX ( Calendario[Año] )\nVAR MesActual = MAX ( Calendario[Mes] )\n\n-- Atenciones del mismo mes del año anterior (si AnnoActual=2026 => toma 2025)\nVAR Ate2024 =\nCALCULATE (\n[ATE2025],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = AnnoActual - 1,\nCalendario[Mes] = MesActual\n)\n\n-- Atenciones del mismo mes pero dos años atrás (si AnnoActual=2026 => toma 2024)\nVAR Ate2025 =\nCALCULATE (\n[ATE2024],\nREMOVEFILTERS ( Calendario ),\nCalendario[Año] = AnnoActual - 2,\nCalendario[Mes] = MesActual\n)\n\n-- % crecimiento del mes (2025 vs 2024)\nVAR Crec =\nDIVIDE ( Ate2024 - Ate2025, Ate2025 )\n\n-- Valor proyectado\nVAR Proy =\nIF (\nNOT ISBLANK ( Ate2024 )\n&& NOT ISBLANK ( Ate2025 )\n&& Ate2025 <> 0,\nAte2024 * ( 1 + Crec )\n)\n\n-- Control desde el segmentador\nVAR Mostrar =\nSELECTEDVALUE ( MostrarProyeccion[Opcion], \"NO\" )\n\nRETURN\nIF ( Mostrar = \"SI\", Proy )"
+            ]
+          ],
+          "index": 81
+        },
+        {
+          "index": 83,
+          "type": "paragraph",
+          "text": "DESCRIPCION DE LOS VISUALES",
+          "style": "Normal"
+        },
+        {
+          "index": 84,
+          "type": "paragraph",
+          "text": "Filtros del tablero\nEl tablero cuenta con filtros por Asegurador, Año, Mes y Tipo de Ingreso, que permiten segmentar la información y analizar las atenciones de la Unidad Cardioneurovascular según diferentes criterios de selección.",
+          "style": "Normal"
+        },
+        {
+          "index": 86,
+          "type": "paragraph",
+          "text": "Gráfico de líneas – Cantidad mensual de atenciones\nMuestra la cantidad mensual de atenciones en la Unidad Cardioneurovascular, calculado mediante la medida PROM_ATENCIONESUCAR. Permite identificar tendencias, variaciones y comparar el comportamiento entre diferentes años.",
+          "style": "Normal"
+        },
+        {
+          "index": 90,
+          "type": "paragraph",
+          "text": "Proyección y atenciones por asegurador – Unidad Cardiovascular",
+          "style": "Normal"
+        },
+        {
+          "index": 91,
+          "type": "paragraph",
+          "text": "Permite visualizar las atenciones realizadas en la Unidad Cardiovascular según el asegurador del paciente, facilitando el análisis de la distribución de la demanda del servicio. Incluye la opción de mostrar la proyección para apoyar la planeación operativa y el seguimiento del comportamiento asistencial.",
+          "style": "Normal"
+        },
+        {
+          "index": 93,
+          "type": "paragraph",
+          "text": "Tarjetas de indicadores\nPresentan la cantidad total de atenciones y el promedio general, ofreciendo una visión rápida y resumida del volumen asistencial.",
+          "style": "Normal"
+        },
+        {
+          "index": 95,
+          "type": "paragraph",
+          "text": "Tabla de detalle\nMuestra el total de atenciones por mes y año, permitiendo validar la información presentada en los gráficos y realizar análisis detallados.",
+          "style": "Normal"
+        },
+        {
+          "index": 97,
+          "type": "paragraph",
+          "text": "Botón – Especialidad",
+          "style": "Normal"
+        },
+        {
+          "index": 98,
+          "type": "paragraph",
+          "text": "Permite acceder a un tablero adicional donde se visualiza la distribución de las atenciones por especialidad.",
+          "style": "Normal"
+        },
+        {
+          "index": 101,
+          "type": "paragraph",
+          "text": "TABLERO DE ESPECIALIDADES UNIDAD CARDIONEUROVASCULAR",
+          "style": "Heading 1"
+        },
+        {
+          "index": 103,
+          "type": "paragraph",
+          "text": "Este tablero permite analizar la distribución de las atenciones realizadas en la Unidad Cardioneurovascular según la especialidad, facilitando la identificación del volumen asistencial y su comportamiento por tipo de atención. Incluye filtros por asegurador, año y mes, que permiten realizar análisis segmentados de la información.",
+          "style": "No Spacing"
+        },
+        {
+          "index": 107,
+          "type": "paragraph",
+          "text": "DESCRIPCIÓN DE LOS VISUALES",
+          "style": "No Spacing"
+        },
+        {
+          "index": 108,
+          "type": "paragraph",
+          "text": "Gráfico Cantidad de Atenciones por Especialidad",
+          "style": "Normal"
+        },
+        {
+          "index": 109,
+          "type": "paragraph",
+          "text": "Muestra la cantidad total de atenciones por especialidad, permitiendo identificar de forma visual cuáles concentran el mayor volumen de atenciones dentro de la Unidad Cardioneurovascular.",
+          "style": "Normal"
+        },
+        {
+          "index": 111,
+          "type": "paragraph",
+          "text": "Tarjeta con el Promedio de atenciones Y cantidad atenciones \nPresenta el promedio y cantidad de atenciones por especialidad, ofreciendo una visión general del comportamiento promedio del servicio.",
+          "style": "Normal"
+        },
+        {
+          "index": 113,
+          "type": "paragraph",
+          "text": "Gráfico Distribución de servicios\nPresenta la cantidad de servicios realizados dentro de la Unidad Cardioneurovascular, permitiendo identificar los procedimientos con mayor frecuencia y apoyar el análisis de la demanda por tipo de servicio.",
+          "style": "Normal"
+        }
+      ]
+    }
+  ]
+}
