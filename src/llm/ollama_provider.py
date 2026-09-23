@@ -33,7 +33,7 @@ class OllamaProvider:
             model
             or os.getenv(
                 "OLLAMA_MODEL",
-                "qwen3:4b",
+                "qwen3:8b",
             )
         )
 
@@ -41,7 +41,7 @@ class OllamaProvider:
             timeout
             or os.getenv(
                 "OLLAMA_TIMEOUT",
-                "120",
+                "500",
             )
         )
 
