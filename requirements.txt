@@ -6,3 +6,4 @@ pyadomd
 pythonnet
 python-dotenv
 ollama
+streamlit

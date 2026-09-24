@@ -5,12 +5,6 @@ from ollama import Client, ResponseError
 
 
 class OllamaProvider:
-    """
-    Adaptador local para Ollama.
-
-    Mantener Ollama aislado en esta clase permite cambiar
-    de modelo o proveedor sin reescribir el resto del RAG.
-    """
 
     def __init__(
         self,
@@ -33,7 +27,7 @@ class OllamaProvider:
             model
             or os.getenv(
                 "OLLAMA_MODEL",
-                "qwen3:8b",
+                "qwen3:4b",
             )
         )
 
@@ -41,7 +35,7 @@ class OllamaProvider:
             timeout
             or os.getenv(
                 "OLLAMA_TIMEOUT",
-                "500",
+                "60",
             )
         )
 
@@ -49,7 +43,7 @@ class OllamaProvider:
             keep_alive
             or os.getenv(
                 "OLLAMA_KEEP_ALIVE",
-                "10m",
+                "30m",
             )
         )
 
@@ -61,7 +55,6 @@ class OllamaProvider:
     def healthcheck(self):
         try:
             response = self.client.list()
-
             models = getattr(
                 response,
                 "models",
@@ -72,31 +65,17 @@ class OllamaProvider:
 
             for item in models:
                 name = (
-                    getattr(
-                        item,
-                        "model",
-                        None,
-                    )
-                    or getattr(
-                        item,
-                        "name",
-                        None,
-                    )
+                    getattr(item, "model", None)
+                    or getattr(item, "name", None)
                 )
 
                 if name:
-                    installed.append(
-                        str(name)
-                    )
+                    installed.append(str(name))
 
             model_available = any(
                 name == self.model
-                or name.startswith(
-                    f"{self.model}:"
-                )
-                or self.model.startswith(
-                    f"{name}:"
-                )
+                or name.startswith(f"{self.model}:")
+                or self.model.startswith(f"{name}:")
                 for name in installed
             )
 
@@ -119,11 +98,43 @@ class OllamaProvider:
                 "error": str(exc),
             }
 
+    def warmup(self):
+        try:
+            self.client.chat(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Responde únicamente: OK",
+                    }
+                ],
+                stream=False,
+                think=False,
+                keep_alive=self.keep_alive,
+                options={
+                    "temperature": 0,
+                    "num_predict": 5,
+                    "num_ctx": 2048,
+                },
+            )
+
+            return {
+                "status": "ready",
+                "model": self.model,
+            }
+
+        except Exception as exc:
+            return {
+                "status": "error",
+                "model": self.model,
+                "error": str(exc),
+            }
+
     def chat(
         self,
         messages,
         temperature=0.1,
-        max_tokens=450,
+        max_tokens=220,
         think=False,
     ):
         try:
@@ -136,6 +147,7 @@ class OllamaProvider:
                 options={
                     "temperature": temperature,
                     "num_predict": max_tokens,
+                    "num_ctx": 4096,
                 },
             )
 
