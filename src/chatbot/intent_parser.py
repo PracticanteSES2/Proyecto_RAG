@@ -417,7 +417,6 @@ class IntentParser:
         dashboard,
         metric_type
     ):
-
         missing = []
 
         intents_requiring_dashboard = [
@@ -432,17 +431,6 @@ class IntentParser:
         ):
             missing.append(
                 "dashboard"
-            )
-
-        # Si sabemos que quiere consultar una métrica
-        # pero no sabemos qué tipo de cálculo,
-        # podemos pedir precisión.
-        if (
-            intent == "query_metric"
-            and not metric_type
-        ):
-            missing.append(
-                "metric"
             )
 
         return missing

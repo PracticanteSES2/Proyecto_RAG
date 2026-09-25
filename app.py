@@ -17,9 +17,24 @@ from src.dax.dax_validator import DAXValidator
 from src.providers.powerbi_provider import PowerBIProvider
 from src.llm.ollama_provider import OllamaProvider
 
+from src.semantic.master_metric_resolver import (MasterMetricResolver)
+from src.dax.master_metric_dax_generator import (MasterMetricDAXGenerator)
+
 PROJECT_ROOT = Path(__file__).resolve().parent
 QDRANT_PATH = PROJECT_ROOT / "data" / "vector_db" / "qdrant"
 TECHNICAL_CATALOG = PROJECT_ROOT / "data" / "catalog" / "tablero_de_atenciones_institucionales_rag.json"
+CERTIFIED_METRICS = (
+    PROJECT_ROOT
+    / "data"
+    / "catalog"
+    / "certified_metrics.json"
+)
+MASTER_METRICS = (
+    PROJECT_ROOT
+    / "data"
+    / "rag"
+    / "master_metrics.json"
+)
 
 @st.cache_resource
 def build_system():
@@ -32,6 +47,9 @@ def build_system():
     business_filter_resolver = BusinessFilterResolver(TECHNICAL_CATALOG, powerbi_provider)
     ollama_provider = OllamaProvider()
     ollama_status = ollama_provider.healthcheck()
+    master_metric_resolver = (MasterMetricResolver(MASTER_METRICS))
+    master_metric_dax_generator = (MasterMetricDAXGenerator())
+
     if ollama_status.get("status") == "ready":
         warmup = getattr(ollama_provider, "warmup", None)
         if callable(warmup):
@@ -52,6 +70,27 @@ def build_system():
         dax_validator=DAXValidator(TECHNICAL_CATALOG),
         powerbi_provider=powerbi_provider,
         rag_answer_engine=rag_answer_engine,
+        master_metric_resolver=master_metric_resolver,
+        master_metric_dax_generator=master_metric_dax_generator,
+    )
+
+    print("--------------------------------------------------------------------------------------")
+
+    print(
+        "\nMASTER METRICS:",
+        MASTER_METRICS.resolve()
+    )
+
+    print(
+        "MASTER RESOLVER ACTIVO:",
+        type(
+            engine.master_metric_resolver
+        ).__name__
+    )
+
+    print(
+        "QUERY ENGINE:",
+        engine.__class__
     )
     return engine, conversation_manager, ResponseFormatter(), ollama_status
 
