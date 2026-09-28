@@ -27,7 +27,7 @@ class OllamaProvider:
             model
             or os.getenv(
                 "OLLAMA_MODEL",
-                "qwen3:4b",
+                "qwen3:8b",
             )
         )
 

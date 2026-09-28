@@ -1,8 +1,10 @@
 import os
 import sys
+import threading
 from pathlib import Path
 
 from dotenv import load_dotenv
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
@@ -10,42 +12,74 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 class PowerBIProvider:
 
-    def __init__(self, endpoint=None, default_semantic_model=None):
+    def __init__(
+        self,
+        endpoint=None,
+        default_semantic_model=None,
+    ):
 
-        self.endpoint = endpoint or os.getenv("POWERBI_XMLA_ENDPOINT")
-        self.default_semantic_model = (
-            default_semantic_model
-            or os.getenv("POWERBI_SEMANTIC_MODEL")
+        self.endpoint = (
+            endpoint
+            or os.getenv(
+                "POWERBI_XMLA_ENDPOINT"
+            )
         )
 
-        self.adomd_path = os.getenv("ADOMD_PATH")
-        self.identity_path = os.getenv("IDENTITY_PATH")
+        self.default_semantic_model = (
+            default_semantic_model
+            or os.getenv(
+                "POWERBI_SEMANTIC_MODEL"
+            )
+        )
+
+        self.adomd_path = os.getenv(
+            "ADOMD_PATH"
+        )
+
+        self.identity_path = os.getenv(
+            "IDENTITY_PATH"
+        )
 
         if not self.endpoint:
             raise ValueError(
-                "POWERBI_XMLA_ENDPOINT no está configurado."
+                "POWERBI_XMLA_ENDPOINT "
+                "no está configurado."
             )
 
         self._connections = {}
 
+        # Evita aperturas/consultas concurrentes sobre
+        # la misma conexión desde reruns o sesiones.
+        self._connection_lock = (
+            threading.RLock()
+        )
+
         self._load_dotnet_dependencies()
 
+    # ========================================================
+    # DEPENDENCIAS
+    # ========================================================
 
-    def _load_dotnet_dependencies(self):
+    def _load_dotnet_dependencies(
+        self
+    ):
 
         if not self.adomd_path:
             raise ValueError(
-                "ADOMD_PATH no está configurado en .env"
+                "ADOMD_PATH no está "
+                "configurado en .env"
             )
 
         if not self.identity_path:
             raise ValueError(
-                "IDENTITY_PATH no está configurado en .env"
+                "IDENTITY_PATH no está "
+                "configurado en .env"
             )
 
         adomd_dll = (
             Path(self.adomd_path)
-            / "Microsoft.AnalysisServices.AdomdClient.dll"
+            / "Microsoft.AnalysisServices."
+              "AdomdClient.dll"
         )
 
         identity_dll = (
@@ -55,25 +89,42 @@ class PowerBIProvider:
 
         if not adomd_dll.exists():
             raise FileNotFoundError(
-                f"No se encontró: {adomd_dll}"
+                f"No se encontró: "
+                f"{adomd_dll}"
             )
 
         if not identity_dll.exists():
             raise FileNotFoundError(
-                f"No se encontró: {identity_dll}"
+                f"No se encontró: "
+                f"{identity_dll}"
             )
 
-        if self.identity_path not in sys.path:
-            sys.path.insert(0, self.identity_path)
+        if (
+            self.identity_path
+            not in sys.path
+        ):
+            sys.path.insert(
+                0,
+                self.identity_path,
+            )
 
-        if self.adomd_path not in sys.path:
-            sys.path.append(self.adomd_path)
+        if (
+            self.adomd_path
+            not in sys.path
+        ):
+            sys.path.append(
+                self.adomd_path
+            )
 
         import clr
 
-        clr.AddReference("Microsoft.Identity.Client")
         clr.AddReference(
-            "Microsoft.AnalysisServices.AdomdClient"
+            "Microsoft.Identity.Client"
+        )
+
+        clr.AddReference(
+            "Microsoft.AnalysisServices."
+            "AdomdClient"
         )
 
         from Microsoft.AnalysisServices.AdomdClient import (
@@ -81,25 +132,40 @@ class PowerBIProvider:
             AdomdRestrictionCollection,
         )
 
-        self.AdomdConnection = AdomdConnection
+        self.AdomdConnection = (
+            AdomdConnection
+        )
+
         self.AdomdRestrictionCollection = (
             AdomdRestrictionCollection
         )
 
+    # ========================================================
+    # CONEXIÓN
+    # ========================================================
 
-    def _resolve_semantic_model(self, semantic_model=None):
+    def _resolve_semantic_model(
+        self,
+        semantic_model=None,
+    ):
 
-        model = semantic_model or self.default_semantic_model
+        model = (
+            semantic_model
+            or self.default_semantic_model
+        )
 
         if not model:
             raise ValueError(
-                "No se indicó un modelo semántico."
+                "No se indicó un modelo "
+                "semántico."
             )
 
         return model
 
-
-    def _build_connection_string(self, semantic_model=None):
+    def _build_connection_string(
+        self,
+        semantic_model=None,
+    ):
 
         connection_string = (
             f"Data Source={self.endpoint};"
@@ -107,9 +173,13 @@ class PowerBIProvider:
 
         if semantic_model:
             connection_string += (
-                f"Initial Catalog={semantic_model};"
+                f"Initial Catalog="
+                f"{semantic_model};"
             )
 
+        # IMPORTANTE:
+        # Interactive Login=Always no es problema
+        # mientras la conexión se abra UNA sola vez.
         connection_string += (
             "Interactive Login=Always;"
             "Identity Mode=Process;"
@@ -117,8 +187,10 @@ class PowerBIProvider:
 
         return connection_string
 
-
-    def _connection_key(self, semantic_model=None):
+    def _connection_key(
+        self,
+        semantic_model=None,
+    ):
 
         return (
             semantic_model
@@ -126,23 +198,32 @@ class PowerBIProvider:
             else "__workspace__"
         )
 
-
-    def _is_connection_open(self, connection):
+    def _is_connection_open(
+        self,
+        connection,
+    ):
 
         try:
             return (
                 connection is not None
-                and connection.State.ToString() == "Open"
+                and
+                connection.State.ToString()
+                == "Open"
             )
+
         except Exception:
             return False
 
+    def _create_connection(
+        self,
+        semantic_model=None,
+    ):
 
-    def _create_connection(self, semantic_model=None):
-
-        connection = self.AdomdConnection(
-            self._build_connection_string(
-                semantic_model
+        connection = (
+            self.AdomdConnection(
+                self._build_connection_string(
+                    semantic_model
+                )
             )
         )
 
@@ -150,194 +231,336 @@ class PowerBIProvider:
 
         return connection
 
+    def _invalidate_connection(
+        self,
+        semantic_model=None,
+    ):
 
-    def _get_connection(self, semantic_model=None):
+        key = self._connection_key(
+            semantic_model
+        )
+
+        connection = (
+            self._connections.pop(
+                key,
+                None,
+            )
+        )
+
+        if connection is None:
+            return
+
+        try:
+            connection.Close()
+        except Exception:
+            pass
+
+        try:
+            connection.Dispose()
+        except Exception:
+            pass
+
+    def _get_connection(
+        self,
+        semantic_model=None,
+    ):
         """
-        Reutiliza una conexión abierta por modelo semántico.
-        La primera llamada puede solicitar autenticación.
-        Las siguientes reutilizan la misma sesión.
+        Devuelve una única conexión persistente
+        por modelo semántico.
         """
 
         key = self._connection_key(
             semantic_model
         )
 
-        connection = self._connections.get(
-            key
-        )
+        with self._connection_lock:
 
-        if self._is_connection_open(connection):
-            return connection
-
-        if connection is not None:
-
-            try:
-                connection.Close()
-            except Exception:
-                pass
-
-            try:
-                connection.Dispose()
-            except Exception:
-                pass
-
-            self._connections.pop(
-                key,
-                None
+            connection = (
+                self._connections.get(
+                    key
+                )
             )
 
-        connection = self._create_connection(
-            semantic_model
+            if self._is_connection_open(
+                connection
+            ):
+                return connection
+
+            if connection is not None:
+                self._invalidate_connection(
+                    semantic_model
+                )
+
+            connection = (
+                self._create_connection(
+                    semantic_model
+                )
+            )
+
+            self._connections[
+                key
+            ] = connection
+
+            return connection
+
+    def connect(
+        self,
+        semantic_model=None,
+    ):
+        """
+        Fuerza la autenticación al iniciar
+        la aplicación y conserva la sesión.
+        """
+
+        model = (
+            self._resolve_semantic_model(
+                semantic_model
+            )
         )
-
-        self._connections[key] = connection
-
-        return connection
-
-
-    def list_semantic_models(self):
 
         try:
 
-            connection = self._get_connection(
-                semantic_model=None
+            connection = (
+                self._get_connection(
+                    model
+                )
             )
-
-            restrictions = (
-                self.AdomdRestrictionCollection()
-            )
-
-            dataset = connection.GetSchemaDataSet(
-                "DBSCHEMA_CATALOGS",
-                restrictions
-            )
-
-            table = dataset.Tables[0]
-
-            models = [
-                str(row["CATALOG_NAME"])
-                for row in table.Rows
-            ]
 
             return {
-                "status": "success",
-                "models": models,
-                "count": len(models),
+                "status":
+                    "success",
+                "semantic_model":
+                    model,
+                "connection_open":
+                    self._is_connection_open(
+                        connection
+                    ),
+                "connection_count":
+                    self.connection_count(),
             }
 
         except Exception as error:
 
             return {
-                "status": "error",
+                "status":
+                    "error",
+                "semantic_model":
+                    model,
+                "connection_open":
+                    False,
                 "error_type":
                     type(error).__name__,
                 "error":
                     str(error),
             }
 
+    # ========================================================
+    # MODELOS
+    # ========================================================
+
+    def list_semantic_models(
+        self
+    ):
+
+        try:
+
+            with self._connection_lock:
+
+                connection = (
+                    self._get_connection(
+                        semantic_model=None
+                    )
+                )
+
+                restrictions = (
+                    self.AdomdRestrictionCollection()
+                )
+
+                dataset = (
+                    connection
+                    .GetSchemaDataSet(
+                        "DBSCHEMA_CATALOGS",
+                        restrictions,
+                    )
+                )
+
+                table = (
+                    dataset.Tables[0]
+                )
+
+                models = [
+                    str(
+                        row["CATALOG_NAME"]
+                    )
+                    for row
+                    in table.Rows
+                ]
+
+            return {
+                "status":
+                    "success",
+                "models":
+                    models,
+                "count":
+                    len(models),
+            }
+
+        except Exception as error:
+
+            return {
+                "status":
+                    "error",
+                "error_type":
+                    type(error).__name__,
+                "error":
+                    str(error),
+            }
+
+    # ========================================================
+    # DAX
+    # ========================================================
 
     def execute_dax(
         self,
         dax,
-        semantic_model=None
+        semantic_model=None,
     ):
 
-        model = self._resolve_semantic_model(
-            semantic_model
+        model = (
+            self._resolve_semantic_model(
+                semantic_model
+            )
         )
 
         reader = None
         command = None
+        connection = None
 
         try:
 
-            connection = self._get_connection(
-                model
-            )
+            # Una sola operación por conexión al mismo tiempo.
+            with self._connection_lock:
 
-            command = connection.CreateCommand()
-            command.CommandText = dax
-
-            reader = command.ExecuteReader()
-
-            columns = [
-                reader.GetName(index)
-                for index
-                in range(reader.FieldCount)
-            ]
-
-            rows = []
-
-            while reader.Read():
-
-                row = {}
-
-                for index, column in enumerate(
-                    columns
-                ):
-
-                    value = reader.GetValue(
-                        index
+                connection = (
+                    self._get_connection(
+                        model
                     )
+                )
 
-                    if (
-                        value is not None
-                        and not isinstance(
-                            value,
-                            (
-                                str,
-                                int,
-                                float,
-                                bool,
+                command = (
+                    connection
+                    .CreateCommand()
+                )
+
+                command.CommandText = dax
+
+                reader = (
+                    command.ExecuteReader()
+                )
+
+                columns = [
+                    reader.GetName(index)
+                    for index
+                    in range(
+                        reader.FieldCount
+                    )
+                ]
+
+                rows = []
+
+                while reader.Read():
+
+                    row = {}
+
+                    for (
+                        index,
+                        column,
+                    ) in enumerate(
+                        columns
+                    ):
+
+                        value = (
+                            reader.GetValue(
+                                index
                             )
                         )
-                    ):
-                        value = str(value)
 
-                    row[column] = value
+                        if (
+                            value is not None
+                            and not isinstance(
+                                value,
+                                (
+                                    str,
+                                    int,
+                                    float,
+                                    bool,
+                                ),
+                            )
+                        ):
+                            value = str(
+                                value
+                            )
 
-                rows.append(row)
+                        row[column] = value
 
-            return {
-                "status": "success",
-                "semantic_model": model,
-                "columns": columns,
-                "rows": rows,
-                "row_count": len(rows),
-            }
+                    rows.append(
+                        row
+                    )
+
+                return {
+                    "status":
+                        "success",
+                    "semantic_model":
+                        model,
+                    "columns":
+                        columns,
+                    "rows":
+                        rows,
+                    "row_count":
+                        len(rows),
+                }
 
         except Exception as error:
+            """
+            CRÍTICO:
+            Un error DAX NO significa que la conexión
+            haya muerto.
 
-            key = self._connection_key(
-                model
-            )
+            Antes se eliminaba la conexión ante CUALQUIER
+            excepción. Como Interactive Login=Always está
+            activo, la siguiente consulta abría otra conexión
+            y volvía a mostrar el login.
 
-            stale_connection = (
-                self._connections.pop(
-                    key,
-                    None
+            Ahora solo invalidamos la conexión si realmente
+            dejó de estar abierta.
+            """
+
+            if (
+                connection is not None
+                and not self._is_connection_open(
+                    connection
                 )
-            )
-
-            if stale_connection is not None:
-
-                try:
-                    stale_connection.Close()
-                except Exception:
-                    pass
-
-                try:
-                    stale_connection.Dispose()
-                except Exception:
-                    pass
+            ):
+                self._invalidate_connection(
+                    model
+                )
 
             return {
-                "status": "error",
-                "semantic_model": model,
+                "status":
+                    "error",
+                "semantic_model":
+                    model,
                 "error_type":
                     type(error).__name__,
                 "error":
                     str(error),
+                "connection_kept":
+                    (
+                        connection is not None
+                        and self._is_connection_open(
+                            connection
+                        )
+                    ),
             }
 
         finally:
@@ -361,71 +584,76 @@ class PowerBIProvider:
                 except Exception:
                     pass
 
-
     def execute_validated(
         self,
         validation_result,
-        semantic_model=None
+        semantic_model=None,
     ):
 
         if not validation_result.get(
             "valid",
-            False
+            False,
         ):
             return {
-                "status": "rejected",
+                "status":
+                    "rejected",
                 "reason":
                     "dax_not_validated",
                 "errors":
                     validation_result.get(
                         "errors",
-                        []
+                        [],
                     ),
             }
 
-        dax = validation_result.get("dax")
+        dax = validation_result.get(
+            "dax"
+        )
 
         if not dax:
             return {
-                "status": "rejected",
+                "status":
+                    "rejected",
                 "reason":
                     "missing_dax",
             }
 
         return self.execute_dax(
             dax=dax,
-            semantic_model=semantic_model,
+            semantic_model=
+                semantic_model,
         )
 
+    # ========================================================
+    # CIERRE / DIAGNÓSTICO
+    # ========================================================
 
-    def close(self):
-        """
-        Cierra todas las conexiones persistentes.
-        """
+    def close(
+        self
+    ):
 
-        for connection in list(
-            self._connections.values()
-        ):
+        with self._connection_lock:
 
-            try:
-                if (
-                    connection is not None
-                    and connection.State.ToString()
-                    != "Closed"
-                ):
-                    connection.Close()
-            except Exception:
-                pass
+            keys = list(
+                self._connections.keys()
+            )
 
-            try:
-                connection.Dispose()
-            except Exception:
-                pass
+            for key in keys:
 
-        self._connections.clear()
+                semantic_model = (
+                    None
+                    if key
+                    == "__workspace__"
+                    else key
+                )
 
+                self._invalidate_connection(
+                    semantic_model
+                )
 
-    def connection_count(self):
+    def connection_count(
+        self
+    ):
 
         return sum(
             1

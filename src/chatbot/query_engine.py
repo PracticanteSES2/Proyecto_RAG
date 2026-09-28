@@ -15,6 +15,7 @@ class QueryEngine:
         dax_validator,
         powerbi_provider,
         rag_answer_engine,
+        query_semantic_planner=None,
     ):
 
         self.conversation_manager = (
@@ -58,6 +59,12 @@ class QueryEngine:
 
         self.rag_answer_engine = (
             rag_answer_engine
+        )
+
+        # Capa previa que separa:
+        # métrica + dimensión + valor de dimensión.
+        self.query_semantic_planner = (
+            query_semantic_planner
         )
 
         # Estado de conversación para una ambigüedad
@@ -345,11 +352,18 @@ class QueryEngine:
             or ""
         )
 
+        metric_question = (
+            original_intent.get(
+                "_metric_question"
+            )
+            or original_question
+        )
+
         metric_result = (
             self.master_metric_resolver
             .resolve(
                 question=
-                    original_question,
+                    metric_question,
                 dashboard=
                     selected_dashboard,
             )
@@ -404,6 +418,7 @@ class QueryEngine:
         intent_result,
         dashboard,
         semantic_model,
+        preferred_tables=None,
     ):
         resolved_intent = (
             intent_result.copy()
@@ -440,6 +455,10 @@ class QueryEngine:
             .resolve(
                 question=(
                     resolved_intent.get(
+                        "_filter_question"
+                    )
+                    or
+                    resolved_intent.get(
                         "original_question"
                     )
                     or ""
@@ -448,6 +467,8 @@ class QueryEngine:
                     dashboard,
                 semantic_model=
                     semantic_model,
+                preferred_tables=
+                    preferred_tables,
             )
         )
 
@@ -575,6 +596,10 @@ class QueryEngine:
         )
 
         dashboard = (
+            intent_result.get(
+                "_dashboard_hint"
+            )
+            or
             master_result.get(
                 "resolved_dashboard"
             )
@@ -583,22 +608,118 @@ class QueryEngine:
             )
         )
 
-        # En medidas explícitas el dashboard puede estar
-        # solamente dentro de appearances.
+        # Si el planner encontró un valor de dimensión, su dashboard
+        # es una señal fuerte de contexto para esta consulta.
         if not dashboard:
 
-            appearances = metric.get(
-                "appearances",
+            dimension_dashboards = []
+
+            for item in intent_result.get(
+                "_dimension_matches",
                 [],
+            ):
+                value = item.get(
+                    "dashboard"
+                )
+
+                if (
+                    value
+                    and value not in dimension_dashboards
+                ):
+                    dimension_dashboards.append(
+                        value
+                    )
+
+            appearances = (
+                metric.get(
+                    "appearances",
+                    [],
+                )
+                or []
             )
 
-            if appearances:
-                dashboard = (
-                    appearances[0]
-                    .get(
-                        "page_display_name"
-                    )
+            appearance_dashboards = []
+
+            for appearance in appearances:
+
+                page = appearance.get(
+                    "page_display_name"
                 )
+
+                if (
+                    page
+                    and page not in appearance_dashboards
+                ):
+                    appearance_dashboards.append(
+                        page
+                    )
+
+            # Si la dimensión y las apariciones coinciden en una sola página,
+            # usamos esa página.
+            intersection = [
+                value
+                for value in dimension_dashboards
+                if value in appearance_dashboards
+            ]
+
+            if len(intersection) == 1:
+                dashboard = intersection[0]
+
+            elif (
+                len(dimension_dashboards) == 1
+                and not appearance_dashboards
+            ):
+                dashboard = dimension_dashboards[0]
+
+            elif len(appearance_dashboards) == 1:
+                dashboard = appearance_dashboards[0]
+
+            elif len(appearance_dashboards) > 1:
+
+                self._pending_master_metric = {
+                    "intent_result":
+                        intent_result.copy(),
+                    "options":
+                        appearance_dashboards,
+                    "master_result":
+                        master_result,
+                }
+
+                return {
+                    "status":
+                        "needs_clarification",
+                    "route":
+                        "clarification",
+                    "question":
+                        self._build_master_clarification_question(
+                            appearance_dashboards
+                        ),
+                    "clarification_type":
+                        "master_metric_dashboard",
+                    "clarification_options":
+                        appearance_dashboards,
+                }
+
+        if not dashboard:
+
+            return {
+                "status":
+                    "needs_clarification",
+                "route":
+                    "clarification",
+                "question":
+                    (
+                        "Identifiqué el indicador, pero no pude "
+                        "determinar con seguridad el tablero o "
+                        "servicio donde debe consultarse."
+                    ),
+                "clarification_type":
+                    "metric_context",
+                "metric":
+                    metric.get(
+                        "label"
+                    ),
+            }
 
         semantic_model = (
             metric.get(
@@ -617,6 +738,11 @@ class QueryEngine:
                     dashboard,
                 semantic_model=
                     semantic_model,
+                preferred_tables=[
+                    metric.get(
+                        "table"
+                    )
+                ],
             )
         )
 
@@ -739,6 +865,15 @@ class QueryEngine:
                 filters_bundle[
                     "business_filters"
                 ],
+            "dimension_matches":
+                resolved_intent.get(
+                    "_dimension_matches",
+                    [],
+                ),
+            "metric_question":
+                resolved_intent.get(
+                    "_metric_question"
+                ),
             "value":
                 value,
             "dax":
@@ -805,6 +940,11 @@ class QueryEngine:
                     dashboard,
                 semantic_model=
                     semantic_model,
+                preferred_tables=[
+                    metric_result.get(
+                        "table"
+                    )
+                ],
             )
         )
 
@@ -1139,22 +1279,138 @@ class QueryEngine:
         # ----------------------------------------------------
 
         # IMPORTANTE:
-        # En la primera resolución NO pasamos el dashboard heredado
-        # por ConversationManager/IntentParser. Ese valor puede venir
-        # de una consulta anterior y contaminar la selección.
+        # Primero separamos la pregunta en:
+        #   - pregunta para resolver la métrica
+        #   - valores de dimensiones/filtros de negocio
         #
-        # MasterMetricResolver debe inferir el dashboard directamente
-        # desde la pregunta actual. Solo pasamos dashboard de forma
-        # explícita después de que el usuario responda una contrapregunta.
+        # Ejemplo:
+        # "¿Cuántas cirugías plásticas se han realizado?"
+        #   -> métrica: cirugías realizadas
+        #   -> filtro: ESPECIALIDAD = CIRUGIA PLASTICA
+
+        original_question = (
+            intent_result.get(
+                "original_question"
+            )
+            or message
+        )
+
+        metric_question = (
+            original_question
+        )
+
+        if self.query_semantic_planner:
+
+            try:
+
+                semantic_plan = (
+                    self.query_semantic_planner
+                    .plan(
+                        question=
+                            original_question,
+                        semantic_model=
+                            self.powerbi_provider
+                            .default_semantic_model,
+                    )
+                )
+
+                metric_question = (
+                    semantic_plan.get(
+                        "metric_question"
+                    )
+                    or original_question
+                )
+
+                intent_result[
+                    "_metric_question"
+                ] = metric_question
+
+                intent_result[
+                    "_filter_question"
+                ] = (
+                    semantic_plan.get(
+                        "filter_question"
+                    )
+                    or original_question
+                )
+
+                intent_result[
+                    "_dimension_matches"
+                ] = (
+                    semantic_plan.get(
+                        "dimension_matches",
+                        [],
+                    )
+                )
+
+                intent_result[
+                    "_dashboard_hint"
+                ] = (
+                    semantic_plan.get(
+                        "dashboard_hint"
+                    )
+                )
+
+            except Exception as error:
+
+                # Fallback seguro: una falla del planner no debe tumbar
+                # todo el chat. El resolver tradicional sigue disponible.
+                intent_result[
+                    "_semantic_plan_error"
+                ] = (
+                    f"{type(error).__name__}: "
+                    f"{error}"
+                )
+
+                intent_result[
+                    "_metric_question"
+                ] = original_question
+
+                intent_result[
+                    "_filter_question"
+                ] = original_question
+
+                intent_result[
+                    "_dimension_matches"
+                ] = []
+
+                intent_result[
+                    "_dashboard_hint"
+                ] = None
+
+        else:
+
+            intent_result[
+                "_metric_question"
+            ] = original_question
+
+            intent_result[
+                "_filter_question"
+            ] = original_question
+
+            intent_result[
+                "_dimension_matches"
+            ] = []
+
+            intent_result[
+                "_dashboard_hint"
+            ] = None
+
+        # El dashboard_hint proviene de valores reales de dimensiones
+        # detectados en la pregunta actual; no es contexto heredado.
+        dashboard_hint = (
+            intent_result.get(
+                "_dashboard_hint"
+            )
+        )
+
         master_result = (
             self.master_metric_resolver
             .resolve(
-                question=(
-                    intent_result.get(
-                        "original_question"
-                    )
-                    or message
-                )
+                question=
+                    metric_question,
+                dashboard=
+                    dashboard_hint,
             )
         )
 

@@ -23,6 +23,7 @@ REGLAS OBLIGATORIAS:
    en la evidencia.
 9. No confundas información documental con un valor actual de Power BI.
 10. Sé breve: normalmente 1 a 3 párrafos.
+11. Si la pregunta se hace en español, responde en español. Si se hace en inglés, responde en inglés.
 """.strip()
 
     def __init__(

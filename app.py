@@ -16,24 +16,31 @@ from src.dax.dax_generator import DAXGenerator
 from src.dax.dax_validator import DAXValidator
 from src.providers.powerbi_provider import PowerBIProvider
 from src.llm.ollama_provider import OllamaProvider
-
-from src.semantic.master_metric_resolver import (MasterMetricResolver)
-from src.dax.master_metric_dax_generator import (MasterMetricDAXGenerator)
+from src.semantic.query_semantic_planner import (
+    QuerySemanticPlanner
+)
+from src.semantic.master_metric_resolver import (
+    MasterMetricResolver
+)
+from src.dax.master_metric_dax_generator import (
+    MasterMetricDAXGenerator
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 QDRANT_PATH = PROJECT_ROOT / "data" / "vector_db" / "qdrant"
 TECHNICAL_CATALOG = PROJECT_ROOT / "data" / "catalog" / "tablero_de_atenciones_institucionales_rag.json"
-CERTIFIED_METRICS = (
-    PROJECT_ROOT
-    / "data"
-    / "catalog"
-    / "certified_metrics.json"
-)
 MASTER_METRICS = (
     PROJECT_ROOT
     / "data"
     / "rag"
     / "master_metrics.json"
+)
+
+VISUAL_METRICS_CATALOG = (
+    PROJECT_ROOT
+    / "data"
+    / "rag"
+    / "visual_metrics_catalog.json"
 )
 
 @st.cache_resource
@@ -44,11 +51,35 @@ def build_system():
     metric_resolver = MetricResolver(retriever, debug=False)
     filter_resolver = FilterResolver(TECHNICAL_CATALOG)
     powerbi_provider = PowerBIProvider()
-    business_filter_resolver = BusinessFilterResolver(TECHNICAL_CATALOG, powerbi_provider)
+    powerbi_connection = (powerbi_provider.connect())
+    business_filter_resolver = BusinessFilterResolver(
+        TECHNICAL_CATALOG,
+        powerbi_provider,
+        visual_metrics_catalog_path=
+            VISUAL_METRICS_CATALOG,
+    )
     ollama_provider = OllamaProvider()
     ollama_status = ollama_provider.healthcheck()
-    master_metric_resolver = (MasterMetricResolver(MASTER_METRICS))
-    master_metric_dax_generator = (MasterMetricDAXGenerator())
+    master_metric_resolver = (
+        MasterMetricResolver(
+            MASTER_METRICS
+        )
+    )
+
+    master_metric_dax_generator = (
+        MasterMetricDAXGenerator()
+    )
+
+    query_semantic_planner = (
+        QuerySemanticPlanner(
+            master_metric_resolver=
+                master_metric_resolver,
+            business_filter_resolver=
+                business_filter_resolver,
+            powerbi_provider=
+                powerbi_provider,
+        )
+    )
 
     if ollama_status.get("status") == "ready":
         warmup = getattr(ollama_provider, "warmup", None)
@@ -72,6 +103,7 @@ def build_system():
         rag_answer_engine=rag_answer_engine,
         master_metric_resolver=master_metric_resolver,
         master_metric_dax_generator=master_metric_dax_generator,
+        query_semantic_planner=query_semantic_planner,
     )
 
     print("--------------------------------------------------------------------------------------")
@@ -92,7 +124,7 @@ def build_system():
         "QUERY ENGINE:",
         engine.__class__
     )
-    return engine, conversation_manager, ResponseFormatter(), ollama_status
+    return engine, conversation_manager, ResponseFormatter(), ollama_status, powerbi_connection
 
 def get_display_answer(result, formatter):
     status = result.get("status")
@@ -128,7 +160,7 @@ st.set_page_config(page_title="Asistente de Gestión Clínica", page_icon="📊"
 st.title("📊 Asistente de Gestión Clínica")
 st.caption("Consultas sobre tableros institucionales con RAG, Power BI y Qwen local.")
 
-engine, conversation_manager, formatter, ollama_status = build_system()
+engine, conversation_manager, formatter, ollama_status, powerbi_connection = build_system()
 
 with st.sidebar:
     st.subheader("Estado del sistema")
@@ -136,10 +168,36 @@ with st.sidebar:
         st.success("Qwen local: disponible")
     else:
         st.warning("Qwen local: no disponible")
+    if (
+        powerbi_connection.get(
+            "status"
+        )
+        == "success"
+    ):
+
+        st.success(
+            "Power BI: conectado"
+        )
+
+    else:
+
+        st.warning(
+            "Power BI: no conectado"
+        )
     debug_mode = st.checkbox("Modo diagnóstico", value=False)
     st.info("El asistente responde únicamente con información respaldada por los tableros y documentos disponibles.")
     if st.button("Nueva conversación", use_container_width=True):
         conversation_manager.reset()
+
+        reset_method = getattr(
+            engine,
+            "reset",
+            None,
+        )
+
+        if callable(reset_method):
+            reset_method()
+
         st.session_state.messages = []
         st.rerun()
 
@@ -183,8 +241,32 @@ if prompt:
         elif result.get("status") == "not_found":
             st.caption("Consulta fuera del alcance de la documentación disponible.")
 
-        if debug_mode and error_text:
-            st.error(error_text)
+        if debug_mode:
+
+            if error_text:
+                st.error(error_text)
+
+            if result.get("dimension_matches"):
+                st.write(
+                    "**Dimensiones detectadas:**",
+                    result.get(
+                        "dimension_matches"
+                    ),
+                )
+
+            if result.get("business_filters"):
+                st.write(
+                    "**Filtros de negocio:**",
+                    result.get(
+                        "business_filters"
+                    ),
+                )
+
+            if result.get("dax"):
+                st.code(
+                    result.get("dax"),
+                    language="text",
+                )
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
     reset_if_finished(result, engine, conversation_manager)
