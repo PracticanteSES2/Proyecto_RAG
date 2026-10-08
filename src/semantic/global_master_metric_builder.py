@@ -1,9 +1,10 @@
-import csv
 import hashlib
 import json
 import re
 import unicodedata
 from pathlib import Path
+
+from src.semantic.visual_catalog_builder import read_csv_rows
 
 
 def normalize_text(value):
@@ -134,15 +135,48 @@ def _load_measures_csv(path):
     if not path.exists():
         return []
 
-    with open(
-        path,
-        "r",
-        encoding="utf-8-sig",
-        newline="",
-    ) as file:
-        return list(
-            csv.DictReader(file)
-        )
+    return read_csv_rows(path)
+
+
+def _truthy(value):
+    return normalize_text(value) in {"true", "1", "yes", "si", "verdadero"}
+
+
+def _dax_measure_ref(measure):
+    """Referencia DAX a una medida; ']' se escapa como ']]'."""
+    return "[" + str(measure).replace("]", "]]") + "]"
+
+
+AGGREGATION_LABELS = {
+    "sum": "Suma",
+    "average": "Promedio",
+    "distinctcount": "Conteo distinto",
+    "min": "Mínimo",
+    "max": "Máximo",
+    "count": "Conteo",
+    "median": "Mediana",
+    "standarddeviation": "Desviación estándar",
+    "variance": "Varianza",
+}
+
+_TECHNICAL_REF_RE = re.compile(r"^[A-Za-z]+\(.*\)$")
+
+
+def _friendly_aggregation_label(aggregation, column):
+    """'Suma de Peso' en lugar de 'Sum(Tabla.Peso)'."""
+    agg_key = normalize_text(aggregation).replace(" ", "")
+    agg_label = AGGREGATION_LABELS.get(agg_key) or str(aggregation or "").strip()
+    column_label = str(column or "").replace("_", " ").strip()
+
+    if agg_label and column_label:
+        return f"{agg_label} de {column_label}"
+
+    return column_label or agg_label or None
+
+
+def _is_technical_ref(value):
+    text = str(value or "").strip()
+    return bool(text) and bool(_TECHNICAL_REF_RE.match(text))
 
 
 def _load_json(path, default=None):
@@ -164,6 +198,7 @@ def build_global_master_metrics(
     output_path,
     existing_master_path=None,
     rebuilt_semantic_models=None,
+    rebuilt_source_groups=None,
 ):
     """
     Construye un único master_metrics.json para múltiples modelos.
@@ -172,9 +207,15 @@ def build_global_master_metrics(
       semantic_model + table + measure
     - Las agregaciones visuales se identifican por:
       semantic_model + report + page + table + column + aggregation
-    - Si existe un master_metrics previo, conserva los modelos que NO se
-      reconstruyeron en esta ejecución. Esto permite incorporar BRIEFING
-      sin perder el catálogo ya validado de Atenciones Institucionales.
+    - El visual_catalog recibido es el catálogo global ya fusionado (conserva
+      los reportes de otras fuentes), así que las métricas se regeneran para
+      TODOS los reportes y modelos con metadata: reconstruir una sola fuente
+      (--source) o tener un PBIR hermano ausente/ambiguo no borra las demás.
+    - Si existe un master_metrics previo, solo se conservan métricas de
+      modelos que no se pueden regenerar (sin metadata ni bindings visuales).
+    - rebuilt_source_groups se registra en stats para trazabilidad.
+    - Medidas ocultas (IsHidden) quedan "hidden" salvo que aparezcan en un
+      visual.
     """
     output_path = Path(output_path)
 
@@ -186,6 +227,25 @@ def build_global_master_metrics(
         )
         if value
     }
+
+    rebuilt_source_groups = sorted({
+        str(value)
+        for value in (rebuilt_source_groups or [])
+        if value
+    })
+
+    # Modelos que se regeneran: todos los que tienen metadata o bindings.
+    regenerated_models = set(rebuilt_semantic_models)
+
+    for semantic_model in model_lookup:
+        if semantic_model:
+            regenerated_models.add(normalize_text(semantic_model))
+
+    for visual_metric in visual_catalog.get("metrics", []):
+        if visual_metric.get("semantic_model"):
+            regenerated_models.add(
+                normalize_text(visual_metric.get("semantic_model"))
+            )
 
     preserved = []
 
@@ -208,31 +268,25 @@ def build_global_master_metrics(
             if (
                 model_norm
                 and model_norm
-                not in rebuilt_semantic_models
+                not in regenerated_models
             ):
                 preserved.append(metric)
 
     explicit_index = {}
     aggregation_index = {}
 
-    # 1) Medidas explícitas de modelos realmente reconstruidos.
+    # 1) Medidas explícitas de TODOS los modelos con metadata
+    #    (no solo los que tuvieron un PBIR reconstruido).
     for semantic_model, model_info in (
         model_lookup.items()
     ):
-        if (
-            normalize_text(
-                semantic_model
-            )
-            not in rebuilt_semantic_models
-        ):
+        metadata_path = (model_info or {}).get("metadata_path")
+
+        if not metadata_path:
             continue
 
         measures_csv = (
-            Path(
-                model_info[
-                    "metadata_path"
-                ]
-            )
+            Path(metadata_path)
             / "measures.csv"
         )
 
@@ -265,6 +319,10 @@ def build_global_master_metrics(
             description = _get(
                 row,
                 "Description",
+            )
+
+            is_hidden = _truthy(
+                _get(row, "IsHidden", "Hidden")
             )
 
             key = (
@@ -300,13 +358,15 @@ def build_global_master_metrics(
                 "aggregation":
                     None,
                 "dax_expression":
-                    f"[{measure}]",
+                    _dax_measure_ref(measure),
                 "model_expression":
                     expression,
                 "description":
                     description,
+                "is_hidden":
+                    is_hidden,
                 "validation_status":
-                    "approved",
+                    "hidden" if is_hidden else "approved",
                 "reports":
                     [],
                 "source_groups":
@@ -325,14 +385,6 @@ def build_global_master_metrics(
                 "semantic_model"
             )
         )
-
-        if (
-            normalize_text(
-                semantic_model
-            )
-            not in rebuilt_semantic_models
-        ):
-            continue
 
         report = visual_metric.get(
             "report"
@@ -439,7 +491,7 @@ def build_global_master_metrics(
                             "dax_expression"
                         )
                         or (
-                            f"[{measure}]"
+                            _dax_measure_ref(measure)
                             if measure
                             else None
                         ),
@@ -511,19 +563,24 @@ def build_global_master_metrics(
         ):
             continue
 
+        friendly_label = _friendly_aggregation_label(
+            visual_metric.get("aggregation"),
+            visual_metric.get("column"),
+        )
+
+        native_ref = visual_metric.get("native_query_ref")
+
         label = (
             visual_metric.get(
                 "visual_title"
             )
-            or
-            visual_metric.get(
-                "native_query_ref"
+            or (
+                None
+                if _is_technical_ref(native_ref)
+                else native_ref
             )
-            or
-            (
-                f"{visual_metric.get('aggregation')} "
-                f"de {visual_metric.get('column')}"
-            )
+            or friendly_label
+            or native_ref
         )
 
         # Una misma métrica visual puede aparecer en varias páginas
@@ -625,6 +682,7 @@ def build_global_master_metrics(
                 visual_metric.get(
                     "visual_title"
                 ),
+                friendly_label,
                 visual_metric.get(
                     "native_query_ref"
                 ),
@@ -641,11 +699,28 @@ def build_global_master_metrics(
             ],
         )
 
+        _append_unique(
+            metric["reports"],
+            report,
+        )
+        _append_unique(
+            metric["source_groups"],
+            source_group,
+        )
+
         metric[
             "appearances"
         ].append(
             appearance
         )
+
+    # Las medidas ocultas solo se aprueban si aparecen en algún visual.
+    for metric in explicit_index.values():
+        if (
+            metric.get("validation_status") == "hidden"
+            and metric.get("appearances")
+        ):
+            metric["validation_status"] = "approved"
 
     generated = (
         list(
@@ -765,6 +840,18 @@ def build_global_master_metrics(
                     )
                     == "approved"
                 ),
+            "hidden":
+                sum(
+                    1
+                    for metric
+                    in unique_metrics
+                    if metric.get(
+                        "validation_status"
+                    )
+                    == "hidden"
+                ),
+            "rebuilt_source_groups":
+                rebuilt_source_groups,
             "preserved_from_previous":
                 len(preserved),
             "generated_or_rebuilt":

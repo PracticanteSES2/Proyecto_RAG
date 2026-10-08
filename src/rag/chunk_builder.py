@@ -129,6 +129,45 @@ def _join_items(items):
     )
 
 
+# El modelo de embeddings (paraphrase-multilingual-MiniLM-L12-v2) trunca a
+# ~128 tokens: los chunks deben ser cortos (~450 caracteres de texto).
+OVERVIEW_DESCRIPTION_CHARS = 260
+OVERVIEW_MAX_ALIASES = 6
+SQL_CHUNK_CHARS = 420
+
+
+def _truncate_text(text, limit):
+    text = clean_text(text)
+    if len(text) <= limit:
+        return text
+
+    cut = text[:limit]
+    sentence_end = max(cut.rfind(". "), cut.rfind("; "))
+    if sentence_end >= limit // 2:
+        return cut[:sentence_end + 1].strip()
+
+    return cut.rsplit(" ", 1)[0].strip() + "…"
+
+
+def _split_text(text, limit):
+    """Parte un texto largo en trozos de ~limit caracteres en límite de palabra."""
+    words = clean_text(text).split(" ")
+    parts = []
+    current = ""
+
+    for word in words:
+        if current and len(current) + 1 + len(word) > limit:
+            parts.append(current)
+            current = word
+        else:
+            current = f"{current} {word}".strip()
+
+    if current:
+        parts.append(current)
+
+    return parts
+
+
 def _table_to_text(rows):
     lines = []
     for row in rows or []:
@@ -144,19 +183,20 @@ def _table_to_text(rows):
 
 def build_dashboard_chunk(dashboard, workspace=None, semantic_model=None):
     dashboard_name = clean_text(dashboard.get("name"))
-    description = clean_text(dashboard.get("description"))
-    filters_text = _join_items(dashboard.get("filters", []))
-    visuals_text = _join_items(dashboard.get("visuals", []))
-    indicators_text = _join_items(dashboard.get("indicators", []))
-    aliases = ", ".join(dashboard.get("aliases", []) or [])
+    description = _truncate_text(
+        dashboard.get("description"),
+        OVERVIEW_DESCRIPTION_CHARS,
+    )
+    aliases = ", ".join(
+        (dashboard.get("aliases", []) or [])[:OVERVIEW_MAX_ALIASES]
+    )
 
+    # Filtros, visuales, indicadores, SQL y medidas tienen sus propios chunks;
+    # el resumen se mantiene corto para caber en la ventana del embedding.
     text = f"""
 Tablero: {dashboard_name}
 Alias: {aliases}
 Descripción: {description}
-Filtros disponibles: {filters_text}
-Visualizaciones: {visuals_text}
-Indicadores: {indicators_text}
 """
 
     return _chunk(
@@ -392,12 +432,41 @@ Tablero: {dashboard_name}
 
 
 def build_sql_chunks(dashboard):
-    return build_list_chunks(
-        dashboard,
-        field_name="sql_queries",
-        chunk_type="sql_query",
-        label="Consulta técnica documentada",
-    )
+    """Un chunk por consulta; las consultas largas se parten en varias partes."""
+    chunks = []
+    dashboard_name = clean_text(dashboard.get("name"))
+
+    for index, query in enumerate(dashboard.get("sql_queries", []) or []):
+        parts = _split_text(query, SQL_CHUNK_CHARS)
+
+        for part_index, part in enumerate(parts):
+            suffix = (
+                f" (parte {part_index + 1} de {len(parts)})"
+                if len(parts) > 1
+                else ""
+            )
+
+            text = f"""
+Tablero: {dashboard_name}
+Consulta técnica documentada{suffix}: {part}
+"""
+
+            chunk = _chunk(
+                dashboard=dashboard,
+                chunk_type="sql_query",
+                text=text,
+                entity_key=f"sql_queries:{index}:{part_index}",
+                section="sql_queries",
+                extra_metadata={
+                    "sql_part": part_index + 1,
+                    "sql_parts": len(parts),
+                } if len(parts) > 1 else None,
+            )
+
+            if chunk:
+                chunks.append(chunk)
+
+    return chunks
 
 
 def build_other_section_chunks(dashboard):

@@ -1,7 +1,10 @@
+import difflib
 import hashlib
 import json
+import logging
 import os
 import re
+import sys
 import unicodedata
 from pathlib import Path
 from typing import Iterator, Union
@@ -15,6 +18,19 @@ try:
     from dotenv import load_dotenv
 except Exception:  # pragma: no cover - compatibilidad si dotenv no está instalado
     load_dotenv = None
+
+
+logger = logging.getLogger(__name__)
+
+
+def configure_console_utf8():
+    """Evita UnicodeEncodeError con stdout cp1252 o redirigido."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -115,6 +131,50 @@ def find_manifest(file_path: Path, raw_dir: Path) -> Path | None:
     return None
 
 
+def lookup_registry_model(source_group: str, raw_dir: Path) -> dict:
+    """
+    Resuelve el modelo semántico de un grupo documental usando el registro de
+    fuentes/modelos generado por powerbi_catalog_manager (sin variables de
+    entorno). Devuelve {} si no hay coincidencia.
+    """
+    try:
+        catalog_dir = raw_dir.parents[1] / "data" / "catalog"
+    except IndexError:
+        return {}
+
+    group_key = slugify(source_group)
+
+    for registry_name, list_key in (
+        ("source_registry.json", "sources"),
+        ("model_registry.json", "models"),
+    ):
+        registry_path = catalog_dir / registry_name
+        if not registry_path.exists():
+            continue
+
+        try:
+            registry = load_json(registry_path)
+        except Exception:
+            continue
+
+        for item in registry.get(list_key, []) or []:
+            candidates = {
+                slugify(item.get("source_group") or ""),
+                slugify(item.get("semantic_model_key") or ""),
+            }
+            candidates.discard("")
+            if group_key and group_key in candidates:
+                model = clean_text(item.get("semantic_model")) or None
+                key = clean_text(item.get("semantic_model_key")) or None
+                if model or key:
+                    return {
+                        "semantic_model": model,
+                        "semantic_model_key": key,
+                    }
+
+    return {}
+
+
 def resolve_document_config(file_path: Path, raw_dir: Path) -> dict:
     """
     Resuelve metadata explícita sin confundir carpeta documental con
@@ -122,8 +182,10 @@ def resolve_document_config(file_path: Path, raw_dir: Path) -> dict:
 
     Prioridad:
       1. manifest.json del grupo
-      2. variables de entorno del proyecto
+      2. registro de fuentes/modelos (data/catalog)
       3. compatibilidad legacy
+    Ya no se usa POWERBI_SEMANTIC_MODEL para agrupar: asignaba el mismo modelo
+    a todo documento sin manifest.
     """
     relative_path = file_path.relative_to(raw_dir)
     path_parts = relative_path.parts
@@ -149,21 +211,26 @@ def resolve_document_config(file_path: Path, raw_dir: Path) -> dict:
 
     semantic_model = clean_text(
         manifest.get("semantic_model")
-        or os.getenv("POWERBI_SEMANTIC_MODEL")
     ) or None
 
     semantic_model_key = clean_text(
         manifest.get("semantic_model_key")
     ) or None
 
+    if not semantic_model and not semantic_model_key:
+        registry_hit = lookup_registry_model(source_group, raw_dir)
+        semantic_model = registry_hit.get("semantic_model")
+        semantic_model_key = registry_hit.get("semantic_model_key")
+
     if not semantic_model_key and semantic_model:
         semantic_model_key = slugify(semantic_model)
 
-    # Compatibilidad con la estructura anterior cuando no hay manifest
-    # ni variable de entorno de modelo.
-    if not semantic_model and manifest_path is None and len(path_parts) > 1:
-        semantic_model_key = semantic_model_key or legacy_group
-        semantic_model = folder_to_display_name(legacy_group)
+    if not semantic_model:
+        logger.warning(
+            "Sin modelo semántico para '%s' (sin manifest ni registro); "
+            "semantic_model queda en None.",
+            relative_path,
+        )
 
     technical_catalog = clean_text(
         manifest.get("technical_catalog")
@@ -316,7 +383,66 @@ def extract_dashboard_name(text: str) -> str:
             flags=re.IGNORECASE,
         )
 
-    return clean_text(name)
+    return strip_leading_prepositions(clean_text(name))
+
+
+LEADING_PREPOSITION_RE = re.compile(
+    r"^(?:DE|DEL|LA|LAS|LOS|EL)\s+",
+    re.IGNORECASE,
+)
+
+
+def strip_leading_prepositions(name: str) -> str:
+    """'DE FACTURADORES' -> 'FACTURADORES' (sin vaciar el nombre)."""
+    name = clean_text(name)
+    while True:
+        stripped = LEADING_PREPOSITION_RE.sub("", name, count=1)
+        if stripped == name or not stripped:
+            return name
+        name = stripped
+
+
+def folder_derived_name(file_path: Path) -> str:
+    """'39 DOCUMENTACION TABLERO LAVANDERIA' -> 'LAVANDERIA'."""
+    name = clean_text(file_path.parent.name).replace("_", " ")
+    name = re.sub(r"^\d+[\s.\-_]*", "", name)
+    name = re.sub(
+        r"^DOCUMENTACI[ÓO]N\s*(?:DE\s+)?(?:TABLEROS?)?\s*",
+        "",
+        name,
+        flags=re.IGNORECASE,
+    )
+    name = re.sub(r"^TABLEROS?\s+", "", name, flags=re.IGNORECASE)
+    return strip_leading_prepositions(name).upper()
+
+
+def _plain(value: str) -> str:
+    return slugify(value).replace("_", " ")
+
+
+def add_folder_aliases(dashboards: list, file_path: Path) -> None:
+    """Agrega como alias el nombre derivado de la carpeta (corrige typos)."""
+    folder_name = folder_derived_name(file_path)
+    if not folder_name or _plain(folder_name) in {
+        "documentacion", "tablero", "tableros",
+    }:
+        return
+
+    for dashboard in dashboards:
+        name = dashboard.get("name") or ""
+        similar = (
+            len(dashboards) == 1
+            or difflib.SequenceMatcher(
+                None, _plain(name), _plain(folder_name)
+            ).ratio() >= 0.8
+        )
+        aliases = dashboard.setdefault("aliases", [])
+        if (
+            similar
+            and _plain(folder_name) != _plain(name)
+            and folder_name not in aliases
+        ):
+            aliases.append(folder_name)
 
 
 def split_into_dashboards(
@@ -426,6 +552,7 @@ def process_document(
         default_dashboard=config.get("default_dashboard"),
         aliases=config.get("aliases"),
     )
+    add_folder_aliases(dashboards, file_path)
 
     return {
         "schema_version": 2,
@@ -454,11 +581,16 @@ def process_all_documents(
     raw_dir: Path,
     output_dir: Path,
 ):
+    configure_console_utf8()
     raw_dir = Path(raw_dir)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    documents = sorted(raw_dir.rglob("*.docx"))
+    documents = sorted(
+        path
+        for path in raw_dir.rglob("*.docx")
+        if not path.name.startswith("~$")
+    )
 
     print(f"Documentos encontrados: {len(documents)}")
 
@@ -494,21 +626,23 @@ def process_all_documents(
             total_dashboards += dashboard_count
             processed += 1
 
-            print(f"  ✓ JSON generado: {output_path}")
-            print(f"  ✓ Grupo: {result.get('source_group')}")
-            print(f"  ✓ Tableros detectados: {dashboard_count}")
-
-            for dashboard in result.get("dashboards", []):
-                print("     →", dashboard.get("name"))
-
         except Exception as error:
             errors.append({
                 "file": str(relative_path),
                 "error_type": type(error).__name__,
                 "error": str(error),
             })
-            print(f"  ✗ Error procesando {relative_path}")
+            print(f"  [ERROR] Error procesando {relative_path}")
             print(f"    {type(error).__name__}: {error}")
+            continue
+
+        # Los prints van fuera del try que decide éxito/fallo.
+        print(f"  [OK] JSON generado: {output_path}")
+        print(f"  [OK] Grupo: {result.get('source_group')}")
+        print(f"  [OK] Tableros detectados: {dashboard_count}")
+
+        for dashboard in result.get("dashboards", []):
+            print("     ->", dashboard.get("name"))
 
     print("\n==============================")
     print("PROCESAMIENTO FINALIZADO")

@@ -1,4 +1,5 @@
 import csv
+import io
 import json
 import re
 import unicodedata
@@ -27,6 +28,60 @@ DAX_AGGREGATIONS = {
     "Count": "COUNT",
     "Median": "MEDIAN",
 }
+
+
+def read_csv_rows(path):
+    """
+    Lee un CSV exportado de SSMS/DAX Studio: utf-8-sig con fallback latin-1 y
+    delimitador detectado (coma, punto y coma o tabulador).
+    """
+    path = Path(path)
+
+    raw = path.read_bytes()
+
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+
+    if not text.strip():
+        return []
+
+    sample = text[:8192]
+    header_line = sample.splitlines()[0] if sample.splitlines() else ""
+
+    delimiter = ","
+
+    try:
+        delimiter = csv.Sniffer().sniff(
+            sample,
+            delimiters=",;\t",
+        ).delimiter
+    except csv.Error:
+        counts = {
+            candidate: header_line.count(candidate)
+            for candidate in (",", ";", "\t")
+        }
+        best = max(counts, key=counts.get)
+        if counts[best] > 0:
+            delimiter = best
+
+    # El sniffer puede equivocarse con textos largos; la cabecera manda.
+    header_counts = {
+        candidate: header_line.count(candidate)
+        for candidate in (",", ";", "\t")
+    }
+    if header_counts.get(delimiter, 0) == 0:
+        best = max(header_counts, key=header_counts.get)
+        if header_counts[best] > 0:
+            delimiter = best
+
+    return list(
+        csv.DictReader(
+            io.StringIO(text, newline=""),
+            delimiter=delimiter,
+        )
+    )
 
 
 def normalize_text(value):
@@ -173,15 +228,7 @@ class ModelMetadataIndex:
         if not path.exists():
             return []
 
-        with open(
-            path,
-            "r",
-            encoding="utf-8-sig",
-            newline="",
-        ) as file:
-            return list(
-                csv.DictReader(file)
-            )
+        return read_csv_rows(path)
 
     def _get(
         self,

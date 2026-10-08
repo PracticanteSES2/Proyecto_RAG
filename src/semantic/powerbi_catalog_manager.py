@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import re
+import sys
 import unicodedata
 from pathlib import Path
 
@@ -308,6 +309,34 @@ class PowerBICatalogManager:
             path,
         )
 
+    EXCLUDED_SEARCH_DIRS = {
+        ".git",
+        ".venv",
+        "venv",
+        "env",
+        "node_modules",
+        "__pycache__",
+        "graphify-out",
+        "documentacion",
+        "tests",
+        ".claude",
+    }
+
+    def _is_excluded_path(
+        self,
+        path,
+        root,
+    ):
+        try:
+            parts = path.relative_to(root).parts[:-1]
+        except ValueError:
+            parts = path.parts[:-1]
+
+        return any(
+            part.lower() in self.EXCLUDED_SEARCH_DIRS
+            for part in parts
+        )
+
     def _find_pbir_directories(
         self,
     ):
@@ -341,6 +370,10 @@ class PowerBICatalogManager:
                         "*.Report"
                     )
                     if path.is_dir()
+                    and not self._is_excluded_path(
+                        path,
+                        root,
+                    )
                 ]
 
             for path in candidates:
@@ -951,7 +984,7 @@ class PowerBICatalogManager:
             )
 
             print(
-                "  ✓ Páginas:",
+                "  [OK] Páginas:",
                 catalog.get(
                     "stats",
                     {},
@@ -992,6 +1025,20 @@ class PowerBICatalogManager:
             if item
         }
 
+        # Se reemplaza por source_group (reporte), no por modelo: reconstruir
+        # una fuente no debe borrar los reportes hermanos del mismo modelo.
+        rebuilt_groups = {
+            normalize_text(
+                catalog.get(
+                    "source_group"
+                )
+            )
+            for catalog in new_catalogs
+            if catalog.get(
+                "source_group"
+            )
+        }
+
         preserved_reports = []
 
         if (
@@ -1004,14 +1051,42 @@ class PowerBICatalogManager:
                 "reports",
                 [],
             ):
-                if (
-                    normalize_text(
-                        report.get(
-                            "semantic_model"
-                        )
+                group_norm = normalize_text(
+                    report.get(
+                        "source_group"
                     )
-                    not in rebuilt_norm
-                ):
+                )
+
+                if group_norm.startswith("legacy "):
+                    # Migración de formato antiguo: se reemplaza cuando el
+                    # modelo ya se reconstruye con fuentes reales.
+                    keep = (
+                        normalize_text(
+                            report.get(
+                                "semantic_model"
+                            )
+                        )
+                        not in rebuilt_norm
+                    )
+
+                elif group_norm:
+                    keep = (
+                        group_norm
+                        not in rebuilt_groups
+                    )
+                else:
+                    # Reportes antiguos sin source_group: compatibilidad
+                    # por modelo.
+                    keep = (
+                        normalize_text(
+                            report.get(
+                                "semantic_model"
+                            )
+                        )
+                        not in rebuilt_norm
+                    )
+
+                if keep:
                     preserved_reports.append(
                         report
                     )
@@ -1402,6 +1477,16 @@ class PowerBICatalogManager:
             in models_by_key.values()
         }
 
+        rebuilt_source_groups = {
+            catalog.get(
+                "source_group"
+            )
+            for catalog in new_visual_catalogs
+            if catalog.get(
+                "source_group"
+            )
+        }
+
         master = build_global_master_metrics(
             visual_catalog=
                 global_visual,
@@ -1413,6 +1498,8 @@ class PowerBICatalogManager:
                 self.master_metrics_path,
             rebuilt_semantic_models=
                 rebuilt_models,
+            rebuilt_source_groups=
+                rebuilt_source_groups,
         )
 
         registry = (
@@ -1468,6 +1555,16 @@ class PowerBICatalogManager:
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(
+                    encoding="utf-8",
+                    errors="replace",
+                )
+            except Exception:
+                pass
+
     parser = argparse.ArgumentParser(
         description=(
             "Construye catálogos técnicos y visuales "

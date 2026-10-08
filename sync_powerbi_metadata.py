@@ -3,6 +3,7 @@ import csv
 import hashlib
 import json
 import re
+import sys
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +13,17 @@ from src.providers.powerbi_provider import PowerBIProvider
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+
+
+def configure_console_utf8():
+    """Evita UnicodeEncodeError con stdout cp1252 o redirigido."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
 
 INFO_VIEW_QUERIES = {
     "tables.csv": "EVALUATE INFO.VIEW.TABLES()",
@@ -394,6 +406,10 @@ class MetadataSynchronizer:
                 model_dir,
             )
 
+            # Los prints van fuera del try: un fallo de consola no debe
+            # marcar el modelo como fallido.
+            message = None
+
             try:
                 export_result = self.export_model(
                     model_name,
@@ -405,20 +421,18 @@ class MetadataSynchronizer:
 
                 if status == "success":
                     success_count += 1
-                    print("  ✓ Metadata exportada.")
+                    message = "  [OK] Metadata exportada."
 
                 elif status == "skipped":
                     skipped_count += 1
-                    print(
-                        "  ↷ Ya existía. "
+                    message = (
+                        "  [SKIP] Ya existía. "
                         "Usa --force para regenerar."
                     )
 
                 else:
                     error_count += 1
-                    print(
-                        "  ! Exportación parcial."
-                    )
+                    message = "  [!] Exportación parcial."
 
                     if fail_fast:
                         raise RuntimeError(
@@ -438,13 +452,14 @@ class MetadataSynchronizer:
                     "errors": [str(error)],
                 }
 
-                print(
-                    "  ✗ Error:",
-                    error,
-                )
+                message = f"  [ERROR] Error: {error}"
 
                 if fail_fast:
+                    print(message)
                     raise
+
+            if message:
+                print(message)
 
             records.append({
                 "semantic_model":
@@ -570,6 +585,7 @@ def build_parser():
 
 
 def main():
+    configure_console_utf8()
     args = build_parser().parse_args()
 
     provider = PowerBIProvider()
