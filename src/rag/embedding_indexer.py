@@ -62,6 +62,37 @@ def _ensure_collection(client, collection_name, vector_size):
     return True
 
 
+def _existing_source_groups(client, collection_name, page_size=512):
+    """Devuelve los source_group presentes en la colección (scroll paginado)."""
+    groups = set()
+    offset = None
+
+    while True:
+        points, offset = client.scroll(
+            collection_name=collection_name,
+            limit=page_size,
+            offset=offset,
+            with_payload=["source_group"],
+            with_vectors=False,
+        )
+
+        for point in points:
+            group = (point.payload or {}).get("source_group")
+            if group:
+                groups.add(group)
+
+        if offset is None:
+            break
+
+    return groups
+
+
+def stale_source_groups(existing_groups, current_groups):
+    """Grupos que están en Qdrant pero ya no existen en el corpus actual."""
+    current = set(current_groups)
+    return sorted(set(existing_groups) - current)
+
+
 def _delete_source_group(client, collection_name, source_group):
     selector = FilterSelector(
         filter=Filter(
@@ -91,6 +122,7 @@ def build_vector_index(
     collection_name=None,
     batch_size=64,
     replace_source_groups=True,
+    full_rebuild=False,
 ):
     """
     Indexa el corpus sin borrar toda la colección.
@@ -102,6 +134,10 @@ def build_vector_index(
       3. Inserta la versión actual de sus chunks.
 
     Así agregar BRIEFING HOSPITALARIO no destruye los demás grupos.
+
+    Con full_rebuild=True (reconstrucción completa del corpus) también se
+    eliminan los source_group que ya no están en los chunks actuales, para no
+    dejar documentación obsoleta en la colección.
     """
     chunks_file = Path(chunks_file)
     qdrant_path = Path(qdrant_path)
@@ -170,6 +206,24 @@ def build_vector_index(
                     source_group,
                 )
 
+        removed_groups = []
+
+        if full_rebuild and not created:
+            removed_groups = stale_source_groups(
+                _existing_source_groups(client, collection_name),
+                source_groups,
+            )
+
+            if removed_groups:
+                print("\nEliminando grupos obsoletos:")
+                for source_group in removed_groups:
+                    print("  -", source_group)
+                    _delete_source_group(
+                        client,
+                        collection_name,
+                        source_group,
+                    )
+
         print("\nGuardando vectores en Qdrant...")
 
         total_upserted = 0
@@ -223,6 +277,7 @@ def build_vector_index(
             "status": "success",
             "chunks_indexed": total_upserted,
             "source_groups": source_groups,
+            "removed_source_groups": removed_groups,
             "collection": collection_name,
             "collection_info": str(collection_info),
         }

@@ -1,5 +1,6 @@
 import argparse
 import shutil
+import sys
 from pathlib import Path
 
 from src.ingestion.document_parser import process_all_documents
@@ -31,6 +32,16 @@ def clean_derived_outputs():
     for path in (SEMANTIC_CATALOG, CHUNKS_FILE):
         if path.exists():
             path.unlink()
+
+
+def configure_console_utf8():
+    """Evita UnicodeEncodeError con stdout cp1252 o redirigido."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
 
 
 def run_pipeline(clean_derived=True, skip_index=False):
@@ -84,9 +95,13 @@ def run_pipeline(clean_derived=True, skip_index=False):
 
     if not skip_index:
         print("\n[5/5] Actualizando Qdrant...")
+        # Reconstrucción completa (derivados limpios): elimina también los
+        # source_group obsoletos. Con --no-clean-derived solo reemplaza los
+        # grupos presentes.
         index_stats = build_vector_index(
             CHUNKS_FILE,
             QDRANT_PATH,
+            full_rebuild=clean_derived,
         )
     else:
         print("\n[5/5] Indexación omitida (--skip-index).")
@@ -112,6 +127,8 @@ def run_pipeline(clean_derived=True, skip_index=False):
 
 
 def main():
+    configure_console_utf8()
+
     parser = argparse.ArgumentParser(
         description="Construye e indexa el RAG documental de Gestión Clínica."
     )
