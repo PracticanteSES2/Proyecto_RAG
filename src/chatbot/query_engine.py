@@ -1375,6 +1375,221 @@ class QueryEngine:
         }
 
     # ========================================================
+    # PREGUNTAS COMPUESTAS (participación / varias métricas)
+    # ========================================================
+
+    @staticmethod
+    def _fmt_es(value, max_decimals=2):
+        """Número con formato español: 3.906,4 / 488,3."""
+        if value is None:
+            return "sin dato"
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return str(value)
+        text = f"{number:,.{max_decimals}f}"
+        if "." in text:
+            text = text.rstrip("0").rstrip(".")
+        return text.replace(",", "§").replace(".", ",").replace("§", ".")
+
+    def _composite_scope_text(self, plan):
+        period = None
+        scope = "total"
+        for item in plan.get("filters", []) or []:
+            if item.get("type") != "date_range":
+                continue
+            year, month = item.get("year"), item.get("month")
+            if year and month:
+                name = item.get("month_name") or str(month)
+                period, scope = f"{name} de {year}", "total del mes"
+            elif year:
+                period, scope = f"{year}", "total del año"
+        values = [
+            str(item.get("value")) for item in plan.get("filters", []) or []
+            if item.get("type") == "categorical" and item.get("value") is not None
+        ]
+        return period, values, scope
+
+    def _composite_answer(self, plan, measures, unresolved, failed_labels):
+        period, values, scope = self._composite_scope_text(plan)
+        parts = []
+        for measure in measures:
+            if measure["format"] == "percent":
+                if measure["value"] is None:
+                    parts.append("participación sin dato")
+                else:
+                    parts.append(
+                        f"participación del {self._fmt_es(measure['value'] * 100, 2)} % "
+                        f"sobre el {scope}"
+                    )
+            else:
+                parts.append(f"{str(measure['label']).lower()} {self._fmt_es(measure['value'])}")
+        subject = ", ".join(values)
+        head = f"En {period}, " if period else ""
+        if subject:
+            head += f"{subject} registró: " if head else f"{subject} registró: "
+        else:
+            head += "resultado: " if head else "Resultado: "
+        answer = head + " y ".join(parts) + "."
+        notes = []
+        if unresolved:
+            notes.append(
+                "No pude interpretar " + ", ".join(f"«{w}»" for w in unresolved)
+                + "; respondí solo las partes que identifiqué."
+            )
+        if failed_labels:
+            notes.append(
+                "No pude resolver: " + ", ".join(failed_labels) + "."
+            )
+        return " ".join([answer, *notes])
+
+    def _composite_failure(self, stage, plan, dax_result=None, powerbi_result=None):
+        if dax_result is not None and dax_result.get("status") != "generated":
+            return {
+                "status": "dax_not_generated", "route": "powerbi",
+                "stage": stage, "query_plan": plan, "details": dax_result,
+            }
+        return {
+            "status": "powerbi_error", "route": "powerbi", "stage": stage,
+            "query_plan": plan,
+            "dax": (dax_result or {}).get("dax"),
+            "details": powerbi_result,
+        }
+
+    def _execute_composite(self, composite):
+        """Ejecuta cada medida del plan compuesto y arma un único resultado."""
+        measures, executed, failed_labels = [], [], []
+        last_failure = None
+        for item in composite["items"]:
+            plan = item["plan"]
+            if item["kind"] == "share":
+                dax_result = self.query_plan_dax_generator.generate_share(plan)
+            else:
+                dax_result = self.query_plan_dax_generator.generate(plan)
+            if dax_result.get("status") != "generated":
+                last_failure = self._composite_failure("query_plan_dax", plan, dax_result)
+                failed_labels.append(item["label"])
+                continue
+            powerbi_result = self.powerbi_provider.execute_dax(
+                dax=dax_result.get("dax"),
+                semantic_model=plan.get("semantic_model"),
+            )
+            if powerbi_result.get("status") != "success":
+                last_failure = self._composite_failure(
+                    "query_plan_powerbi", plan, dax_result, powerbi_result
+                )
+                failed_labels.append(item["label"])
+                continue
+            rows = powerbi_result.get("rows", []) or []
+            if dax_result.get("mode") == "grouped":
+                executed.append((item, plan, dax_result, powerbi_result, rows, None))
+                continue
+            value = self._row_value(rows[0]) if rows else None
+            if item["kind"] == "share":
+                if value is not None:
+                    value = float(value)  # fracción (0,125 = 12,5 %)
+                measure = {
+                    "label": item["label"], "value": value,
+                    "format": "percent", "unit": "%", "dax": dax_result.get("dax"),
+                }
+            else:
+                measure = {
+                    "label": item["label"], "value": value,
+                    "format": "number", "unit": None, "dax": dax_result.get("dax"),
+                }
+            measures.append(measure)
+            executed.append((item, plan, dax_result, powerbi_result, rows, measure))
+
+        if not executed:
+            return last_failure
+        item, plan, dax_result, powerbi_result, rows, _ = executed[0]
+
+        if dax_result.get("mode") == "grouped":
+            group = plan["share_dimension"]
+            lines = [
+                f"| {group.get('label') or group.get('column')} | Participación |",
+                "| --- | --- |",
+            ]
+            for row in rows[:50]:
+                label = next(
+                    (v for k, v in row.items() if "__value" not in str(k).lower()), ""
+                )
+                value = self._row_value(row)
+                pct = "" if value is None else f"{self._fmt_es(float(value) * 100, 2)} %"
+                lines.append(f"| {str(label).replace('|', chr(92) + '|')} | {pct} |")
+            answer = "\n".join(lines)
+            result_type, value, metric_label = "table", None, plan["metric"].get("label")
+            measures_out = None
+        else:
+            if all(m["value"] is None for m in measures):
+                return {
+                    "status": "empty_result", "route": "powerbi",
+                    "stage": "query_plan_result", "query_plan": plan,
+                    "dax": dax_result.get("dax"), "details": powerbi_result,
+                }
+            answer = self._composite_answer(
+                plan, measures, composite.get("unresolved"),
+                composite.get("failed_labels", []) + failed_labels,
+            )
+            result_type = "scalar"
+            value, metric_label = measures[0]["value"], measures[0]["label"]
+            measures_out = measures
+
+        base_plan = executed[0][1]
+        metric = base_plan.get("metric", {})
+        result = {
+            "status": "success",
+            "route": "powerbi",
+            "result_type": result_type,
+            "question": composite.get("question"),
+            "report": base_plan.get("report"),
+            "dashboard": base_plan.get("dashboard"),
+            "semantic_model": base_plan.get("semantic_model"),
+            "metric": metric_label,
+            "metric_id": metric.get("metric_id"),
+            "metric_source": metric.get("source_type"),
+            "value": value,
+            "rows": rows,
+            "filters": base_plan.get("filters", []),
+            "business_filters": [
+                f for f in base_plan.get("filters", []) if f.get("type") == "categorical"
+            ],
+            "group_by": base_plan.get("group_by", []),
+            "answer": answer,
+            "dax": dax_result.get("dax"),
+            "dax_queries": [e[2].get("dax") for e in executed],
+            "powerbi": powerbi_result,
+            "query_plan": base_plan,
+            "query_plans": [e[1] for e in executed],
+            "source_context": base_plan.get("source_context"),
+        }
+        if measures_out is not None:
+            result["measures"] = measures_out
+        return result
+
+    def _run_query_plan(self, question, intent_result, stage):
+        """Query Plan completo (compuesto o simple). Devuelve (respuesta, estado_del_plan)."""
+        try:
+            composite = self.query_plan_builder.build_composite(
+                question, intent_result=intent_result
+            )
+            if composite is not None:
+                if composite.get("status") == "composite":
+                    return self._execute_composite(composite), "composite"
+                return self._query_plan_failure(composite), composite.get("status")
+            plan = self.query_plan_builder.build(
+                question=question, intent_result=intent_result,
+            )
+        except Exception as error:
+            return {
+                "status": "error", "route": "powerbi", "stage": stage,
+                "error": f"{type(error).__name__}: {error}",
+            }, "error"
+        if plan.get("status") == "ready":
+            return self._execute_query_plan(plan), "ready"
+        return self._query_plan_failure(plan), plan.get("status")
+
+    # ========================================================
     # PROCESS
     # ========================================================
 
@@ -1451,9 +1666,12 @@ class QueryEngine:
         # desde master_metrics + visual catalog, así que una consulta
         # cuantitativa debe pasar primero por esta capa.
 
+        unresolved_plan_response = None
+        query_plan_attempted = False
+
         if self.query_plan_builder and self.query_plan_dax_generator:
             try:
-                early_numeric = self.query_plan_builder.looks_numeric(
+                early_numeric =self.query_plan_builder.looks_numeric(
                     message,
                     dashboard=None,
                 )
@@ -1471,23 +1689,16 @@ class QueryEngine:
                     "original_question": message,
                 }
 
-                try:
-                    early_plan = self.query_plan_builder.build(
-                        question=message,
-                        intent_result=early_intent,
-                    )
-                except Exception as error:
-                    return {
-                        "status": "error",
-                        "route": "powerbi",
-                        "stage": "query_plan_early",
-                        "error": f"{type(error).__name__}: {error}",
-                    }
-
-                if early_plan.get("status") == "ready":
-                    return self._execute_query_plan(early_plan)
-
-                return self._query_plan_failure(early_plan)
+                early_response, early_status = self._run_query_plan(
+                    message, early_intent, "query_plan_early"
+                )
+                if early_status != "not_found":
+                    return early_response
+                # Métrica no resuelta: la pregunta puede ser documental
+                # aunque use palabras numéricas. Se intenta el RAG y solo si
+                # también falla se devuelve este resultado.
+                unresolved_plan_response = early_response
+                query_plan_attempted = True
 
         # ----------------------------------------------------
         # 2. INTENCIÓN + CONVERSACIÓN NORMAL
@@ -1552,7 +1763,7 @@ class QueryEngine:
         if self.query_plan_builder and self.query_plan_dax_generator:
             if intent in ("query_metric", "compare_metric"):
                 should_try_query_plan = True
-            elif intent == "general_question":
+            elif intent == "general_question" and not query_plan_attempted:
                 try:
                     should_try_query_plan = self.query_plan_builder.looks_numeric(
                         original_question,
@@ -1562,25 +1773,10 @@ class QueryEngine:
                     should_try_query_plan = False
 
         if should_try_query_plan:
-            try:
-                query_plan = self.query_plan_builder.build(
-                    question=original_question,
-                    intent_result=intent_result,
-                )
-            except Exception as error:
-                return {
-                    "status": "error",
-                    "route": "powerbi",
-                    "stage": "query_plan",
-                    "error": f"{type(error).__name__}: {error}",
-                }
-
-            plan_status = query_plan.get("status")
-
-            if plan_status == "ready":
-                return self._execute_query_plan(query_plan)
-
-            return self._query_plan_failure(query_plan)
+            plan_response, _ = self._run_query_plan(
+                original_question, intent_result, "query_plan"
+            )
+            return plan_response
 
         # ----------------------------------------------------
         # 3. RAG DOCUMENTAL
@@ -1605,6 +1801,22 @@ class QueryEngine:
                 )
                 == "not_found"
             ):
+                # Fallback: el RAG no tiene evidencia; si el Query Plan sí
+                # puede resolver la pregunta (o pedir aclaración), se usa.
+                if (
+                    self.query_plan_builder
+                    and self.query_plan_dax_generator
+                    and not query_plan_attempted
+                    and intent == "general_question"
+                    and not self.query_plan_builder.is_descriptive(original_question)
+                ):
+                    fallback_response, fallback_status = self._run_query_plan(
+                        original_question, intent_result, "query_plan_fallback"
+                    )
+                    if fallback_status in ("ready", "composite", "ambiguous"):
+                        return fallback_response
+                if unresolved_plan_response is not None:
+                    return unresolved_plan_response
                 return {
                     "status":
                         "not_found",

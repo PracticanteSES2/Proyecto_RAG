@@ -103,3 +103,64 @@ class QueryPlanDAXGenerator:
             ")"
         )
         return {"status": "generated", "mode": "scalar", "dax": dax}
+
+    # ---------------- participación (% del total) ----------------
+    def generate_share(self, plan):
+        """Participación de un valor de dimensión sobre el total del período.
+
+        Numerador: métrica con todos los filtros del plan.
+        Denominador: misma métrica sin filtro sobre la dimensión (REMOVEFILTERS)
+        pero conservando período y demás filtros. Con group_by devuelve una
+        fila por grupo (participación de cada grupo sobre el total).
+        """
+        dimension = plan.get("share_dimension") or {}
+        if plan.get("status") != "ready" or not dimension.get("column"):
+            return {"status": "rejected", "reason": "share_without_dimension"}
+
+        metric = plan.get("metric", {})
+        expression = metric.get("dax_expression")
+        if not expression:
+            return {"status": "rejected", "reason": "metric_without_dax_expression"}
+        if metric.get("validation_status") != "approved":
+            return {"status": "rejected", "reason": "metric_not_approved"}
+
+        column = self._column_expression(dimension["table"], dimension["column"])
+        remove = f"REMOVEFILTERS({column})"
+
+        if dimension.get("scope") == "group":
+            arguments = [
+                column, *self._filter_expressions(plan), '"__value"',
+                f"DIVIDE({expression}, CALCULATE({expression}, {remove}))",
+            ]
+            dax = (
+                "EVALUATE\n"
+                "SUMMARIZECOLUMNS(\n    "
+                + ",\n    ".join(arguments)
+                + "\n)\n"
+                "ORDER BY [__value] DESC"
+            )
+            return {"status": "generated", "mode": "grouped", "dax": dax}
+
+        def misma_dimension(item):
+            return (
+                item.get("type") == "categorical"
+                and str(item.get("table")).casefold() == str(dimension["table"]).casefold()
+                and str(item.get("column")).casefold() == str(dimension["column"]).casefold()
+            )
+
+        otros = self._filter_expressions({
+            "filters": [i for i in plan.get("filters", []) or [] if not misma_dimension(i)]
+        })
+        numerador = ",\n            ".join([expression, *self._filter_expressions(plan)])
+        denominador = ",\n            ".join([expression, remove, *otros])
+        dax = (
+            "EVALUATE\n"
+            "ROW(\n"
+            '    "__value",\n'
+            "    DIVIDE(\n"
+            f"        CALCULATE(\n            {numerador}\n        ),\n"
+            f"        CALCULATE(\n            {denominador}\n        )\n"
+            "    )\n"
+            ")"
+        )
+        return {"status": "generated", "mode": "scalar", "dax": dax}
