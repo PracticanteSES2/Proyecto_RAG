@@ -274,18 +274,8 @@ class QueryPlanBuilder:
         for metric in self._dedupe_metrics(self.metrics):
             if metric.get("validation_status") != "approved":
                 continue
-            metric_model = metric.get("semantic_model")
-            metric_reports = self._metric_reports(metric)
-            if model_hint and normalize_text(metric_model) != normalize_text(model_hint):
-                continue
-            if report_hint and metric_reports and not any(
-                normalize_text(value) == normalize_text(report_hint)
-                for value in metric_reports
-            ):
-                continue
-
             # Una selección realizada durante una aclaración manda por ID,
-            # no por el texto de la respuesta del usuario.
+            # no por el texto de la respuesta ni por las pistas de modelo/informe.
             if selected_metric_id is not None:
                 if str(metric.get("metric_id")) != str(selected_metric_id):
                     continue
@@ -296,6 +286,15 @@ class QueryPlanBuilder:
                                     "business_score": 10.0,
                                     "matched_name": metric.get("label")}],
                 }
+            metric_model = metric.get("semantic_model")
+            metric_reports = self._metric_reports(metric)
+            if model_hint and normalize_text(metric_model) != normalize_text(model_hint):
+                continue
+            if report_hint and metric_reports and not any(
+                normalize_text(value) == normalize_text(report_hint)
+                for value in metric_reports
+            ):
+                continue
 
             primary_label = metric.get("label") or ""
             primary_score = _phrase_score(business_question, primary_label)
@@ -977,7 +976,11 @@ class QueryPlanBuilder:
 
         # Una consulta con un valor categórico implícito (p. ej. Nueva EPS)
         # no debe transformarse silenciosamente en el total sin filtro.
-        if not any(item.get("type") == "categorical" for item in filters) and not group_by:
+        if (
+            selected_metric_id is None
+            and not any(item.get("type") == "categorical" for item in filters)
+            and not group_by
+        ):
             leftover = self._implicit_value_text(
                 question, metric, metric_result.get("matched_name"),
                 source_context, group_by,

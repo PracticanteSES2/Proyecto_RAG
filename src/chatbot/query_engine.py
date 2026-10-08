@@ -88,6 +88,7 @@ class QueryEngine:
         # producida por MasterMetricResolver.
         self._pending_master_metric = None
         self._pending_query_plan = None
+        self._pending_dashboard_clarification = None
 
     # ========================================================
     # ESTADO
@@ -96,6 +97,7 @@ class QueryEngine:
     def reset(self):
         self._pending_master_metric = None
         self._pending_query_plan = None
+        self._pending_dashboard_clarification = None
 
     # ========================================================
     # NORMALIZACIÓN
@@ -1210,7 +1212,18 @@ class QueryEngine:
             "| " + " | ".join(clean(value) for value in row) + " |"
             for row in table_rows
         )
+        if len(rows) > len(table_rows):
+            lines.append("")
+            lines.append(f"Mostrando {len(table_rows)} de {len(rows)} filas.")
         return "\n".join(lines)
+
+    @staticmethod
+    def _is_blank_value(value):
+        if value is None:
+            return True
+        if isinstance(value, float) and value != value:
+            return True
+        return str(value).strip().upper() in ("", "BLANK", "NONE", "NAN", "NULL")
 
     def _execute_query_plan(self, plan):
         dax_result = self.query_plan_dax_generator.generate(plan)
@@ -1239,6 +1252,11 @@ class QueryEngine:
 
         rows = powerbi_result.get("rows", []) or []
         mode = plan.get("mode", "scalar")
+        # ROW() siempre devuelve una fila: BLANK/None/"" también es vacío.
+        if mode == "scalar" and rows and all(
+            self._is_blank_value(value) for value in (rows[0] or {}).values()
+        ):
+            rows = []
         if not rows and mode == "scalar":
             return {
                 "status": "empty_result", "route": "powerbi",
@@ -1249,6 +1267,7 @@ class QueryEngine:
         value = None
         answer = None
 
+        total_rows = len(rows)
         if mode == "grouped":
             answer = self._format_grouped_answer(plan, rows)
         elif rows:
@@ -1275,6 +1294,9 @@ class QueryEngine:
             ],
             "group_by": plan.get("group_by", []),
             "answer": answer,
+            "total_rows": total_rows,
+            "metric_format": metric.get("format_string") or metric.get("format"),
+            "unapplied_terms": plan.get("unapplied_terms") or [],
             "dax": dax_result.get("dax"),
             "powerbi": powerbi_result,
             "query_plan": plan,
@@ -1285,79 +1307,253 @@ class QueryEngine:
     # ACLARACIONES DE MÉTRICAS EN QUERY PLAN
     # ========================================================
 
+    _CLARIFICATION_MARGIN = 0.35
+    _CLARIFICATION_MAX_OPTIONS = 6
+    _CLARIFICATION_STOPWORDS = {
+        "los", "las", "una", "uno", "del", "que", "con", "por", "para",
+        "esa", "ese", "esta", "este", "quiero", "opcion", "numero", "tablero",
+        "informe", "modelo", "pagina", "reporte", "dato", "datos",
+    }
+
+    def _clarification_context(self, metric):
+        """Reporte, página y modelo con los que se distingue una opción."""
+        appearances = metric.get("appearances", []) or []
+        reports = metric.get("reports", []) or []
+        report = (
+            metric.get("report")
+            or (reports[0] if reports else None)
+            or next((a.get("report") for a in appearances if a.get("report")), None)
+        )
+        page = metric.get("dashboard") or next(
+            (a.get("page_display_name") for a in appearances if a.get("page_display_name")),
+            None,
+        )
+        return (
+            str(report).strip() if report else "",
+            str(page).strip() if page else "",
+            str(metric.get("semantic_model") or "").strip(),
+        )
+
+    def _build_clarification_choices(self, raw_candidates):
+        scored = []
+        seen_ids = set()
+        for item in raw_candidates:
+            metric = item.get("metric", {}) or {}
+            metric_id = metric.get("metric_id")
+            label = str(metric.get("label") or "").strip()
+            if not label or not metric_id or metric_id in seen_ids:
+                continue
+            seen_ids.add(metric_id)
+            scored.append((float(item.get("score") or 0.0), metric))
+        if not scored:
+            return []
+        best = max(score for score, _ in scored)
+        scored = [
+            pair for pair in scored
+            if best - pair[0] <= self._CLARIFICATION_MARGIN
+        ][: self._CLARIFICATION_MAX_OPTIONS]
+
+        choices = []
+        for _, metric in scored:
+            report, page, model = self._clarification_context(metric)
+            title = next(
+                (
+                    str(a.get("visual_title")).strip()
+                    for a in metric.get("appearances", []) or []
+                    if a.get("visual_title")
+                    and self._normalize_text(a.get("visual_title"))
+                    == self._normalize_text(metric.get("label"))
+                ),
+                str(metric.get("label")).strip(),
+            )
+            where = " › ".join(part for part in (report, page) if part)
+            detail = " · ".join(part for part in (where, model) if part)
+            choices.append({
+                "id": metric.get("metric_id"),
+                "label": title,
+                "detail": detail,
+                "description": str(metric.get("description") or "").strip(),
+                "_parts": [report, page, model, str(metric.get("measure") or "").strip()],
+            })
+
+        # Etiquetas distinguibles: se agregan reporte/página/modelo
+        # progresivamente solo mientras existan duplicados.
+        for index in range(4):
+            groups = {}
+            for choice in choices:
+                groups.setdefault(choice["label"].casefold(), []).append(choice)
+            duplicated = [group for group in groups.values() if len(group) > 1]
+            if not duplicated:
+                break
+            for group in duplicated:
+                for choice in group:
+                    part = choice["_parts"][index]
+                    if part and part.casefold() not in choice["label"].casefold():
+                        choice["label"] = f"{choice['label']} — {part}"
+        groups = {}
+        for choice in choices:
+            groups.setdefault(choice["label"].casefold(), []).append(choice)
+        for group in groups.values():
+            if len(group) > 1:
+                for number, choice in enumerate(group, 1):
+                    choice["label"] = f"{choice['label']} ({number})"
+        for choice in choices:
+            choice.pop("_parts", None)
+        return choices
+
+    def _clarification_response(self, choices, question=None):
+        lines = []
+        for index, choice in enumerate(choices, 1):
+            line = f"{index}. {choice['label']}"
+            if choice.get("detail") and choice["detail"] not in choice["label"]:
+                line += f" ({choice['detail']})"
+            lines.append(line)
+        return {
+            "status": "needs_clarification", "route": "clarification",
+            "clarification_type": "query_plan_metric",
+            "question": (question or "Encontré varios indicadores. ¿Cuál necesitas?")
+            + "\n\n" + "\n".join(lines),
+            "clarification_options": [dict(choice) for choice in choices],
+        }
+
     def _query_plan_clarification(self, plan):
         raw_candidates = plan.get("metric_resolution", {}).get("candidates", [])
-        choices = []
-        used_labels = set()
-        for item in raw_candidates:
-            metric = item.get("metric", {})
-            label = str(metric.get("label") or "").strip()
-            metric_id = metric.get("metric_id")
-            if not label or not metric_id:
-                continue
-            # Evitar opciones indistinguibles si dos cálculos comparten título.
-            name = label
-            if name.casefold() in used_labels:
-                name = f"{label} — {metric.get('table') or metric_id}"
-            if name.casefold() in used_labels:
-                name += f" — {metric_id}"
-            used_labels.add(name.casefold())
-            choices.append({"label": name, "metric_id": metric_id})
-            if len(choices) >= 6:
-                break
+        choices = self._build_clarification_choices(raw_candidates)
         if not choices:
             return {
                 "status": "metric_not_resolved", "route": "powerbi",
                 "stage": "query_plan_metric", "query_plan": plan,
             }
         self._pending_query_plan = {
+            "type": "query_plan_metric",
             "question": plan.get("question"),
+            "intent": plan.get("intent"),
             "choices": choices,
         }
-        options = "\n".join(
-            f"{index}. {choice['label']}" for index, choice in enumerate(choices, 1)
+        response = self._clarification_response(choices)
+        response["query_plan"] = plan
+        return response
+
+    def _run_selected_metric(self, pending, choice):
+        self._pending_query_plan = None
+        plan = self.query_plan_builder.build(
+            pending["question"], selected_metric_id=choice["id"]
         )
-        return {
-            "status": "needs_clarification", "route": "clarification",
-            "question": "Encontré varios indicadores. ¿Cuál necesitas?\n\n" + options,
-            "clarification_options": [choice["label"] for choice in choices],
-            "query_plan": plan,
+        if plan.get("status") == "ready":
+            return self._execute_query_plan(plan)
+        return self._query_plan_failure(plan)
+
+    def select_clarification_option(self, option_id):
+        """Resuelve una contrapregunta pendiente con la opción elegida (botón)."""
+        unavailable = {
+            "status": "error", "route": "clarification",
+            "stage": "select_option",
+            "error": "La opción elegida ya no está disponible.",
         }
+        pending = self._pending_query_plan
+        if pending is not None:
+            choice = next(
+                (c for c in pending["choices"] if str(c["id"]) == str(option_id)),
+                None,
+            )
+            if choice is None:
+                return unavailable
+            return self._run_selected_metric(pending, choice)
+
+        dashboard_pending = self._pending_dashboard_clarification
+        if dashboard_pending is not None:
+            choice = next(
+                (c for c in dashboard_pending["choices"] if str(c["id"]) == str(option_id)),
+                None,
+            )
+            if choice is None:
+                return unavailable
+            self._pending_dashboard_clarification = None
+            select = getattr(self.conversation_manager, "select_dashboard", None)
+            if callable(select):
+                select(choice["id"])
+            return self.process(dashboard_pending["question"])
+
+        return {
+            "status": "error", "route": "clarification",
+            "stage": "select_option",
+            "error": "No hay una aclaración pendiente.",
+        }
+
+    def _match_query_plan_choice(self, message, choices):
+        """Devuelve la opción elegida por un mensaje escrito, o None."""
+        norm = self._normalize_text(message)
+        if not norm:
+            return None
+
+        number = re.fullmatch(
+            r"(?:(?:la|el|opcion|numero|num|no|n)\s+)*(\d{1,2})(?:\s+(?:opcion|por favor))?",
+            norm,
+        )
+        if number:
+            index = int(number.group(1))
+            return choices[index - 1] if 1 <= index <= len(choices) else None
+
+        exact = [c for c in choices if self._normalize_text(c["label"]) == norm]
+        if len(exact) == 1:
+            return exact[0]
+
+        contained = [
+            c for c in choices
+            if len(norm) >= 4 and (
+                norm in self._normalize_text(c["label"])
+                or self._normalize_text(c["label"]) in norm
+            )
+        ]
+        if len(contained) == 1:
+            return contained[0]
+
+        # Palabras del reporte / página / modelo que distinguen una opción.
+        def tokens(text):
+            return {
+                token for token in self._normalize_text(text).split()
+                if len(token) >= 3 and token not in self._CLARIFICATION_STOPWORDS
+            }
+
+        option_tokens = [
+            tokens(f"{c['label']} {c.get('detail') or ''}") for c in choices
+        ]
+        message_tokens = tokens(norm)
+        scores = []
+        for position, current in enumerate(option_tokens):
+            others = [
+                t for other, t in enumerate(option_tokens) if other != position
+            ]
+            informative = {
+                t for t in current
+                if t in message_tokens and not all(t in other for other in others)
+            }
+            exclusive = {
+                t for t in informative if not any(t in other for other in others)
+            }
+            scores.append((len(exclusive), len(informative)))
+        best = max(scores, default=(0, 0))
+        if best[1] > 0 and scores.count(best) == 1:
+            return choices[scores.index(best)]
+        return None
 
     def _continue_query_plan(self, message):
         pending = self._pending_query_plan
         if pending is None:
             return None
-        if self._looks_like_new_question(message):
-            self._pending_query_plan = None
-            return None
-        norm = self._normalize_text(message)
         choices = pending["choices"]
-        selected = None
-        if norm.isdigit():
-            number = int(norm)
-            if 1 <= number <= len(choices):
-                selected = choices[number - 1]
+        # Primero intentar emparejar una opción: una respuesta larga puede
+        # ser una opción y no una pregunta nueva.
+        selected = self._match_query_plan_choice(message, choices)
         if selected is None:
-            exact = [
-                choice for choice in choices
-                if self._normalize_text(choice["label"]) == norm
-            ]
-            if len(exact) == 1:
-                selected = exact[0]
-        if selected is None:
-            return {
-                "status": "needs_clarification", "route": "clarification",
-                "question": "Indica el número de la opción correspondiente.",
-                "clarification_options": [choice["label"] for choice in choices],
-            }
-        self._pending_query_plan = None
-        plan = self.query_plan_builder.build(
-            pending["question"], selected_metric_id=selected["metric_id"]
-        )
-        if plan.get("status") == "ready":
-            return self._execute_query_plan(plan)
-        return self._query_plan_failure(plan)
+            if self._looks_like_new_question(message):
+                self._pending_query_plan = None
+                return None
+            return self._clarification_response(
+                choices,
+                "Indica el número o el nombre de la opción correspondiente.",
+            )
+        return self._run_selected_metric(pending, selected)
 
     def _query_plan_failure(self, plan):
         if plan.get("status") == "ambiguous":
@@ -1367,6 +1563,7 @@ class QueryEngine:
                 "status": "unsupported_filter", "route": "powerbi",
                 "stage": plan.get("stage"), "details": plan,
                 "query_plan": plan,
+                "powerbi_unavailable": bool(plan.get("domain_error")),
             }
         return {
             "status": "metric_not_resolved", "route": "powerbi",
@@ -1506,18 +1703,41 @@ class QueryEngine:
             )
             == "needs_clarification"
         ):
-            return {
+            clarification = {
                 "status":
                     "needs_clarification",
                 "route":
                     "clarification",
                 "question":
-                    intent_result.get(
-                        "clarification_question"
-                    ),
+                    intent_result.get("question")
+                    or intent_result.get("clarification_question"),
                 "intent":
                     intent_result,
             }
+            dashboards = [
+                str(name) for name in intent_result.get("candidates") or []
+                if name
+            ]
+            self._pending_dashboard_clarification = None
+            if dashboards and "dashboard" in (
+                intent_result.get("missing_fields") or []
+            ):
+                options = [
+                    {"id": name, "label": name, "detail": "", "description": ""}
+                    for name in dashboards
+                ]
+                self._pending_dashboard_clarification = {
+                    "question": (
+                        (intent_result.get("state") or {}).get("original_question")
+                        or message
+                    ),
+                    "choices": options,
+                }
+                clarification["clarification_type"] = "dashboard"
+                clarification["clarification_options"] = [
+                    dict(option) for option in options
+                ]
+            return clarification
 
         if (
             intent_result.get(
