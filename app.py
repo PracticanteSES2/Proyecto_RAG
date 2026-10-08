@@ -20,7 +20,7 @@ from src.semantic.multi_model_components import (
     MultiModelDAXValidator,
 )
 from src.providers.powerbi_provider import PowerBIProvider
-from src.llm.ollama_provider import OllamaProvider
+from src.llm.medgemma_provider import MedGemmaProvider
 from src.semantic.query_semantic_planner import (
     QuerySemanticPlanner
 )
@@ -116,8 +116,8 @@ def build_system():
         )
     )
 
-    ollama_provider = OllamaProvider()
-    ollama_status = ollama_provider.healthcheck()
+    medgemma_provider = MedGemmaProvider()
+    medgemma_status = medgemma_provider.healthcheck()
     master_metric_resolver = (
         MasterMetricResolver(
             MASTER_METRICS
@@ -160,11 +160,11 @@ def build_system():
         QueryPlanDAXGenerator()
     )
 
-    if ollama_status.get("status") == "ready":
-        warmup = getattr(ollama_provider, "warmup", None)
+    if medgemma_status.get("status") == "ready":
+        warmup = getattr(medgemma_provider, "warmup", None)
         if callable(warmup):
             warmup()
-    answer_synthesizer = AnswerSynthesizer(llm_provider=ollama_provider, max_sources=3, max_context_chars=5000)
+    answer_synthesizer = AnswerSynthesizer(llm_provider=medgemma_provider, max_sources=3, max_context_chars=5000)
     rag_answer_engine = RAGAnswerEngine(
         retriever=retriever,
         answer_synthesizer=answer_synthesizer,
@@ -211,7 +211,7 @@ def build_system():
         "MODELOS SEMÁNTICOS ENRUTABLES:",
         source_router.semantic_models()
     )
-    return engine, conversation_manager, ResponseFormatter(), ollama_status, powerbi_connection
+    return engine, conversation_manager, ResponseFormatter(), medgemma_status, powerbi_connection
 
 def get_display_answer(result, formatter):
     status = result.get("status")
@@ -278,14 +278,14 @@ st.set_page_config(page_title="Asistente de Gestión Clínica", page_icon="📊"
 st.title("📊 Asistente de Gestión Clínica")
 st.caption("Consultas sobre tableros institucionales con RAG, Power BI y Qwen local.")
 
-engine, conversation_manager, formatter, ollama_status, powerbi_connection = build_system()
+engine, conversation_manager, formatter, medgemma_status, powerbi_connection = build_system()
 
 with st.sidebar:
     st.subheader("Estado del sistema")
-    if ollama_status.get("status") == "ready":
-        st.success("Qwen local: disponible")
+    if medgemma_status.get("status") == "ready":
+        st.success("MedGemma: disponible")
     else:
-        st.warning("Qwen local: no disponible")
+        st.warning("MedGemma: no disponible")
     if (
         powerbi_connection.get(
             "status"
