@@ -212,10 +212,6 @@ def test_lav_control_grouped_by_servicio_adds_up():
     assert round(100 * dict(rows)["ANTIFLUIDOS"] / 3906.4, 1) == 12.5
 
 
-@xfail("looks_numeric() de QueryPlanBuilder no reconoce 'cuanta'/'participacion' como pregunta numérica y "
-       "el IntentParser clasifica 'general_question' -> se enruta a RAG (route=rag) en vez de Power BI; "
-       "además no existe métrica de participación (% del total), solo PESO: aun forzando QueryPlanBuilder.build() "
-       "el plan sale 'ready' solo con PESO y la parte de participación se ignora.")
 def test_lav_q1_answers_peso_and_participacion():
     result, ui = last("lav_q1")
     assert result["route"] == "powerbi", f"route={result['route']} (respondió con RAG)"
@@ -223,7 +219,6 @@ def test_lav_q1_answers_peso_and_participacion():
     assert "12.5" in ui or "12,5" in ui, ui
 
 
-@xfail("Igual que lav_q1: 'cuanta' no está en numeric_terms de looks_numeric -> RAG; sin métrica de participación.")
 def test_lav_q2_answers_peso_and_participacion():
     result, ui = last("lav_q2")
     assert result["route"] == "powerbi", f"route={result['route']} (respondió con RAG)"

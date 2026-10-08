@@ -561,6 +561,16 @@ class FakeDaxEngine:
                     buckets.setdefault(tuple(r.get(g[1]) for g in groups), []).append(r)
                 out = []
                 for key, brs in buckets.items():
+                    if expr.upper().startswith("DIVIDE("):
+                        # participación por grupo: grupo / total (REMOVEFILTERS del grupo)
+                        num, den = self._split_args(self._inside(expr, "DIVIDE"))[:2]
+                        base = self._split_args(self._inside(den, "CALCULATE"))[0]
+                        total = self._row_aggregate(model, base, rows)
+                        part = self._row_aggregate(model, num, brs)
+                        val = None if not total or part is None else part / total
+                        if val is not None:
+                            out.append([*key, val])
+                        continue
                     val = self._row_aggregate(model, expr, brs)
                     if val is not None:
                         out.append([*key, val])
@@ -582,6 +592,19 @@ class FakeDaxEngine:
             args = self._split_args(self._inside(dax, "ROW"))
             colname = args[0].strip('"')
             expr = args[1]
+            if expr.upper().startswith("DIVIDE("):
+                # DIVIDE(CALCULATE(base, filtros), CALCULATE(base, REMOVEFILTERS(col), filtros))
+                num, den = self._split_args(self._inside(expr, "DIVIDE"))[:2]
+                vals = []
+                for part in (num, den):
+                    cargs = self._split_args(self._inside(part, "CALCULATE"))
+                    base = cargs[0]
+                    flts = [self._parse_filter(model, a) for a in cargs[1:]
+                            if not a.upper().startswith("REMOVEFILTERS(")]
+                    srows = self._apply_filters(self._row_source(model, base, flts, []), flts)
+                    vals.append(self._row_aggregate(model, base, srows))
+                value = None if not vals[1] or vals[0] is None else vals[0] / vals[1]
+                return [f"[{colname}]"], [[value]]
             if expr.upper().startswith("CALCULATE("):
                 cargs = self._split_args(self._inside(expr, "CALCULATE"))
                 base, filters = cargs[0], [self._parse_filter(model, a) for a in cargs[1:]]
