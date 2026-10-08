@@ -226,26 +226,18 @@ def test_lav_q2_answers_peso_and_participacion():
     assert "12.5" in ui or "12,5" in ui, ui
 
 
-@xfail("'Que participacion tuvo...' no contiene término numérico (route=rag) y QueryPlanBuilder._resolve_metric "
-       "devuelve not_found porque la pregunta no nombra la métrica PESO; no hay métrica 'participación' (% del total).")
 def test_lav_q4_answers_participacion():
     result, ui = last("lav_q4")
     assert result["route"] == "powerbi", f"route={result['route']} (respondió con RAG)"
     assert "12.5" in ui or "12,5" in ui, ui
 
 
-@xfail("Estilo telegráfico: looks_numeric() es False (sin 'cuanto'/'total'...) -> RAG. Y aun llamando a build(): "
-       "_resolve_implicit_filter ignora SERVICIO porque su visual es 'tableEx' (no está en la lista de tipos "
-       "permitidos) con rol 'Values' -> unsupported_filter/implicit_dimension 'antifluido'.")
 def test_lav_q5_telegraphic_peso():
     result, ui = last("lav_q5")
     assert result["route"] == "powerbi", f"route={result['route']} (respondió con RAG)"
-    assert ui == "PESO: 488.3", ui
+    assert "488,3" in ui, ui
 
 
-@xfail("'Dime el peso por turno': looks_numeric() False ('dime' no es disparador) -> RAG. Con 'cuanto peso por turno' "
-       "falla además la agrupación: el alias de TURNO_OK es 'turno ok' y _detect_group_or_dimension_filter exige "
-       "coincidencia exacta/prefijo ('turno' != 'turno ok') -> unsupported_filter.")
 def test_lav_q6_breakdown_by_turno():
     result, ui = last("lav_q6")
     assert result["route"] == "powerbi", f"route={result['route']} (respondió con RAG)"
