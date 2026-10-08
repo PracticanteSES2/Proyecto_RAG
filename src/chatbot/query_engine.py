@@ -16,6 +16,9 @@ class QueryEngine:
         powerbi_provider,
         rag_answer_engine,
         query_semantic_planner=None,
+        source_router=None,
+        query_plan_builder=None,
+        query_plan_dax_generator=None,
     ):
 
         self.conversation_manager = (
@@ -67,9 +70,24 @@ class QueryEngine:
             query_semantic_planner
         )
 
+        # Enrutador Informe/Página -> Modelo semántico.
+        self.source_router = (
+            source_router
+        )
+
+        # Planner determinista de consultas numéricas.
+        self.query_plan_builder = (
+            query_plan_builder
+        )
+
+        self.query_plan_dax_generator = (
+            query_plan_dax_generator
+        )
+
         # Estado de conversación para una ambigüedad
         # producida por MasterMetricResolver.
         self._pending_master_metric = None
+        self._pending_query_plan = None
 
     # ========================================================
     # ESTADO
@@ -77,6 +95,7 @@ class QueryEngine:
 
     def reset(self):
         self._pending_master_metric = None
+        self._pending_query_plan = None
 
     # ========================================================
     # NORMALIZACIÓN
@@ -366,6 +385,14 @@ class QueryEngine:
                     metric_question,
                 dashboard=
                     selected_dashboard,
+                semantic_model=
+                    pending.get(
+                        "semantic_model_hint"
+                    ),
+                report=
+                    pending.get(
+                        "report_hint"
+                    ),
             )
         )
 
@@ -418,7 +445,6 @@ class QueryEngine:
         intent_result,
         dashboard,
         semantic_model,
-        preferred_tables=None,
     ):
         resolved_intent = (
             intent_result.copy()
@@ -428,12 +454,25 @@ class QueryEngine:
             "dashboard"
         ] = dashboard
 
-        temporal_result = (
-            self.filter_resolver
-            .resolve(
-                resolved_intent
+        try:
+            temporal_result = (
+                self.filter_resolver
+                .resolve(
+                    resolved_intent,
+                    semantic_model=
+                        semantic_model,
+                    dashboard=
+                        dashboard,
+                )
             )
-        )
+        except TypeError:
+            # Compatibilidad con FilterResolver legacy.
+            temporal_result = (
+                self.filter_resolver
+                .resolve(
+                    resolved_intent
+                )
+            )
 
         if (
             temporal_result.get(
@@ -467,8 +506,6 @@ class QueryEngine:
                     dashboard,
                 semantic_model=
                     semantic_model,
-                preferred_tables=
-                    preferred_tables,
             )
         )
 
@@ -596,10 +633,6 @@ class QueryEngine:
         )
 
         dashboard = (
-            intent_result.get(
-                "_dashboard_hint"
-            )
-            or
             master_result.get(
                 "resolved_dashboard"
             )
@@ -738,11 +771,6 @@ class QueryEngine:
                     dashboard,
                 semantic_model=
                     semantic_model,
-                preferred_tables=[
-                    metric.get(
-                        "table"
-                    )
-                ],
             )
         )
 
@@ -833,6 +861,30 @@ class QueryEngine:
                 dashboard,
             "semantic_model":
                 semantic_model,
+            "report":
+                (
+                    master_result.get(
+                        "resolved_report"
+                    )
+                    or metric.get(
+                        "report"
+                    )
+                    or (
+                        metric.get(
+                            "reports",
+                            [],
+                        )[0]
+                        if metric.get(
+                            "reports",
+                            [],
+                        )
+                        else None
+                    )
+                ),
+            "source_context":
+                intent_result.get(
+                    "_source_context"
+                ),
             "metric":
                 metric.get(
                     "label"
@@ -940,11 +992,6 @@ class QueryEngine:
                     dashboard,
                 semantic_model=
                     semantic_model,
-                preferred_tables=[
-                    metric_result.get(
-                        "table"
-                    )
-                ],
             )
         )
 
@@ -981,16 +1028,31 @@ class QueryEngine:
                     dax_result,
             }
 
-        validation_result = (
-            self.dax_validator
-            .validate(
-                dax_result,
-                metric_result,
-                filters_bundle[
-                    "filter_result"
-                ],
+        try:
+            validation_result = (
+                self.dax_validator
+                .validate(
+                    dax_result,
+                    metric_result,
+                    filters_bundle[
+                        "filter_result"
+                    ],
+                    semantic_model=
+                        semantic_model,
+                )
             )
-        )
+        except TypeError:
+            # Compatibilidad con DAXValidator legacy.
+            validation_result = (
+                self.dax_validator
+                .validate(
+                    dax_result,
+                    metric_result,
+                    filters_bundle[
+                        "filter_result"
+                    ],
+                )
+            )
 
         if not validation_result.get(
             "valid",
@@ -1052,6 +1114,10 @@ class QueryEngine:
                 dashboard,
             "semantic_model":
                 semantic_model,
+            "source_context":
+                resolved_intent.get(
+                    "_source_context"
+                ),
             "metric":
                 metric_result.get(
                     "measure"
@@ -1089,6 +1155,226 @@ class QueryEngine:
         }
 
     # ========================================================
+    # QUERY PLAN DETERMINISTA
+    # ========================================================
+
+    def _row_value(self, row):
+        if not row:
+            return None
+
+        for key, value in row.items():
+            if "__value" in str(key).lower():
+                return value
+
+        return next(iter(row.values()), None)
+
+    def _format_grouped_answer(self, plan, rows):
+        if not rows:
+            return (
+                "La consulta se ejecutó correctamente, "
+                "pero no devolvió filas."
+            )
+
+        groups = plan.get("group_by", []) or []
+        metric_label = plan.get("metric", {}).get("label") or "Resultado"
+        headers = [
+            item.get("label") or item.get("column")
+            for item in groups
+        ] + [metric_label]
+
+        table_rows = []
+        for row in rows[:50]:
+            values = []
+            for group in groups:
+                column = str(group.get("column") or "").lower()
+                selected = None
+                for key, value in row.items():
+                    key_norm = str(key).lower()
+                    if column and column in key_norm and "__value" not in key_norm:
+                        selected = value
+                        break
+                values.append(selected)
+            values.append(self._row_value(row))
+            table_rows.append(values)
+
+        def clean(value):
+            if value is None:
+                return ""
+            return str(value).replace("|", "\\|")
+
+        lines = [
+            "| " + " | ".join(clean(value) for value in headers) + " |",
+            "| " + " | ".join("---" for _ in headers) + " |",
+        ]
+        lines.extend(
+            "| " + " | ".join(clean(value) for value in row) + " |"
+            for row in table_rows
+        )
+        return "\n".join(lines)
+
+    def _execute_query_plan(self, plan):
+        dax_result = self.query_plan_dax_generator.generate(plan)
+        if dax_result.get("status") != "generated":
+            return {
+                "status": "dax_not_generated",
+                "route": "powerbi",
+                "stage": "query_plan_dax",
+                "query_plan": plan,
+                "details": dax_result,
+            }
+
+        powerbi_result = self.powerbi_provider.execute_dax(
+            dax=dax_result.get("dax"),
+            semantic_model=plan.get("semantic_model"),
+        )
+        if powerbi_result.get("status") != "success":
+            return {
+                "status": "powerbi_error",
+                "route": "powerbi",
+                "stage": "query_plan_powerbi",
+                "query_plan": plan,
+                "dax": dax_result.get("dax"),
+                "details": powerbi_result,
+            }
+
+        rows = powerbi_result.get("rows", []) or []
+        mode = plan.get("mode", "scalar")
+        if not rows and mode == "scalar":
+            return {
+                "status": "empty_result", "route": "powerbi",
+                "stage": "query_plan_result", "query_plan": plan,
+                "dax": dax_result.get("dax"),
+                "details": powerbi_result,
+            }
+        value = None
+        answer = None
+
+        if mode == "grouped":
+            answer = self._format_grouped_answer(plan, rows)
+        elif rows:
+            value = self._row_value(rows[0])
+
+        metric = plan.get("metric", {})
+        return {
+            "status": "success",
+            "route": "powerbi",
+            "result_type": "table" if mode == "grouped" else "scalar",
+            "question": plan.get("question"),
+            "report": plan.get("report"),
+            "dashboard": plan.get("dashboard"),
+            "semantic_model": plan.get("semantic_model"),
+            "metric": metric.get("label"),
+            "metric_id": metric.get("metric_id"),
+            "metric_source": metric.get("source_type"),
+            "value": value,
+            "rows": rows,
+            "filters": plan.get("filters", []),
+            "business_filters": [
+                item for item in plan.get("filters", [])
+                if item.get("type") == "categorical"
+            ],
+            "group_by": plan.get("group_by", []),
+            "answer": answer,
+            "dax": dax_result.get("dax"),
+            "powerbi": powerbi_result,
+            "query_plan": plan,
+            "source_context": plan.get("source_context"),
+        }
+
+    # ========================================================
+    # ACLARACIONES DE MÉTRICAS EN QUERY PLAN
+    # ========================================================
+
+    def _query_plan_clarification(self, plan):
+        raw_candidates = plan.get("metric_resolution", {}).get("candidates", [])
+        choices = []
+        used_labels = set()
+        for item in raw_candidates:
+            metric = item.get("metric", {})
+            label = str(metric.get("label") or "").strip()
+            metric_id = metric.get("metric_id")
+            if not label or not metric_id:
+                continue
+            # Evitar opciones indistinguibles si dos cálculos comparten título.
+            name = label
+            if name.casefold() in used_labels:
+                name = f"{label} — {metric.get('table') or metric_id}"
+            if name.casefold() in used_labels:
+                name += f" — {metric_id}"
+            used_labels.add(name.casefold())
+            choices.append({"label": name, "metric_id": metric_id})
+            if len(choices) >= 6:
+                break
+        if not choices:
+            return {
+                "status": "metric_not_resolved", "route": "powerbi",
+                "stage": "query_plan_metric", "query_plan": plan,
+            }
+        self._pending_query_plan = {
+            "question": plan.get("question"),
+            "choices": choices,
+        }
+        options = "\n".join(
+            f"{index}. {choice['label']}" for index, choice in enumerate(choices, 1)
+        )
+        return {
+            "status": "needs_clarification", "route": "clarification",
+            "question": "Encontré varios indicadores. ¿Cuál necesitas?\n\n" + options,
+            "clarification_options": [choice["label"] for choice in choices],
+            "query_plan": plan,
+        }
+
+    def _continue_query_plan(self, message):
+        pending = self._pending_query_plan
+        if pending is None:
+            return None
+        if self._looks_like_new_question(message):
+            self._pending_query_plan = None
+            return None
+        norm = self._normalize_text(message)
+        choices = pending["choices"]
+        selected = None
+        if norm.isdigit():
+            number = int(norm)
+            if 1 <= number <= len(choices):
+                selected = choices[number - 1]
+        if selected is None:
+            exact = [
+                choice for choice in choices
+                if self._normalize_text(choice["label"]) == norm
+            ]
+            if len(exact) == 1:
+                selected = exact[0]
+        if selected is None:
+            return {
+                "status": "needs_clarification", "route": "clarification",
+                "question": "Indica el número de la opción correspondiente.",
+                "clarification_options": [choice["label"] for choice in choices],
+            }
+        self._pending_query_plan = None
+        plan = self.query_plan_builder.build(
+            pending["question"], selected_metric_id=selected["metric_id"]
+        )
+        if plan.get("status") == "ready":
+            return self._execute_query_plan(plan)
+        return self._query_plan_failure(plan)
+
+    def _query_plan_failure(self, plan):
+        if plan.get("status") == "ambiguous":
+            return self._query_plan_clarification(plan)
+        if plan.get("status") == "unsupported_filter":
+            return {
+                "status": "unsupported_filter", "route": "powerbi",
+                "stage": plan.get("stage"), "details": plan,
+                "query_plan": plan,
+            }
+        return {
+            "status": "metric_not_resolved", "route": "powerbi",
+            "stage": "query_plan_metric", "query_plan": plan,
+            "details": plan.get("metric_resolution"),
+        }
+
+    # ========================================================
     # PROCESS
     # ========================================================
 
@@ -1096,6 +1382,11 @@ class QueryEngine:
         self,
         message,
     ):
+        if self._pending_query_plan is not None:
+            response = self._continue_query_plan(message)
+            if response is not None:
+                return response
+
 
 # ----------------------------------------------------
 # 0. ¿HAY ACLARACIÓN MASTER PENDIENTE?
@@ -1152,7 +1443,54 @@ class QueryEngine:
 
 
         # ----------------------------------------------------
-        # 1. INTENCIÓN + CONVERSACIÓN NORMAL
+        # 1. QUERY PLAN ANTES DEL PARSER LEGACY
+        # ----------------------------------------------------
+        #
+        # El IntentParser histórico exige dashboard/tipo de métrica en
+        # ciertos casos. El Query Plan ya puede resolver eso directamente
+        # desde master_metrics + visual catalog, así que una consulta
+        # cuantitativa debe pasar primero por esta capa.
+
+        if self.query_plan_builder and self.query_plan_dax_generator:
+            try:
+                early_numeric = self.query_plan_builder.looks_numeric(
+                    message,
+                    dashboard=None,
+                )
+            except Exception:
+                early_numeric = False
+
+            if early_numeric:
+                early_intent = {
+                    "status": "ready",
+                    "intent": "query_metric",
+                    "dashboard": None,
+                    "metric_type": None,
+                    "year": None,
+                    "month": None,
+                    "original_question": message,
+                }
+
+                try:
+                    early_plan = self.query_plan_builder.build(
+                        question=message,
+                        intent_result=early_intent,
+                    )
+                except Exception as error:
+                    return {
+                        "status": "error",
+                        "route": "powerbi",
+                        "stage": "query_plan_early",
+                        "error": f"{type(error).__name__}: {error}",
+                    }
+
+                if early_plan.get("status") == "ready":
+                    return self._execute_query_plan(early_plan)
+
+                return self._query_plan_failure(early_plan)
+
+        # ----------------------------------------------------
+        # 2. INTENCIÓN + CONVERSACIÓN NORMAL
         # ----------------------------------------------------
 
         intent_result = (
@@ -1201,7 +1539,51 @@ class QueryEngine:
         )
 
         # ----------------------------------------------------
-        # 2. RAG
+        # 2. QUERY PLAN NUMÉRICO DETERMINISTA
+        # ----------------------------------------------------
+
+        original_question = (
+            intent_result.get("original_question")
+            or message
+        )
+
+        should_try_query_plan = False
+
+        if self.query_plan_builder and self.query_plan_dax_generator:
+            if intent in ("query_metric", "compare_metric"):
+                should_try_query_plan = True
+            elif intent == "general_question":
+                try:
+                    should_try_query_plan = self.query_plan_builder.looks_numeric(
+                        original_question,
+                        dashboard=intent_result.get("dashboard"),
+                    )
+                except Exception:
+                    should_try_query_plan = False
+
+        if should_try_query_plan:
+            try:
+                query_plan = self.query_plan_builder.build(
+                    question=original_question,
+                    intent_result=intent_result,
+                )
+            except Exception as error:
+                return {
+                    "status": "error",
+                    "route": "powerbi",
+                    "stage": "query_plan",
+                    "error": f"{type(error).__name__}: {error}",
+                }
+
+            plan_status = query_plan.get("status")
+
+            if plan_status == "ready":
+                return self._execute_query_plan(query_plan)
+
+            return self._query_plan_failure(query_plan)
+
+        # ----------------------------------------------------
+        # 3. RAG DOCUMENTAL
         # ----------------------------------------------------
 
         if intent in [
@@ -1299,6 +1681,70 @@ class QueryEngine:
             original_question
         )
 
+        source_context = {
+            "status":
+                "unresolved",
+        }
+
+        if self.source_router:
+            try:
+                source_context = (
+                    self.source_router
+                    .resolve(
+                        question=
+                            original_question,
+                        dashboard=
+                            intent_result.get(
+                                "dashboard"
+                            ),
+                    )
+                )
+            except Exception as error:
+                source_context = {
+                    "status":
+                        "error",
+                    "error":
+                        (
+                            f"{type(error).__name__}: "
+                            f"{error}"
+                        ),
+                }
+
+        intent_result[
+            "_source_context"
+        ] = source_context
+
+        strong_source_context = (
+            source_context.get(
+                "status"
+            )
+            == "resolved"
+            and source_context.get(
+                "routing_strength"
+            )
+            == "strong"
+        )
+
+        # IMPORTANTE:
+        # una página detectada por palabras como "urgencias" NO debe
+        # fijar el modelo antes de resolver la métrica. "Urgencias"
+        # puede ser SERVICIO = URGENCIAS.
+        semantic_model_hint = (
+            source_context.get(
+                "semantic_model"
+            )
+            if strong_source_context
+            else None
+        )
+
+        report_hint = (
+            source_context.get(
+                "report"
+            )
+            if strong_source_context
+            else None
+        )
+
         if self.query_semantic_planner:
 
             try:
@@ -1309,8 +1755,9 @@ class QueryEngine:
                         question=
                             original_question,
                         semantic_model=
-                            self.powerbi_provider
-                            .default_semantic_model,
+                            semantic_model_hint,
+                        report=
+                            report_hint,
                     )
                 )
 
@@ -1343,14 +1790,6 @@ class QueryEngine:
                     )
                 )
 
-                intent_result[
-                    "_dashboard_hint"
-                ] = (
-                    semantic_plan.get(
-                        "dashboard_hint"
-                    )
-                )
-
             except Exception as error:
 
                 # Fallback seguro: una falla del planner no debe tumbar
@@ -1374,10 +1813,6 @@ class QueryEngine:
                     "_dimension_matches"
                 ] = []
 
-                intent_result[
-                    "_dashboard_hint"
-                ] = None
-
         else:
 
             intent_result[
@@ -1392,25 +1827,18 @@ class QueryEngine:
                 "_dimension_matches"
             ] = []
 
-            intent_result[
-                "_dashboard_hint"
-            ] = None
-
-        # El dashboard_hint proviene de valores reales de dimensiones
-        # detectados en la pregunta actual; no es contexto heredado.
-        dashboard_hint = (
-            intent_result.get(
-                "_dashboard_hint"
-            )
-        )
-
+        # En la primera resolución NO pasamos un dashboard heredado
+        # del ConversationManager. MasterMetricResolver debe inferirlo
+        # desde la pregunta métrica actual.
         master_result = (
             self.master_metric_resolver
             .resolve(
                 question=
                     metric_question,
-                dashboard=
-                    dashboard_hint,
+                semantic_model=
+                    semantic_model_hint,
+                report=
+                    report_hint,
             )
         )
 
@@ -1437,6 +1865,10 @@ class QueryEngine:
                     options,
                 "master_result":
                     master_result,
+                "semantic_model_hint":
+                    semantic_model_hint,
+                "report_hint":
+                    report_hint,
             }
 
             return {

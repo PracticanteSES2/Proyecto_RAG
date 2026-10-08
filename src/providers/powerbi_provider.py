@@ -177,11 +177,20 @@ class PowerBIProvider:
                 f"{semantic_model};"
             )
 
-        # IMPORTANTE:
-        # Interactive Login=Always no es problema
-        # mientras la conexión se abra UNA sola vez.
+        # AUTENTICACIÓN ÚNICA POR PROCESO:
+        #
+        # - Interactive Login=Enabled permite primero autenticación
+        #   silenciosa y usa la ventana interactiva solo como fallback.
+        # - Identity Mode=Process conserva la identidad elegida en la
+        #   primera conexión y la reutiliza en las conexiones posteriores
+        #   del MISMO proceso, incluso si apuntan a otros modelos semánticos
+        #   del mismo workspace.
+        #
+        # NO usar Interactive Login=Always aquí: ese valor desactiva
+        # explícitamente el flujo silencioso y fuerza login interactivo
+        # cada vez que ADOMD abre una conexión nueva.
         connection_string += (
-            "Interactive Login=Always;"
+            "Interactive Login=Enabled;"
             "Identity Mode=Process;"
         )
 
@@ -337,6 +346,8 @@ class PowerBIProvider:
                     ),
                 "connection_count":
                     self.connection_count(),
+                "authentication_mode":
+                    "process_identity_single_login",
             }
 
         except Exception as error:

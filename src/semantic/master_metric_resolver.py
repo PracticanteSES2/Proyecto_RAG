@@ -3,331 +3,126 @@ import re
 import unicodedata
 from pathlib import Path
 
-
 MONTHS = {
-    "enero", "febrero", "marzo", "abril",
-    "mayo", "junio", "julio", "agosto",
-    "septiembre", "setiembre", "octubre",
-    "noviembre", "diciembre",
+    "enero","febrero","marzo","abril","mayo","junio",
+    "julio","agosto","septiembre","setiembre","octubre",
+    "noviembre","diciembre",
 }
 
 STOPWORDS = {
-    "a", "al", "cual", "cuales", "cuanto", "cuantos",
-    "cuanta", "cuantas", "de", "del", "el", "en", "entre",
-    "es", "fue", "ha", "han", "hay", "hubo", "la", "las",
-    "lo", "los", "para", "por", "que", "se", "un", "una",
-    "y", "valor", "dato", "datos", "mes", "ano", "año",
-}
-
-CALCULATION_WORDS = {
-    "promedio", "prom", "media", "mensual",
-    "total", "cantidad", "recuento", "numero",
-    "porcentaje", "porcentual", "pct",
-    "proyeccion", "proyectado", "estimado",
-    "variacion", "crecimiento", "cambio",
-}
-
-VERB_FORMS = {
-    "realizado": "realiz",
-    "realizada": "realiz",
-    "realizados": "realiz",
-    "realizadas": "realiz",
-    "realizar": "realiz",
-    "realizaron": "realiz",
-    "realiza": "realiz",
-    "realizan": "realiz",
-    "registrado": "registr",
-    "registrada": "registr",
-    "registrados": "registr",
-    "registradas": "registr",
-    "registrar": "registr",
-    "registraron": "registr",
-    "cancelado": "cancel",
-    "cancelada": "cancel",
-    "cancelados": "cancel",
-    "canceladas": "cancel",
-    "cancelar": "cancel",
-    "programado": "program",
-    "programada": "program",
-    "programados": "program",
-    "programadas": "program",
-    "programar": "program",
-    "observado": "observ",
-    "observada": "observ",
-    "observados": "observ",
-    "observadas": "observ",
-    "observar": "observ",
+    "a","al","cual","cuales","cuanto","cuantos","cuanta","cuantas",
+    "de","del","el","en","entre","es","fue","hay","hubo","la","las",
+    "los","para","por","que","se","un","una","y","total","cantidad",
+    "numero","valor","dato","datos","mes","ano","año",
 }
 
 
 def normalize_text(value):
     value = str(value or "").lower().strip()
-
     value = "".join(
-        char
-        for char in unicodedata.normalize(
-            "NFD",
-            value,
-        )
-        if unicodedata.category(char) != "Mn"
+        c for c in unicodedata.normalize("NFD", value)
+        if unicodedata.category(c) != "Mn"
     )
-
-    value = re.sub(
-        r"[^a-z0-9]+",
-        " ",
-        value,
-    )
-
-    return re.sub(
-        r"\s+",
-        " ",
-        value,
-    ).strip()
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
 
 
 class MasterMetricResolver:
-    """
-    Resuelve una pregunta contra master_metrics.json.
-
-    Separa tres señales:
-      - business_score: concepto/indicador
-      - metric_score: total, promedio, porcentaje, etc.
-      - context_score: tabla/página/servicio
-
-    La normalización morfológica permite hacer coincidir:
-      cirugías <-> cirugia
-      realizadas <-> realizado
-      atenciones <-> atencion
-      generales <-> general
-    """
 
     def __init__(
         self,
         catalog_path,
-        min_score=0.44,
-        ambiguity_margin=0.08,
-        same_dashboard_ambiguity_margin=0.035,
-        dashboard_match_threshold=0.68,
-        context_signal_threshold=0.58,
+        min_score=0.48,
+        ambiguity_margin=0.10,
+        same_dashboard_ambiguity_margin=0.03,
+        dashboard_match_threshold=0.72,
     ):
-        self.catalog_path = Path(
-            catalog_path
-        )
-
-        self.min_score = float(
-            min_score
-        )
-
-        self.ambiguity_margin = float(
-            ambiguity_margin
-        )
-
+        self.catalog_path = Path(catalog_path)
+        self.min_score = float(min_score)
+        self.ambiguity_margin = float(ambiguity_margin)
         self.same_dashboard_ambiguity_margin = float(
             same_dashboard_ambiguity_margin
         )
-
-        self.dashboard_match_threshold = float(
-            dashboard_match_threshold
-        )
-
-        self.context_signal_threshold = float(
-            context_signal_threshold
-        )
+        self.dashboard_match_threshold = float(dashboard_match_threshold)
 
         payload = json.loads(
-            self.catalog_path.read_text(
-                encoding="utf-8"
-            )
+            self.catalog_path.read_text(encoding="utf-8")
         )
+        self.metrics = payload.get("metrics", [])
+        self.available_dashboards = self._load_dashboards()
+        self.available_reports = self._load_reports()
+        self.available_semantic_models = sorted({
+            metric.get("semantic_model")
+            for metric in self.metrics
+            if metric.get("semantic_model")
+        })
 
-        self.metrics = payload.get(
-            "metrics",
-            [],
-        )
-
-        self.available_dashboards = (
-            self._load_dashboards()
-        )
-
-    # ========================================================
-    # NORMALIZACIÓN
-    # ========================================================
-
-    def _canonical_token(
-        self,
-        token,
-    ):
-        token = normalize_text(
-            token
-        )
-
-        if not token:
-            return ""
-
-        if token in VERB_FORMS:
-            return VERB_FORMS[
-                token
-            ]
-
-        # atenciones -> atencion
-        if (
-            token.endswith("iones")
-            and len(token) > 6
-        ):
-            return (
-                token[:-5]
-                + "ion"
-            )
-
-        # generales -> general
-        if (
-            token.endswith("ales")
-            and len(token) > 5
-        ):
-            return token[:-2]
-
-        # pacientes -> paciente
-        if (
-            token.endswith("entes")
-            and len(token) > 6
-        ):
-            return token[:-1]
-
-        # plásticas -> plastica
-        # cirugías -> cirugia
-        # consultas -> consulta
-        if (
-            token.endswith("s")
-            and len(token) > 4
-        ):
-            return token[:-1]
-
-        return token
-
-    def _semantic_tokens(
-        self,
-        value,
-        remove_calculation=False,
-    ):
+    def _semantic_tokens(self, value):
         tokens = []
-
-        for raw_token in normalize_text(
-            value
-        ).split():
-
-            if raw_token.isdigit():
+        for token in normalize_text(value).split():
+            if token.isdigit():
                 continue
-
-            canonical = (
-                self._canonical_token(
-                    raw_token
-                )
-            )
-
-            if not canonical:
+            if token in MONTHS or token in STOPWORDS:
                 continue
-
-            if (
-                raw_token in MONTHS
-                or canonical in MONTHS
-            ):
+            if len(token) < 2:
                 continue
-
-            if (
-                raw_token in STOPWORDS
-                or canonical in STOPWORDS
-            ):
-                continue
-
-            if (
-                remove_calculation
-                and (
-                    raw_token
-                    in CALCULATION_WORDS
-                    or canonical
-                    in CALCULATION_WORDS
-                )
-            ):
-                continue
-
-            if len(canonical) < 2:
-                continue
-
-            tokens.append(
-                canonical
-            )
-
+            tokens.append(token)
         return tokens
 
-    # ========================================================
-    # DASHBOARDS / CONTEXTO
-    # ========================================================
-
-    def _metric_dashboards(
-        self,
-        metric,
-    ):
-        values = []
-
-        direct = metric.get(
-            "dashboard"
+    def _is_technical_alias(self, alias):
+        text = str(alias or "")
+        if any(x in text for x in ("(", ")", "[", "]")):
+            return True
+        normalized = normalize_text(text)
+        return (
+            not normalized
+            or normalized in {"true","false","none","null"}
+            or normalized.isdigit()
         )
 
-        if direct:
-            values.append(
-                str(direct)
-            )
-
-        for appearance in (
-            metric.get(
-                "appearances",
-                [],
-            )
-            or []
-        ):
-            page = appearance.get(
-                "page_display_name"
-            )
-
-            if page:
-                values.append(
-                    str(page)
-                )
-
-        unique = []
-        seen = set()
-
-        for value in values:
-            key = normalize_text(
-                value
-            )
-
-            if (
-                key
-                and key not in seen
-            ):
-                unique.append(
-                    value
-                )
-                seen.add(
-                    key
-                )
-
-        return unique
-
-    def _metric_context_values(
-        self,
-        metric,
-    ):
+    def _metric_dashboards(self, metric):
         values = []
 
-        for value in [
-            metric.get("table"),
-            metric.get("dashboard"),
-        ]:
-            if value:
+        if metric.get("dashboard"):
+            values.append(str(metric["dashboard"]))
+
+        for appearance in metric.get("appearances", []) or []:
+            page = appearance.get("page_display_name")
+            if page:
+                values.append(str(page))
+
+        unique = []
+        seen = set()
+        for value in values:
+            key = normalize_text(value)
+            if key and key not in seen:
+                unique.append(value)
+                seen.add(key)
+
+        return unique
+
+    def _metric_reports(self, metric):
+        values = []
+
+        if metric.get("report"):
+            values.append(
+                str(
+                    metric[
+                        "report"
+                    ]
+                )
+            )
+
+        for report in (
+            metric.get(
+                "reports",
+                [],
+            )
+            or []
+        ):
+            if report:
                 values.append(
-                    str(value)
+                    str(report)
                 )
 
         for appearance in (
@@ -337,22 +132,13 @@ class MasterMetricResolver:
             )
             or []
         ):
-            page = appearance.get(
-                "page_display_name"
+            report = appearance.get(
+                "report"
             )
 
-            if page:
+            if report:
                 values.append(
-                    str(page)
-                )
-
-            title = appearance.get(
-                "visual_title"
-            )
-
-            if title:
-                values.append(
-                    str(title)
+                    str(report)
                 )
 
         unique = []
@@ -370,185 +156,49 @@ class MasterMetricResolver:
                 unique.append(
                     value
                 )
-                seen.add(
-                    key
-                )
+                seen.add(key)
 
         return unique
 
-    def _load_dashboards(
-        self,
-    ):
-        result = []
+    def _load_reports(self):
+        values = []
         seen = set()
 
         for metric in self.metrics:
-
-            for dashboard in (
-                self._metric_dashboards(
-                    metric
-                )
+            for report in self._metric_reports(
+                metric
             ):
                 key = normalize_text(
-                    dashboard
+                    report
                 )
 
                 if (
                     key
                     and key not in seen
                 ):
-                    result.append(
-                        dashboard
+                    values.append(
+                        report
                     )
-                    seen.add(
-                        key
-                    )
+                    seen.add(key)
 
-        return result
+        return values
 
-    # ========================================================
-    # SIMILITUD
-    # ========================================================
-
-    def _token_overlap_score(
-        self,
-        text_a,
-        text_b,
-        remove_calculation=False,
-    ):
-        a = set(
-            self._semantic_tokens(
-                text_a,
-                remove_calculation=
-                    remove_calculation,
-            )
-        )
-
-        b = set(
-            self._semantic_tokens(
-                text_b,
-                remove_calculation=
-                    remove_calculation,
-            )
-        )
-
-        if not a or not b:
-            return 0.0
-
-        common = a & b
-
-        coverage = (
-            len(common)
-            / len(b)
-        )
-
-        precision = (
-            len(common)
-            / len(a)
-        )
-
-        return (
-            0.78 * coverage
-            + 0.22 * precision
-        )
-
-    def _score_alias(
-        self,
-        question,
-        alias,
-    ):
-        if not alias:
-            return 0.0
-
-        q_tokens = set(
-            self._semantic_tokens(
-                question
-            )
-        )
-
-        a_tokens = set(
-            self._semantic_tokens(
-                alias
-            )
-        )
-
-        if not q_tokens or not a_tokens:
-            return 0.0
-
-        if a_tokens <= q_tokens:
-            return 1.0
-
-        common = q_tokens & a_tokens
-
-        if not common:
-            return 0.0
-
-        coverage = (
-            len(common)
-            / len(a_tokens)
-        )
-
-        precision = (
-            len(common)
-            / len(q_tokens)
-        )
-
-        if coverage < 0.34:
-            return 0.0
-
-        return (
-            0.78 * coverage
-            + 0.22 * precision
-        )
-
-    def _dashboard_match_score(
-        self,
-        question,
-        dashboard,
-    ):
-        q = normalize_text(
-            question
-        )
-
-        d = normalize_text(
-            dashboard
-        )
-
-        if not d:
-            return 0.0
-
-        if d in q:
-            return 1.0
-
-        return self._token_overlap_score(
-            question,
-            dashboard,
-            remove_calculation=True,
-        )
-
-    def _detect_dashboard_from_question(
+    def _detect_report_from_question(
         self,
         question,
     ):
         scored = []
 
-        for dashboard in (
-            self.available_dashboards
-        ):
-            score = (
-                self._dashboard_match_score(
-                    question,
-                    dashboard,
-                )
+        for report in self.available_reports:
+            score = self._dashboard_match_score(
+                question,
+                report,
             )
 
-            if (
-                score
-                >= self.dashboard_match_threshold
-            ):
+            if score >= 0.72:
                 scored.append(
                     (
-                        dashboard,
+                        report,
                         score,
                     )
                 )
@@ -564,82 +214,166 @@ class MasterMetricResolver:
 
         if (
             len(scored) > 1
-            and (
-                scored[0][1]
-                - scored[1][1]
-            )
+            and scored[0][1]
+            - scored[1][1]
             < 0.08
         ):
             return None
 
         return scored[0][0]
 
-    # ========================================================
-    # SCORE DE NEGOCIO
-    # ========================================================
-
-    def _is_technical_alias(
-        self,
-        alias,
-    ):
-        text = str(
-            alias or ""
-        )
-
-        if any(
-            marker in text
-            for marker in (
-                "(", ")", "[", "]"
-            )
-        ):
-            return True
-
-        normalized = normalize_text(
-            text
-        )
-
-        return (
-            not normalized
-            or normalized
-            in {
-                "true",
-                "false",
-                "none",
-                "null",
-            }
-            or normalized.isdigit()
-        )
-
-    def _business_score(
+    def _semantic_model_score(
         self,
         question,
         metric,
     ):
+        model = metric.get(
+            "semantic_model"
+        )
+
+        if not model:
+            return 0.0
+
+        return self._dashboard_match_score(
+            question,
+            model,
+        )
+
+    def _load_dashboards(self):
+        values = []
+        seen = set()
+
+        for metric in self.metrics:
+            for dashboard in self._metric_dashboards(metric):
+                key = normalize_text(dashboard)
+                if key and key not in seen:
+                    values.append(dashboard)
+                    seen.add(key)
+
+        return values
+
+    def _token_overlap_score(self, text_a, text_b):
+        a = set(self._semantic_tokens(text_a))
+        b = set(self._semantic_tokens(text_b))
+
+        if not a or not b:
+            return 0.0
+
+        common = a & b
+        coverage = len(common) / len(b)
+        precision = len(common) / len(a)
+        return 0.80 * coverage + 0.20 * precision
+
+    def _dashboard_match_score(self, question, dashboard):
+        q = normalize_text(question)
+        d = normalize_text(dashboard)
+
+        if not d:
+            return 0.0
+
+        if d in q:
+            return 1.0
+
+        return self._token_overlap_score(question, dashboard)
+
+    def _detect_dashboard_from_question(self, question):
+        scored = []
+
+        for dashboard in self.available_dashboards:
+            score = self._dashboard_match_score(question, dashboard)
+
+            if score >= self.dashboard_match_threshold:
+                scored.append((dashboard, score))
+
+        scored.sort(key=lambda x: x[1], reverse=True)
+
+        if not scored:
+            return None
+
+        if len(scored) > 1 and scored[0][1] - scored[1][1] < 0.08:
+            return None
+
+        return scored[0][0]
+
+    def _score_alias(self, question, alias):
+        if not alias:
+            return 0.0
+
+        q_norm = normalize_text(question)
+        a_norm = normalize_text(alias)
+        a_tokens = self._semantic_tokens(alias)
+
+        if not a_norm or not a_tokens:
+            return 0.0
+
+        if a_norm in q_norm and len(a_tokens) >= 2:
+            return min(1.0, 0.90 + 0.02 * len(a_tokens))
+
+        if a_norm in q_norm and len(a_tokens) == 1:
+            return 0.78
+
+        q_tokens = set(self._semantic_tokens(question))
+        a_tokens = set(a_tokens)
+
+        if not q_tokens or not a_tokens:
+            return 0.0
+
+        common = q_tokens & a_tokens
+        coverage = len(common) / len(a_tokens)
+        precision = len(common) / len(q_tokens)
+
+        if coverage < 0.50:
+            return 0.0
+
+        return 0.78 * coverage + 0.22 * precision
+
+    def _business_score(self, question, metric):
+        """
+        Los aliases de un visual NO se usan para puntuar medidas
+        explícitas. Un visual puede contener varias medidas y todas
+        heredar el mismo título; eso produciría falsos positivos
+        como AÑO_ACTUAL ~= "pacientes observados".
+        """
+        scores = []
+
         source_type = metric.get(
             "source_type"
         )
 
-        direct_scores = []
+        label = metric.get(
+            "label"
+        )
 
-        for value in [
-            metric.get("label"),
-            metric.get("measure"),
-        ]:
-            if value:
-                direct_scores.append(
+        if label:
+            scores.append(
+                self._score_alias(
+                    question,
+                    label,
+                )
+            )
+
+        measure = metric.get(
+            "measure"
+        )
+
+        # Medidas explícitas:
+        # usar solo su propio nombre/label.
+        if source_type == "explicit_measure":
+            if measure:
+                scores.append(
                     self._score_alias(
                         question,
-                        value,
+                        measure,
                     )
                 )
 
-        direct_score = max(
-            direct_scores,
-            default=0.0,
-        )
+            return max(
+                scores,
+                default=0.0,
+            )
 
-        alias_scores = []
-
+        # Agregaciones visuales:
+        # sí pueden usar aliases de negocio derivados del visual.
         for alias in (
             metric.get(
                 "aliases",
@@ -652,266 +386,97 @@ class MasterMetricResolver:
             ):
                 continue
 
-            alias_scores.append(
-                self._score_alias(
+            scores.append(
+                0.95
+                * self._score_alias(
                     question,
                     alias,
                 )
             )
 
-        alias_score = max(
-            alias_scores,
+        return max(
+            scores,
             default=0.0,
         )
 
-        if source_type == (
-            "explicit_measure"
-        ):
-            # Los aliases de medidas explícitas pueden heredar
-            # el título de un visual. Los usamos, pero con menor peso.
-            return max(
-                direct_score,
-                0.72 * alias_score,
-            )
-
-        return max(
-            direct_score,
-            alias_score,
-        )
-
-    # ========================================================
-    # TIPO DE CÁLCULO
-    # ========================================================
-
-    def _requested_calculation(
-        self,
-        question,
-    ):
-        text = normalize_text(
-            question
-        )
-
-        if any(
-            term in text
-            for term in [
-                "proyeccion",
-                "proyectado",
-                "estimado",
-            ]
-        ):
-            return "projection"
-
-        if any(
-            term in text
-            for term in [
-                "porcentaje",
-                "porcentual",
-                "%",
-            ]
-        ):
-            return "percentage"
-
-        if any(
-            term in text
-            for term in [
-                "variacion",
-                "crecimiento",
-                "cambio",
-            ]
-        ):
-            return "variation"
-
-        if any(
-            term in text
-            for term in [
-                "promedio",
-                "media",
-            ]
-        ):
-            return "average"
-
-        if any(
-            term in text
-            for term in [
-                "cuanto",
-                "cuanta",
-                "cuantos",
-                "cuantas",
-                "cantidad",
-                "recuento",
-                "numero",
-                "total",
-            ]
-        ):
-            return "count"
-
-        return None
-
-    def _metric_calculation_score(
+    def _aggregation_intent_bonus(
         self,
         question,
         metric,
     ):
-        requested = (
-            self._requested_calculation(
-                question
-            )
+        """
+        Bonus pequeño: no decide por sí solo una métrica,
+        solo desempata cuando el lenguaje del usuario coincide
+        con el tipo de agregación real del visual.
+        """
+        q = normalize_text(
+            question
         )
 
-        if requested is None:
-            return 0.50
-
-        aggregation = normalize_text(
+        aggregation = (
             metric.get(
                 "aggregation"
             )
             or ""
         )
 
-        metric_text = " ".join(
-            str(value)
-            for value in [
-                metric.get("label"),
-                metric.get("measure"),
-                " ".join(
-                    metric.get(
-                        "aliases",
-                        [],
-                    )
-                    or []
-                ),
-            ]
-            if value
+        aggregation = normalize_text(
+            aggregation
         )
 
-        metric_norm = normalize_text(
-            metric_text
-        )
+        count_terms = [
+            "cuantos",
+            "cuantas",
+            "cantidad",
+            "recuento",
+            "numero",
+        ]
 
-        metric_tokens = set(
-            self._semantic_tokens(
-                metric_text
+        average_terms = [
+            "promedio",
+            "media",
+        ]
+
+        if (
+            any(
+                term in q
+                for term in count_terms
             )
-        )
-
-        if requested == "average":
-
-            if aggregation == "average":
-                return 1.0
-
-            if (
-                "promedio"
-                in metric_tokens
-                or "media"
-                in metric_tokens
-                or any(
-                    token.startswith(
-                        "prom"
-                    )
-                    for token
-                    in metric_tokens
-                )
-            ):
-                return 1.0
-
-            return 0.0
-
-        if requested == "count":
-
-            if aggregation in {
+            and aggregation in {
                 "count",
                 "distinctcount",
-            }:
-                return 1.0
+            }
+        ):
+            return 0.08
 
-            if any(
-                term in metric_norm
-                for term in [
-                    "total",
-                    "recuento",
-                    "cantidad",
-                    "count",
-                ]
-            ):
-                return 0.95
+        if (
+            any(
+                term in q
+                for term in average_terms
+            )
+            and aggregation
+            == "average"
+        ):
+            return 0.08
 
-            return 0.20
-
-        if requested == "percentage":
-
-            if any(
-                term in metric_norm
-                for term in [
-                    "porcentaje",
-                    "porcentual",
-                    "pct",
-                    "percent",
-                ]
-            ):
-                return 1.0
-
-            return 0.0
-
-        if requested == "projection":
-
-            if any(
-                term in metric_norm
-                for term in [
-                    "proyeccion",
-                    "proyect",
-                    "estimad",
-                ]
-            ):
-                return 1.0
-
-            return 0.0
-
-        if requested == "variation":
-
-            if any(
-                term in metric_norm
-                for term in [
-                    "variacion",
-                    "crecimiento",
-                    "cambio",
-                ]
-            ):
-                return 1.0
-
-            return 0.0
-
-        return 0.50
-
-    def _context_score(
-        self,
-        question,
-        metric,
-    ):
-        return max(
-            (
-                self._token_overlap_score(
-                    question,
-                    value,
-                    remove_calculation=True,
-                )
-                for value
-                in self._metric_context_values(
-                    metric
-                )
-            ),
-            default=0.0,
-        )
-
-    # ========================================================
-    # RESOLUCIÓN
-    # ========================================================
+        return 0.0
 
     def resolve(
         self,
         question,
         dashboard=None,
         approved_only=True,
+        semantic_model=None,
+        report=None,
     ):
+        explicit_dashboard = (
+            dashboard is not None
+        )
+
+        explicit_report = (
+            report is not None
+        )
+
         requested_dashboard = (
             dashboard
             or self._detect_dashboard_from_question(
@@ -919,10 +484,24 @@ class MasterMetricResolver:
             )
         )
 
-        raw_candidates = []
+        requested_report = (
+            report
+            or self._detect_report_from_question(
+                question
+            )
+        )
+
+        requested_model_norm = (
+            normalize_text(
+                semantic_model
+            )
+            if semantic_model
+            else None
+        )
+
+        candidates = []
 
         for metric in self.metrics:
-
             if (
                 approved_only
                 and metric.get(
@@ -932,14 +511,45 @@ class MasterMetricResolver:
             ):
                 continue
 
+            metric_model = metric.get(
+                "semantic_model"
+            )
+
+            if (
+                requested_model_norm
+                and normalize_text(
+                    metric_model
+                )
+                != requested_model_norm
+            ):
+                continue
+
+            business_score = (
+                self._business_score(
+                    question,
+                    metric,
+                )
+            )
+
+            if business_score < 0.30:
+                continue
+
             metric_dashboards = (
                 self._metric_dashboards(
                     metric
                 )
             )
 
-            if requested_dashboard:
+            metric_reports = (
+                self._metric_reports(
+                    metric
+                )
+            )
 
+            dashboard_score = 0.0
+            report_score = 0.0
+
+            if requested_dashboard:
                 requested_norm = (
                     normalize_text(
                         requested_dashboard
@@ -950,235 +560,210 @@ class MasterMetricResolver:
                     value
                     for value
                     in metric_dashboards
-                    if (
-                        normalize_text(
-                            value
-                        )
-                        == requested_norm
+                    if normalize_text(
+                        value
                     )
+                    == requested_norm
                 ]
 
+                # Solo un dashboard pasado explícitamente por el flujo
+                # puede restringir candidatos. Un nombre de página
+                # detectado dentro de la pregunta es CONTEXTO DÉBIL:
+                # "urgencias" puede ser un valor de SERVICIO y no la
+                # página donde vive la métrica.
                 if (
-                    metric_dashboards
+                    explicit_dashboard
+                    and metric_dashboards
                     and not matching
                 ):
                     continue
 
-            business_score = (
-                self._business_score(
-                    question,
-                    metric,
-                )
-            )
-
-            metric_score = (
-                self._metric_calculation_score(
-                    question,
-                    metric,
-                )
-            )
-
-            context_score = (
-                self._context_score(
-                    question,
-                    metric,
-                )
-            )
-
-            # Un tipo de cálculo genérico ("total"/"promedio")
-            # nunca es suficiente por sí solo.
-            if (
-                business_score < 0.18
-                and context_score < 0.35
-            ):
-                continue
-
-            dashboard_score = 0.0
-
-            if requested_dashboard:
-                if any(
-                    normalize_text(value)
-                    == normalize_text(
-                        requested_dashboard
-                    )
-                    for value
-                    in metric_dashboards
-                ):
+                if matching:
                     dashboard_score = 1.0
+                else:
+                    dashboard_score = max(
+                        (
+                            self._dashboard_match_score(
+                                question,
+                                value,
+                            )
+                            for value
+                            in metric_dashboards
+                        ),
+                        default=0.0,
+                    )
 
-            raw_candidates.append(
-                {
-                    "metric":
-                        metric,
-                    "business_score":
-                        business_score,
-                    "metric_score":
-                        metric_score,
-                    "context_score":
-                        context_score,
-                    "dashboard_score":
-                        dashboard_score,
-                    "metric_dashboards":
-                        metric_dashboards,
-                }
+            else:
+                dashboard_score = max(
+                    (
+                        self._dashboard_match_score(
+                            question,
+                            value,
+                        )
+                        for value
+                        in metric_dashboards
+                    ),
+                    default=0.0,
+                )
+
+            if requested_report:
+                requested_report_norm = (
+                    normalize_text(
+                        requested_report
+                    )
+                )
+
+                report_matching = [
+                    value
+                    for value
+                    in metric_reports
+                    if normalize_text(
+                        value
+                    )
+                    == requested_report_norm
+                ]
+
+                # Igual que con las páginas: solo un reporte recibido
+                # explícitamente puede excluir otros modelos/reportes.
+                # Una coincidencia inferida desde texto se usa como bonus.
+                if (
+                    explicit_report
+                    and metric_reports
+                    and not report_matching
+                ):
+                    continue
+
+                if report_matching:
+                    report_score = 1.0
+
+            else:
+                report_score = max(
+                    (
+                        self._dashboard_match_score(
+                            question,
+                            value,
+                        )
+                        for value
+                        in metric_reports
+                    ),
+                    default=0.0,
+                )
+
+            model_score = (
+                1.0
+                if requested_model_norm
+                else self._semantic_model_score(
+                    question,
+                    metric,
+                )
             )
 
-        if not raw_candidates:
-            return {
-                "status":
-                    "not_found",
-                "resolved_dashboard":
-                    requested_dashboard,
-                "candidates":
-                    [],
-            }
-
-        max_context_score = max(
-            item["context_score"]
-            for item
-            in raw_candidates
-        )
-
-        has_context_signal = (
-            max_context_score
-            >= self.context_signal_threshold
-        )
-
-        candidates = []
-
-        for item in raw_candidates:
+            intent_bonus = (
+                self._aggregation_intent_bonus(
+                    question,
+                    metric,
+                )
+            )
 
             final_score = (
-                0.46
-                * item[
-                    "business_score"
-                ]
-                + 0.24
-                * item[
-                    "metric_score"
-                ]
-                + 0.30
-                * item[
-                    "context_score"
-                ]
-                + 0.08
-                * item[
-                    "dashboard_score"
-                ]
+                business_score
+                + 0.18 * dashboard_score
+                + 0.16 * report_score
+                + 0.08 * model_score
+                + intent_bonus
             )
 
-            if (
-                has_context_signal
-                and item[
-                    "context_score"
-                ]
-                < 0.18
-            ):
-                final_score -= 0.18
-
-            metric = (
-                item["metric"]
-                .copy()
-            )
-
-            metric[
+            candidate = metric.copy()
+            candidate[
                 "business_score"
             ] = round(
-                item[
-                    "business_score"
-                ],
+                business_score,
                 4,
             )
-
-            metric[
-                "metric_score"
-            ] = round(
-                item[
-                    "metric_score"
-                ],
-                4,
-            )
-
-            metric[
-                "context_score"
-            ] = round(
-                item[
-                    "context_score"
-                ],
-                4,
-            )
-
-            metric[
+            candidate[
                 "dashboard_score"
             ] = round(
-                item[
-                    "dashboard_score"
-                ],
+                dashboard_score,
                 4,
             )
-
-            metric[
+            candidate[
+                "report_score"
+            ] = round(
+                report_score,
+                4,
+            )
+            candidate[
+                "model_score"
+            ] = round(
+                model_score,
+                4,
+            )
+            candidate[
+                "intent_bonus"
+            ] = round(
+                intent_bonus,
+                4,
+            )
+            candidate[
                 "score"
             ] = round(
                 final_score,
                 4,
             )
-
-            metric[
+            candidate[
                 "candidate_dashboards"
-            ] = item[
-                "metric_dashboards"
-            ]
+            ] = metric_dashboards
+            candidate[
+                "candidate_reports"
+            ] = metric_reports
 
             candidates.append(
-                metric
+                candidate
             )
 
         candidates.sort(
-            key=lambda candidate:
-                candidate["score"],
+            key=lambda item:
+                item["score"],
             reverse=True,
         )
+
+        base_result = {
+            "resolved_dashboard":
+                requested_dashboard,
+            "resolved_report":
+                requested_report,
+            "resolved_semantic_model":
+                semantic_model,
+        }
+
+        if not candidates:
+            return {
+                "status":
+                    "not_found",
+                **base_result,
+                "candidates":
+                    [],
+            }
 
         best = candidates[0]
 
         if (
-            best["score"]
+            best[
+                "business_score"
+            ]
             < self.min_score
         ):
             return {
                 "status":
                     "not_found",
-                "resolved_dashboard":
-                    requested_dashboard,
+                **base_result,
                 "best_score":
                     best["score"],
                 "candidates":
                     candidates[:5],
             }
 
-        resolved_dashboard = (
-            requested_dashboard
-        )
-
-        if (
-            resolved_dashboard is None
-            and len(
-                best.get(
-                    "candidate_dashboards",
-                    [],
-                )
-            )
-            == 1
-        ):
-            resolved_dashboard = (
-                best[
-                    "candidate_dashboards"
-                ][0]
-            )
-
         if len(candidates) > 1:
-
             second = candidates[1]
 
             gap = (
@@ -1187,92 +772,183 @@ class MasterMetricResolver:
             )
 
             best_dashboards = {
-                normalize_text(
-                    value
-                )
-                for value
+                normalize_text(x)
+                for x
                 in best.get(
                     "candidate_dashboards",
                     [],
                 )
-                if value
+                if x
             }
 
             second_dashboards = {
-                normalize_text(
-                    value
-                )
-                for value
+                normalize_text(x)
+                for x
                 in second.get(
                     "candidate_dashboards",
                     [],
                 )
-                if value
+                if x
             }
 
-            different_context = (
-                bool(
-                    best_dashboards
-                    or second_dashboards
+            best_reports = {
+                normalize_text(x)
+                for x
+                in best.get(
+                    "candidate_reports",
+                    [],
                 )
-                and
-                best_dashboards
-                != second_dashboards
+                if x
+            }
+
+            second_reports = {
+                normalize_text(x)
+                for x
+                in second.get(
+                    "candidate_reports",
+                    [],
+                )
+                if x
+            }
+
+            best_model = normalize_text(
+                best.get(
+                    "semantic_model"
+                )
+            )
+
+            second_model = normalize_text(
+                second.get(
+                    "semantic_model"
+                )
+            )
+
+            different_context = (
+                (
+                    bool(
+                        best_dashboards
+                        or second_dashboards
+                    )
+                    and
+                    best_dashboards
+                    != second_dashboards
+                )
+                or
+                (
+                    bool(
+                        best_reports
+                        or second_reports
+                    )
+                    and
+                    best_reports
+                    != second_reports
+                )
+                or
+                (
+                    bool(
+                        best_model
+                        or second_model
+                    )
+                    and
+                    best_model
+                    != second_model
+                )
             )
 
             if (
-                resolved_dashboard is None
+                requested_dashboard is None
+                and requested_report is None
+                and semantic_model is None
                 and different_context
                 and gap
                 < self.ambiguity_margin
             ):
                 options = []
 
-                best_score = best.get(
-                    "score",
-                    0.0,
+                best_business_score = (
+                    best.get(
+                        "business_score",
+                        0.0,
+                    )
                 )
 
                 for candidate in candidates:
-
-                    if (
-                        best_score
-                        - candidate.get(
-                            "score",
+                    candidate_business_score = (
+                        candidate.get(
+                            "business_score",
                             0.0,
                         )
-                        > 0.07
+                    )
+
+                    if (
+                        best_business_score
+                        - candidate_business_score
+                        > 0.05
                     ):
                         continue
 
-                    for value in (
+                    candidate_reports = (
                         candidate.get(
-                            "candidate_dashboards",
+                            "candidate_reports",
                             [],
                         )
-                    ):
-                        if (
-                            value
-                            and value
-                            not in options
-                        ):
-                            options.append(
+                        or []
+                    )
+
+                    if candidate_reports:
+                        for value in candidate_reports:
+                            if (
                                 value
-                            )
+                                and value
+                                not in options
+                            ):
+                                options.append(
+                                    value
+                                )
+
+                    else:
+                        for value in candidate.get(
+                            "candidate_dashboards",
+                            [],
+                        ):
+                            if (
+                                value
+                                and value
+                                not in options
+                            ):
+                                options.append(
+                                    value
+                                )
 
                 return {
                     "status":
                         "ambiguous",
                     "reason":
-                        "same_business_concept_multiple_dashboards",
+                        "same_business_concept_multiple_sources",
+                    **base_result,
                     "clarification_options":
                         options[:6],
                     "candidates":
                         candidates[:5],
                 }
 
+            same_context_gap = (
+                best.get(
+                    "business_score",
+                    0.0,
+                )
+                -
+                second.get(
+                    "business_score",
+                    0.0,
+                )
+            )
+
             if (
                 gap
+                < self.ambiguity_margin
+                and
+                same_context_gap
                 < self.same_dashboard_ambiguity_margin
                 and
                 best.get(
@@ -1287,17 +963,44 @@ class MasterMetricResolver:
                         "ambiguous",
                     "reason":
                         "multiple_similar_metrics",
+                    **base_result,
                     "clarification_options":
                         [],
                     "candidates":
                         candidates[:5],
                 }
 
+        resolved_report = (
+            requested_report
+            or (
+                best.get(
+                    "candidate_reports",
+                    [],
+                )[0]
+                if best.get(
+                    "candidate_reports",
+                    [],
+                )
+                else None
+            )
+        )
+
+        resolved_model = (
+            semantic_model
+            or best.get(
+                "semantic_model"
+            )
+        )
+
         return {
             "status":
                 "resolved",
             "resolved_dashboard":
-                resolved_dashboard,
+                requested_dashboard,
+            "resolved_report":
+                resolved_report,
+            "resolved_semantic_model":
+                resolved_model,
             "metric":
                 best,
             "candidates":

@@ -10,10 +10,15 @@ from src.chatbot.rag_answer_engine import RAGAnswerEngine
 from src.chatbot.answer_synthesizer import AnswerSynthesizer
 from src.chatbot.response_formatter import ResponseFormatter
 from src.semantic.metric_resolver import MetricResolver
-from src.semantic.filter_resolver import FilterResolver
-from src.semantic.business_filter_resolver import BusinessFilterResolver
 from src.dax.dax_generator import DAXGenerator
-from src.dax.dax_validator import DAXValidator
+from src.semantic.source_model_router import (
+    SourceModelRouter,
+)
+from src.semantic.multi_model_components import (
+    MultiModelFilterResolver,
+    MultiModelBusinessFilterResolver,
+    MultiModelDAXValidator,
+)
 from src.providers.powerbi_provider import PowerBIProvider
 from src.llm.ollama_provider import OllamaProvider
 from src.semantic.query_semantic_planner import (
@@ -25,22 +30,32 @@ from src.semantic.master_metric_resolver import (
 from src.dax.master_metric_dax_generator import (
     MasterMetricDAXGenerator
 )
+from src.semantic.query_plan_builder import (
+    QueryPlanBuilder,
+)
+from src.dax.query_plan_dax_generator import (
+    QueryPlanDAXGenerator,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 QDRANT_PATH = PROJECT_ROOT / "data" / "vector_db" / "qdrant"
-TECHNICAL_CATALOG = PROJECT_ROOT / "data" / "catalog" / "tablero_de_atenciones_institucionales_rag.json"
+SOURCE_REGISTRY = (
+    PROJECT_ROOT
+    / "data"
+    / "catalog"
+    / "source_registry.json"
+)
+VISUAL_METRICS = (
+    PROJECT_ROOT
+    / "data"
+    / "rag"
+    / "visual_metrics_catalog.json"
+)
 MASTER_METRICS = (
     PROJECT_ROOT
     / "data"
     / "rag"
     / "master_metrics.json"
-)
-
-VISUAL_METRICS_CATALOG = (
-    PROJECT_ROOT
-    / "data"
-    / "rag"
-    / "visual_metrics_catalog.json"
 )
 
 @st.cache_resource
@@ -49,15 +64,58 @@ def build_system():
     intent_parser = IntentParser(retriever)
     conversation_manager = ConversationManager(intent_parser)
     metric_resolver = MetricResolver(retriever, debug=False)
-    filter_resolver = FilterResolver(TECHNICAL_CATALOG)
+
     powerbi_provider = PowerBIProvider()
-    powerbi_connection = (powerbi_provider.connect())
-    business_filter_resolver = BusinessFilterResolver(
-        TECHNICAL_CATALOG,
-        powerbi_provider,
-        visual_metrics_catalog_path=
-            VISUAL_METRICS_CATALOG,
+
+    # Conservamos la conexión inicial que ya estaba estable.
+    powerbi_connection = (
+        powerbi_provider.connect()
     )
+
+    source_router = SourceModelRouter(
+        source_registry_path=
+            SOURCE_REGISTRY,
+        visual_catalog_path=
+            VISUAL_METRICS,
+        project_root=
+            PROJECT_ROOT,
+        default_semantic_model=
+            powerbi_provider
+            .default_semantic_model,
+    )
+
+    filter_resolver = (
+        MultiModelFilterResolver(
+            source_router=
+                source_router,
+            default_semantic_model=
+                powerbi_provider
+                .default_semantic_model,
+        )
+    )
+
+    business_filter_resolver = (
+        MultiModelBusinessFilterResolver(
+            source_router=
+                source_router,
+            powerbi_provider=
+                powerbi_provider,
+            default_semantic_model=
+                powerbi_provider
+                .default_semantic_model,
+        )
+    )
+
+    dax_validator = (
+        MultiModelDAXValidator(
+            source_router=
+                source_router,
+            default_semantic_model=
+                powerbi_provider
+                .default_semantic_model,
+        )
+    )
+
     ollama_provider = OllamaProvider()
     ollama_status = ollama_provider.healthcheck()
     master_metric_resolver = (
@@ -78,7 +136,28 @@ def build_system():
                 business_filter_resolver,
             powerbi_provider=
                 powerbi_provider,
+            source_router=
+                source_router,
         )
+    )
+
+    query_plan_builder = (
+        QueryPlanBuilder(
+            master_metrics_path=
+                MASTER_METRICS,
+            visual_catalog_path=
+                VISUAL_METRICS,
+            source_router=
+                source_router,
+            powerbi_provider=
+                powerbi_provider,
+            project_root=
+                PROJECT_ROOT,
+        )
+    )
+
+    query_plan_dax_generator = (
+        QueryPlanDAXGenerator()
     )
 
     if ollama_status.get("status") == "ready":
@@ -98,12 +177,15 @@ def build_system():
         filter_resolver=filter_resolver,
         business_filter_resolver=business_filter_resolver,
         dax_generator=DAXGenerator(),
-        dax_validator=DAXValidator(TECHNICAL_CATALOG),
+        dax_validator=dax_validator,
         powerbi_provider=powerbi_provider,
         rag_answer_engine=rag_answer_engine,
         master_metric_resolver=master_metric_resolver,
         master_metric_dax_generator=master_metric_dax_generator,
         query_semantic_planner=query_semantic_planner,
+        source_router=source_router,
+        query_plan_builder=query_plan_builder,
+        query_plan_dax_generator=query_plan_dax_generator,
     )
 
     print("--------------------------------------------------------------------------------------")
@@ -124,6 +206,11 @@ def build_system():
         "QUERY ENGINE:",
         engine.__class__
     )
+
+    print(
+        "MODELOS SEMÁNTICOS ENRUTABLES:",
+        source_router.semantic_models()
+    )
     return engine, conversation_manager, ResponseFormatter(), ollama_status, powerbi_connection
 
 def get_display_answer(result, formatter):
@@ -136,16 +223,47 @@ def get_display_answer(result, formatter):
     if route == "rag":
         return result.get("answer") or "No encontré información suficiente."
     if route == "powerbi" and status == "success":
+        if (
+            result.get("result_type")
+            == "table"
+            and result.get("answer")
+        ):
+            return result.get("answer")
+
+        # Query Plan conoce exactamente la métrica y el modelo. Evitar
+        # presentar resultados con textos/periodos heredados de otra ruta.
+        if result.get("query_plan"):
+            return f"{result.get('metric')}: {result.get('value')}"
+
         try:
             answer = formatter.format(result)
             if answer:
                 return answer
         except Exception:
             pass
-        return f"El resultado consultado en Power BI es {result.get('value')}."
+
+        metric = result.get("metric")
+        value = result.get("value")
+
+        if metric:
+            return f"{metric}: {value}"
+
+        return f"El resultado consultado en Power BI es {value}."
     if status == "metric_not_resolved":
-        return "No pude identificar con suficiente seguridad el indicador solicitado."
-    return "No pude completar la consulta. Puedes reformularla o intentar nuevamente."
+        return "No encontré un indicador suficientemente específico. Incluye la sección o página del tablero."
+    if status == "unsupported_filter":
+        details = result.get("details", {})
+        reason = details.get("reason")
+        if reason == "requested_value_not_found":
+            return "Identifiqué la métrica, pero no pude verificar el valor del filtro solicitado."
+        if reason == "date_dimension_not_found_in_report":
+            return "Identifiqué la métrica, pero no encontré una fecha validada para aplicar ese período."
+        return "Identifiqué la métrica, pero no pude verificar la dimensión solicitada en este tablero."
+    if status == "powerbi_error":
+        return "La métrica se identificó, pero Power BI rechazó la consulta. Revisa Modo diagnóstico."
+    if status == "empty_result":
+        return "Power BI ejecutó la consulta, pero no devolvió datos para los criterios solicitados."
+    return "No pude completar la consulta. Activa Modo diagnóstico para ver en qué etapa falló."
 
 def reset_if_finished(result, engine, conversation_manager):
     # Solo conservamos contexto mientras hay una contrapregunta pendiente.
@@ -232,8 +350,12 @@ if prompt:
         if result.get("status") == "success":
             with st.expander("Detalles de la consulta", expanded=False):
                 st.write("**Ruta:**", result.get("route", "sin ruta"))
+                if result.get("report"):
+                    st.write("**Informe:**", result.get("report"))
                 if result.get("dashboard"):
-                    st.write("**Tablero:**", result.get("dashboard"))
+                    st.write("**Tablero/Página:**", result.get("dashboard"))
+                if result.get("semantic_model"):
+                    st.write("**Modelo semántico:**", result.get("semantic_model"))
                 if result.get("metric"):
                     st.write("**Métrica:**", result.get("metric"))
                 if result.get("synthesis_mode"):
@@ -242,9 +364,41 @@ if prompt:
             st.caption("Consulta fuera del alcance de la documentación disponible.")
 
         if debug_mode:
+            st.write("**Estado:**", result.get("status"))
+            if result.get("stage"):
+                st.write("**Etapa:**", result.get("stage"))
+            if result.get("details"):
+                st.write("**Detalles del diagnóstico:**", result.get("details"))
+            if result.get("error"):
+                st.write("**Error:**", result.get("error"))
 
             if error_text:
                 st.error(error_text)
+
+            if result.get("source_context"):
+                st.write(
+                    "**Contexto multi-modelo:**",
+                    result.get(
+                        "source_context"
+                    ),
+                )
+
+            if result.get("query_plan"):
+                st.write(
+                    "**Query Plan:**",
+                    result.get(
+                        "query_plan"
+                    ),
+                )
+
+            if result.get("group_by"):
+                st.write(
+                    "**Agrupaciones:**",
+                    result.get(
+                        "group_by"
+                    ),
+                )
+
 
             if result.get("dimension_matches"):
                 st.write(

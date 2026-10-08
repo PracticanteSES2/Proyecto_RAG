@@ -776,6 +776,127 @@ def main():
     )
 
 
-if __name__ == "__main__":
 
+
+# ============================================================
+# API MULTI-MODELO
+# ============================================================
+
+def build_model_catalog(
+    metadata_dir,
+    semantic_model_name,
+    model_slug,
+    workspace_name="Gestion Clinica",
+    output_dir=None,
+):
+    """
+    Construye los tres catálogos históricos para UN modelo semántico,
+    reutilizando exactamente la lógica existente de este módulo.
+
+    Esta función elimina la necesidad de editar las constantes del archivo
+    cada vez que se agrega un nuevo modelo.
+    """
+    global WORKSPACE_NAME
+    global SEMANTIC_MODEL_NAME
+    global MODEL_SLUG
+    global BASE_DIR
+    global OUTPUT_DIR
+
+    previous = {
+        "workspace": WORKSPACE_NAME,
+        "semantic_model": SEMANTIC_MODEL_NAME,
+        "model_slug": MODEL_SLUG,
+        "base_dir": BASE_DIR,
+        "output_dir": OUTPUT_DIR,
+    }
+
+    try:
+        WORKSPACE_NAME = workspace_name
+        SEMANTIC_MODEL_NAME = semantic_model_name
+        MODEL_SLUG = model_slug
+        BASE_DIR = Path(metadata_dir)
+
+        if output_dir is not None:
+            OUTPUT_DIR = Path(output_dir)
+
+        OUTPUT_DIR.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        metadata = load_metadata()
+
+        raw_catalog = build_raw_catalog(
+            metadata
+        )
+
+        normalized_catalog = (
+            build_normalized_catalog(
+                metadata
+            )
+        )
+
+        rag_catalog = build_rag_catalog(
+            metadata
+        )
+
+        return {
+            "workspace":
+                WORKSPACE_NAME,
+            "semantic_model":
+                SEMANTIC_MODEL_NAME,
+            "semantic_model_key":
+                MODEL_SLUG,
+            "metadata_dir":
+                str(BASE_DIR),
+            "raw_catalog":
+                raw_catalog,
+            "normalized_catalog":
+                normalized_catalog,
+            "rag_catalog":
+                rag_catalog,
+            "paths": {
+                "raw":
+                    str(
+                        OUTPUT_DIR
+                        / f"{MODEL_SLUG}.json"
+                    ),
+                "normalized":
+                    str(
+                        OUTPUT_DIR
+                        / (
+                            f"{MODEL_SLUG}"
+                            "_normalized.json"
+                        )
+                    ),
+                "rag":
+                    str(
+                        OUTPUT_DIR
+                        / f"{MODEL_SLUG}_rag.json"
+                    ),
+            },
+        }
+
+    finally:
+        WORKSPACE_NAME = previous[
+            "workspace"
+        ]
+        SEMANTIC_MODEL_NAME = previous[
+            "semantic_model"
+        ]
+        MODEL_SLUG = previous[
+            "model_slug"
+        ]
+        BASE_DIR = previous[
+            "base_dir"
+        ]
+        OUTPUT_DIR = previous[
+            "output_dir"
+        ]
+
+
+if __name__ == "__main__":
+    # Se conserva la ejecución legacy para no romper usos anteriores.
+    # La ejecución multi-modelo oficial se realiza con:
+    #     python build_powerbi_catalogs.py
     main()
