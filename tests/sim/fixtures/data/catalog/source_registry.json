@@ -1,0 +1,56 @@
+{
+  "models": [
+    {
+      "semantic_model": "Atenciones Institucionales",
+      "semantic_model_key": "atenciones_institucionales",
+      "technical_catalog": "data/catalog/atenciones_institucionales_rag.json"
+    },
+    {
+      "semantic_model": "Gestion Quirurgica",
+      "semantic_model_key": "gestion_quirurgica",
+      "technical_catalog": "data/catalog/gestion_quirurgica_rag.json"
+    },
+    {
+      "semantic_model": "Lavanderia",
+      "semantic_model_key": "lavanderia",
+      "technical_catalog": "data/catalog/lavanderia_rag.json"
+    }
+  ],
+  "sources": [
+    {
+      "source_group": "tablero_de_atenciones_institucionales",
+      "report": "Tablero de Atenciones Institucionales",
+      "semantic_model": "Atenciones Institucionales",
+      "default_dashboard": "Inicio",
+      "aliases": [
+        "atenciones institucionales",
+        "tablero de atenciones"
+      ],
+      "technical_catalog": "data/catalog/atenciones_institucionales_rag.json"
+    },
+    {
+      "source_group": "tablero_quirurgico",
+      "report": "Tablero Quirurgico",
+      "semantic_model": "Gestion Quirurgica",
+      "default_dashboard": "Programacion Quirurgica",
+      "aliases": [
+        "tablero de cirugias",
+        "tablero quirurgico",
+        "gestion quirurgica"
+      ],
+      "technical_catalog": "data/catalog/gestion_quirurgica_rag.json"
+    },
+    {
+      "source_group": "tablero_lavanderia",
+      "report": "Tablero Lavanderia",
+      "semantic_model": "Lavanderia",
+      "default_dashboard": "Lavanderia",
+      "aliases": [
+        "lavanderia",
+        "tablero lavanderia",
+        "tablero de lavanderia"
+      ],
+      "technical_catalog": "data/catalog/lavanderia_rag.json"
+    }
+  ]
+}

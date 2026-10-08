@@ -1,0 +1,260 @@
+{
+  "schema_version": 1,
+  "metrics": [
+    {
+      "metric_id": "a_total_atenciones",
+      "label": "TOTAL ATENCIONES",
+      "measure": "Total Atenciones",
+      "aliases": [
+        "TOTAL ATENCIONES"
+      ],
+      "source_type": "explicit_measure",
+      "semantic_model": "Atenciones Institucionales",
+      "report": "Tablero de Atenciones Institucionales",
+      "reports": [
+        "Tablero de Atenciones Institucionales"
+      ],
+      "table": "ATENCIONES",
+      "aggregation": null,
+      "dax_expression": "[Total Atenciones]",
+      "validation_status": "approved",
+      "appearances": [
+        {
+          "report": "Tablero de Atenciones Institucionales",
+          "page_display_name": "Inicio",
+          "visual_id": "a_card_atenciones",
+          "visual_title": "Total atenciones"
+        },
+        {
+          "report": "Tablero de Atenciones Institucionales",
+          "page_display_name": "Inicio",
+          "visual_id": "a_bar_sede",
+          "visual_title": "Atenciones por sede"
+        }
+      ]
+    },
+    {
+      "metric_id": "a_cx_realizadas",
+      "label": "CIRUGÍAS REALIZADAS",
+      "measure": "Cirugías Realizadas",
+      "aliases": [
+        "CIRUGÍAS REALIZADAS"
+      ],
+      "source_type": "explicit_measure",
+      "semantic_model": "Atenciones Institucionales",
+      "report": "Tablero de Atenciones Institucionales",
+      "reports": [
+        "Tablero de Atenciones Institucionales"
+      ],
+      "table": "CIRUGIAS_DWSES",
+      "aggregation": null,
+      "dax_expression": "[Cirugías Realizadas]",
+      "validation_status": "approved",
+      "appearances": [
+        {
+          "report": "Tablero de Atenciones Institucionales",
+          "page_display_name": "Cirugias",
+          "visual_id": "a_card_cx",
+          "visual_title": "Cirugías realizadas"
+        },
+        {
+          "report": "Tablero de Atenciones Institucionales",
+          "page_display_name": "Cirugias",
+          "visual_id": "a_bar_esp",
+          "visual_title": "Cirugías por especialidad"
+        }
+      ]
+    },
+    {
+      "metric_id": "b_total_cx",
+      "label": "TOTAL CIRUGÍAS",
+      "measure": "Total Cirugías",
+      "aliases": [
+        "TOTAL CIRUGÍAS"
+      ],
+      "source_type": "explicit_measure",
+      "semantic_model": "Gestion Quirurgica",
+      "report": "Tablero Quirurgico",
+      "reports": [
+        "Tablero Quirurgico"
+      ],
+      "table": "QX_SOLICITUDES",
+      "aggregation": null,
+      "dax_expression": "[Total Cirugías]",
+      "validation_status": "approved",
+      "appearances": [
+        {
+          "report": "Tablero Quirurgico",
+          "page_display_name": "Programacion Quirurgica",
+          "visual_id": "b_card_total",
+          "visual_title": "Total cirugías"
+        }
+      ]
+    },
+    {
+      "metric_id": "b_cx_programadas",
+      "label": "CIRUGÍAS PROGRAMADAS",
+      "measure": "Cirugías Programadas",
+      "aliases": [
+        "CIRUGÍAS PROGRAMADAS"
+      ],
+      "source_type": "explicit_measure",
+      "semantic_model": "Gestion Quirurgica",
+      "report": "Tablero Quirurgico",
+      "reports": [
+        "Tablero Quirurgico"
+      ],
+      "table": "QX_SOLICITUDES",
+      "aggregation": null,
+      "dax_expression": "[Cirugías Programadas]",
+      "validation_status": "approved",
+      "appearances": [
+        {
+          "report": "Tablero Quirurgico",
+          "page_display_name": "Programacion Quirurgica",
+          "visual_id": "b_card_prog",
+          "visual_title": "Cirugías programadas"
+        },
+        {
+          "report": "Tablero Quirurgico",
+          "page_display_name": "Programacion Quirurgica",
+          "visual_id": "b_table_estado",
+          "visual_title": "Estado de solicitudes"
+        }
+      ]
+    },
+    {
+      "metric_id": "b_cx_realizadas",
+      "label": "CIRUGÍAS REALIZADAS",
+      "measure": "Cirugías Realizadas",
+      "aliases": [
+        "CIRUGÍAS REALIZADAS"
+      ],
+      "source_type": "explicit_measure",
+      "semantic_model": "Gestion Quirurgica",
+      "report": "Tablero Quirurgico",
+      "reports": [
+        "Tablero Quirurgico"
+      ],
+      "table": "QX_SOLICITUDES",
+      "aggregation": null,
+      "dax_expression": "[Cirugías Realizadas]",
+      "validation_status": "approved",
+      "appearances": [
+        {
+          "report": "Tablero Quirurgico",
+          "page_display_name": "Cirugias Realizadas",
+          "visual_id": "b_card_real",
+          "visual_title": "Cirugías realizadas"
+        },
+        {
+          "report": "Tablero Quirurgico",
+          "page_display_name": "Cirugias Realizadas",
+          "visual_id": "b_bar_esp",
+          "visual_title": "Cirugías realizadas por especialidad"
+        }
+      ]
+    },
+    {
+      "metric_id": "b_cx_canceladas",
+      "label": "CIRUGÍAS CANCELADAS",
+      "measure": "Cirugías Canceladas",
+      "aliases": [
+        "CIRUGÍAS CANCELADAS"
+      ],
+      "source_type": "explicit_measure",
+      "semantic_model": "Gestion Quirurgica",
+      "report": "Tablero Quirurgico",
+      "reports": [
+        "Tablero Quirurgico"
+      ],
+      "table": "QX_SOLICITUDES",
+      "aggregation": null,
+      "dax_expression": "[Cirugías Canceladas]",
+      "validation_status": "pending_review",
+      "appearances": [
+        {
+          "report": "Tablero Quirurgico",
+          "page_display_name": "Programacion Quirurgica",
+          "visual_id": "b_card_canc",
+          "visual_title": "Cirugías canceladas"
+        }
+      ]
+    },
+    {
+      "metric_id": "4d1558c47fc26077",
+      "label": "PESO",
+      "aliases": [
+        "Sum of Peso",
+        "Sum(LAVANDERIA.Peso)",
+        "Sum de Peso",
+        "Suma de Peso",
+        "Peso"
+      ],
+      "source_type": "visual_aggregation",
+      "semantic_model": "Lavanderia",
+      "report": "Tablero Lavanderia",
+      "source_group": "tablero_lavanderia",
+      "table": "LAVANDERIA",
+      "measure": null,
+      "column": "Peso",
+      "aggregation": "Sum",
+      "dax_expression": "SUM('LAVANDERIA'[Peso])",
+      "model_expression": null,
+      "description": null,
+      "validation_status": "approved",
+      "reports": [
+        "Tablero Lavanderia"
+      ],
+      "source_groups": [
+        "tablero_lavanderia"
+      ],
+      "appearances": [
+        {
+          "report": "Tablero Lavanderia",
+          "source_group": "tablero_lavanderia",
+          "page_name": "ReportSectionLav",
+          "page_display_name": "Lavanderia",
+          "visual_id": "lav_tabla_participacion_servicio",
+          "visual_title": null,
+          "visual_type": "tableEx",
+          "role": "Values",
+          "query_ref": "Sum(LAVANDERIA.Peso)"
+        },
+        {
+          "report": "Tablero Lavanderia",
+          "source_group": "tablero_lavanderia",
+          "page_name": "ReportSectionLav",
+          "page_display_name": "Lavanderia",
+          "visual_id": "lav_tabla_usuarios",
+          "visual_title": null,
+          "visual_type": "tableEx",
+          "role": "Values",
+          "query_ref": "Sum(LAVANDERIA.Peso)"
+        },
+        {
+          "report": "Tablero Lavanderia",
+          "source_group": "tablero_lavanderia",
+          "page_name": "ReportSectionLav",
+          "page_display_name": "Lavanderia",
+          "visual_id": "lav_pie_turno",
+          "visual_title": null,
+          "visual_type": "pieChart",
+          "role": "Y",
+          "query_ref": "Sum(LAVANDERIA.Peso)"
+        },
+        {
+          "report": "Tablero Lavanderia",
+          "source_group": "tablero_lavanderia",
+          "page_name": "ReportSectionLav",
+          "page_display_name": "Lavanderia",
+          "visual_id": "lav_barras_mensual",
+          "visual_title": null,
+          "visual_type": "clusteredBarChart",
+          "role": "Y",
+          "query_ref": "Sum(LAVANDERIA.Peso)"
+        }
+      ]
+    }
+  ]
+}

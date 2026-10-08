@@ -1,0 +1,89 @@
+{
+  "semantic_model": "Lavanderia",
+  "semantic_model_key": "lavanderia",
+  "tables": [
+    {
+      "name": "LAVANDERIA",
+      "columns": [
+        {
+          "name": "OID",
+          "description": null,
+          "data_type": "Int64",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "Peso",
+          "description": null,
+          "data_type": "Double",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "OidUsuario",
+          "description": null,
+          "data_type": "Int64",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "FechaRegistro",
+          "description": null,
+          "data_type": "DateTime",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "Fecha",
+          "description": null,
+          "data_type": "DateTime",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "Turno",
+          "description": null,
+          "data_type": "Int64",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "SERVICIO",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "usu_nombres",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "usu_apellidos",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "NOMBRE_COMPLETO",
+          "description": null,
+          "data_type": "String",
+          "expression": "CONCATENATE(LAVANDERIA[usu_nombres],CONCATENATE(\" \",LAVANDERIA[usu_apellidos]))",
+          "is_hidden": false
+        },
+        {
+          "name": "TURNO_OK",
+          "description": null,
+          "data_type": "String",
+          "expression": "IF(LAVANDERIA[Turno]=1, \"MAÑANA\", IF(LAVANDERIA[Turno]=2,\"TARDE\", IF(LAVANDERIA[Turno]=3,\"NOCHE\")))",
+          "is_hidden": false
+        }
+      ],
+      "measures": []
+    }
+  ]
+}

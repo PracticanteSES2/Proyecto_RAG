@@ -1,0 +1,653 @@
+{
+  "schema_version": 2,
+  "reports": [
+    {
+      "report": "Tablero de Atenciones Institucionales",
+      "semantic_model": "Atenciones Institucionales",
+      "source_group": "tablero_de_atenciones_institucionales",
+      "pages": [
+        {
+          "page_name": "ReportSection1",
+          "page_display_name": "Inicio",
+          "filters": {},
+          "visuals": [
+            {
+              "visual_id": "a_card_atenciones",
+              "visual_type": "card",
+              "title": "Total atenciones",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "measure",
+                  "table": "ATENCIONES",
+                  "measure": "Total Atenciones",
+                  "display_name": "Total Atenciones",
+                  "native_query_ref": "Total Atenciones",
+                  "query_ref": "ATENCIONES.Total Atenciones"
+                }
+              ]
+            },
+            {
+              "visual_id": "a_bar_sede",
+              "visual_type": "clusteredBarChart",
+              "title": "Atenciones por sede",
+              "fields": [
+                {
+                  "role": "Category",
+                  "kind": "column",
+                  "table": "ATENCIONES",
+                  "column": "SEDE",
+                  "display_name": "SEDE",
+                  "native_query_ref": "SEDE",
+                  "query_ref": "ATENCIONES.SEDE"
+                },
+                {
+                  "role": "Y",
+                  "kind": "measure",
+                  "table": "ATENCIONES",
+                  "measure": "Total Atenciones",
+                  "display_name": "Total Atenciones",
+                  "native_query_ref": "Total Atenciones",
+                  "query_ref": "ATENCIONES.Total Atenciones"
+                }
+              ]
+            },
+            {
+              "visual_id": "a_slicer_sede",
+              "visual_type": "slicer",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "column",
+                  "table": "ATENCIONES",
+                  "column": "SEDE",
+                  "display_name": "SEDE",
+                  "native_query_ref": "SEDE",
+                  "query_ref": "ATENCIONES.SEDE"
+                }
+              ]
+            },
+            {
+              "visual_id": "a_slicer_servicio",
+              "visual_type": "slicer",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "column",
+                  "table": "ATENCIONES",
+                  "column": "SERVICIO",
+                  "display_name": "SERVICIO",
+                  "native_query_ref": "SERVICIO",
+                  "query_ref": "ATENCIONES.SERVICIO"
+                }
+              ]
+            },
+            {
+              "visual_id": "a_slicer_anio",
+              "visual_type": "slicer",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "hierarchy_level",
+                  "table": "Calendario",
+                  "level": "Año",
+                  "query_ref": "Calendario.Date.Variación.Jerarquía de fechas.Año",
+                  "native_query_ref": "Date Año",
+                  "display_name": "Año"
+                }
+              ]
+            },
+            {
+              "visual_id": "a_slicer_mes",
+              "visual_type": "slicer",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "hierarchy_level",
+                  "table": "Calendario",
+                  "level": "Mes",
+                  "query_ref": "Calendario.Date.Variación.Jerarquía de fechas.Mes",
+                  "native_query_ref": "Date Mes",
+                  "display_name": "Mes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "page_name": "ReportSection2",
+          "page_display_name": "Cirugias",
+          "filters": {},
+          "visuals": [
+            {
+              "visual_id": "a_card_cx",
+              "visual_type": "card",
+              "title": "Cirugías realizadas",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "measure",
+                  "table": "CIRUGIAS_DWSES",
+                  "measure": "Cirugías Realizadas",
+                  "display_name": "Cirugías Realizadas",
+                  "native_query_ref": "Cirugías Realizadas",
+                  "query_ref": "CIRUGIAS_DWSES.Cirugías Realizadas"
+                }
+              ]
+            },
+            {
+              "visual_id": "a_bar_esp",
+              "visual_type": "clusteredColumnChart",
+              "title": "Cirugías por especialidad",
+              "fields": [
+                {
+                  "role": "Category",
+                  "kind": "column",
+                  "table": "CIRUGIAS_DWSES",
+                  "column": "ESPECIALIDAD",
+                  "display_name": "ESPECIALIDAD",
+                  "native_query_ref": "ESPECIALIDAD",
+                  "query_ref": "CIRUGIAS_DWSES.ESPECIALIDAD"
+                },
+                {
+                  "role": "Y",
+                  "kind": "measure",
+                  "table": "CIRUGIAS_DWSES",
+                  "measure": "Cirugías Realizadas",
+                  "display_name": "Cirugías Realizadas",
+                  "native_query_ref": "Cirugías Realizadas",
+                  "query_ref": "CIRUGIAS_DWSES.Cirugías Realizadas"
+                }
+              ]
+            },
+            {
+              "visual_id": "a_slicer_cx_sede",
+              "visual_type": "slicer",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "column",
+                  "table": "CIRUGIAS_DWSES",
+                  "column": "SEDE",
+                  "display_name": "SEDE",
+                  "native_query_ref": "SEDE",
+                  "query_ref": "CIRUGIAS_DWSES.SEDE"
+                }
+              ]
+            },
+            {
+              "visual_id": "a_slicer_cx_anio",
+              "visual_type": "slicer",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "hierarchy_level",
+                  "table": "Calendario",
+                  "level": "Año",
+                  "query_ref": "Calendario.Date.Variación.Jerarquía de fechas.Año",
+                  "native_query_ref": "Date Año",
+                  "display_name": "Año"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "metrics": []
+    },
+    {
+      "report": "Tablero Quirurgico",
+      "semantic_model": "Gestion Quirurgica",
+      "source_group": "tablero_quirurgico",
+      "pages": [
+        {
+          "page_name": "ReportSectionQ1",
+          "page_display_name": "Programacion Quirurgica",
+          "filters": {
+            "filters": [
+              {
+                "field": {
+                  "table": "QX_SOLICITUDES",
+                  "column": "ESTADO ACTUAL"
+                },
+                "values": [
+                  "Paciente Programado",
+                  "Paciente en Quirofano"
+                ]
+              }
+            ]
+          },
+          "visuals": [
+            {
+              "visual_id": "b_card_prog",
+              "visual_type": "card",
+              "title": "Cirugías programadas",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "measure",
+                  "table": "QX_SOLICITUDES",
+                  "measure": "Cirugías Programadas",
+                  "display_name": "Cirugías Programadas",
+                  "native_query_ref": "Cirugías Programadas",
+                  "query_ref": "QX_SOLICITUDES.Cirugías Programadas"
+                }
+              ]
+            },
+            {
+              "visual_id": "b_card_total",
+              "visual_type": "card",
+              "title": "Total cirugías",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "measure",
+                  "table": "QX_SOLICITUDES",
+                  "measure": "Total Cirugías",
+                  "display_name": "Total Cirugías",
+                  "native_query_ref": "Total Cirugías",
+                  "query_ref": "QX_SOLICITUDES.Total Cirugías"
+                }
+              ]
+            },
+            {
+              "visual_id": "b_slicer_esp",
+              "visual_type": "slicer",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "column",
+                  "table": "QX_SOLICITUDES",
+                  "column": "ESPECIALIDAD",
+                  "display_name": "ESPECIALIDAD",
+                  "native_query_ref": "ESPECIALIDAD",
+                  "query_ref": "QX_SOLICITUDES.ESPECIALIDAD"
+                }
+              ]
+            },
+            {
+              "visual_id": "b_slicer_sede",
+              "visual_type": "slicer",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "column",
+                  "table": "QX_SOLICITUDES",
+                  "column": "SEDE",
+                  "display_name": "SEDE",
+                  "native_query_ref": "SEDE",
+                  "query_ref": "QX_SOLICITUDES.SEDE"
+                }
+              ]
+            },
+            {
+              "visual_id": "b_slicer_anio",
+              "visual_type": "slicer",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "column",
+                  "table": "Calendario",
+                  "column": "AÑO",
+                  "display_name": "AÑO",
+                  "native_query_ref": "AÑO",
+                  "query_ref": "Calendario.AÑO"
+                }
+              ]
+            },
+            {
+              "visual_id": "b_slicer_mes",
+              "visual_type": "slicer",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "column",
+                  "table": "Calendario",
+                  "column": "MES",
+                  "display_name": "MES",
+                  "native_query_ref": "MES",
+                  "query_ref": "Calendario.MES"
+                }
+              ]
+            },
+            {
+              "visual_id": "b_table_estado",
+              "visual_type": "tableEx",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "column",
+                  "table": "QX_SOLICITUDES",
+                  "column": "ESTADO ACTUAL",
+                  "display_name": "ESTADO ACTUAL",
+                  "native_query_ref": "ESTADO ACTUAL",
+                  "query_ref": "QX_SOLICITUDES.ESTADO ACTUAL"
+                },
+                {
+                  "role": "Values",
+                  "kind": "measure",
+                  "table": "QX_SOLICITUDES",
+                  "measure": "Cirugías Programadas",
+                  "display_name": "Cirugías Programadas",
+                  "native_query_ref": "Cirugías Programadas",
+                  "query_ref": "QX_SOLICITUDES.Cirugías Programadas"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "page_name": "ReportSectionQ2",
+          "page_display_name": "Cirugias Realizadas",
+          "filters": {},
+          "visuals": [
+            {
+              "visual_id": "b_card_real",
+              "visual_type": "card",
+              "title": "Cirugías realizadas",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "measure",
+                  "table": "QX_SOLICITUDES",
+                  "measure": "Cirugías Realizadas",
+                  "display_name": "Cirugías Realizadas",
+                  "native_query_ref": "Cirugías Realizadas",
+                  "query_ref": "QX_SOLICITUDES.Cirugías Realizadas"
+                }
+              ]
+            },
+            {
+              "visual_id": "b_bar_esp",
+              "visual_type": "clusteredBarChart",
+              "title": "Cirugías realizadas por especialidad",
+              "fields": [
+                {
+                  "role": "Category",
+                  "kind": "column",
+                  "table": "QX_SOLICITUDES",
+                  "column": "ESPECIALIDAD",
+                  "display_name": "ESPECIALIDAD",
+                  "native_query_ref": "ESPECIALIDAD",
+                  "query_ref": "QX_SOLICITUDES.ESPECIALIDAD"
+                },
+                {
+                  "role": "Y",
+                  "kind": "measure",
+                  "table": "QX_SOLICITUDES",
+                  "measure": "Cirugías Realizadas",
+                  "display_name": "Cirugías Realizadas",
+                  "native_query_ref": "Cirugías Realizadas",
+                  "query_ref": "QX_SOLICITUDES.Cirugías Realizadas"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "metrics": []
+    },
+    {
+      "report": "Tablero Lavanderia",
+      "semantic_model": "Lavanderia",
+      "source_group": "tablero_lavanderia",
+      "pages": [
+        {
+          "page_name": "ReportSectionLav",
+          "page_display_name": "Lavanderia",
+          "filters": {},
+          "visuals": [
+            {
+              "visual_id": "lav_slicer_anio",
+              "visual_type": "slicer",
+              "title": null,
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "hierarchy_level",
+                  "table": "LAVANDERIA",
+                  "level": "Año",
+                  "query_ref": "LAVANDERIA.Fecha.Variación.Jerarquía de fechas.Año",
+                  "native_query_ref": "Fecha Año",
+                  "display_name": "Año"
+                }
+              ],
+              "metrics": []
+            },
+            {
+              "visual_id": "lav_slicer_mes",
+              "visual_type": "slicer",
+              "title": null,
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "hierarchy_level",
+                  "table": "LAVANDERIA",
+                  "level": "Mes",
+                  "query_ref": "LAVANDERIA.Fecha.Variación.Jerarquía de fechas.Mes",
+                  "native_query_ref": "Fecha Mes",
+                  "display_name": "Mes"
+                }
+              ],
+              "metrics": []
+            },
+            {
+              "visual_id": "lav_tabla_participacion_servicio",
+              "visual_type": "tableEx",
+              "title": null,
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "column",
+                  "table": "LAVANDERIA",
+                  "column": "SERVICIO",
+                  "display_name": "SERVICIO",
+                  "native_query_ref": "SERVICIO",
+                  "query_ref": "LAVANDERIA.SERVICIO"
+                },
+                {
+                  "role": "Values",
+                  "query_ref": "Sum(LAVANDERIA.Peso)",
+                  "native_query_ref": "Sum of Peso",
+                  "kind": "aggregation",
+                  "table": "LAVANDERIA",
+                  "column": "Peso",
+                  "aggregation_id": 0,
+                  "aggregation": "Sum",
+                  "dax_expression": "SUM('LAVANDERIA'[Peso])",
+                  "model_valid": true,
+                  "auto_executable": true
+                }
+              ],
+              "metrics": [
+                {
+                  "page_name": "ReportSectionLav",
+                  "page_display_name": "Lavanderia",
+                  "visual_id": "lav_tabla_participacion_servicio",
+                  "visual_type": "tableEx",
+                  "visual_title": null,
+                  "role": "Values",
+                  "query_ref": "Sum(LAVANDERIA.Peso)",
+                  "native_query_ref": "Sum of Peso",
+                  "aliases": [
+                    "Sum de Peso"
+                  ],
+                  "kind": "aggregation",
+                  "table": "LAVANDERIA",
+                  "column": "Peso",
+                  "aggregation_id": 0,
+                  "aggregation": "Sum",
+                  "dax_expression": "SUM('LAVANDERIA'[Peso])",
+                  "model_valid": true,
+                  "auto_executable": true,
+                  "validation_status": "approved"
+                }
+              ]
+            },
+            {
+              "visual_id": "lav_tabla_usuarios",
+              "visual_type": "tableEx",
+              "title": null,
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "column",
+                  "table": "LAVANDERIA",
+                  "column": "NOMBRE_COMPLETO",
+                  "display_name": "NOMBRE_COMPLETO",
+                  "native_query_ref": "NOMBRE_COMPLETO",
+                  "query_ref": "LAVANDERIA.NOMBRE_COMPLETO"
+                },
+                {
+                  "role": "Values",
+                  "query_ref": "Sum(LAVANDERIA.Peso)",
+                  "native_query_ref": "Sum of Peso",
+                  "kind": "aggregation",
+                  "table": "LAVANDERIA",
+                  "column": "Peso",
+                  "aggregation_id": 0,
+                  "aggregation": "Sum",
+                  "dax_expression": "SUM('LAVANDERIA'[Peso])",
+                  "model_valid": true,
+                  "auto_executable": true
+                }
+              ],
+              "metrics": [
+                {
+                  "page_name": "ReportSectionLav",
+                  "page_display_name": "Lavanderia",
+                  "visual_id": "lav_tabla_usuarios",
+                  "visual_type": "tableEx",
+                  "visual_title": null,
+                  "role": "Values",
+                  "query_ref": "Sum(LAVANDERIA.Peso)",
+                  "native_query_ref": "Sum of Peso",
+                  "aliases": [
+                    "Sum de Peso"
+                  ],
+                  "kind": "aggregation",
+                  "table": "LAVANDERIA",
+                  "column": "Peso",
+                  "aggregation_id": 0,
+                  "aggregation": "Sum",
+                  "dax_expression": "SUM('LAVANDERIA'[Peso])",
+                  "model_valid": true,
+                  "auto_executable": true,
+                  "validation_status": "approved"
+                }
+              ]
+            },
+            {
+              "visual_id": "lav_pie_turno",
+              "visual_type": "pieChart",
+              "title": null,
+              "fields": [
+                {
+                  "role": "Category",
+                  "kind": "column",
+                  "table": "LAVANDERIA",
+                  "column": "TURNO_OK",
+                  "display_name": "TURNO_OK",
+                  "native_query_ref": "TURNO_OK",
+                  "query_ref": "LAVANDERIA.TURNO_OK"
+                },
+                {
+                  "role": "Y",
+                  "query_ref": "Sum(LAVANDERIA.Peso)",
+                  "native_query_ref": "Sum of Peso",
+                  "kind": "aggregation",
+                  "table": "LAVANDERIA",
+                  "column": "Peso",
+                  "aggregation_id": 0,
+                  "aggregation": "Sum",
+                  "dax_expression": "SUM('LAVANDERIA'[Peso])",
+                  "model_valid": true,
+                  "auto_executable": true
+                }
+              ],
+              "metrics": [
+                {
+                  "page_name": "ReportSectionLav",
+                  "page_display_name": "Lavanderia",
+                  "visual_id": "lav_pie_turno",
+                  "visual_type": "pieChart",
+                  "visual_title": null,
+                  "role": "Y",
+                  "query_ref": "Sum(LAVANDERIA.Peso)",
+                  "native_query_ref": "Sum of Peso",
+                  "aliases": [
+                    "Sum de Peso"
+                  ],
+                  "kind": "aggregation",
+                  "table": "LAVANDERIA",
+                  "column": "Peso",
+                  "aggregation_id": 0,
+                  "aggregation": "Sum",
+                  "dax_expression": "SUM('LAVANDERIA'[Peso])",
+                  "model_valid": true,
+                  "auto_executable": true,
+                  "validation_status": "approved"
+                }
+              ]
+            },
+            {
+              "visual_id": "lav_barras_mensual",
+              "visual_type": "clusteredBarChart",
+              "title": null,
+              "fields": [
+                {
+                  "role": "Category",
+                  "kind": "hierarchy_level",
+                  "table": "LAVANDERIA",
+                  "level": "Mes",
+                  "query_ref": "LAVANDERIA.Fecha.Variación.Jerarquía de fechas.Mes",
+                  "native_query_ref": "Fecha Mes",
+                  "display_name": "Mes"
+                },
+                {
+                  "role": "Y",
+                  "query_ref": "Sum(LAVANDERIA.Peso)",
+                  "native_query_ref": "Sum of Peso",
+                  "kind": "aggregation",
+                  "table": "LAVANDERIA",
+                  "column": "Peso",
+                  "aggregation_id": 0,
+                  "aggregation": "Sum",
+                  "dax_expression": "SUM('LAVANDERIA'[Peso])",
+                  "model_valid": true,
+                  "auto_executable": true
+                }
+              ],
+              "metrics": [
+                {
+                  "page_name": "ReportSectionLav",
+                  "page_display_name": "Lavanderia",
+                  "visual_id": "lav_barras_mensual",
+                  "visual_type": "clusteredBarChart",
+                  "visual_title": null,
+                  "role": "Y",
+                  "query_ref": "Sum(LAVANDERIA.Peso)",
+                  "native_query_ref": "Sum of Peso",
+                  "aliases": [
+                    "Sum de Peso"
+                  ],
+                  "kind": "aggregation",
+                  "table": "LAVANDERIA",
+                  "column": "Peso",
+                  "aggregation_id": 0,
+                  "aggregation": "Sum",
+                  "dax_expression": "SUM('LAVANDERIA'[Peso])",
+                  "model_valid": true,
+                  "auto_executable": true,
+                  "validation_status": "approved"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "metrics": []
+    }
+  ],
+  "metrics": []
+}

@@ -1,0 +1,83 @@
+{
+  "semantic_model": "Gestion Quirurgica",
+  "semantic_model_key": "gestion_quirurgica",
+  "tables": [
+    {
+      "name": "QX_SOLICITUDES",
+      "columns": [
+        {
+          "name": "ID_SOLICITUD",
+          "description": null,
+          "data_type": "Int64",
+          "expression": null,
+          "is_hidden": true
+        },
+        {
+          "name": "ESPECIALIDAD",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "SEDE",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "ESTADO ACTUAL",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "FECHA_PLANEADA",
+          "description": null,
+          "data_type": "DateTime",
+          "expression": null,
+          "is_hidden": false
+        }
+      ],
+      "measures": [
+        {
+          "name": "Total Cirugías",
+          "expression": "COUNTROWS('QX_SOLICITUDES')",
+          "table": "QX_SOLICITUDES"
+        },
+        {
+          "name": "Cirugías Programadas",
+          "expression": "COUNTROWS('QX_SOLICITUDES')",
+          "table": "QX_SOLICITUDES"
+        },
+        {
+          "name": "Cirugías Realizadas",
+          "expression": "COUNTROWS('QX_SOLICITUDES')",
+          "table": "QX_SOLICITUDES"
+        }
+      ]
+    },
+    {
+      "name": "Calendario",
+      "columns": [
+        {
+          "name": "AÑO",
+          "description": null,
+          "data_type": "Int64",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "MES",
+          "description": null,
+          "data_type": "Int64",
+          "expression": null,
+          "is_hidden": false
+        }
+      ],
+      "measures": []
+    }
+  ]
+}

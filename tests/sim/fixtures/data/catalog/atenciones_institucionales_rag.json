@@ -1,0 +1,134 @@
+{
+  "semantic_model": "Atenciones Institucionales",
+  "semantic_model_key": "atenciones_institucionales",
+  "tables": [
+    {
+      "name": "ATENCIONES",
+      "columns": [
+        {
+          "name": "ID_ATENCION",
+          "description": null,
+          "data_type": "Int64",
+          "expression": null,
+          "is_hidden": true
+        },
+        {
+          "name": "SEDE",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "SERVICIO",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "ASEGURADOR",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "FECHA",
+          "description": null,
+          "data_type": "DateTime",
+          "expression": null,
+          "is_hidden": false
+        }
+      ],
+      "measures": [
+        {
+          "name": "Total Atenciones",
+          "expression": "COUNTROWS('ATENCIONES')",
+          "table": "ATENCIONES"
+        }
+      ]
+    },
+    {
+      "name": "CIRUGIAS_DWSES",
+      "columns": [
+        {
+          "name": "ID_CIRUGIA",
+          "description": null,
+          "data_type": "Int64",
+          "expression": null,
+          "is_hidden": true
+        },
+        {
+          "name": "ESPECIALIDAD",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "SEDE",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "EPS",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "FECHA",
+          "description": null,
+          "data_type": "DateTime",
+          "expression": null,
+          "is_hidden": false
+        }
+      ],
+      "measures": [
+        {
+          "name": "Cirugías Realizadas",
+          "expression": "COUNTROWS('CIRUGIAS_DWSES')",
+          "table": "CIRUGIAS_DWSES"
+        }
+      ]
+    },
+    {
+      "name": "Calendario",
+      "columns": [
+        {
+          "name": "Date",
+          "description": null,
+          "data_type": "DateTime",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "Año",
+          "description": null,
+          "data_type": "Int64",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "Mes",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "MesNumero",
+          "description": null,
+          "data_type": "Int64",
+          "expression": null,
+          "is_hidden": false
+        }
+      ],
+      "measures": []
+    }
+  ]
+}

@@ -1,0 +1,344 @@
+{
+  "collection": "gestion_clinica_rag",
+  "points": [
+    {
+      "id": 1,
+      "payload": {
+        "text": "Tablero: Tablero de Atenciones Institucionales\nAlias: atenciones institucionales, tablero de atenciones\nDescripción: Este tablero muestra el volumen de atenciones institucionales por sede, servicio y aseguradora,\ny el comportamiento mensual de las cirugías realizadas, comparando diferentes años.\nFiltros disponibles: SEDE, SERVICIO, AÑO, MES.\nVisualizaciones: tarjeta Total atenciones, gráfico de barras Atenciones por sede, página Cirugías con\ncirugías por especialidad.\nIndicadores: Total atenciones, Cirugías realizadas.",
+        "chunk_type": "dashboard_overview",
+        "dashboard": "Tablero de Atenciones Institucionales",
+        "dashboard_aliases": [
+          "atenciones institucionales",
+          "tablero de atenciones"
+        ],
+        "semantic_model": "Atenciones Institucionales",
+        "semantic_model_key": "atenciones_institucionales",
+        "source_group": "tablero_de_atenciones_institucionales",
+        "source_file": "Tablero de Atenciones Institucionales.docx",
+        "relative_path": "raw/tablero_de_atenciones_institucionales/Tablero de Atenciones Institucionales.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/atenciones_institucionales_rag.json",
+        "section": "overview"
+      }
+    },
+    {
+      "id": 2,
+      "payload": {
+        "text": "Tablero: Tablero de Atenciones Institucionales\nMedida: Total Atenciones\nDescripción: cantidad total de atenciones registradas (recuento de ID_ATENCION) en la tabla ATENCIONES.",
+        "chunk_type": "measure",
+        "dashboard": "Tablero de Atenciones Institucionales",
+        "dashboard_aliases": [
+          "atenciones institucionales",
+          "tablero de atenciones"
+        ],
+        "semantic_model": "Atenciones Institucionales",
+        "semantic_model_key": "atenciones_institucionales",
+        "source_group": "tablero_de_atenciones_institucionales",
+        "source_file": "Tablero de Atenciones Institucionales.docx",
+        "relative_path": "raw/tablero_de_atenciones_institucionales/Tablero de Atenciones Institucionales.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/atenciones_institucionales_rag.json",
+        "measure": "Total Atenciones",
+        "table": "ATENCIONES"
+      }
+    },
+    {
+      "id": 3,
+      "payload": {
+        "text": "Tablero: Tablero de Atenciones Institucionales\nMedida: Cirugías Realizadas\nDescripción: número de cirugías realizadas según FECHA_CIRUGIA en CIRUGIAS_DWSES, por especialidad y sede.",
+        "chunk_type": "measure",
+        "dashboard": "Tablero de Atenciones Institucionales",
+        "dashboard_aliases": [
+          "atenciones institucionales",
+          "tablero de atenciones"
+        ],
+        "semantic_model": "Atenciones Institucionales",
+        "semantic_model_key": "atenciones_institucionales",
+        "source_group": "tablero_de_atenciones_institucionales",
+        "source_file": "Tablero de Atenciones Institucionales.docx",
+        "relative_path": "raw/tablero_de_atenciones_institucionales/Tablero de Atenciones Institucionales.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/atenciones_institucionales_rag.json",
+        "measure": "Cirugías Realizadas",
+        "table": "CIRUGIAS_DWSES"
+      }
+    },
+    {
+      "id": 4,
+      "payload": {
+        "text": "Tablero: Tablero Quirurgico\nAlias: tablero de cirugias, tablero quirurgico, gestion quirurgica\nDescripción: Este tablero permite hacer seguimiento a las solicitudes quirúrgicas: cirugías programadas,\ncirugías realizadas y total de cirugías, junto con el estado actual de cada solicitud.\nFiltros disponibles: ESPECIALIDAD, SEDE, AÑO, MES, ESTADO ACTUAL.\nVisualizaciones: tarjetas Cirugías programadas y Total cirugías, tabla de estado de solicitudes,\nbarras de cirugías realizadas por especialidad.\nIndicadores: Total cirugías, Cirugías programadas, Cirugías realizadas.",
+        "chunk_type": "dashboard_overview",
+        "dashboard": "Tablero Quirurgico",
+        "dashboard_aliases": [
+          "tablero de cirugias",
+          "tablero quirurgico",
+          "gestion quirurgica"
+        ],
+        "semantic_model": "Gestion Quirurgica",
+        "semantic_model_key": "gestion_quirurgica",
+        "source_group": "tablero_quirurgico",
+        "source_file": "Tablero Quirurgico.docx",
+        "relative_path": "raw/tablero_quirurgico/Tablero Quirurgico.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/gestion_quirurgica_rag.json",
+        "section": "overview"
+      }
+    },
+    {
+      "id": 5,
+      "payload": {
+        "text": "Tablero: Tablero Quirurgico\nMedida: Cirugías Programadas\nDescripción: solicitudes quirúrgicas con estado Paciente Programado en QX_SOLICITUDES. Se calcula con la\nfecha planeada de la cirugía.",
+        "chunk_type": "measure",
+        "dashboard": "Tablero Quirurgico",
+        "dashboard_aliases": [
+          "tablero de cirugias",
+          "tablero quirurgico",
+          "gestion quirurgica"
+        ],
+        "semantic_model": "Gestion Quirurgica",
+        "semantic_model_key": "gestion_quirurgica",
+        "source_group": "tablero_quirurgico",
+        "source_file": "Tablero Quirurgico.docx",
+        "relative_path": "raw/tablero_quirurgico/Tablero Quirurgico.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/gestion_quirurgica_rag.json",
+        "measure": "Cirugías Programadas",
+        "table": "QX_SOLICITUDES"
+      }
+    },
+    {
+      "id": 6,
+      "payload": {
+        "text": "Tablero: Tablero Quirurgico\nMedida: Total Cirugías\nDescripción: total de solicitudes quirúrgicas registradas, sin importar su estado.",
+        "chunk_type": "measure",
+        "dashboard": "Tablero Quirurgico",
+        "dashboard_aliases": [
+          "tablero de cirugias",
+          "tablero quirurgico",
+          "gestion quirurgica"
+        ],
+        "semantic_model": "Gestion Quirurgica",
+        "semantic_model_key": "gestion_quirurgica",
+        "source_group": "tablero_quirurgico",
+        "source_file": "Tablero Quirurgico.docx",
+        "relative_path": "raw/tablero_quirurgico/Tablero Quirurgico.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/gestion_quirurgica_rag.json",
+        "measure": "Total Cirugías",
+        "table": "QX_SOLICITUDES"
+      }
+    },
+    {
+      "id": 7,
+      "payload": {
+        "text": "Tablero: Tablero Quirurgico\nConsulta técnica documentada: SELECT ESPECIALIDAD, SEDE, ESTADO_ACTUAL, FECHA_PLANEADA FROM Qx_SolicitudProgramacion",
+        "chunk_type": "sql_query",
+        "dashboard": "Tablero Quirurgico",
+        "dashboard_aliases": [
+          "tablero de cirugias",
+          "tablero quirurgico",
+          "gestion quirurgica"
+        ],
+        "semantic_model": "Gestion Quirurgica",
+        "semantic_model_key": "gestion_quirurgica",
+        "source_group": "tablero_quirurgico",
+        "source_file": "Tablero Quirurgico.docx",
+        "relative_path": "raw/tablero_quirurgico/Tablero Quirurgico.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/gestion_quirurgica_rag.json",
+        "section": "sql_queries"
+      }
+    },
+    {
+      "id": 8,
+      "payload": {
+        "text": "Tablero: Tablero Lavanderia\nAlias: lavanderia, tablero lavanderia, tablero de lavanderia\nDescripción: Este tablero monitorea la gestión y distribución del peso de ropa hospitalaria que ingresa al\nárea de lavandería, teniendo en cuenta las personas que registran, las distribuciones de peso por turno\nlaboral y los pesos totales por mes.\nFiltros disponibles: Año, Mes.\nVisualizaciones: Tabla de Participación por Servicio, Tabla de registro de Usuarios, Gráfico Circular de\nPeso por Turno Laboral, Gráfico de Barras por Distribución Mensual.\nIndicadores: Peso (suma de Peso en kg).",
+        "chunk_type": "dashboard_overview",
+        "dashboard": "Tablero Lavanderia",
+        "dashboard_aliases": [
+          "lavanderia",
+          "tablero lavanderia",
+          "tablero de lavanderia"
+        ],
+        "semantic_model": "Lavanderia",
+        "semantic_model_key": "lavanderia",
+        "source_group": "tablero_lavanderia",
+        "source_file": "Tablero Lavanderia.docx",
+        "relative_path": "raw/tablero_lavanderia/Tablero Lavanderia.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/lavanderia_rag.json",
+        "section": "overview"
+      }
+    },
+    {
+      "id": 9,
+      "payload": {
+        "text": "Tablero: Tablero Lavanderia\nSección: Filtros por Años y Mes\nContenido: Permiten segmentar la información por Aseguradora, Año y Mes, facilitando el análisis de la\nlavandería según los criterios seleccionados.",
+        "chunk_type": "document_section",
+        "dashboard": "Tablero Lavanderia",
+        "dashboard_aliases": [
+          "lavanderia",
+          "tablero lavanderia",
+          "tablero de lavanderia"
+        ],
+        "semantic_model": "Lavanderia",
+        "semantic_model_key": "lavanderia",
+        "source_group": "tablero_lavanderia",
+        "source_file": "Tablero Lavanderia.docx",
+        "relative_path": "raw/tablero_lavanderia/Tablero Lavanderia.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/lavanderia_rag.json",
+        "section": "Filtros por Años y Mes"
+      }
+    },
+    {
+      "id": 10,
+      "payload": {
+        "text": "Tablero: Tablero Lavanderia\nSección: Tabla de Participación por Servicio\nContenido: Muestra la distribución de pesos registrados mensualmente por cada área de servicios, obteniendo\ntambién su porcentaje de participación.",
+        "chunk_type": "document_section",
+        "dashboard": "Tablero Lavanderia",
+        "dashboard_aliases": [
+          "lavanderia",
+          "tablero lavanderia",
+          "tablero de lavanderia"
+        ],
+        "semantic_model": "Lavanderia",
+        "semantic_model_key": "lavanderia",
+        "source_group": "tablero_lavanderia",
+        "source_file": "Tablero Lavanderia.docx",
+        "relative_path": "raw/tablero_lavanderia/Tablero Lavanderia.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/lavanderia_rag.json",
+        "section": "Tabla de Participación por Servicio"
+      }
+    },
+    {
+      "id": 11,
+      "payload": {
+        "text": "Tablero: Tablero Lavanderia\nSección: Tabla de registro de Usuarios\nContenido: Muestra la distribución de peso registrados para lavandería por cada colaborador de las áreas\ndel hospital.",
+        "chunk_type": "document_section",
+        "dashboard": "Tablero Lavanderia",
+        "dashboard_aliases": [
+          "lavanderia",
+          "tablero lavanderia",
+          "tablero de lavanderia"
+        ],
+        "semantic_model": "Lavanderia",
+        "semantic_model_key": "lavanderia",
+        "source_group": "tablero_lavanderia",
+        "source_file": "Tablero Lavanderia.docx",
+        "relative_path": "raw/tablero_lavanderia/Tablero Lavanderia.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/lavanderia_rag.json",
+        "section": "Tabla de registro de Usuarios"
+      }
+    },
+    {
+      "id": 12,
+      "payload": {
+        "text": "Tablero: Tablero Lavanderia\nSección: Gráfico Circular de Peso por Turno Laboral\nContenido: Muestra la distribución de cargas teniendo en cuenta los turnos laborales que rotan en el hospital.",
+        "chunk_type": "document_section",
+        "dashboard": "Tablero Lavanderia",
+        "dashboard_aliases": [
+          "lavanderia",
+          "tablero lavanderia",
+          "tablero de lavanderia"
+        ],
+        "semantic_model": "Lavanderia",
+        "semantic_model_key": "lavanderia",
+        "source_group": "tablero_lavanderia",
+        "source_file": "Tablero Lavanderia.docx",
+        "relative_path": "raw/tablero_lavanderia/Tablero Lavanderia.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/lavanderia_rag.json",
+        "section": "Gráfico Circular de Peso por Turno Laboral"
+      }
+    },
+    {
+      "id": 13,
+      "payload": {
+        "text": "Tablero: Tablero Lavanderia\nSección: Gráfico de Barras por Distribución Mensual\nContenido: Muestra el total de distribución de cargas mensuales asignadas a lavandería.",
+        "chunk_type": "document_section",
+        "dashboard": "Tablero Lavanderia",
+        "dashboard_aliases": [
+          "lavanderia",
+          "tablero lavanderia",
+          "tablero de lavanderia"
+        ],
+        "semantic_model": "Lavanderia",
+        "semantic_model_key": "lavanderia",
+        "source_group": "tablero_lavanderia",
+        "source_file": "Tablero Lavanderia.docx",
+        "relative_path": "raw/tablero_lavanderia/Tablero Lavanderia.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/lavanderia_rag.json",
+        "section": "Gráfico de Barras por Distribución Mensual"
+      }
+    },
+    {
+      "id": 14,
+      "payload": {
+        "text": "Tablero: Tablero Lavanderia\nColumna calculada: NOMBRE_COMPLETO\nTabla: LAVANDERIA\nExpresión DAX: NOMBRE_COMPLETO = CONCATENATE(LAVANDERIA[usu_nombres],CONCATENATE(\" \",LAVANDERIA[usu_apellidos]))",
+        "chunk_type": "calculated_column",
+        "dashboard": "Tablero Lavanderia",
+        "dashboard_aliases": [
+          "lavanderia",
+          "tablero lavanderia",
+          "tablero de lavanderia"
+        ],
+        "semantic_model": "Lavanderia",
+        "semantic_model_key": "lavanderia",
+        "source_group": "tablero_lavanderia",
+        "source_file": "Tablero Lavanderia.docx",
+        "relative_path": "raw/tablero_lavanderia/Tablero Lavanderia.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/lavanderia_rag.json",
+        "section": "calculated_columns",
+        "table": "LAVANDERIA"
+      }
+    },
+    {
+      "id": 15,
+      "payload": {
+        "text": "Tablero: Tablero Lavanderia\nColumna calculada: TURNO_OK (1 = MAÑANA, 2 = TARDE, 3 = NOCHE)\nTabla: LAVANDERIA\nExpresión DAX: TURNO_OK = IF(LAVANDERIA[Turno]=1, \"MAÑANA\", IF(LAVANDERIA[Turno]=2,\"TARDE\", IF(LAVANDERIA[Turno]=3,\"NOCHE\")))",
+        "chunk_type": "calculated_column",
+        "dashboard": "Tablero Lavanderia",
+        "dashboard_aliases": [
+          "lavanderia",
+          "tablero lavanderia",
+          "tablero de lavanderia"
+        ],
+        "semantic_model": "Lavanderia",
+        "semantic_model_key": "lavanderia",
+        "source_group": "tablero_lavanderia",
+        "source_file": "Tablero Lavanderia.docx",
+        "relative_path": "raw/tablero_lavanderia/Tablero Lavanderia.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/lavanderia_rag.json",
+        "section": "calculated_columns",
+        "table": "LAVANDERIA"
+      }
+    },
+    {
+      "id": 16,
+      "payload": {
+        "text": "Tablero: Tablero Lavanderia\nConsulta técnica documentada: SELECT A.OID, A.Peso, A.OidUsuario, A.FechaRegistro, B.Fecha, B.Turno,\nC.Nombre SERVICIO, D.usu_nombres, D.usu_apellidos FROM PLANILLAUSUARIO.DBO.Cp_PesajeLavanderia A\nLEFT JOIN PLANILLAUSUARIO.DBO.Cp_EncabezadoLavanderia B ON A.OidEncabezadoLavanderia=B.Oid\nLEFT JOIN PLANILLAUSUARIO.DBO.Cp_Medicion C ON A.OidCpMedicion=C.Oid\nLEFT JOIN PLANILLAUSUARIO.DBO.USUARIO D ON A.OidUsuario=D.usu_oid",
+        "chunk_type": "sql_query",
+        "dashboard": "Tablero Lavanderia",
+        "dashboard_aliases": [
+          "lavanderia",
+          "tablero lavanderia",
+          "tablero de lavanderia"
+        ],
+        "semantic_model": "Lavanderia",
+        "semantic_model_key": "lavanderia",
+        "source_group": "tablero_lavanderia",
+        "source_file": "Tablero Lavanderia.docx",
+        "relative_path": "raw/tablero_lavanderia/Tablero Lavanderia.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/lavanderia_rag.json",
+        "section": "sql_queries"
+      }
+    }
+  ]
+}
