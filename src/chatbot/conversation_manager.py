@@ -1,10 +1,27 @@
+import re
+import unicodedata
+
 from src.chatbot.conversation_state import ConversationState
+
+_DASHBOARD_STOPWORDS = {
+    "tablero", "tableros", "informe", "reporte", "servicio", "area",
+    "del", "los", "las", "una", "uno", "por", "con", "para", "quiero",
+    "ver", "sobre", "pagina",
+}
+
+
+def _normalize(value):
+    text = unicodedata.normalize("NFD", str(value or "").lower())
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]", " ", text)).strip()
 
 class ConversationManager:
 
     def __init__(self, intent_parser):
         self.intent_parser = intent_parser
         self.state = ConversationState()
+        # Tableros ofrecidos en la última contrapregunta.
+        self.candidate_dashboards = []
 
     # ========================================================
     # CAMPOS QUE TODAVÍA HACEN FALTA
@@ -17,6 +34,50 @@ class ConversationManager:
             dashboard=self.state.dashboard,
             metric_type=self.state.metric_type
         )
+
+    # ========================================================
+    # TABLERO ELEGIDO ENTRE LOS CANDIDATOS
+    # ========================================================
+
+    def _match_candidate_dashboard(self, message):
+        """Empareja texto libre (nombre parcial, alias, número) con un candidato."""
+        candidates = [c for c in self.candidate_dashboards if c]
+        text = _normalize(message)
+        if not candidates or not text:
+            return None
+
+        if text.isdigit():
+            index = int(text)
+            return candidates[index - 1] if 1 <= index <= len(candidates) else None
+
+        exact = [c for c in candidates if _normalize(c) == text]
+        if len(exact) == 1:
+            return exact[0]
+
+        tokens = [
+            t for t in text.split()
+            if len(t) >= 3 and t not in _DASHBOARD_STOPWORDS
+        ]
+        if not tokens:
+            return None
+        matches = [
+            c for c in candidates
+            if all(
+                any(word.startswith(t) or t.startswith(word) and len(word) >= 4
+                    for word in _normalize(c).split())
+                for t in tokens
+            )
+        ]
+        if len(matches) == 1:
+            return matches[0]
+        return None
+
+    def select_dashboard(self, dashboard):
+        """Fija el tablero elegido (botón); la pregunta original se reejecuta."""
+        self.state.dashboard = dashboard
+        self.state.missing_fields = [
+            f for f in self.state.missing_fields if f != "dashboard"
+        ]
 
     # ========================================================
     # INTENTAR COMPLETAR UNA ACLARACIÓN
@@ -37,6 +98,9 @@ class ConversationManager:
                     message
                 )
             )
+
+            if not dashboard:
+                dashboard = self._match_candidate_dashboard(message)
 
             if dashboard:
                 self.state.dashboard = dashboard
@@ -139,6 +203,9 @@ class ConversationManager:
                         )
                     )
 
+                if candidates:
+                    self.candidate_dashboards = list(candidates)
+
                 clarification = (
                     self.intent_parser
                     .build_clarification_question(
@@ -156,6 +223,9 @@ class ConversationManager:
 
                     "question":
                         clarification,
+
+                    "candidates":
+                        candidates,
 
                     "state":
                         self.state.to_dict()
@@ -186,6 +256,10 @@ class ConversationManager:
             == "needs_clarification"
         ):
 
+            self.candidate_dashboards = list(
+                parsed.candidate_dashboards or []
+            )
+
             return {
                 "status":
                     "needs_clarification",
@@ -211,3 +285,4 @@ class ConversationManager:
 
     def reset(self):
         self.state.clear()
+        self.candidate_dashboards = []

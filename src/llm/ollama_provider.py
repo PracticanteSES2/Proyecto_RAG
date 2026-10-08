@@ -1,7 +1,26 @@
 import os
+import re
 
 from dotenv import load_dotenv
 from ollama import Client, ResponseError
+
+
+_THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+_THINK_OPEN = re.compile(r"<think>.*\Z", re.DOTALL | re.IGNORECASE)
+
+
+def strip_think(text):
+    """Quita bloques <think>...</think> (y uno abierto sin cerrar)."""
+    if not text:
+        return text
+    text = _THINK_BLOCK.sub("", text)
+    text = _THINK_OPEN.sub("", text)
+    return text.strip()
+
+
+def _with_tag(name):
+    name = str(name).strip()
+    return name if ":" in name else f"{name}:latest"
 
 
 class OllamaProvider:
@@ -72,12 +91,10 @@ class OllamaProvider:
                 if name:
                     installed.append(str(name))
 
-            model_available = any(
-                name == self.model
-                or name.startswith(f"{self.model}:")
-                or self.model.startswith(f"{name}:")
-                for name in installed
-            )
+            # Comparación exacta; un nombre sin etiqueta equivale a :latest.
+            model_available = _with_tag(self.model) in {
+                _with_tag(name) for name in installed
+            }
 
             return {
                 "status": (
@@ -161,6 +178,8 @@ class OllamaProvider:
                 else None
             )
 
+            content = strip_think(content)
+
             if not content:
                 return {
                     "status": "empty_response",
@@ -170,7 +189,7 @@ class OllamaProvider:
 
             return {
                 "status": "success",
-                "answer": content.strip(),
+                "answer": content,
                 "model": self.model,
             }
 
