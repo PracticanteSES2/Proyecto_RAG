@@ -227,7 +227,10 @@ class FakeOllamaClient:
     def list(self):
         if self.down:
             raise ConnectionError("[sim] Ollama no disponible")
-        return _Obj(models=[_Obj(model=os.getenv("OLLAMA_MODEL", "qwen3:8b"))])
+        return _Obj(models=[
+            _Obj(model=os.getenv("OLLAMA_MODEL", "qwen3:8b")),
+            _Obj(model=os.getenv("MEDGEMMA_MODEL", "medgemma:latest")),
+        ])
 
     def chat(self, model=None, messages=None, **kwargs):
         if self.down:
@@ -758,4 +761,6 @@ def install_stubs(fixtures_root):
     os.environ["IDENTITY_PATH"] = str(fixtures_root / "adomd")
     os.environ["OLLAMA_HOST"] = "http://sim.invalid:11434"
     os.environ["OLLAMA_MODEL"] = "qwen3:8b"
+    os.environ["MEDGEMMA_BASE_URL"] = "http://sim.invalid:11434"
+    os.environ["MEDGEMMA_MODEL"] = "medgemma:latest"
     os.environ["QDRANT_COLLECTION_NAME"] = "gestion_clinica_rag"
