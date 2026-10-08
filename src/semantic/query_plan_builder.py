@@ -1381,7 +1381,7 @@ class QueryPlanBuilder:
         # Palabras específicas que ningún filtro explicó. Sin ningún filtro
         # categórico el resultado sería un total engañoso: se detiene. Con
         # otros filtros ya aplicados se continúa, pero se declara lo omitido.
-        leftover = self._implicit_value_text(
+        leftover = "" if selected_metric_id is not None else self._implicit_value_text(
             question, metric, metric_result.get("matched_name"),
             source_context, group_by, extra_removals=consumed_tokens,
         )

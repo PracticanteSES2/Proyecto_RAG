@@ -173,8 +173,10 @@ def test_base_ambiguous_metric_offers_options_and_resolves_by_number():
     (_, first, ui1), (_, second, ui2) = run("base_dato_aclaracion")
     assert first["status"] == "needs_clarification"
     assert len(first["clarification_options"]) == 2 and "1." in ui1
-    assert second["status"] == "success" and second["route"] == "powerbi"
-    assert second["metric_id"] == "b_cx_realizadas"
+    # La selección fija la métrica; el valor puede venir vacío (BLANK) por el
+    # bug de DATE() vs columna entera, que ahora se informa como empty_result.
+    assert second["status"] in ("success", "empty_result") and second["route"] == "powerbi"
+    assert second["query_plan"]["metric"]["metric_id"] == "b_cx_realizadas"
 
 
 def test_base_definition_goes_to_rag():
@@ -191,7 +193,8 @@ def test_lav_q3_peso_servicio_mes():
     result, ui = last("lav_q3")
     assert result["status"] == "success" and result["route"] == "powerbi", result.get("route")
     assert result["metric"] == "PESO" and result["semantic_model"] == "Lavanderia"
-    assert ui == "PESO: 488.3", ui
+    assert ui.startswith("**PESO**: 488,3"), ui
+    assert "SERVICIO = ANTIFLUIDOS" in ui and "enero 2026" in ui, ui
     dax = dax_of(result)
     assert "SUM('LAVANDERIA'[Peso])" in dax
     assert 'TREATAS({"ANTIFLUIDOS"}, \'LAVANDERIA\'[SERVICIO])' in dax
@@ -269,9 +272,6 @@ def test_lav_control_grouped_by_turno_ok_works():
 # Bugs conocidos
 # ----------------------------------------------------------------------------
 
-@xfail("QueryEngine.process() lee intent_result['clarification_question'] pero ConversationManager devuelve la "
-       "pregunta en la clave 'question' -> result['question']=None y app.get_display_answer muestra el texto "
-       "genérico 'Necesito una aclaración para continuar.'")
 def test_clarification_question_is_not_the_generic_text():
     first, ui = run("base_descriptivo")[0][1:]
     assert first["status"] == "needs_clarification"

@@ -1,5 +1,14 @@
 from pathlib import Path
 import traceback
+
+# Variables de entorno (OLLAMA_*, Power BI...) antes de importar src.*.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parent / ".env")
+except ImportError:
+    pass
+
 import streamlit as st
 
 from src.rag.retriever import HybridRetriever
@@ -8,7 +17,13 @@ from src.chatbot.conversation_manager import ConversationManager
 from src.chatbot.query_engine import QueryEngine
 from src.chatbot.rag_answer_engine import RAGAnswerEngine
 from src.chatbot.answer_synthesizer import AnswerSynthesizer
-from src.chatbot.response_formatter import ResponseFormatter
+from src.chatbot.response_formatter import (
+    ResponseFormatter,
+    clarification_buttons,
+    format_filters_line,
+    format_query_plan_answer,
+    format_unapplied_line,
+)
 from src.semantic.metric_resolver import MetricResolver
 from src.dax.dax_generator import DAXGenerator
 from src.semantic.source_model_router import (
@@ -223,6 +238,11 @@ def get_display_answer(result, formatter):
     if route == "rag":
         return result.get("answer") or "No encontré información suficiente."
     if route == "powerbi" and status == "success":
+        # Query Plan conoce exactamente la métrica y el modelo. Evitar
+        # presentar resultados con textos/periodos heredados de otra ruta.
+        if result.get("query_plan"):
+            return format_query_plan_answer(result)
+
         if (
             result.get("result_type")
             == "table"
@@ -230,20 +250,18 @@ def get_display_answer(result, formatter):
         ):
             return result.get("answer")
 
-        # Query Plan conoce exactamente la métrica y el modelo. Evitar
-        # presentar resultados con textos/periodos heredados de otra ruta.
-        if result.get("query_plan"):
-            return f"{result.get('metric')}: {result.get('value')}"
-
         try:
             answer = formatter.format(result)
-            if answer:
+            if answer and "None" not in answer:
                 return answer
         except Exception:
             pass
 
         metric = result.get("metric")
         value = result.get("value")
+
+        if value is None:
+            return "No hay datos para esos filtros."
 
         if metric:
             return f"{metric}: {value}"
@@ -254,6 +272,12 @@ def get_display_answer(result, formatter):
     if status == "unsupported_filter":
         details = result.get("details", {})
         reason = details.get("reason")
+        if result.get("powerbi_unavailable") or details.get("domain_error"):
+            return (
+                "Identifiqué la métrica, pero no pude consultar Power BI para "
+                "verificar el filtro solicitado. Revisa que Power BI esté "
+                "disponible e intenta de nuevo."
+            )
         if reason == "requested_value_not_found":
             return "Identifiqué la métrica, pero no pude verificar el valor del filtro solicitado."
         if reason == "date_dimension_not_found_in_report":
@@ -262,7 +286,18 @@ def get_display_answer(result, formatter):
     if status == "powerbi_error":
         return "La métrica se identificó, pero Power BI rechazó la consulta. Revisa Modo diagnóstico."
     if status == "empty_result":
-        return "Power BI ejecutó la consulta, pero no devolvió datos para los criterios solicitados."
+        plan = result.get("query_plan") or {}
+        extras = [
+            line
+            for line in (
+                format_filters_line(result.get("filters") or plan.get("filters")),
+                format_unapplied_line(
+                    result.get("unapplied_terms") or plan.get("unapplied_terms")
+                ),
+            )
+            if line
+        ]
+        return "\n\n".join(["No hay datos para esos filtros."] + extras)
     return "No pude completar la consulta. Activa Modo diagnóstico para ver en qué etapa falló."
 
 def reset_if_finished(result, engine, conversation_manager):
@@ -280,64 +315,42 @@ st.caption("Consultas sobre tableros institucionales con RAG, Power BI y Qwen lo
 
 engine, conversation_manager, formatter, ollama_status, powerbi_connection = build_system()
 
-with st.sidebar:
-    st.subheader("Estado del sistema")
-    if ollama_status.get("status") == "ready":
-        st.success("Qwen local: disponible")
-    else:
-        st.warning("Qwen local: no disponible")
-    if (
-        powerbi_connection.get(
-            "status"
-        )
-        == "success"
-    ):
+def clear_pending_clarification():
+    st.session_state.pending_clarification = None
+    st.session_state.queued_option = None
 
-        st.success(
-            "Power BI: conectado"
-        )
 
-    else:
+def queue_option(option_id, label):
+    # Callback de st.button: se ejecuta antes del rerun; el turno se procesa
+    # en el siguiente pase del script.
+    st.session_state.queued_option = {"id": option_id, "label": label}
 
-        st.warning(
-            "Power BI: no conectado"
-        )
-    debug_mode = st.checkbox("Modo diagnóstico", value=False)
-    st.info("El asistente responde únicamente con información respaldada por los tableros y documentos disponibles.")
-    if st.button("Nueva conversación", use_container_width=True):
-        conversation_manager.reset()
 
-        reset_method = getattr(
-            engine,
-            "reset",
-            None,
+def render_clarification_buttons(pending):
+    # Un botón por opción, debajo del mensaje del asistente.
+    for index, button in enumerate(pending["buttons"]):
+        st.button(
+            button["label"],
+            key=f"clarification_{pending['id']}_{index}",
+            on_click=queue_option,
+            args=(button["id"], button["label"]),
+            help=button.get("help"),
+            use_container_width=True,
         )
 
-        if callable(reset_method):
-            reset_method()
 
-        st.session_state.messages = []
-        st.rerun()
-
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Hola. Puedes preguntarme por indicadores, filtros y datos disponibles en los tableros institucionales."}]
-
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-prompt = st.chat_input("Escribe tu pregunta...")
-
-if prompt:
-    st.session_state.messages.append({"role": "user", "content": prompt})
+def execute_turn(user_text, runner):
+    st.session_state.pending_clarification = None
+    st.session_state.queued_option = None
+    st.session_state.messages.append({"role": "user", "content": user_text})
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.markdown(user_text)
 
     with st.chat_message("assistant"):
         error_text = None
         with st.spinner("Consultando información..."):
             try:
-                result = engine.process(prompt)
+                result = runner()
                 answer = get_display_answer(result, formatter)
             except Exception as exc:
                 traceback.print_exc()
@@ -346,6 +359,15 @@ if prompt:
                 answer = "Ocurrió un error al procesar la consulta. Intenta nuevamente."
 
         st.markdown(answer)
+
+        buttons = clarification_buttons(result)
+        if buttons:
+            st.session_state.clarification_counter += 1
+            st.session_state.pending_clarification = {
+                "id": st.session_state.clarification_counter,
+                "buttons": buttons,
+            }
+            render_clarification_buttons(st.session_state.pending_clarification)
 
         if result.get("status") == "success":
             with st.expander("Detalles de la consulta", expanded=False):
@@ -424,3 +446,73 @@ if prompt:
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
     reset_if_finished(result, engine, conversation_manager)
+
+
+with st.sidebar:
+    st.subheader("Estado del sistema")
+    if ollama_status.get("status") == "ready":
+        st.success("Qwen local: disponible")
+    else:
+        st.warning("Qwen local: no disponible")
+    if (
+        powerbi_connection.get(
+            "status"
+        )
+        == "success"
+    ):
+
+        st.success(
+            "Power BI: conectado"
+        )
+
+    else:
+
+        st.warning(
+            "Power BI: no conectado"
+        )
+    debug_mode = st.checkbox("Modo diagnóstico", value=False)
+    st.info("El asistente responde únicamente con información respaldada por los tableros y documentos disponibles.")
+    if st.button("Nueva conversación", use_container_width=True):
+        conversation_manager.reset()
+
+        reset_method = getattr(
+            engine,
+            "reset",
+            None,
+        )
+
+        if callable(reset_method):
+            reset_method()
+
+        st.session_state.messages = []
+        clear_pending_clarification()
+        st.rerun()
+
+if "messages" not in st.session_state:
+    st.session_state.messages = [{"role": "assistant", "content": "Hola. Puedes preguntarme por indicadores, filtros y datos disponibles en los tableros institucionales."}]
+if "pending_clarification" not in st.session_state:
+    st.session_state.pending_clarification = None
+if "queued_option" not in st.session_state:
+    st.session_state.queued_option = None
+if "clarification_counter" not in st.session_state:
+    st.session_state.clarification_counter = 0
+
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+prompt = st.chat_input("Escribe tu pregunta...")
+queued = st.session_state.queued_option
+
+if prompt:
+    execute_turn(prompt, lambda: engine.process(prompt))
+elif queued:
+    execute_turn(
+        queued["label"],
+        lambda: engine.select_clarification_option(queued["id"]),
+    )
+elif st.session_state.pending_clarification:
+    # Rerun por otro widget: se vuelven a mostrar los botones de la
+    # contrapregunta vigente (solo la última).
+    with st.chat_message("assistant"):
+        render_clarification_buttons(st.session_state.pending_clarification)
