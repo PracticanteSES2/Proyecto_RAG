@@ -23,7 +23,53 @@ GENERIC_QUERY_WORDS = {
 DESCRIPTIVE_PATTERNS = (
     "que significa", "que es", "que quiere decir", "como se calcula",
     "como se define", "definicion de", "explica",
+    "que muestra", "que muestran", "que contiene", "que informacion",
+    "que filtros", "que filtro", "para que sirve", "para que se usa",
+    "como se mide", "como se interpreta", "como funciona", "que mide",
+    "de que trata", "que visuales", "que paginas", "objetivo del",
+    "descripcion del", "describe",
 )
+
+# Términos que, por sí solos, indican una consulta cuantitativa.
+NUMERIC_TERM_PATTERNS = (
+    r"cuant[oa]s?", r"cantidad", r"numero", r"total", r"promedio", r"media",
+    r"porcentaje", r"valor", r"capacidad", r"giro", r"ocupacion",
+    r"ocupacional", r"ingresos", r"egresos", r"participacion", r"proporcion",
+    r"tasa", r"variacion", r"representa", r"representan", r"suma",
+    r"sumatoria", r"%",
+)
+
+# Verbos/interrogativos que piden un dato ("dime el peso...", "cuál fue el ...").
+QUERY_VERB_PATTERNS = (
+    r"(?:y\s+)?(?:que|cual(?:es)?)\s+(?:fue|fueron|es|son|ha\s+sido|han\s+sido|seria|serian|era|eran)",
+    r"(?:y\s+)?(?:dime|dame|dinos|muestrame|muestra|mostrar|muestre|indica|indicame|"
+    r"consulta|calcula|obten|entregame|reporta|reportame|informame|necesito|"
+    r"quiero|quisiera|me\s+(?:puedes|podrias|das|dices|indicas|muestras)|"
+    r"puedes|podrias)",
+)
+
+# Participación / proporción sobre el total de una dimensión.
+SHARE_PHRASES = (
+    r"(?:el\s+|la\s+)?(?:porcentaje|%)\s+de\s+participacion(?:\s+porcentual)?",
+    r"(?:el\s+|la\s+)?participacion(?:\s+porcentual)?(?:\s+relativa)?",
+    r"(?:el\s+|la\s+)?(?:porcentaje|%)\s+(?:del|sobre\s+el)\s+total",
+    r"(?:la\s+|una\s+)?proporcion(?:\s+(?:del|sobre\s+el)\s+total)?",
+    r"(?:el\s+)?peso\s+relativo",
+    r"(?:que\s+)?(?:porcentaje|parte|fraccion)\s+(?:del\s+total\s+)?(?:representa|representan|supone|aporta)",
+    r"cuanto\s+(?:representa|representan|aporta|aportan)",
+    r"que\s+tanto\s+(?:representa|representan|aporta|aportan)",
+)
+SHARE_RE = re.compile(
+    r"(?<![a-z0-9])(?:" + "|".join(SHARE_PHRASES) + r")(?![a-z0-9])"
+)
+FILLER_WORDS = {
+    "y", "e", "el", "la", "los", "las", "un", "una", "de", "del", "en", "al",
+    "que", "cual", "cuales", "como", "fue", "fueron", "es", "son", "tuvo",
+    "tuvieron", "tiene", "tienen", "hubo", "hay", "se", "su", "sus", "mes",
+    "ano", "servicio", "tablero", "informe", "total", "con", "por", "para",
+    "cuanto", "cuanta", "cuantos", "cuantas", "dime", "dame", "muestra",
+    "numero", "valor", "porcentaje", "sobre", "durante", "entre",
+}
 
 DIMENSION_SYNONYMS = {
     "servicio": {"servicio", "servicios", "unidad", "unidades", "area", "areas"},
@@ -837,25 +883,337 @@ class QueryPlanBuilder:
         }]
 
     # ---------------- public API ----------------
+    def is_descriptive(self, question):
+        return self._is_descriptive(normalize_text(question))
+
+    def _is_descriptive(self, normalized):
+        return any(
+            re.search(r"(?<![a-z0-9])" + re.escape(pattern) + r"(?![a-z0-9])", normalized)
+            for pattern in DESCRIPTIVE_PATTERNS
+        )
+
+    @staticmethod
+    def _has_period(normalized):
+        months = "|".join(MONTHS)
+        return bool(
+            re.search(r"(?<![a-z0-9])(?:" + months + r")(?![a-z0-9])", normalized)
+            or re.search(r"(?<![0-9])20\d{2}(?![0-9])", normalized)
+        )
+
     def looks_numeric(self, question, dashboard=None):
+        """Detecta intención cuantitativa sin depender del orden ni del género.
+
+        Orden de decisión: 1) definicional -> RAG; 2) término numérico
+        (cuánto/cuánta/participación/promedio...); 3) la pregunta resuelve a
+        una métrica conocida y pide un dato con verbo ("dime", "cuál fue"),
+        menciona un período o «por <dimensión>» (incluye estilo telegráfico).
+        """
         normalized = normalize_text(question)
-        if any(pattern in normalized for pattern in DESCRIPTIVE_PATTERNS):
+        if not normalized or self._is_descriptive(normalized):
             return False
 
-        numeric_terms = (
-            "cuanto", "cuantos", "cuantas", "cantidad", "numero", "total",
-            "promedio", "porcentaje", "valor", "capacidad", "giro", "ocupacion",
-            "ocupacional", "ingresos", "egresos",
-        )
-        if any(re.search(r"\b" + re.escape(term) + r"\b", normalized) for term in numeric_terms):
+        if any(
+            re.search(r"(?<![a-z0-9])" + term + r"(?![a-z0-9])", normalized)
+            for term in NUMERIC_TERM_PATTERNS
+        ):
             return True
+
+        has_verb = any(
+            re.search(r"(?<![a-z0-9])(?:" + verb + r")(?![a-z0-9])", normalized)
+            for verb in QUERY_VERB_PATTERNS
+        )
+        has_period = self._has_period(normalized)
+        has_group = bool(re.search(r"(?<![a-z0-9])(?:por|segun)\s+[a-z]", normalized))
+        if not (has_verb or has_period or has_group):
+            return False
 
         source_context = self._source_context(question, dashboard=dashboard)
         metric_result = self._resolve_metric(question, source_context)
-        if metric_result.get("status") == "resolved" and metric_result.get("score", 0) >= 0.98:
-            if normalized.startswith(("cual es", "cuales son", "dame", "muestra")):
-                return True
-        return False
+        return metric_result.get("status") in ("resolved", "ambiguous")
+
+    # ---------------- participación / multi-métrica ----------------
+    def _share_match(self, normalized):
+        """Frase de participación en el texto, salvo que sea parte del nombre de una métrica."""
+        match = SHARE_RE.search(normalized)
+        if not match:
+            return None
+        phrase = match.group(0).strip()
+        for metric in self._dedupe_metrics(self.metrics):
+            for name in self._metric_names(metric):
+                norm = normalize_text(name)
+                if norm and phrase in norm and re.search(
+                    r"(?<![a-z0-9])" + re.escape(norm) + r"(?![a-z0-9])", normalized
+                ):
+                    return None
+        return match
+
+    def _mentioned_metrics(self, normalized, source_context):
+        """Métricas nombradas literalmente (frases completas, sin solaparse)."""
+        strong = (
+            source_context.get("status") == "resolved"
+            and source_context.get("routing_strength") == "strong"
+        )
+        model_hint = normalize_text(source_context.get("semantic_model")) if strong else None
+        found = []
+        for metric in self._dedupe_metrics(self.metrics):
+            if metric.get("validation_status") != "approved":
+                continue
+            if model_hint and normalize_text(metric.get("semantic_model")) != model_hint:
+                continue
+            for name in self._metric_names(metric):
+                norm = normalize_text(name)
+                if len(norm) < 3 or norm in GENERIC_QUERY_WORDS or norm.isdigit():
+                    continue
+                for m in re.finditer(
+                    r"(?<![a-z0-9])" + re.escape(norm) + r"(?![a-z0-9])", normalized
+                ):
+                    found.append({
+                        "metric": metric, "name": norm,
+                        "start": m.start(), "end": m.end(),
+                    })
+        found.sort(key=lambda item: (-(item["end"] - item["start"]), item["start"]))
+        accepted = []
+        for item in found:
+            if any(item["start"] < o["end"] and o["start"] < item["end"] for o in accepted):
+                continue
+            accepted.append(item)
+        accepted.sort(key=lambda item: item["start"])
+        return accepted
+
+    @staticmethod
+    def _metric_key(metric):
+        return (
+            normalize_text(metric.get("semantic_model")),
+            normalize_text(metric.get("label")),
+            normalize_text(metric.get("dax_expression")),
+        )
+
+    def _distinct_mentions(self, mentions):
+        """Una mención por métrica distinta y del mismo modelo semántico."""
+        if not mentions:
+            return []
+        models = {}
+        for item in mentions:
+            models.setdefault(normalize_text(item["metric"].get("semantic_model")), []).append(item)
+        group = max(models.values(), key=len)
+        result, seen = [], set()
+        for item in group:
+            key = self._metric_key(item["metric"])
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(item)
+        return result
+
+    @staticmethod
+    def _cut_spans(text, spans):
+        """Quita tramos [(ini, fin)] y la conjunción pegada a ellos."""
+        for start, end in sorted(spans, reverse=True):
+            left, right = text[:start], text[end:]
+            if re.search(r"(?<![a-z0-9])(?:y|e)\s+$", left):
+                left = re.sub(r"(?:y|e)\s+$", "", left)
+            else:
+                right = re.sub(r"^\s*(?:y|e)(?![a-z0-9])", "", right)
+            text = left + " " + right
+        return re.sub(r"\s+", " ", text).strip()
+
+    def _default_share_metric(self, source_context):
+        """Métrica base cuando solo se pide la participación ("participación de X")."""
+        strong = (
+            source_context.get("status") == "resolved"
+            and source_context.get("routing_strength") == "strong"
+        )
+        if not strong:
+            return {"status": "not_found", "candidates": []}
+        model_hint = normalize_text(source_context.get("semantic_model"))
+        report_hint = normalize_text(source_context.get("report"))
+        pool = []
+        for metric in self._dedupe_metrics(self.metrics):
+            if metric.get("validation_status") != "approved":
+                continue
+            if normalize_text(metric.get("semantic_model")) != model_hint:
+                continue
+            reports = self._metric_reports(metric)
+            if report_hint and reports and not any(normalize_text(r) == report_hint for r in reports):
+                continue
+            if not metric.get("dax_expression"):
+                continue
+            pool.append(metric)
+        if not pool:
+            return {"status": "not_found", "candidates": []}
+
+        def rank(metric):
+            visuals = sum(
+                1 for ap in metric.get("appearances", []) or []
+                if "participacion" in normalize_text(ap.get("visual_title"))
+            )
+            return (visuals, len(metric.get("appearances", []) or []))
+
+        ranked = sorted(pool, key=rank, reverse=True)
+        if len(ranked) == 1 or rank(ranked[0]) > rank(ranked[1]):
+            return {"status": "resolved", "metric": ranked[0]}
+        return {
+            "status": "ambiguous",
+            "candidates": [
+                {"metric": m, "score": 1.0, "business_score": 1.0, "matched_name": m.get("label")}
+                for m in ranked[:8]
+            ],
+        }
+
+    def _unresolved_neighbor(self, normalized, share_span, mentions):
+        """Palabra suelta unida con «y» a la participación que no se pudo interpretar."""
+        before = normalized[:share_span[0]]
+        after = normalized[share_span[1]:]
+        word = None
+        m = re.search(r"([a-z0-9]+)\s+y\s*$", before)
+        if m:
+            word = m.group(1)
+        else:
+            m = re.match(r"\s*y\s+([a-z0-9]+)", after)
+            if m:
+                word = m.group(1)
+        if not word or word in FILLER_WORDS or word in MONTHS or word.isdigit():
+            return None
+        if any(word in item["name"].split() for item in mentions):
+            return None
+        dimension_words = {
+            canonical_token(alias)
+            for field in self.dimension_fields
+            for entry in field.get("aliases", [])
+            for alias in normalize_text(entry).split()
+        }
+        if canonical_token(word) in dimension_words:
+            return None
+        return word
+
+    def build_composite(self, question, intent_result=None):
+        """Preguntas con participación y/o varias métricas ("peso y participación").
+
+        Devuelve None cuando la pregunta es de una sola métrica (flujo normal).
+        Si no: {"status": "composite", "items": [...], "unresolved": [...]}
+        con items {"kind": "metric"|"share", "plan": plan, "label": str}, o el
+        plan fallido (ambiguous / unsupported_filter / not_found, con
+        "composite": True).
+        """
+        intent_result = intent_result or {}
+        normalized = normalize_text(question)
+        if not normalized or self._is_descriptive(normalized):
+            return None
+        source_context = self._source_context(question, dashboard=intent_result.get("dashboard"))
+        share = self._share_match(normalized)
+        mentions = self._distinct_mentions(self._mentioned_metrics(normalized, source_context))
+
+        if not share and len(mentions) < 2:
+            return None
+        if not share:
+            # Varias métricas: deben ir unidas por «y», «e» o coma entre sí.
+            for left, right in zip(mentions, mentions[1:]):
+                between = normalized[left["end"]:right["start"]]
+                words = between.split()
+                if (
+                    not ({"y", "e", "con", "ademas"} & set(words))
+                    or len(words) > 4
+                    or any(w not in FILLER_WORDS and w not in {"ademas"} for w in words)
+                ):
+                    return None
+
+        unresolved = []
+        rest_text = normalized
+        if share:
+            all_mentions = self._mentioned_metrics(normalized, source_context)
+            neighbor = self._unresolved_neighbor(normalized, share.span(), all_mentions)
+            rest_text = self._cut_spans(normalized, [share.span()])
+            # Muletillas interrogativas que quedan al quitar la participación.
+            rest_text = re.sub(
+                r"(?<![a-z0-9])(?:que|cual|cuales|fue|fueron|tuvo|tuvieron|tiene|tienen)(?![a-z0-9])",
+                " ", rest_text,
+            )
+            rest_text = re.sub(r"\s+", " ", rest_text).strip()
+            if neighbor:
+                unresolved.append(neighbor)
+                rest_text = re.sub(
+                    r"(?<![a-z0-9])y\s+" + re.escape(neighbor) + r"(?![a-z0-9])", " ", rest_text
+                )
+                rest_text = re.sub(
+                    r"(?<![a-z0-9])" + re.escape(neighbor) + r"\s+y(?![a-z0-9])", " ", rest_text
+                )
+            # La frase de participación puede solaparse con una métrica
+            # ("peso relativo"): las menciones se recalculan sobre el resto.
+            mentions = self._distinct_mentions(
+                self._mentioned_metrics(rest_text, source_context)
+            )
+
+        if share and not mentions:
+            default = self._default_share_metric(source_context)
+            if default.get("status") != "resolved":
+                return {
+                    "status": default.get("status", "not_found"),
+                    "stage": "metric", "question": question,
+                    "source_context": source_context,
+                    "metric_resolution": default, "composite": True,
+                }
+            targets = [(default["metric"], rest_text)]
+        else:
+            targets = []
+            for item in mentions:
+                others = [(o["start"], o["end"]) for o in mentions if o is not item]
+                targets.append((item["metric"], self._cut_spans(rest_text, others)))
+
+        items, failures, failed_labels = [], [], []
+        for metric, sub_question in targets:
+            plan = self.build(
+                sub_question, intent_result=intent_result,
+                selected_metric_id=metric.get("metric_id"),
+            )
+            if plan.get("status") != "ready":
+                plan["composite"] = True
+                failures.append(plan)
+                failed_labels.append(metric.get("label"))
+                continue
+            plan["question"] = question
+            items.append({"kind": "metric", "plan": plan, "label": metric.get("label")})
+
+        if not items:
+            return failures[0]
+        grouped = any(i["plan"].get("mode") == "grouped" for i in items)
+        if grouped and (len(items) > 1 or not share):
+            return None  # Varias métricas agrupadas: se mantiene el flujo de una sola.
+
+        if share:
+            base = items[0]["plan"]
+            if base.get("mode") == "grouped":
+                dimension = dict(base["group_by"][0])
+                dimension["scope"] = "group"
+            else:
+                categorical = [f for f in base.get("filters", []) if f.get("type") == "categorical"]
+                if not categorical:
+                    return {
+                        "status": "unsupported_filter", "stage": "share",
+                        "reason": "share_requires_dimension_value",
+                        "question": question,
+                        "semantic_model": base.get("semantic_model"),
+                        "source_context": source_context,
+                        "query_plan": base, "composite": True,
+                    }
+                dimension = {
+                    "table": categorical[0]["table"], "column": categorical[0]["column"],
+                    "label": categorical[0].get("concept"),
+                    "value": categorical[0].get("value"), "scope": "filter",
+                }
+            share_plan = dict(base)
+            share_plan["share_dimension"] = dimension
+            items.append({"kind": "share", "plan": share_plan, "label": "Participación"})
+            if base.get("mode") == "grouped" or not mentions:
+                # Tabla de participación por grupo, o solo participación cuando
+                # la pregunta no pidió la métrica base ("¿qué participación tuvo X?").
+                items = [items[-1]]
+
+        return {
+            "status": "composite", "question": question, "items": items,
+            "unresolved": unresolved, "failures": failures,
+            "failed_labels": failed_labels,
+            "source_context": source_context,
+        }
 
     def build(self, question, intent_result=None, selected_metric_id=None):
         intent_result = intent_result or {}
