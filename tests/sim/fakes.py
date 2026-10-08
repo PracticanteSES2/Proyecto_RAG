@@ -392,7 +392,10 @@ class FakeDaxEngine:
         a = arg.strip()
         up = a.upper()
         if up.startswith("TREATAS("):
-            vals = re.findall(r'"((?:[^"]|"")*)"', a.split("}", 1)[0])
+            braces = a.split("}", 1)[0]
+            vals = re.findall(r'"((?:[^"]|"")*)"', braces)
+            if not vals:  # literales numéricos sin comillas: TREATAS({2024}, col)
+                vals = re.findall(r"-?\d+(?:\.\d+)?", braces)
             t, c = TC_RE.findall(a)[-1]
             t, c, meta = self._column(model, t, c)
             return {"kind": "eq", "table": t, "column": c, "meta": meta, "values": [v.replace('""', '"') for v in vals]}
@@ -407,6 +410,10 @@ class FakeDaxEngine:
             refs = TC_RE.findall(a)
             t, c = refs[0]
             t, c, meta = self._column(model, t, c)
+            month_only = re.search(r"MONTH\([^)]*\)\s*=\s*(\d{1,2})", a)
+            if month_only:
+                return {"kind": "month", "table": t, "column": c, "meta": meta,
+                        "month": int(month_only.group(1))}
             dates = re.findall(r"DATE\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})\)", a)
             return {"kind": "date_range", "table": t, "column": c, "meta": meta,
                     "dates": [tuple(int(x) for x in d) for d in dates]}
@@ -427,6 +434,11 @@ class FakeDaxEngine:
                 else:
                     factor += _stable_fraction(salt, flt["table"], flt["column"], v)
             return factor
+        if flt["kind"] == "month":
+            if meta.get("type") != "DateTime":
+                self._flag_mismatch(flt)
+                return 0.0
+            return 1.0 / 12.0
         if flt["kind"] == "date_range":
             if meta.get("type") != "DateTime":
                 self._flag_mismatch(flt)
@@ -456,6 +468,8 @@ class FakeDaxEngine:
         if flt["kind"] == "eq":
             wanted = {str(v).casefold() for v in flt["values"]}
             return val is not None and str(val).casefold() in wanted
+        if flt["kind"] == "month":
+            return isinstance(val, datetime) and val.month == flt["month"]
         if flt["kind"] == "date_range":
             if not isinstance(val, datetime):
                 return False
@@ -465,7 +479,7 @@ class FakeDaxEngine:
 
     def _apply_filters(self, rows, filters):
         for flt in filters:
-            if flt["kind"] == "date_range" and flt["meta"].get("type") != "DateTime":
+            if flt["kind"] in ("date_range", "month") and flt["meta"].get("type") != "DateTime":
                 self._flag_mismatch(flt)
                 return []
         for flt in filters:
