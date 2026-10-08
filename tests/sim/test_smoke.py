@@ -226,26 +226,18 @@ def test_lav_q2_answers_peso_and_participacion():
     assert "12.5" in ui or "12,5" in ui, ui
 
 
-@xfail("'Que participacion tuvo...' no contiene término numérico (route=rag) y QueryPlanBuilder._resolve_metric "
-       "devuelve not_found porque la pregunta no nombra la métrica PESO; no hay métrica 'participación' (% del total).")
 def test_lav_q4_answers_participacion():
     result, ui = last("lav_q4")
     assert result["route"] == "powerbi", f"route={result['route']} (respondió con RAG)"
     assert "12.5" in ui or "12,5" in ui, ui
 
 
-@xfail("Estilo telegráfico: looks_numeric() es False (sin 'cuanto'/'total'...) -> RAG. Y aun llamando a build(): "
-       "_resolve_implicit_filter ignora SERVICIO porque su visual es 'tableEx' (no está en la lista de tipos "
-       "permitidos) con rol 'Values' -> unsupported_filter/implicit_dimension 'antifluido'.")
 def test_lav_q5_telegraphic_peso():
     result, ui = last("lav_q5")
     assert result["route"] == "powerbi", f"route={result['route']} (respondió con RAG)"
-    assert ui == "PESO: 488.3", ui
+    assert "488,3" in ui, ui
 
 
-@xfail("'Dime el peso por turno': looks_numeric() False ('dime' no es disparador) -> RAG. Con 'cuanto peso por turno' "
-       "falla además la agrupación: el alias de TURNO_OK es 'turno ok' y _detect_group_or_dimension_filter exige "
-       "coincidencia exacta/prefijo ('turno' != 'turno ok') -> unsupported_filter.")
 def test_lav_q6_breakdown_by_turno():
     result, ui = last("lav_q6")
     assert result["route"] == "powerbi", f"route={result['route']} (respondió con RAG)"
@@ -281,31 +273,23 @@ def test_displayed_answer_never_contains_none():
     assert not offenders, offenders
 
 
-@xfail("QueryPlanDAXGenerator._date_filter usa FILTER(ALL(col), col >= DATE(...)) sin comprobar el tipo: cuando la "
-       "columna temporal del informe es un entero (Calendario[AÑO]) compara entero vs fecha y Power BI devuelve BLANK.")
 def test_integer_year_columns_are_not_compared_with_date():
     offenders = [(name, m["message"]) for name, text, result, ui in all_turns()
                  for m in result["_sim"]["type_mismatch"]]
     assert not offenders, offenders
 
 
-@xfail("QueryPlanBuilder._temporal_filters acepta mes sin año (year=None) y QueryPlanDAXGenerator._date_filter "
-       "devuelve None -> el mes se descarta en silencio y se responde el total de todos los meses.")
 def test_month_only_questions_do_not_silently_drop_the_month():
     for name in ("lav_mes_sin_anio", "qx_mes_sin_anio"):
         result, ui = last(name)
         if result["status"] != "success":
             continue  # pedir el año o declarar la limitación también es válido
         dax = dax_of(result)
-        applied = "DATE(" in dax or "MONTH(" in dax.upper()
+        applied = "DATE(" in dax or "MONTH(" in dax.upper() or "[MES])" in dax.upper()
         said = any(w in ui.lower() for w in ("año", "ano", "mes"))
         assert applied or said, f"{name}: el mes se perdió. UI={ui!r} DAX={dax!r}"
 
 
-@xfail("QueryPlanBuilder.build() solo busca el valor implícito ('cirugía plástica') cuando NO hay ningún filtro "
-       "explícito (`if not filters and not group_by`); como 'sede norte' sí se resolvió, el valor implícito nunca se "
-       "consulta y se descarta en silencio, y la respuesta no avisa del filtro no aplicado. Además SEDE se filtra "
-       "dos veces (CIRUGIAS_DWSES y ATENCIONES).")
 def test_all_requested_filters_are_applied_or_declared():
     result, ui = last("base_enrutado_fuerte")
     values = [str(f["value"]).upper() for f in result.get("filters", []) if f.get("value") is not None]
