@@ -96,9 +96,11 @@ def lav_sum(servicio=None, year=2026, month=1, turno=None):
 
 
 def num_in(text, number):
-    """True si `number` (p. ej. 488.3) aparece escrito en el texto (488.3 o 488,3)."""
+    """True si `number` (p. ej. 1382.8) aparece en el texto (1382.8, 1382,8 o 1.382,8)."""
     s = f"{number:.1f}".rstrip("0").rstrip(".") if isinstance(number, float) else str(number)
-    return s in text or s.replace(".", ",") in text
+    integer, _, decimals = s.partition(".")
+    grouped = f"{int(integer):,}".replace(",", ".") + (f",{decimals}" if decimals else "")
+    return s in text or s.replace(".", ",") in text or grouped in text
 
 
 # ----------------------------------------------------------------------------

@@ -36,7 +36,7 @@ def _token_score(question, candidate):
     if not q or not c:
         return 0.0
 
-    if c in q:
+    if re.search(r"(?<![a-z0-9])" + re.escape(c) + r"(?![a-z0-9])", q):
         return 1.0
 
     q_tokens = set(q.split())

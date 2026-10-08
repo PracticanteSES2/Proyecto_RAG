@@ -507,6 +507,7 @@ def format_query_plan_answer(result):
     plan = result.get("query_plan") or {}
     filters = result.get("filters") or plan.get("filters") or []
     unapplied = result.get("unapplied_terms") or plan.get("unapplied_terms") or []
+    notes = [str(note) for note in (plan.get("notes") or []) if note]
     lines = []
 
     if result.get("result_type") == "table" and result.get("answer"):
@@ -542,7 +543,11 @@ def format_query_plan_answer(result):
             else:
                 lines.append(text)
 
-    for extra in (format_filters_line(filters), format_unapplied_line(unapplied)):
+    for extra in (
+        format_filters_line(filters),
+        format_unapplied_line(unapplied),
+        " ".join(notes),
+    ):
         if extra:
             lines.append(extra)
     return "\n\n".join(lines)

@@ -1,6 +1,8 @@
 import re
 import unicodedata
 
+from src.chatbot.response_formatter import format_value_es
+
 class QueryEngine:
 
     def __init__(
@@ -1196,7 +1198,13 @@ class QueryEngine:
                         selected = value
                         break
                 values.append(selected)
-            values.append(self._row_value(row))
+            metric_value = self._row_value(row)
+            formatted = format_value_es(
+                metric_value,
+                metric_label,
+                plan.get("metric", {}).get("format_string"),
+            )
+            values.append(formatted if formatted is not None else metric_value)
             table_rows.append(values)
 
         def clean(value):
