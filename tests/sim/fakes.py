@@ -548,6 +548,19 @@ class FakeDaxEngine:
             values = sorted(meta.get("values", []), key=lambda v: str(v))
             return ["[Value]"], [[v] for v in values]
 
+        # Ranking: TOPN(n, SUMMARIZECOLUMNS(...), [__value], ASC|DESC) ORDER BY [__value] ASC|DESC
+        if up.lstrip().startswith("EVALUATE") and up.split("EVALUATE", 1)[1].lstrip().startswith("TOPN(") \
+                and "SUMMARIZECOLUMNS(" in up:
+            top_args = self._split_args(self._inside(dax, "TOPN"))
+            limit = int(top_args[0])
+            descending = not (len(top_args) > 3 and top_args[3].strip().upper() == "ASC")
+            columns, rows = self.execute(semantic_model, "EVALUATE\n" + top_args[1])
+            rows = sorted(rows, key=lambda r: r[-1], reverse=descending)[:limit]
+            order = re.search(r"ORDER\s+BY\s+\[__value\]\s+(ASC|DESC)", up)
+            if order:
+                rows.sort(key=lambda r: r[-1], reverse=order.group(1) == "DESC")
+            return columns, rows
+
         if "SUMMARIZECOLUMNS(" in up:
             args = self._split_args(self._inside(dax, "SUMMARIZECOLUMNS"))
             groups, filters, name_idx = [], [], None

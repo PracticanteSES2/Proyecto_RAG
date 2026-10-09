@@ -52,6 +52,28 @@ REQUEST_WORDS = {
 }
 STOPWORDS |= REQUEST_WORDS
 
+# Verbos, auxiliares y adverbios corrientes de la pregunta («hay registrado»,
+# «lleva», «tuvimos», «se hicieron», «más»): nunca son un filtro ni un valor
+# de dimensión, así que no deben quedar como «palabras sin interpretar».
+COMMON_VERB_WORDS = {
+    "registrado", "registrados", "registrada", "registradas", "registraron",
+    "registramos", "lleva", "llevan", "llevamos", "llevaba", "llevaban",
+    "llevado", "tuvimos", "tenemos", "tenia", "tenian", "habia", "habian",
+    "habido", "hicieron", "hizo", "hecho", "hechos", "hecha", "hechas",
+    "hacen", "hace", "va", "van", "vamos", "iba", "iban", "mas", "menos",
+    "aproximadamente", "exactamente", "alrededor", "solo", "solamente",
+    "top", "ranking",
+}
+STOPWORDS |= COMMON_VERB_WORDS
+
+# Sinónimos de negocio por palabra (genéricos, no de un tablero concreto):
+# «kilos de ropa» o «cuánto pesaron» preguntan por el PESO.
+BUSINESS_TOKEN_SYNONYMS = {
+    "kilo": "peso", "kilos": "peso", "kg": "peso", "kgs": "peso",
+    "kilogramo": "peso", "kilogramos": "peso", "pesaron": "peso",
+    "pesamos": "peso", "pesaba": "peso", "pesaban": "peso",
+}
+
 GENERIC_PAGE_WORDS = {"general", "inicio", "resumen", "principal", "home", "detalle", "portada", "indicadores"}
 
 TECHNICAL_SUFFIXES = {"ok", "id", "cod", "key"}
@@ -120,6 +142,12 @@ DIMENSION_SYNONYMS = {
     "sexo": {"sexo", "genero"},
     "clasificacion": {"clasificacion", "triage"},
     "tipo": {"tipo", "tipos"},
+    # Persona que registra/atiende («NOMBRE_COMPLETO», «USUARIO»).
+    "colaborador": {
+        "nombre completo", "usuario", "usuarios", "colaborador", "colaboradores",
+        "empleado", "empleados", "funcionario", "funcionarios", "trabajador",
+        "trabajadores", "operario", "operarios",
+    },
 }
 
 
@@ -137,6 +165,7 @@ def canonical_token(token):
     token = normalize_text(token)
     if not token:
         return ""
+    token = BUSINESS_TOKEN_SYNONYMS.get(token, token)
     if token.endswith("iones") and len(token) > 6:
         return token[:-5] + "ion"
     if token.endswith("ales") and len(token) > 5:
@@ -1477,11 +1506,14 @@ class QueryPlanBuilder:
         )
         has_period = self._has_period(normalized)
         has_group = bool(re.search(r"(?<![a-z0-9])(?:por|segun)\s+[a-z]", normalized))
+        # «top 5 ...», «el servicio con más ...»: un ranking siempre es numérico.
+        if self._mentions_ranking(normalized):
+            return True
         if not (has_verb or has_period or has_group):
             return False
 
         source_context = self._source_context(question, dashboard=dashboard)
-        metric_result = self._resolve_metric(question, source_context)
+        metric_result = self._resolve_metric_flexible(question, source_context)
         return metric_result.get("status") in ("resolved", "ambiguous")
 
     # ---------------- participación / multi-métrica ----------------
@@ -1768,11 +1800,387 @@ class QueryPlanBuilder:
             "source_context": source_context,
         }
 
+    # ---------------- «cuántas X» ≈ «total de X» ----------------
+    _COUNT_WORDS_RE = re.compile(
+        r"(?<![a-z0-9])(?:cuant[oa]s?|numero\s+(?:de|del)|cantidad\s+(?:de|del))(?![a-z0-9])"
+    )
+
+    def _total_variant(self, question):
+        """Variante «total de ...» de una pregunta de conteo: «cuántas
+        atenciones hubo» o «atenciones de urgencias» -> «total de atenciones...»."""
+        text = normalize_text(question)
+        if not text or re.search(r"(?<![a-z0-9])totale?s?(?![a-z0-9])", text):
+            return None
+        variant, replaced = self._COUNT_WORDS_RE.subn("total de", text, count=1)
+        return variant if replaced else f"total de {text}"
+
+    def _resolve_metric_flexible(self, question, source_context, selected_metric_id=None, **kwargs):
+        """_resolve_metric que, si no encuentra indicador, prueba la variante
+        «total de ...» SOLO cuando las palabras de la pregunta señalan un único
+        indicador del catálogo (p. ej. TOTAL ATENCIONES). Con varios candidatos
+        («cuántas cirugías»: total / realizadas / programadas) se mantiene el
+        resultado original para que se contrapregunte."""
+        result = self._resolve_metric(
+            question, source_context, selected_metric_id=selected_metric_id, **kwargs
+        )
+        if selected_metric_id is not None or result.get("status") != "not_found":
+            return result
+        variant = self._total_variant(question)
+        if not variant:
+            return result
+        related = self._metric_suggestions(self._metric_business_question(question, source_context))
+        related_keys = {self._logical_key(item["metric"]) for item in related}
+        if len(related_keys) != 1:
+            return result
+        alternative = self._resolve_metric(variant, source_context, **kwargs)
+        if (
+            alternative.get("status") != "resolved"
+            or self._logical_key(alternative["metric"]) not in related_keys
+        ):
+            return result
+        alternative["interpretation"] = (
+            f"«{normalize_text(question)}» se interpretó como «{variant}» "
+            "(único indicador del catálogo con esas palabras)"
+        )
+        return alternative
+
+    # ---------------- respaldo del indicador elegido ----------------
+    def _metric_evidence_rejection(self, question, metric, metric_result, group_by,
+                                   explicit_specs, source_context):
+        """Plan not_found si el indicador se eligió solo por las palabras de la
+        agrupación o de un filtro («citas asignadas por especialidad» no es
+        CIRUGÍAS REALIZADAS aunque una de sus visuales se llame «Cirugías por
+        especialidad»). Con ello se contrapregunta en lugar de responder."""
+        ignored = {
+            canonical_token(word)
+            for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS | set(MONTHS)
+        } | {"por", "segun", "total"}
+        dimension_tokens = set()
+        for field in [*group_by, *(spec["field"] for spec in explicit_specs)]:
+            # El nombre de la tabla («ATENCIONES.SEDE») no nombra la dimensión.
+            table_tokens = set(canonical_tokens(field.get("table")))
+            for alias in field.get("aliases", []) or []:
+                dimension_tokens.update(set(canonical_tokens(alias)) - table_tokens)
+        if not dimension_tokens:
+            return None
+
+        words = [
+            word for word in normalize_text(question).split()
+            if canonical_token(word) not in ignored and not word.isdigit()
+            and len(word) >= 3 and not _is_request_word(canonical_token(word))
+        ]
+        distinctive = [word for word in words if canonical_token(word) not in dimension_tokens]
+        name_tokens = set()
+        for name in self._metric_names(metric):
+            name_tokens.update(canonical_tokens(name))
+        evidence = [
+            word for word in distinctive
+            if any(_token_similarity(canonical_token(word), other) >= 0.82 for other in name_tokens)
+        ]
+        if evidence:
+            return None
+
+        # Palabras de la pregunta, sin las de la agrupación/filtro, para buscar
+        # indicadores parecidos que ofrecer como opciones.
+        remaining = " ".join(
+            word for word in normalize_text(question).split()
+            if canonical_token(word) not in dimension_tokens
+        )
+        resolved_routing = source_context.get("status") == "resolved"
+        strong = resolved_routing and source_context.get("routing_strength") == "strong"
+        model_hint = (
+            normalize_text(source_context.get("semantic_model"))
+            if resolved_routing and source_context.get("routing_strength") in ("strong", "weak") else ""
+        )
+        suggestions = [
+            item for item in self._metric_suggestions(
+                self._metric_business_question(remaining, source_context),
+                model_hint=model_hint, strong=strong,
+            )
+            if self._logical_key(item["metric"]) != self._logical_key(metric)
+        ]
+        return {
+            "status": "not_found",
+            "stage": "metric",
+            "reason": "metric_matched_only_dimension_words",
+            "question": question,
+            "source_context": source_context,
+            "unresolved_text": " ".join(distinctive),
+            "rejected_metric": {
+                "metric_id": metric.get("metric_id"), "label": metric.get("label"),
+                "matched_name": metric_result.get("matched_name"),
+            },
+            "metric_resolution": {
+                "status": "not_found", "candidates": [],
+                "suggestions": [
+                    {key: value for key, value in item.items() if not key.startswith("_")}
+                    for item in suggestions
+                ],
+            },
+        }
+
+    def _metric_without_group_phrase(self, question, metric_result, group_by, source_context):
+        """La agrupación («por especialidad») no debe elegir el indicador.
+
+        Se vuelve a resolver la pregunta sin esa frase; si así se identifica
+        con certeza OTRO indicador («total de cirugías por especialidad» ->
+        TOTAL CIRUGÍAS y no la visual «Cirugías por especialidad»), se usa ese.
+        Si sin la frase queda ambiguo o sin indicador, se conserva el original.
+        """
+        if not group_by:
+            return None
+        text = normalize_text(question)
+        stripped = text
+        for field in group_by:
+            aliases = sorted(
+                {normalize_text(alias) for alias in field.get("aliases", []) or [] if normalize_text(alias)},
+                key=len, reverse=True,
+            )
+            for alias in aliases:
+                stripped = re.sub(
+                    r"(?<![a-z0-9])(?:por|segun|agrupad[oa]\s+por|desglosad[oa]\s+por)\s+"
+                    r"(?:el\s+|la\s+|los\s+|las\s+)?" + re.escape(alias) + r"(?![a-z0-9])",
+                    " ", stripped,
+                )
+        stripped = re.sub(r"\s+", " ", stripped).strip()
+        if not stripped or stripped == text:
+            return None
+        alternative = self._resolve_metric_flexible(stripped, source_context)
+        if (
+            alternative.get("status") != "resolved"
+            or self._logical_key(alternative["metric"]) == self._logical_key(metric_result["metric"])
+        ):
+            return None
+        alternative["interpretation"] = (
+            f"el indicador se eligió sin la agrupación («{stripped}»): "
+            f"{alternative['metric'].get('label')} en lugar de "
+            f"{metric_result['metric'].get('label')} (que coincidía por «{metric_result.get('matched_name')}»)"
+        )
+        return alternative
+
+    # ---------------- ranking («top 5», «el servicio con más peso») ----------------
+    _RANKING_WORDS = {"top", "mas", "mayor", "mayores", "menos", "menor", "menores", "ranking"}
+    # «con más de 3 días» / «más que» comparan con una cifra: no son ranking.
+    _RANKING_HINT_RE = re.compile(
+        r"(?<![a-z0-9])(?:top\s+\d{1,2}|ranking|"
+        r"(?:con|tuvo|tiene|tuvieron|tienen|registro|registraron|hizo|hicieron)\s+"
+        r"(?:el\s+|la\s+|los\s+|las\s+)?(?:mas|mayor|menos|menor)(?:es)?)(?![a-z0-9])"
+        r"(?!\s+(?:de|que)(?![a-z0-9]))"
+    )
+    _NUMBER_WORDS = {
+        "uno": 1, "una": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
+        "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10,
+    }
+
+    def _mentions_ranking(self, normalized):
+        return bool(self._RANKING_HINT_RE.search(normalized))
+
+    def is_ranking(self, question):
+        """«top 5 ...», «el servicio con más ...»: pide orden/límite sobre un indicador."""
+        return self._mentions_ranking(normalize_text(question))
+
+    def _detect_ranking(self, question, candidates, group_by=None):
+        """Orden y límite sobre una agrupación.
+
+        «cuál fue el servicio con más peso» -> SERVICIO, desc, 1;
+        «top 5 especialidades con más cirugías» -> ESPECIALIDAD, desc, 5;
+        «las sedes con menos atenciones» -> SEDE, asc, sin límite.
+        Devuelve None si la pregunta no pide un ranking.
+        """
+        text = normalize_text(question)
+        if not self._mentions_ranking(text):
+            return None
+        verb = (
+            r"(?:con|que\s+(?:tuvo|tiene|tuvieron|tienen|registro|registraron|hizo|hicieron)|"
+            r"tuvo|tiene|tuvieron|tienen)\s+(?:el\s+|la\s+|los\s+|las\s+)?"
+            r"(?P<dir>mas|mayor(?:es)?|menos|menor(?:es)?)(?![a-z0-9])"
+            r"(?!\s+(?:de|que)(?![a-z0-9]))"
+        )
+        number = r"(?P<n>\d{1,2}|" + "|".join(self._NUMBER_WORDS) + r")"
+        fields = [field for field in (group_by or [])] or [
+            field for field in candidates if not self._is_temporal_field(field)
+        ]
+        best = None
+        for field in fields:
+            aliases = sorted(
+                {normalize_text(alias) for alias in field.get("aliases", []) or [] if normalize_text(alias)},
+                key=len, reverse=True,
+            )
+            for alias in aliases:
+                if len(alias) < 3:
+                    continue
+                escaped = re.escape(alias)
+                match = re.search(
+                    r"(?:(?:top|los|las|primeros|primeras)\s+" + number + r"\s+)?"
+                    r"(?<![a-z0-9])" + escaped + r"(?![a-z0-9])\s+" + verb,
+                    text,
+                )
+                top = None
+                if not match:
+                    top = re.search(
+                        r"(?<![a-z0-9])top\s+" + number + r"\s+" + escaped + r"(?![a-z0-9])", text,
+                    )
+                    if not top:
+                        continue
+                found = match or top
+                raw_n = found.groupdict().get("n")
+                limit = None
+                if raw_n:
+                    limit = int(raw_n) if raw_n.isdigit() else self._NUMBER_WORDS.get(raw_n)
+                direction_word = (match.group("dir") if match else "mas")
+                direction = "asc" if direction_word.startswith(("menos", "menor")) else "desc"
+                plural = alias.endswith("s") and canonical_token(alias) != alias
+                if limit is None and match and not plural:
+                    limit = 1  # «el servicio con más peso»: solo el primero
+                candidate = {
+                    "field": field, "direction": direction, "limit": limit,
+                    "phrase": found.group(0).strip(),
+                    "tokens": {canonical_token(word) for word in self._RANKING_WORDS},
+                }
+                if best is None or len(candidate["phrase"]) > len(best["phrase"]):
+                    best = candidate
+                break
+        return best
+
+    @staticmethod
+    def _ranking_note(ranking, label):
+        order = "de menor a mayor" if ranking.get("direction") == "asc" else "de mayor a menor"
+        limit = ranking.get("limit")
+        if limit == 1:
+            which = "menor" if ranking.get("direction") == "asc" else "mayor"
+            return f"Se muestra solo el {label} con {which} valor."
+        if limit:
+            return f"Ordenado {order}; se muestran los {limit} primeros ({label})."
+        return f"Ordenado {order} ({label})."
+
+    # ---------------- preguntas sin indicador ----------------
+    _GENERIC_MEASURE_WORDS = {
+        "promedio", "media", "mensual", "mensuales", "anual", "anuales", "diario",
+        "diaria", "semanal", "porcentaje", "porcentual", "suma", "sumatoria", "tasa",
+        "variacion", "proporcion", "participacion", "indicador", "indicadores",
+        "metrica", "metricas", "resultado", "resultados", "pendiente", "pendientes",
+    }
+
+    def _catalog_vocabulary(self):
+        """Palabras (canónicas) que el catálogo conoce: nombres de indicadores,
+        informes, páginas, modelos y alias de dimensiones."""
+        if getattr(self, "_vocabulary", None) is not None:
+            return self._vocabulary
+        values = []
+        for metric in self.metrics:
+            if metric.get("validation_status") != "approved":
+                continue
+            values.extend(self._metric_names(metric))
+            values.extend(self._metric_reports(metric))
+            values.extend(self._metric_pages(metric))
+            values.append(metric.get("semantic_model"))
+        for field in self.dimension_fields:
+            values.extend(field.get("aliases", []) or [])
+            values.extend([field.get("report"), field.get("page"), field.get("semantic_model")])
+        ignored = {canonical_token(word) for word in STOPWORDS | GENERIC_PAGE_WORDS}
+        vocabulary = set()
+        for value in values:
+            for token in canonical_tokens(value):
+                if len(token) >= 3 and token not in ignored and not token.isdigit():
+                    vocabulary.add(token)
+        self._vocabulary = vocabulary
+        return vocabulary
+
+    def catalog_examples(self, limit=2):
+        """Indicadores reales para dar ejemplos: uno por modelo, visibles en un
+        tablero y sin cifras en el nombre. -> [{"label", "report"}]."""
+        by_model = {}
+        for metric in self._dedupe_metrics(self.metrics):
+            label = str(metric.get("label") or "").strip()
+            if (
+                metric.get("validation_status") != "approved" or not label
+                or not (metric.get("appearances") or []) or re.search(r"\d", label)
+            ):
+                continue
+            model = normalize_text(metric.get("semantic_model"))
+            reports = self._metric_reports(metric)
+            current = by_model.get(model)
+            if current is None or len(label) < len(current["label"]):
+                by_model[model] = {"label": label, "report": reports[0] if reports else None}
+        return [by_model[key] for key in sorted(by_model)][:limit]
+
+    def metric_words(self, question):
+        """Palabras de la pregunta que nombran un indicador del catálogo (sin
+        contar alias de dimensiones como «especialidad» o «servicio»). Sirve
+        para distinguir un seguimiento («y por especialidad») de una pregunta
+        nueva completa («y cuántas cirugías programadas»)."""
+        if getattr(self, "_metric_vocabulary", None) is None:
+            dimension_tokens = set()
+            for field in self.dimension_fields:
+                table_tokens = set(canonical_tokens(field.get("table")))
+                for alias in field.get("aliases", []) or []:
+                    dimension_tokens.update(set(canonical_tokens(alias)) - table_tokens)
+            for synonyms in DIMENSION_SYNONYMS.values():
+                for synonym in synonyms:
+                    dimension_tokens.update(canonical_tokens(synonym))
+            ignored = {
+                canonical_token(word)
+                for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS | set(MONTHS)
+            }
+            vocabulary = set()
+            for metric in self.metrics:
+                if metric.get("validation_status") != "approved":
+                    continue
+                for name in self._metric_names(metric):
+                    for token in canonical_tokens(name):
+                        if (
+                            len(token) >= 3 and not token.isdigit()
+                            and token not in ignored and token not in dimension_tokens
+                        ):
+                            vocabulary.add(token)
+            self._metric_vocabulary = vocabulary
+        return [
+            word for word in normalize_text(question).split()
+            if len(word) >= 3 and any(
+                _token_similarity(canonical_token(word), token) >= 0.88
+                for token in self._metric_vocabulary
+            )
+        ]
+
+    def describe_unresolved(self, question):
+        """Clasifica una pregunta para la que no se encontró indicador:
+
+        - "generic": solo palabras genéricas («promedio mensual», «cuántos hay»);
+        - "unknown": tiene palabras que el catálogo conoce, pero ningún indicador;
+        - "out_of_scope": ninguna palabra distintiva aparece en el catálogo
+          («cuánto gana un médico en Colombia»).
+        """
+        ignored = {
+            canonical_token(word)
+            for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS
+            | set(MONTHS) | self._GENERIC_MEASURE_WORDS | self._RANKING_WORDS
+        }
+        words = [
+            word for word in normalize_text(question).split()
+            if canonical_token(word) not in ignored and not word.isdigit()
+            and len(word) >= 3 and not _is_request_word(canonical_token(word))
+        ]
+        vocabulary = self._catalog_vocabulary()
+        known = [
+            word for word in words
+            if any(_token_similarity(canonical_token(word), token) >= 0.88 for token in vocabulary)
+        ]
+        if not words:
+            kind = "generic"
+        elif known:
+            kind = "unknown"
+        else:
+            kind = "out_of_scope"
+        return {
+            "kind": kind, "words": words, "known_words": known,
+            "examples": self.catalog_examples(),
+        }
+
     def build(self, question, intent_result=None, selected_metric_id=None):
         intent_result = intent_result or {}
         dashboard = intent_result.get("dashboard")
         source_context = self._source_context(question, dashboard=dashboard)
-        metric_result = self._resolve_metric(
+        metric_result = self._resolve_metric_flexible(
             question, source_context, selected_metric_id=selected_metric_id,
             with_suggestions=True,
         )
@@ -1794,6 +2202,23 @@ class QueryPlanBuilder:
 
         group_detection = self._detect_group_or_dimension_filter(question, metric, candidates)
         group_by = group_detection["group_by"]
+        switched = None if selected_metric_id is not None else self._metric_without_group_phrase(
+            question, metric_result, group_by, source_context,
+        )
+        if switched is not None:
+            metric_result = switched
+            metric = metric_result["metric"]
+            semantic_model = metric.get("semantic_model")
+            reports = metric.get("reports", []) or []
+            report = metric.get("report") or (reports[0] if reports else source_context.get("report"))
+            candidates = self._relevant_dimensions(metric)
+            group_detection = self._detect_group_or_dimension_filter(question, metric, candidates)
+            group_by = group_detection["group_by"]
+        # Ranking («el servicio con más peso», «top 5 especialidades»): la
+        # dimensión nombrada se agrupa y el resultado se ordena/limita.
+        ranking = self._detect_ranking(question, candidates, group_by)
+        if ranking and not group_by:
+            group_by = [ranking["field"]]
 
         # Nunca convertir silenciosamente "por servicio" en total escalar
         # si la metadata de ese informe no expone SERVICIO.
@@ -1828,10 +2253,22 @@ class QueryPlanBuilder:
             )
         )
 
+        if selected_metric_id is None:
+            rejection = self._metric_evidence_rejection(
+                question, metric, metric_result, group_by, explicit_specs, source_context,
+            )
+            if rejection is not None:
+                return rejection
+
         filters = []
         unapplied_terms = []
         notes = []
         consumed_tokens = set()
+        if ranking:
+            consumed_tokens.update(ranking["tokens"])
+            notes.append(self._ranking_note(
+                ranking, (ranking["field"].get("aliases") or [ranking["field"]["column"]])[0],
+            ))
         if metric_result.get("source_hint_ignored"):
             notes.append(
                 "La métrica no existe en el informe mencionado; se usó "
@@ -1946,10 +2383,15 @@ class QueryPlanBuilder:
             "metric_match": {
                 "matched_name": metric_result.get("matched_name"),
                 "score": metric_result.get("score"),
+                "interpretation": metric_result.get("interpretation"),
             },
             "filters": filters,
             "unapplied_terms": unapplied_terms,
             "notes": notes,
             "group_by": normalized_group_by,
+            "ranking": (
+                {key: ranking[key] for key in ("direction", "limit", "phrase")}
+                if ranking and normalized_group_by else None
+            ),
             "dimension_candidates_checked": min(len(candidates), 20),
         }

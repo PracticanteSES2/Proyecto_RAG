@@ -301,6 +301,146 @@ def test_lav_control_grouped_by_turno_ok_works():
 
 
 # ----------------------------------------------------------------------------
+# Tablero por alias, ordinales, seguimiento, ranking y mensajes sin indicador
+# ----------------------------------------------------------------------------
+
+def reasoning_text(result):
+    return "\n".join(
+        " ".join([step.get("title") or "", *[str(line) for line in step.get("lines") or []]])
+        for step in (result.get("reasoning") or {}).get("steps") or []
+    )
+
+
+def categorical(result):
+    return [(f["column"], f["value"]) for f in result.get("filters") or [] if f.get("type") == "categorical"
+            and f.get("source") != "query_plan_temporal"]
+
+
+def test_dashboard_named_by_alias_does_not_ask():
+    for case, dashboard in (("tablero_por_alias", "Tablero de Atenciones Institucionales"),
+                            ("tablero_alias_typo", "Tablero Lavanderia")):
+        result, ui = last(case)
+        assert result["status"] == "success" and result["route"] == "rag", (case, result["status"], ui)
+        assert result["dashboard"] == dashboard, (case, result["dashboard"])
+        assert "alias del tablero" in reasoning_text(result), case
+
+
+def test_dashboard_clarification_accepts_ordinal():
+    (_, first, _), (_, second, ui2) = run("tablero_ordinal")
+    assert first["clarification_type"] == "dashboard"
+    expected = first["clarification_options"][1]["id"]
+    assert second["route"] == "rag" and second["dashboard"] == expected, (second, ui2)
+
+
+def test_metric_clarification_accepts_ordinals():
+    (_, first, _), (_, second, ui2) = run("ordinal_metrica")
+    assert second["status"] in ("success", "empty_result"), (second["status"], ui2)
+    assert second["query_plan"]["metric"]["metric_id"] == first["clarification_options"][0]["id"]
+    assert "ordinal" in reasoning_text(second)
+    (_, first, _), (_, second, ui2) = run("ordinal_ultima")
+    assert second["status"] == "success", (second["status"], ui2)
+    assert second["query_plan"]["metric"]["metric_id"] == first["clarification_options"][-1]["id"]
+
+
+def test_common_verbs_are_not_filters():
+    result, ui = last("verbo_registrado")
+    assert result["status"] == "success" and result["metric"] == "PESO", (result["status"], ui)
+    assert not result.get("unapplied_terms"), result.get("unapplied_terms")
+    result, ui = last("verbo_llevamos")
+    assert result["status"] == "success", (result["status"], ui)
+    assert result["query_plan"]["metric"]["metric_id"] == "b_cx_programadas"
+    assert not result.get("unapplied_terms"), result.get("unapplied_terms")
+
+
+def test_business_synonyms_kilos_and_colaborador():
+    result, ui = last("sinonimo_kilos")
+    assert result["status"] == "success" and result["metric"] == "PESO", (result["status"], ui)
+    assert num_in(ui, lav_sum(None, 2026, 1)), ui
+    result, ui = last("sinonimo_colaborador")
+    assert result["status"] == "success" and result["result_type"] == "table", (result["status"], ui)
+    assert [g["column"] for g in result["group_by"]] == ["NOMBRE_COMPLETO"]
+
+
+def test_count_question_resolves_total_metric_with_filters():
+    result, ui = last("conteo_como_total")
+    assert result["status"] == "success", (result["status"], ui)
+    assert result["query_plan"]["metric"]["metric_id"] == "a_total_atenciones"
+    assert set(categorical(result)) == {("SEDE", "SEDE SUR"), ("SERVICIO", "URGENCIAS")}
+    assert "se interpretó como «total de" in reasoning_text(result)
+    result, ui = last("atenciones_urgencias")
+    assert result["route"] == "powerbi" and result["status"] == "success", (result["route"], ui)
+    assert categorical(result) == [("SERVICIO", "URGENCIAS")]
+    assert "DATE(2024, 1, 1)" in result["dax"]
+
+
+def test_metric_matched_only_by_grouping_is_not_answered():
+    result, ui = last("metrica_sin_respaldo")
+    assert result["status"] != "success", (result["status"], ui)
+    assert "CIRUG" not in ui.upper() or "por ejemplo" in ui.lower(), ui
+    assert "citas" in ui and "Incluye la sección" not in ui, ui
+    assert "solo por las palabras de la agrupación" in reasoning_text(result)
+    result, ui = last("agrupacion_no_elige_indicador")
+    assert result["status"] == "success" and result["query_plan"]["metric"]["metric_id"] == "b_total_cx", ui
+    assert [g["column"] for g in result["group_by"]] == ["ESPECIALIDAD"]
+    assert "sin la agrupación" in reasoning_text(result)
+
+
+def test_out_of_scope_and_generic_messages():
+    result, ui = last("fuera_alcance_numerico")
+    assert result["route"] == "out_of_scope" and result["status"] == "not_found", (result, ui)
+    assert "fuera del alcance" in ui and "Incluye la sección" not in ui, ui
+    assert not any(ch.isdigit() for ch in ui), ui
+    result, ui = last("pregunta_generica")
+    assert result["status"] == "metric_not_resolved", (result["status"], ui)
+    assert "no menciona un indicador" in ui and "Por ejemplo: «" in ui, ui
+
+
+def test_ranking_single_top_and_ascending():
+    result, ui = last("ranking_servicio")
+    assert result["status"] == "success" and result["result_type"] == "table", (result["status"], ui)
+    assert [g["column"] for g in result["group_by"]] == ["SERVICIO"]
+    assert len(result["rows"]) == 1 and "UCI ADULTOS" in ui, ui
+    assert "TOPN(" in result["dax"] and "mayor valor" in ui
+    result, ui = last("ranking_menos")
+    assert len(result["rows"]) == 1 and "ANTIFLUIDOS" in ui, ui
+    assert "ASC" in result["dax"]
+    (_, first, ui1), (_, second, ui2) = run("ranking_top")
+    assert first["status"] == "needs_clarification" and first["route"] == "clarification", ui1
+    assert second["status"] == "success" and len(second["rows"]) == 5, (second["status"], ui2)
+    assert [g["column"] for g in second["group_by"]] == ["ESPECIALIDAD"]
+    values = [row["[__value]"] for row in second["rows"]]
+    assert values == sorted(values, reverse=True), values
+    assert "5 primeros" in ui2
+
+
+def test_followup_reuses_previous_metric_and_filters():
+    turns = run("seguimiento")
+    (_, first, _), (_, second, ui2), (_, third, ui3), (_, fourth, ui4) = turns
+    metric = first["query_plan"]["metric"]["metric_id"]
+    assert second["status"] == "success", (second["status"], ui2)
+    assert second["query_plan"]["metric"]["metric_id"] == metric
+    assert categorical(second) == [("ESPECIALIDAD", "UROLOGIA")]
+    assert "2025" in second["dax"] and "2024" not in second["dax"], second["dax"]
+    assert "se interpretó «y en 2025?» como seguimiento" in reasoning_text(second)
+    # «y por especialidad»: agrupa y deja de filtrar por urología.
+    assert third["result_type"] == "table" and [g["column"] for g in third["group_by"]] == ["ESPECIALIDAD"]
+    assert categorical(third) == [] and "2025" in third["dax"], third["dax"]
+    # «y de ortopedia?»: el filtro nuevo reemplaza la agrupación por especialidad.
+    assert fourth["result_type"] == "scalar", ui4
+    assert categorical(fourth) == [("ESPECIALIDAD", "ORTOPEDIA Y TRAUMATOLOGIA")]
+
+
+def test_followup_context_is_bounded():
+    (_, _, _), (_, other, _), (_, third, ui3) = run("seguimiento_tras_otro_tema")
+    assert other["route"] == "out_of_scope"
+    assert third["route"] != "powerbi", (third["route"], ui3)
+    (_, _, _), (_, second, ui2) = run("seguimiento_pregunta_nueva")
+    assert second["status"] == "success" and second["metric"] == "PESO", (second["status"], ui2)
+    assert categorical(second) == [] and "como seguimiento de" not in reasoning_text(second)
+    assert "nombra un indicador" in reasoning_text(second)
+
+
+# ----------------------------------------------------------------------------
 # Bugs conocidos
 # ----------------------------------------------------------------------------
 
