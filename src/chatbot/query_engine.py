@@ -208,6 +208,8 @@ class QueryEngine:
             if item.get("match_score") is not None:
                 line += f", coincidencia {format_score(item.get('match_score'))}"
             line += ")"
+        if item.get("reason"):
+            line += f" — por qué: {item['reason']}"
         return line
 
     def _trace_plan(self, plan, title="Query Plan"):
@@ -226,6 +228,27 @@ class QueryEngine:
                             "dashboard", "reason")
                 if context.get(key)
             ))
+        for mention in context.get("board_mentions") or []:
+            known = mention.get("contexts") or []
+            lines.append(
+                f"tablero nombrado: «{mention.get('phrase')}»"
+                + (
+                    " → " + "; ".join(sorted({
+                        f"{item.get('report') or item.get('semantic_model')}"
+                        + (f" › {item.get('dashboard')}" if item.get("dashboard") else "")
+                        for item in known
+                    }))
+                    if known else " (nombre no reconocido)"
+                )
+                + " · sus palabras no se usan como filtro"
+            )
+        if context.get("board_mention_models") and context.get("status") != "resolved":
+            lines.append(
+                "el tablero nombrado existe en varios modelos ("
+                + ", ".join(context["board_mention_models"]) + "): no se fija ninguno"
+            )
+        if context.get("board_note"):
+            lines.append(f"tablero nombrado: {context['board_note']}")
         if resolution.get("status"):
             lines.append(f"resolución del indicador: {resolution.get('status')}")
         self._think(title, *lines)
@@ -274,6 +297,10 @@ class QueryEngine:
                   for item in plan.get("group_by") or [] if item.get("temporal")],
                 *[f"no aplicado: {term}" for term in plan.get("unapplied_terms") or []],
                 *[f"nota: {note}" for note in plan.get("notes") or []],
+                *[f"valor implícito {decision}" for decision in plan.get("implicit_decisions") or []],
+                "columnas del catálogo técnico (el indicador no aparece en ningún visual): "
+                + ", ".join(plan["technical_columns_used"])
+                if plan.get("technical_columns_used") else None,
             )
         elif plan.get("reason") or plan.get("unresolved_text"):
             dimension = plan.get("requested_dimension") or plan.get("dimension")
@@ -290,6 +317,7 @@ class QueryEngine:
                 f"dimensión pedida: {dimension}" if dimension else None,
                 f"periodo pedido: {plan.get('requested_period')}" if plan.get("requested_period") else None,
                 *[f"no aplicado: {term}" for term in plan.get("unapplied_terms") or []],
+                *[f"valor implícito {decision}" for decision in plan.get("implicit_decisions") or []],
                 f"error de dominio: {plan.get('domain_error')}" if plan.get("domain_error") else None,
             )
 
@@ -2450,6 +2478,18 @@ class QueryEngine:
             or item.get("source") == "query_plan_temporal"
         )
 
+    def _descriptive_reason(self, question):
+        """Frase que hace descriptiva la pregunta («como se calcula», «los
+        rangos del»...) o None. Sin Query Plan se usa el detector común."""
+        detector = getattr(self.query_plan_builder, "descriptive_reason", None)
+        try:
+            if callable(detector):
+                return detector(question)
+            from src.semantic.question_kind import descriptive_phrase
+            return descriptive_phrase(question)
+        except Exception:
+            return None
+
     def _has_pending_clarification(self):
         state = getattr(self.conversation_manager, "state", None)
         return bool(
@@ -2684,9 +2724,15 @@ class QueryEngine:
             except Exception:
                 early_numeric = False
 
+            descriptive = None if early_numeric else self._descriptive_reason(message)
             self._think(
                 "¿La pregunta pide un dato numérico?",
                 "sí: se intenta primero el Query Plan (Power BI)" if early_numeric
+                else (
+                    f"no: es una pregunta descriptiva («{descriptive}»): pide una explicación "
+                    "(cálculo, significado, rangos, filtros...), no un valor; se responde con la "
+                    "documentación aunque contenga palabras numéricas"
+                ) if descriptive
                 else "no se detectó: se pasa al analizador de intención",
             )
 
@@ -2821,6 +2867,22 @@ class QueryEngine:
         intent = intent_result.get(
             "intent"
         )
+
+        # Una pregunta descriptiva («¿cómo se calcula el porcentaje de
+        # ocupación?») nunca va a Power BI, aunque el analizador de intención
+        # la haya marcado numérica por la palabra «porcentaje».
+        if intent in ("query_metric", "compare_metric"):
+            descriptive = self._descriptive_reason(
+                intent_result.get("original_question") or message
+            )
+            if descriptive:
+                self._think(
+                    "Pregunta descriptiva",
+                    f"«{descriptive}» pide una explicación, no un valor: se busca en la "
+                    f"documentación en vez de consultar Power BI (intención original: {intent})",
+                )
+                intent = "general_question"
+                intent_result = {**intent_result, "intent": intent}
 
         # ----------------------------------------------------
         # 2. QUERY PLAN NUMÉRICO DETERMINISTA

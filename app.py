@@ -31,6 +31,7 @@ from src.semantic.metric_resolver import MetricResolver
 from src.dax.dax_generator import DAXGenerator
 from src.semantic.source_model_router import (
     SourceModelRouter,
+    documentation_dashboards_from_retriever,
 )
 from src.semantic.multi_model_components import (
     MultiModelFilterResolver,
@@ -105,6 +106,13 @@ def build_system():
     # El analizador de intención reconoce los tableros también por los
     # alias del registro de fuentes («tablero de lavandería»).
     intent_parser.source_router = source_router
+
+    # Tableros documentados («TRIAGE», «CIRUGÍAS») con su grupo de fuentes:
+    # «tablero de triage» fija el informe correcto aunque esa página no esté
+    # en el catálogo visual.
+    source_router.register_documentation_dashboards(
+        documentation_dashboards_from_retriever(retriever)
+    )
 
     filter_resolver = (
         MultiModelFilterResolver(

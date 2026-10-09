@@ -574,6 +574,41 @@ def test_all_requested_filters_are_applied_or_declared():
 
 
 # ----------------------------------------------------------------------------
+# Enrutamiento v2
+# ----------------------------------------------------------------------------
+
+def _reasoning_lines(result):
+    return [line for step in (result.get("reasoning") or {}).get("steps", [])
+            for line in [step.get("title", ""), *step.get("lines", [])]]
+
+
+def test_descriptive_question_with_percentage_goes_to_documentation():
+    result, ui = last("enr_descriptiva_porcentaje")
+    assert result["route"] in ("rag", "out_of_scope"), result["route"]
+    assert not result["_sim"]["dax_log"], "una pregunta descriptiva no debe consultar Power BI"
+    assert any("descriptiva" in line for line in _reasoning_lines(result))
+
+
+def test_named_dashboard_words_are_consumed_and_implicit_filter_explained():
+    result, ui = last("enr_tablero_nombrado_valor")
+    assert result["route"] == "powerbi" and result["status"] == "success", result.get("route")
+    assert num_in(ui, 488.3), ui
+    lines = _reasoning_lines(result)
+    assert any("tablero nombrado: «tablero de lavanderia»" in line for line in lines), lines
+    assert any("por qué:" in line and "ANTIFLUIDOS" in line for line in lines), lines
+
+
+def test_group_by_with_named_dashboard_does_not_filter_by_its_name():
+    result, ui = last("enr_por_x_tablero_nombrado")
+    assert result["route"] == "powerbi" and result["status"] == "success", result.get("route")
+    plan = result.get("query_plan") or {}
+    assert [g["column"].upper() for g in plan.get("group_by", [])] == ["ESPECIALIDAD"], plan.get("group_by")
+    categorical = [f for f in plan.get("filters", []) if f.get("type") == "categorical"
+                   and f.get("source") != "query_plan_temporal"]
+    assert not categorical, categorical
+
+
+# ----------------------------------------------------------------------------
 # Runner propio
 # ----------------------------------------------------------------------------
 

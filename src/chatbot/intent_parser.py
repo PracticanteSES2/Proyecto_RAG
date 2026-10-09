@@ -4,6 +4,8 @@ from dataclasses import dataclass, asdict
 from difflib import SequenceMatcher
 from typing import Optional
 
+from src.semantic.question_kind import descriptive_phrase
+
 
 # ============================================================
 # CONSTANTES
@@ -265,6 +267,21 @@ class IntentParser:
             for term in comparison_terms
         )
 
+        # «¿Cómo se calcula el porcentaje de ocupación?», «¿cuáles son los
+        # rangos del NEDOCS?»: piden una explicación, no un valor, aunque
+        # contengan palabras numéricas. Van al RAG documental.
+        if descriptive_phrase(question):
+            description_patterns = [
+                "que informacion muestra",
+                "que muestra el tablero",
+                "que contiene el tablero",
+                "de que trata el tablero",
+                "descripcion del tablero",
+            ]
+            if any(pattern in normalized for pattern in description_patterns):
+                return "describe_dashboard"
+            return "general_question"
+
         has_numeric_context = any(
             term in normalized
             for term in numeric_terms
@@ -353,6 +370,19 @@ class IntentParser:
                 reverse=True
             )
 
+            # «botón azul en tiempos de urgencias»: «URGENCIAS» (nombre de
+            # una página/tablero documentado y también de un servicio) está
+            # dentro de un nombre más largo de OTRO tablero («tiempos de
+            # urgencias»): no se fija ese tablero corto.
+            shadow = self._shadowing_alias(text, exact_matches[0])
+            if shadow is not None:
+                alias, dashboard = shadow
+                if dashboard:
+                    self.last_dashboard_reason = f"alias más específico «{alias}»"
+                    return dashboard
+                self.last_dashboard_reason = None
+                return None
+
             self.last_dashboard_reason = "nombre del tablero"
             return exact_matches[0]
 
@@ -388,6 +418,34 @@ class IntentParser:
                 if normalized and normalized not in aliases:
                     aliases[normalized] = dashboard
         return aliases
+
+    def _shadowing_alias(self, text, dashboard):
+        """(alias, tablero o None) si el nombre `dashboard` aparece en la
+        pregunta solo como parte de un alias más largo de otro tablero/informe
+        del registro de fuentes («urgencias» dentro de «tiempos de urgencias»).
+        El tablero devuelto es el del alias si es un tablero conocido."""
+        name = normalize_text(dashboard)
+        if not name:
+            return None
+        known = {normalize_text(item): item for item in self.dashboards or [] if item}
+        aliases = self._dashboard_aliases()
+        candidates = []
+        for source in getattr(self.source_router, "sources", None) or []:
+            for value in [source.get("report"), *(source.get("aliases") or [])]:
+                alias = normalize_text(value)
+                if (
+                    alias and len(alias) > len(name) and alias != name
+                    and re.search(r"(?<![a-z0-9])" + re.escape(name) + r"(?![a-z0-9])", alias)
+                    and re.search(r"(?<![a-z0-9])" + re.escape(alias) + r"(?![a-z0-9])", text)
+                ):
+                    candidates.append(alias)
+        if not candidates:
+            return None
+        alias = max(candidates, key=len)
+        target = aliases.get(alias) or known.get(alias)
+        if target and normalize_text(target) == name:
+            return None
+        return alias, target
 
     @staticmethod
     def _distinctive_words(text):

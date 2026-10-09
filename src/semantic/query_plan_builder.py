@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from src.semantic.question_kind import descriptive_phrase
 from src.semantic.period_parser import (
     GRANULARITY_LABELS,
     MONTH_NAMES as PERIOD_MONTH_NAMES,
@@ -419,7 +420,9 @@ class QueryPlanBuilder:
 
     def _source_context(self, question, dashboard=None):
         try:
-            return self.source_router.resolve(question=question, dashboard=dashboard)
+            return self._refine_board_context(
+                self.source_router.resolve(question=question, dashboard=dashboard)
+            )
         except Exception as error:
             return {
                 "status": "error",
@@ -971,6 +974,226 @@ class QueryPlanBuilder:
         values.sort(key=lambda item: item["relevance_score"], reverse=True)
         return values
 
+    # ---------------- dimensiones del catálogo técnico ----------------
+    _CALENDAR_TABLE_RE = re.compile(
+        r"^(?:calendario|calendar|fecha|fechas|dates?|dim fecha|medidas|measures|"
+        r"localdatetable.*|datetabletemplate.*)$"
+    )
+    # Columnas de personas/identificadores: nunca se ofrecen como dimensión
+    # técnica (privacidad y ruido).
+    _PRIVATE_COLUMN_PARTS = (
+        "nombre", "apell", "docume", "cedula", "identif", "pacien", "telefon",
+        "direcc", "correo", "email", "rownumber", "ternom", "ternum", "numdoc",
+    )
+
+    def _technical_catalog(self, semantic_model):
+        """Catálogo técnico (tablas, columnas, relaciones) del modelo, con caché."""
+        key = normalize_text(semantic_model)
+        cache = self.__dict__.setdefault("_technical_catalog_cache", {})
+        if key in cache:
+            return cache[key]
+        try:
+            path = self.source_router.catalog_path_for_model(semantic_model, required=False)
+            catalog = self._load_json(path, {}) if path else {}
+        except Exception:
+            catalog = {}
+        cache[key] = catalog if isinstance(catalog, dict) else {}
+        return cache[key]
+
+    def _related_tables(self, semantic_model, table):
+        """La tabla y las que la filtran (lado «uno» de sus relaciones activas)."""
+        related = {normalize_text(table)}
+        relations = [
+            (normalize_text(relation.get("FromTable")), normalize_text(relation.get("ToTable")))
+            for relation in self._technical_catalog(semantic_model).get("relationships", []) or []
+            if relation.get("IsActive") is not False
+        ]
+        for _ in range(2):  # dimensión y dimensión de la dimensión (copo de nieve)
+            related |= {target for source, target in relations if source in related and target}
+        return related
+
+    def _technical_field_aliases(self, column):
+        """Alias de una columna técnica: su nombre y, solo si la PRIMERA palabra
+        es un concepto de dimensión («CLASIFICACION_TRIAGE»), sus sinónimos
+        («OID_TRIAGE» no hereda «clasificación» por contener «triage»)."""
+        name = normalize_text(column)
+        aliases = [column, name]
+        parts = name.split()
+        while len(parts) >= 2 and parts[-1] in TECHNICAL_SUFFIXES:
+            parts = parts[:-1]
+            aliases.append(" ".join(parts))
+        head = parts[0] if parts else ""
+        for synonyms in DIMENSION_SYNONYMS.values():
+            if head in synonyms or name in synonyms:
+                aliases.extend(sorted(synonyms))
+        return _unique_strings(aliases)
+
+    def _measure_expression(self, semantic_model, metric):
+        """Expresión DAX de la métrica (la del catálogo técnico si es una medida)."""
+        names = {normalize_text(metric.get("measure")), normalize_text(metric.get("label"))}
+        for table in self._technical_catalog(semantic_model).get("tables", []) or []:
+            for measure in table.get("measures", []) or []:
+                if normalize_text(measure.get("name")) in names and measure.get("expression"):
+                    return str(measure.get("expression"))
+        return str(metric.get("dax_expression") or "")
+
+    @staticmethod
+    def _expression_uses_table(expression, table):
+        return bool(re.search(
+            r"(?<![\w'])'?" + re.escape(str(table)) + r"'?\s*[\[\)]", str(expression or ""),
+        ))
+
+    def _with_technical_dimensions(self, metric, candidates):
+        """Dimensiones del catálogo técnico para métricas SIN visual.
+
+        Una medida que no aparece en ningún visual (TOTAL_TRIAGES) no tiene
+        campos visuales propios. Se agregan las columnas de su tabla
+        (CLASIFICACION_TRIAGE, MENORES, FECHA...). Si la medida se calcula
+        sobre esa tabla, sus columnas van primero y los campos visuales de
+        tablas que no la filtran pasan al final (un filtro allí no la
+        afectaría); si no, solo se agregan al final como respaldo. Las
+        métricas con visual no cambian.
+        """
+        if metric.get("appearances"):
+            return candidates
+        semantic_model = metric.get("semantic_model")
+        table_name = metric.get("table")
+        if not table_name or self._CALENDAR_TABLE_RE.match(normalize_text(table_name)):
+            return candidates
+        catalog = self._technical_catalog(semantic_model)
+        table = next(
+            (item for item in catalog.get("tables", []) or []
+             if normalize_text(item.get("name")) == normalize_text(table_name)),
+            None,
+        )
+        if not table or not table.get("columns"):
+            return candidates
+        own_table = self._expression_uses_table(
+            self._measure_expression(semantic_model, metric), table.get("name"),
+        )
+        related = self._related_tables(semantic_model, table.get("name"))
+        adjusted = []
+        for field in candidates:
+            if own_table and normalize_text(field.get("table")) not in related:
+                field = {**field, "relevance_score": field.get("relevance_score", 0) - 100,
+                         "unrelated_table": True}
+            adjusted.append(field)
+        seen = {(normalize_text(f.get("table")), normalize_text(f.get("column"))) for f in adjusted}
+        technical = []
+        for column in table.get("columns", []) or []:
+            name = column.get("name")
+            lowered = str(name or "").lower()
+            if not name or any(part in lowered for part in self._PRIVATE_COLUMN_PARTS):
+                continue
+            column_type = self._classify_data_type(column.get("data_type"))
+            words = set(normalize_text(name).split())
+            if column_type == "number" and not words & TEMPORAL_WORDS:
+                continue
+            key = (normalize_text(table.get("name")), normalize_text(name))
+            if key in seen:
+                continue
+            seen.add(key)
+            aliases = self._technical_field_aliases(name)
+            if column_type == "date" and not words & TEMPORAL_WORDS:
+                aliases.append("fecha")  # «FechaParto»: es la fecha de la tabla
+            technical.append({
+                "semantic_model": semantic_model, "report": None, "source_group": None,
+                "page": None, "visual_id": None, "visual_type": "technical_catalog",
+                "role": None, "kind": "column", "table": table.get("name"), "column": name,
+                "level": None, "query_ref": f"{table.get('name')}.{name}",
+                "aliases": aliases,
+                "relevance_score": 120 if own_table else 5, "technical": True,
+            })
+        result = adjusted + technical
+        result.sort(key=lambda item: item.get("relevance_score", 0), reverse=True)
+        return result
+
+    @staticmethod
+    def _technical_columns_used(candidates, filters, group_by):
+        """«TABLA[COLUMNA]» del catálogo técnico usadas en filtros o agrupación
+        (para el razonamiento: la métrica no tenía visual propio)."""
+        technical = {
+            (normalize_text(field.get("table")), normalize_text(field.get("column"))): field
+            for field in candidates if field.get("technical")
+        }
+        used = []
+        for item in [*(filters or []), *(group_by or [])]:
+            key = (normalize_text(item.get("table")), normalize_text(item.get("column")))
+            field = technical.get(key)
+            label = f"{field['table']}[{field['column']}]" if field else None
+            if label and label not in used:
+                used.append(label)
+        return used
+
+    # ---------------- tablero / página nombrado ----------------
+    def _models_with_metrics(self):
+        if getattr(self, "_metric_models", None) is None:
+            self._metric_models = {
+                normalize_text(metric.get("semantic_model")) for metric in self.metrics
+                if metric.get("validation_status") == "approved" and metric.get("semantic_model")
+            }
+        return self._metric_models
+
+    def _refine_board_context(self, context):
+        """Nombre de tablero presente en varios modelos («tablero de
+        cirugías»): si solo uno tiene indicadores, se fija ese (routing fuerte)."""
+        if not isinstance(context, dict):
+            return context
+        models = context.get("board_mention_models") or []
+        if len(models) < 2:
+            return context
+        if context.get("status") == "resolved" and context.get("routing_strength") == "strong":
+            return context
+        mentions = context.get("board_mentions") or []
+        with_metrics = [m for m in models if normalize_text(m) in self._models_with_metrics()]
+        why = "el único con indicadores"
+        if len(with_metrics) > 1:
+            # Desempate por la forma escrita: «tablero de triage» es TRIAGE
+            # antes que TRIAGES (solo coincide en singular/plural).
+            exact_models = {
+                normalize_text(item.get("semantic_model"))
+                for mention in mentions for item in mention.get("contexts") or []
+                if item.get("exact")
+            }
+            exact = [m for m in with_metrics if normalize_text(m) in exact_models]
+            if len(exact) == 1:
+                with_metrics = exact
+                why = "el único con indicadores cuyo nombre coincide tal como se escribió"
+        board_context = getattr(self.source_router, "board_context", None)
+        if len(with_metrics) != 1 or not callable(board_context):
+            return context
+        target = normalize_text(with_metrics[0])
+        entry = next(
+            (item for mention in mentions for item in mention.get("contexts") or []
+             if normalize_text(item.get("semantic_model")) == target),
+            None,
+        )
+        if entry is None:
+            return context
+        refined = board_context(entry, mentions=mentions, candidates=context.get("candidates"))
+        refined["board_note"] = (
+            f"«{entry.get('name')}» existe en {len(models)} modelos; se usa "
+            f"{with_metrics[0]}: {why}"
+        )
+        return refined
+
+    def _strip_board_mentions(self, text, source_context):
+        """Quita «tablero/página de X» del texto donde se buscan agrupaciones y
+        filtros; devuelve (texto, palabras canónicas del nombre). Esas
+        palabras nombran el tablero: no son valores de filtro («tablero de
+        triage» no es CLASIFICACIÓN = TRIAGE III)."""
+        mentions = (source_context or {}).get("board_mentions") or []
+        text = normalize_text(text)
+        tokens = set()
+        for mention in mentions:
+            phrase = normalize_text(mention.get("phrase"))
+            if phrase:
+                pattern = r"(?<![a-z0-9])(?:(?:en|de|del|desde|para)\s+(?:(?:el|la|los|las)\s+)?)?" \
+                          + re.escape(phrase) + r"(?![a-z0-9])"
+                text = re.sub(pattern, " ", text)
+            tokens.update(canonical_tokens(mention.get("name")))
+        return re.sub(r"\s+", " ", text).strip(), tokens
+
     def _dimension_match_score(self, text, field):
         return max((_phrase_score(text, alias) for alias in field.get("aliases", [])), default=0.0)
 
@@ -1184,7 +1407,9 @@ class QueryPlanBuilder:
                 pattern = (
                     r"(?<![a-z0-9])" + re.escape(alias_norm) + r"(?![a-z0-9])"
                     + r"(?:\s+(?:de|del|igual a|=|:))?"
-                    + r"\s+([a-z0-9][a-z0-9\s\.\-]{1,80})"
+                    # {0,80}: un código de una letra al final («sexo M»)
+                    # también vale cuando se quitó «en el tablero ...».
+                    + r"\s+([a-z0-9][a-z0-9\s\.\-]{0,80})"
                 )
                 match = re.search(pattern, normalized)
                 if not match:
@@ -1286,40 +1511,175 @@ class QueryPlanBuilder:
 
     def _resolve_implicit_filter(
         self, question, metric, matched_name, source_context,
-        candidates, group_by, used_fields, extra_removals=None,
+        candidates, group_by, used_fields, extra_removals=None, decisions=None,
     ):
+        """Valor de dimensión nombrado sin su columna («cirugías de ortopedia»).
+
+        Más estricto que un filtro explícito («especialidad ortopedia»):
+        - la palabra no puede ser una que ya explica la métrica o el tablero
+          nombrado (se quitan antes, ver `_metric_explaining_tokens`);
+        - se revisan primero las columnas plausibles para un valor nombrado
+          suelto (servicio, especialidad, aseguradora, sede...);
+        - la coincidencia debe ser fuerte y única en la columna («triage» no
+          elige TRIAGE III entre TRIAGE I..V);
+        - en columnas de entidades (aseguradora, sede, persona...) una palabra
+          que es un concepto del catálogo («cirugía») no es un valor.
+        Cada decisión se anota en `decisions` para el razonamiento.
+        """
+        removals = set(extra_removals or ())
+        removals.update(self._metric_explaining_tokens(metric))
         leftover = self._implicit_value_text(
             question, metric, matched_name, source_context, group_by,
-            extra_removals=extra_removals,
+            extra_removals=removals,
         )
         if not leftover:
             return None
 
         semantic_model = metric.get("semantic_model")
-        best = None
-        checked = 0
+        eligible = []
         for field in candidates:
-            if checked >= self.max_implicit_dimensions:
-                break
             key = (normalize_text(field.get("table")), normalize_text(field.get("column")))
-            if key in used_fields:
+            if key in used_fields or not self._implicit_eligible(field, semantic_model):
                 continue
-            if not self._implicit_eligible(field, semantic_model):
-                continue
+            eligible.append(field)
+        plausible = [field for field in eligible if self._plausible_value_column(field)]
+        others = [field for field in eligible if not self._plausible_value_column(field)]
+        # Todas las plausibles (hasta un tope) y luego las demás dentro del
+        # presupuesto original de columnas revisadas.
+        ordered = plausible[:max(self.max_implicit_dimensions, 10)]
+        ordered += others[:max(0, self.max_implicit_dimensions - len(ordered))]
 
-            checked += 1
-            resolved = self._resolve_value(
-                question=question, field=field,
-                semantic_model=semantic_model, value_hint=leftover,
-            )
+        best = None
+        for field in ordered:
+            resolved = self._resolve_implicit_value(leftover, field, semantic_model, decisions)
             if not resolved:
                 continue
             candidate = {"field": field, **resolved}
             if best is None or candidate["score"] > best["score"]:
                 best = candidate
-            if best and best["score"] >= 1.0:
+            if best["score"] >= 1.0:
                 break
+        if best is not None and decisions is not None:
+            decisions.append(f"aplicado: {best['reason']}")
         return best
+
+    # ---------------- valores implícitos: reglas estrictas ----------------
+    # Palabras de columna en las que un valor suele nombrarse suelto en la
+    # pregunta («cirugías de ortopedia», «egresos de urgencias», «de sura»).
+    PLAUSIBLE_VALUE_COLUMN_WORDS = {
+        "servicio", "servicios", "especialidad", "especialidades", "asegurador",
+        "aseguradora", "aseguradoras", "eps", "entidad", "pagador", "sede", "sedes",
+        "unidad", "area", "ubicacion", "almacen", "bodega", "tipo", "clasificacion",
+        "estado", "sexo", "genero", "modalidad", "menores", "mayores", "edad",
+        "etario", "turno", "causa", "motivo", "programa", "convenio", "regimen",
+        "categoria", "procedimiento", "piso", "grupo",
+    }
+    # Columnas de entidades (no de conceptos clínicos): un concepto del
+    # catálogo («cirugía», «triage») nunca es una aseguradora o una sede.
+    ENTITY_COLUMN_WORDS = {
+        "asegurador", "aseguradora", "aseguradoras", "eps", "entidad", "pagador",
+        "sede", "sedes", "municipio", "departamento", "cirujano", "medico",
+        "profesional", "usuario", "colaborador", "nombre", "convenio", "regimen",
+    }
+
+    def _column_words(self, field):
+        words = set()
+        for value in (field.get("column"), field.get("display_name"), field.get("level")):
+            words.update(normalize_text(value).split())
+        return words
+
+    def _plausible_value_column(self, field):
+        return bool(self._column_words(field) & self.PLAUSIBLE_VALUE_COLUMN_WORDS)
+
+    def _metric_explaining_tokens(self, metric):
+        """Palabras que explican la métrica (etiqueta, medida, alias propios):
+        no pueden ser además un valor implícito («cirugías realizadas de
+        ortopedia» -> «cirugías» no es ASEGURADOR = CIRUGIA)."""
+        values = [metric.get("label"), metric.get("measure"), *(metric.get("aliases") or [])]
+        tokens = set()
+        for value in values:
+            for token in canonical_tokens(value):
+                if len(token) >= 3 and not token.isdigit():
+                    tokens.add(token)
+                    stripped = re.sub(r"\d+$", "", token)
+                    if len(stripped) >= 3:
+                        tokens.add(stripped)
+        return tokens
+
+    def _metric_concept_tokens(self):
+        """Palabras (canónicas) de los nombres de indicadores aprobados."""
+        if getattr(self, "_concept_tokens", None) is not None:
+            return self._concept_tokens
+        ignored = {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS}
+        tokens = set()
+        for metric in self.metrics:
+            if metric.get("validation_status") != "approved":
+                continue
+            for value in (metric.get("label"), metric.get("measure")):
+                for token in canonical_tokens(value):
+                    if len(token) >= 4 and token not in ignored and not token.isdigit():
+                        tokens.add(token)
+        self._concept_tokens = tokens
+        return tokens
+
+    def _resolve_implicit_value(self, leftover, field, semantic_model, decisions=None):
+        """Valor de `field` nombrado en `leftover` con las reglas estrictas, o None."""
+        values = self._get_values(semantic_model, field["table"], field["column"])
+        if not values:
+            return None
+        scored = []
+        for value in values:
+            score = self._value_match_score(leftover, value, value_hint=leftover, allow_short=True)
+            if score > 0:
+                scored.append((score, value))
+        if not scored:
+            return None
+        scored.sort(key=lambda item: (item[0], len(normalize_text(item[1]))), reverse=True)
+        top_score, top_value = scored[0]
+        column = f"{field['table']}[{field['column']}]"
+        plausible = self._plausible_value_column(field)
+
+        def reject(reason):
+            if decisions is not None:
+                decisions.append(f"descartado: {column} = {top_value} ({reason})")
+            return None
+
+        # Columna plausible: el valor completo o todas las palabras pedidas
+        # deben coincidir (≥ 0.94). Otra columna: solo el valor exacto.
+        if top_score < (0.94 if plausible else 1.10):
+            if top_score >= 0.84:
+                return reject(
+                    f"coincidencia parcial {top_score:.2f}"
+                    + ("" if plausible else " en una columna poco habitual para un valor suelto")
+                )
+            return None
+        ties = [value for score, value in scored[1:] if score >= top_score - 1e-9]
+        if ties and top_score < 1.10:
+            return reject(
+                "la palabra coincide con varios valores de la columna: "
+                + ", ".join([top_value, *ties][:4]) + ("…" if len(ties) > 3 else "")
+            )
+        value_tokens = {token for token in canonical_tokens(top_value) if len(token) >= 3}
+        leftover_tokens = set(canonical_tokens(leftover))
+        matched = value_tokens & leftover_tokens
+        if (
+            self._column_words(field) & self.ENTITY_COLUMN_WORDS
+            and matched and matched <= self._metric_concept_tokens()
+        ):
+            return reject(
+                f"«{' '.join(sorted(matched))}» es un concepto de los indicadores, "
+                "no una entidad de esa columna"
+            )
+        words = " ".join(sorted(matched)) or normalize_text(top_value)
+        kind = "columna plausible para un valor nombrado" if plausible else "valor exacto"
+        return {
+            "value": top_value, "score": round(top_score, 4),
+            "tokens": set(canonical_tokens(top_value)),
+            "reason": (
+                f"«{words}» coincide con {column} = {top_value} "
+                f"({kind}, coincidencia {top_score:.2f}, único valor de la columna que coincide)"
+            ),
+        }
 
     # ---------------- column types ----------------
     def _technical_column_types(self, semantic_model):
@@ -1781,10 +2141,17 @@ class QueryPlanBuilder:
         return self._is_descriptive(normalize_text(question))
 
     def _is_descriptive(self, normalized):
-        return any(
-            re.search(r"(?<![a-z0-9])" + re.escape(pattern) + r"(?![a-z0-9])", normalized)
-            for pattern in DESCRIPTIVE_PATTERNS
-        )
+        return self.descriptive_reason(normalized) is not None
+
+    def descriptive_reason(self, question):
+        """Frase que vuelve descriptiva la pregunta («como se calcula», «los
+        rangos del», «para que sirve»...) o None. Una pregunta descriptiva va
+        al RAG aunque contenga palabras numéricas («porcentaje», «total»)."""
+        normalized = normalize_text(question)
+        for pattern in DESCRIPTIVE_PATTERNS:
+            if re.search(r"(?<![a-z0-9])" + re.escape(pattern) + r"(?![a-z0-9])", normalized):
+                return pattern
+        return descriptive_phrase(normalized)
 
     @staticmethod
     def _has_period(normalized):
@@ -2514,11 +2881,16 @@ class QueryPlanBuilder:
         semantic_model = metric.get("semantic_model")
         reports = metric.get("reports", []) or []
         report = metric.get("report") or (reports[0] if reports else source_context.get("report"))
-        candidates = self._relevant_dimensions(metric)
+        candidates = self._with_technical_dimensions(metric, self._relevant_dimensions(metric))
         # Periodo («entre enero y marzo», «este año») y agrupación temporal
         # («por mes»): sus palabras no son valores ni dimensiones.
         temporal = self._analyze_periods(question, metric, metric_result.get("matched_name"))
         dimension_question = temporal["clean_question"]
+        # «tablero de triage»: las palabras del tablero nombrado no son
+        # agrupaciones ni valores de filtro.
+        dimension_question, board_tokens = self._strip_board_mentions(
+            dimension_question, source_context,
+        )
 
         group_detection = self._detect_group_or_dimension_filter(dimension_question, metric, candidates)
         group_by = group_detection["group_by"]
@@ -2531,9 +2903,11 @@ class QueryPlanBuilder:
             semantic_model = metric.get("semantic_model")
             reports = metric.get("reports", []) or []
             report = metric.get("report") or (reports[0] if reports else source_context.get("report"))
-            candidates = self._relevant_dimensions(metric)
+            candidates = self._with_technical_dimensions(metric, self._relevant_dimensions(metric))
             temporal = self._analyze_periods(question, metric, metric_result.get("matched_name"))
-            dimension_question = temporal["clean_question"]
+            dimension_question, board_tokens = self._strip_board_mentions(
+                temporal["clean_question"], source_context,
+            )
             group_detection = self._detect_group_or_dimension_filter(
                 dimension_question, metric, candidates,
             )
@@ -2588,6 +2962,8 @@ class QueryPlanBuilder:
         unapplied_terms = []
         notes = []
         consumed_tokens = set(temporal["tokens"])
+        consumed_tokens.update(board_tokens)
+        implicit_decisions = []
         if ranking:
             consumed_tokens.update(ranking["tokens"])
             notes.append(self._ranking_note(
@@ -2637,14 +3013,17 @@ class QueryPlanBuilder:
                 matched_name=metric_result.get("matched_name"),
                 source_context=source_context, candidates=candidates,
                 group_by=group_by, used_fields=used_fields,
-                extra_removals=consumed_tokens,
+                extra_removals=consumed_tokens, decisions=implicit_decisions,
             )
             if not implicit:
                 break
             field = implicit["field"]
-            filters.append(self._categorical_filter(
+            implicit_filter = self._categorical_filter(
                 field, implicit, "query_plan_implicit_value", semantic_model,
-            ))
+            )
+            if implicit.get("reason"):
+                implicit_filter["reason"] = implicit["reason"]
+            filters.append(implicit_filter)
             used_fields.add((normalize_text(field["table"]), normalize_text(field["column"])))
             consumed_tokens.update(implicit.get("tokens", ()))
 
@@ -2682,6 +3061,7 @@ class QueryPlanBuilder:
                     "status": "unsupported_filter", "stage": "implicit_dimension",
                     "reason": "possible_dimension_value_not_resolved",
                     "unresolved_text": leftover,
+                    "implicit_decisions": implicit_decisions,
                     "question": question, "semantic_model": semantic_model,
                     "source_context": source_context, "metric_resolution": metric_result,
                 }
@@ -2715,6 +3095,11 @@ class QueryPlanBuilder:
             "filters": filters,
             "unapplied_terms": unapplied_terms,
             "notes": notes,
+            "implicit_decisions": implicit_decisions,
+            "technical_columns_used": self._technical_columns_used(candidates, filters, group_by),
+            "board_mentions": [
+                mention.get("phrase") for mention in source_context.get("board_mentions") or []
+            ],
             "group_by": normalized_group_by,
             "ranking": (
                 {key: ranking[key] for key in ("direction", "limit", "phrase")}
