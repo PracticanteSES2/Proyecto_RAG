@@ -316,6 +316,54 @@ def test_determinism_and_stable_months():
     assert value(CONSOLIDADO, "[Total Egresos]", b) > value(CONSOLIDADO, "[Total Egresos]", a)
 
 
+def _values(model, column, simulator):
+    out = table(model, f"EVALUATE VALUES({column})", simulator)
+    return sorted(str(row[0]) for row in out["rows"] if row[0] is not None)
+
+
+def test_documented_values_and_realistic_domains():
+    """_documented_values.json (tools/local_data) y dominios genéricos realistas."""
+    import json
+
+    root = Path(tempfile.mkdtemp(prefix="pbi_sim_docvalues_"))
+    folder = root / "tablero_lavanderia"
+    folder.mkdir()
+
+    def write(name, headers, rows):
+        with open(folder / name, "w", encoding="utf-8", newline="") as file:
+            writer = csv.writer(file, delimiter=";")
+            writer.writerow(headers)
+            writer.writerows(rows)
+
+    write("tables.csv", ["ID", "Name", "IsHidden", "Expression"],
+          [[1, "LAVANDERIA", "False", ""], [2, "TRIAGES", "False", ""]])
+    write("columns.csv", ["ID", "Name", "Table", "DataType", "Type", "Expression", "FormatString"], [
+        [10, "Fecha", "LAVANDERIA", "Date", "Data", "", ""],
+        [11, "Peso", "LAVANDERIA", "Integer", "Data", "", "0"],
+        [12, "SERVICIO", "LAVANDERIA", "Text", "Data", "", ""],
+        [13, "FECHA", "TRIAGES", "Date", "Data", "", ""],
+        [14, "ASEGURADORA", "TRIAGES", "Text", "Data", "", ""],
+        [15, "MENORES", "TRIAGES", "Text", "Data", "", ""],
+        [16, "ServicioOid", "TRIAGES", "Text", "Data", "", ""],
+    ])
+    write("measures.csv", ["ID", "Name", "Table", "DataType", "Expression", "FormatString"],
+          [[20, "Triages", "TRIAGES", "Integer", "COUNTROWS(TRIAGES)", "0"]])
+    write("relationships.csv", ["ID", "FromTable", "FromColumn", "ToTable", "ToColumn"], [])
+    (folder / "_documented_values.json").write_text(json.dumps({"columns": [
+        {"table": None, "column": "ASEGURADORA", "values": ["NUEVA EPS", "SURA", "SANITAS", "MALLAMAS"]},
+    ]}), encoding="utf-8")
+
+    s = PowerBISimulator([root], today=TODAY)
+    model = s.list_models()[0]
+    assert _values(model, "'TRIAGES'[ASEGURADORA]", s) == ["MALLAMAS", "NUEVA EPS", "SANITAS", "SURA"]
+    assert _values(model, "'TRIAGES'[MENORES]", s) == ["MAYORES DE EDAD", "MENORES DE EDAD"]
+    oids = _values(model, "'TRIAGES'[ServicioOid]", s)
+    assert oids and not set(oids) & {"URGENCIAS", "HOSPITALIZACION"}, f"OID: códigos, no nombres {oids[:5]}"
+    servicios = _values(model, "'LAVANDERIA'[SERVICIO]", s)
+    assert {"ANTIFLUIDOS", "URGENCIAS", "UCI ADULTOS"} <= set(servicios), servicios
+    assert not any("CARDIO" in v for v in servicios), servicios
+
+
 def test_semicolon_metadata_decimal_and_fallback():
     s = mini_sim()
     model = s.list_models()[0]

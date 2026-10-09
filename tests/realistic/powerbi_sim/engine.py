@@ -53,6 +53,8 @@ class ModelRuntime:
                 for value in values:
                     self.harvest.add(tkey, ckey, value)
         self.harvest.harvest_schema(schema)
+        # Valores categóricos citados en la documentación del tablero.
+        self.harvest.harvest_documented(schema)
         self._stores = {}
         self.generator = DataGenerator(self)
 

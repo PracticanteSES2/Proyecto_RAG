@@ -48,6 +48,8 @@ from tools.local_data.metadata_format import (  # noqa: E402
 )
 from tools.local_data.tmdl_to_metadata import convert as convert_tmdl  # noqa: E402
 from tools.local_data.infer_metadata import build_inferred_metadata  # noqa: E402
+from tools.local_data.documented_values import DocumentedValues  # noqa: E402
+from tools.local_data.infer_visuals import write_inferred_report  # noqa: E402
 from tools.local_data.coverage_report import build_coverage_report, print_coverage_report  # noqa: E402
 
 
@@ -332,6 +334,20 @@ def parse_documents_for_inference(data_root, work_dir):
     return by_model
 
 
+def manifest_report_names(raw_dir):
+    """semantic_model_key -> nombre del reporte según los manifest.json importados."""
+    names = {}
+    for path in sorted(Path(raw_dir).glob("*/manifest.json")):
+        try:
+            manifest = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        key = manifest.get("semantic_model_key")
+        if key and manifest.get("report") and key not in names:
+            names[key] = manifest["report"]
+    return names
+
+
 def run_catalogs(project_root, data_root):
     from src.semantic.powerbi_catalog_manager import PowerBICatalogManager
 
@@ -415,10 +431,17 @@ def build(args):
 
     # ---------------- 1b. Metadata inferida ----------------
     documents_by_model = parse_documents_for_inference(data_root, work_dir)
+    report_names = manifest_report_names(data_root / "raw")
     for slug, spec in specs.items():
-        if not spec["source"].startswith("inferred"):
-            continue
         documents = documents_by_model.get(slug, [])
+        if not spec["source"].startswith("inferred"):
+            # Modelos reales: solo los valores categóricos documentados
+            # (para dominios realistas del simulador).
+            saved = DocumentedValues().ingest_documents(documents).save(
+                spec["semantic_model"], metadata_root / slug)
+            if saved:
+                log(f"Valores documentados {spec['semantic_model']!r}: {saved} columnas")
+            continue
         inferred = build_inferred_metadata(
             spec["semantic_model"], metadata_root / slug,
             report_paths=spec["report_paths"], documents=documents,
@@ -429,6 +452,18 @@ def build(args):
             f"Metadata inferida {spec['semantic_model']!r}: "
             f"{inferred['counts']} ({len(documents)} documentos)"
         )
+        if inferred.get("inferred_report"):
+            report_name = report_names.get(slug) or spec["semantic_model"]
+            report_path = write_inferred_report(
+                report_name, inferred["inferred_report"]["pages"], data_root / "pbir",
+                semantic_model=spec["semantic_model"],
+            )
+            spec["inferred_report_path"] = report_path
+            summary = inferred["inferred_report"]["summary"]
+            log(
+                f"  Reporte inferido de la documentación: {report_path.name} "
+                f"({summary['visuals']} visuales, {len(summary['added_measures'])} medidas nuevas)"
+            )
     shutil.rmtree(work_dir, ignore_errors=True)
 
     write_model_registry(specs, data_root, results, reference_slugs)
@@ -492,11 +527,6 @@ def parse_args(argv=None):
         candidate = args.project_root / REFERENCE_ZIP_NAME
         args.reference_zip = candidate if candidate.exists() else None
 
-    if args.data_root.name != "data":
-        parser.error(
-            "--data-root debe ser una carpeta llamada 'data': el pipeline del "
-            "propietario resuelve rutas como <raíz>/data/..."
-        )
     if not args.docs_dir.exists():
         parser.error(f"No existe la carpeta de documentación: {args.docs_dir}")
     return args
@@ -506,30 +536,48 @@ def main(argv=None):
     configure_console_utf8()
     args = parse_args(argv)
 
+    final_root = args.data_root
+    staging = None
+    if final_root.name != "data":
+        # El pipeline del propietario resuelve rutas relativas como
+        # <raíz>/data/... (p. ej. technical_catalog="data/catalog/x_rag.json"):
+        # con otro nombre leería el data/ real. Se construye en
+        # <padre>/.<nombre>.build/data y al final se renombra a final_root.
+        staging = final_root.parent / f".{final_root.name}.build"
+        if staging.exists():
+            shutil.rmtree(staging)
+        args.data_root = staging / "data"
+        log("Destino final:", final_root, "(construcción en", staging, ")")
     data_root = args.data_root
+
     backup = None
-    if data_root.exists():
+    if final_root.exists():
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup = data_root.with_name(f"{data_root.name}.bak_{stamp}")
-        data_root.rename(backup)
-        log("Respaldo del data/ anterior:", backup)
+        backup = final_root.with_name(f"{final_root.name}.bak_{stamp}")
+        final_root.rename(backup)
+        log(f"Respaldo del {final_root.name}/ anterior:", backup)
     args.previous_qdrant = backup / "vector_db" / "qdrant" if backup else None
 
     data_root.mkdir(parents=True)
     try:
         build(args)
+        if staging is not None:
+            data_root.rename(final_root)
+            shutil.rmtree(staging, ignore_errors=True)
     except BaseException:
         log("ERROR: se descarta el build parcial.")
-        shutil.rmtree(data_root, ignore_errors=True)
+        shutil.rmtree(staging or data_root, ignore_errors=True)
+        if final_root.exists() and staging is not None:
+            shutil.rmtree(final_root, ignore_errors=True)
         if backup is not None:
-            backup.rename(data_root)
-            log("Restaurado el data/ anterior.")
+            backup.rename(final_root)
+            log(f"Restaurado el {final_root.name}/ anterior.")
         raise
 
     if backup is not None and not args.keep_backup:
         shutil.rmtree(backup, ignore_errors=True)
         log("Respaldo eliminado.")
-    log("Listo:", data_root)
+    log("Listo:", final_root)
 
 
 if __name__ == "__main__":
