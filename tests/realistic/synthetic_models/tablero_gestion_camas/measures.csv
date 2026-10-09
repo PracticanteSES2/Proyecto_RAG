@@ -1,0 +1,8 @@
+﻿[ID],[Name],[Table],[Description],[DataType],[Expression],[FormatString],[IsHidden],[State],[KPIID],[IsSimpleMeasure],[DisplayFolder],[DetailRowsDefinition],[DataCategory],[FormatStringDefinition],[LineageTag]
+154993393,% Ocupación,OCUPACION_DIARIA,Porcentaje de camas ocupadas.,Number,"DIVIDE(CALCULATE(COUNTROWS('OCUPACION_DIARIA'), OCUPACION_DIARIA[ESTADO_CAMA] = ""OCUPADA""), COUNTROWS('OCUPACION_DIARIA'))",0.0%,False,Ready,,False,,,,,7e994284-2639-5153-a450-22890a53fe9c
+194840215,Camas Disponibles,OCUPACION_DIARIA,Camas en estado disponible.,Integer,"CALCULATE(DISTINCTCOUNT(OCUPACION_DIARIA[OID_CAMA]), OCUPACION_DIARIA[ESTADO_CAMA] = ""DISPONIBLE"")","#,0",False,Ready,,False,,,,,ba7d9cf6-75cc-5e69-a4df-bcbfba93705a
+236531006,Egresos,EGRESOS,Egresos registrados en gestión de camas.,Integer,COUNTROWS('EGRESOS'),"#,0",False,Ready,,False,,,,,960842c3-885c-5039-bfaf-5617f1ac630e
+214150367,Total Egresos,EGRESOS,Total de egresos.,Integer,[Egresos],"#,0",False,Ready,,False,,,,,03093b39-4d2b-5a09-8127-76aea8587290
+255495444,Promedio Estancia,EGRESOS,Días promedio de estancia.,Number,AVERAGE(EGRESOS[DIAS_ESTANCIA]),0.0,False,Ready,,False,,,,,2e3edfa9-931f-5acc-8f0b-43190bdc2e7c
+242868930,Giro Cama,EGRESOS,Egresos por cama en el periodo.,Number,"DIVIDE([Egresos], DISTINCTCOUNT(CAMAS[OID]))",0.00,False,Ready,,False,,,,,3836f729-41c5-5506-9673-4e725e015164
+123166953,Solicitudes de cama,SOLICITUD_CAMAS,Solicitudes de cama recibidas.,Integer,COUNTROWS('SOLICITUD_CAMAS'),"#,0",False,Ready,,False,,,,,b3da18ca-0cba-5146-8a9a-006ae6b03efe

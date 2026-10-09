@@ -1,0 +1,6 @@
+﻿[ID],[Name],[Relationship],[Model],[IsActive],[CrossFilteringBehavior],[RelyOnReferentialIntegrity],[FromTable],[FromColumn],[FromCardinality],[ToTable],[ToColumn],[ToCardinality],[State],[SecurityFilteringBehavior]
+43738190,7ed8c9a8-fffe-5355-9316-3df1b5d95ca4,'OCUPACION_DIARIA'[FECHA] *[<-]1 'Calendario'[Date],2374b6a0-2dc2-5c6d-a737-3a1237b94621,True,OneDirection,False,OCUPACION_DIARIA,FECHA,Many,Calendario,Date,One,Ready,Single
+240010190,75f7d9f9-d416-5505-a9f5-1c5ab59e5546,'EGRESOS'[FECHA_EGRESO] *[<-]1 'Calendario'[Date],2374b6a0-2dc2-5c6d-a737-3a1237b94621,True,OneDirection,False,EGRESOS,FECHA_EGRESO,Many,Calendario,Date,One,Ready,Single
+172814943,0cf4c134-c321-5e2c-8526-53dd556a4b1e,'SOLICITUD_CAMAS'[FECHA_SOLICITUD] *[<-]1 'Calendario'[Date],2374b6a0-2dc2-5c6d-a737-3a1237b94621,True,OneDirection,False,SOLICITUD_CAMAS,FECHA_SOLICITUD,Many,Calendario,Date,One,Ready,Single
+92739775,5a27b877-5f46-5291-8a77-f93c04ddf42d,'OCUPACION_DIARIA'[OID_CAMA] *[<-]1 'CAMAS'[OID],2374b6a0-2dc2-5c6d-a737-3a1237b94621,True,OneDirection,False,OCUPACION_DIARIA,OID_CAMA,Many,CAMAS,OID,One,Ready,Single
+122086095,a982fe6b-7b1f-56dc-9024-1f348db71085,'EGRESOS'[OID_CAMA] *[<-]1 'CAMAS'[OID],2374b6a0-2dc2-5c6d-a737-3a1237b94621,True,OneDirection,False,EGRESOS,OID_CAMA,Many,CAMAS,OID,One,Ready,Single

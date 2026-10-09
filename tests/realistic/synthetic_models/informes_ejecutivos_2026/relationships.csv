@@ -1,0 +1,5 @@
+﻿[ID],[Name],[Relationship],[Model],[IsActive],[CrossFilteringBehavior],[RelyOnReferentialIntegrity],[FromTable],[FromColumn],[FromCardinality],[ToTable],[ToColumn],[ToCardinality],[State],[SecurityFilteringBehavior]
+152518963,67f44988-d9ba-593a-9603-514450669ba7,'FACT_INDICADORES'[FECHA] *[<-]1 'Calendario'[Date],85dc2147-21ee-55e2-a12c-ee244c1d09d4,True,OneDirection,False,FACT_INDICADORES,FECHA,Many,Calendario,Date,One,Ready,Single
+141657931,6eb8c19f-e16a-58f1-bb4e-df10770749ea,'FACT_OCUPACION'[FECHA] *[<-]1 'Calendario'[Date],85dc2147-21ee-55e2-a12c-ee244c1d09d4,True,OneDirection,False,FACT_OCUPACION,FECHA,Many,Calendario,Date,One,Ready,Single
+135867687,8ad302fe-d00a-5fb3-b5e7-7ef80b2d1929,'FACT_INDICADORES'[SEDE] *[<-]1 'DIM_SEDE'[SEDE],85dc2147-21ee-55e2-a12c-ee244c1d09d4,True,OneDirection,False,FACT_INDICADORES,SEDE,Many,DIM_SEDE,SEDE,One,Ready,Single
+84650745,68d9a5a8-0fc3-5df9-aa74-bfefda7a34b4,'FACT_OCUPACION'[SEDE] *[<-]1 'DIM_SEDE'[SEDE],85dc2147-21ee-55e2-a12c-ee244c1d09d4,True,OneDirection,False,FACT_OCUPACION,SEDE,Many,DIM_SEDE,SEDE,One,Ready,Single

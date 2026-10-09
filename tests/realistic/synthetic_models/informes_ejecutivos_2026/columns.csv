@@ -1,0 +1,20 @@
+﻿[ID],[Name],[Table],[DataType],[DataCategory],[Description],[IsHidden],[IsUnique],[IsKey],[IsNullable],[Alignment],[SummarizeBy],[ColumnStorage],[Type],[SourceColumn],[Expression],[FormatString],[IsAvailableInMDX],[SortByColumn],[GroupingBehavior],[SourceProviderType],[DisplayFolder],[AlternateOf],[LineageTag]
+68496206,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,Calendario,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+244762624,Date,Calendario,Date,Regular,,False,False,False,True,Default,None,,CalculatedTableColumn,,,Short Date,True,,GroupOnValue,,,,3ab011e5-b10b-528f-8f69-4e0b9e62e240
+12255032,AÑO,Calendario,Integer,Regular,,False,False,False,True,Default,Sum,,Calculated,,YEAR('Calendario'[Date]),0,True,,GroupOnValue,,,,b6042e69-4391-518f-833f-0909a106e786
+219045972,MES,Calendario,Integer,Regular,,False,False,False,True,Default,Sum,,Calculated,,MONTH('Calendario'[Date]),0,True,,GroupOnValue,,,,4c74bbc8-b985-5ff4-bac8-fe00036cdaa9
+133044168,NOMBRE_MES,Calendario,Text,Regular,,False,False,False,True,Default,None,,Calculated,,"FORMAT('Calendario'[Date], ""MMMM"")",,True,,GroupOnValue,,,,5773e215-1bd3-5aab-82b1-16b78080a449
+218271952,TRIMESTRE,Calendario,Text,Regular,,False,False,False,True,Default,None,,Calculated,,"""Trim. "" & INT((MONTH('Calendario'[Date]) + 2) / 3)",,True,,GroupOnValue,,,,1d9d3969-e461-5345-9bad-72423d5fbc4a
+144553387,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,DIM_SEDE,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+151218163,SEDE,DIM_SEDE,Text,Regular,,False,True,False,True,Default,None,,Data,SEDE,,,True,,GroupOnValue,,,,8eccc33f-9e37-52ea-96ba-32513e241051
+38142600,CIUDAD,DIM_SEDE,Text,Regular,,False,False,False,True,Default,None,,Data,CIUDAD,,,True,,GroupOnValue,,,,11153cbb-c557-5125-9358-282ec6b2c4b6
+60634801,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,FACT_INDICADORES,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+146105736,FECHA,FACT_INDICADORES,Date,Regular,,False,False,False,True,Default,None,,Data,FECHA,,,True,,GroupOnValue,,,,78bcac61-8463-561b-b9d6-f2988ee8f782
+160394338,SEDE,FACT_INDICADORES,Text,Regular,,False,False,False,True,Default,None,,Data,SEDE,,,True,,GroupOnValue,,,,4b10c88b-f1f4-5bce-9c70-8ce1fe3425ad
+46782682,SERVICIO,FACT_INDICADORES,Text,Regular,,False,False,False,True,Default,None,,Data,SERVICIO,,,True,,GroupOnValue,,,,c325b02e-56ee-5b78-bb0a-d7275c462cb3
+185490422,INDICADOR,FACT_INDICADORES,Text,Regular,,False,False,False,True,Default,None,,Data,INDICADOR,,,True,,GroupOnValue,,,,14ecdf6d-38be-5883-b843-8c0bc3c8f3e3
+118326206,CANTIDAD,FACT_INDICADORES,Integer,Regular,,False,False,False,True,Default,Sum,,Data,CANTIDAD,,0,True,,GroupOnValue,,,,e121fcc3-b0f9-5c85-b598-d19ee14ee511
+33698636,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,FACT_OCUPACION,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+238161615,FECHA,FACT_OCUPACION,Date,Regular,,False,False,False,True,Default,None,,Data,FECHA,,,True,,GroupOnValue,,,,2f3eb7f8-695b-57df-aa6d-9febd6efb2bd
+185598905,SEDE,FACT_OCUPACION,Text,Regular,,False,False,False,True,Default,None,,Data,SEDE,,,True,,GroupOnValue,,,,6a7cfa8f-ffa0-5d00-ae4d-1551e5d0d666
+214129938,PORCENTAJE,FACT_OCUPACION,Number,Regular,,False,False,False,True,Default,Sum,,Data,PORCENTAJE,,,True,,GroupOnValue,,,,4d0cc426-04a3-5e00-a307-c534ba907b03

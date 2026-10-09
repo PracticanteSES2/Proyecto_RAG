@@ -1,0 +1,19 @@
+﻿[ID],[Name],[Table],[DataType],[DataCategory],[Description],[IsHidden],[IsUnique],[IsKey],[IsNullable],[Alignment],[SummarizeBy],[ColumnStorage],[Type],[SourceColumn],[Expression],[FormatString],[IsAvailableInMDX],[SortByColumn],[GroupingBehavior],[SourceProviderType],[DisplayFolder],[AlternateOf],[LineageTag]
+251101536,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,Calendario,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+76422013,Date,Calendario,Date,Regular,,False,False,False,True,Default,None,,CalculatedTableColumn,,,Short Date,True,,GroupOnValue,,,,8a562e39-3ed0-5be9-a730-41fffee619e3
+30908480,AÑO,Calendario,Integer,Regular,,False,False,False,True,Default,Sum,,Calculated,,YEAR('Calendario'[Date]),0,True,,GroupOnValue,,,,9246c860-f612-595b-a47a-9fae3517dbf6
+6995087,MES,Calendario,Integer,Regular,,False,False,False,True,Default,Sum,,Calculated,,MONTH('Calendario'[Date]),0,True,,GroupOnValue,,,,11db1dfc-7fea-5883-a6fd-65f66779ec3e
+187899655,NOMBRE_MES,Calendario,Text,Regular,,False,False,False,True,Default,None,,Calculated,,"FORMAT('Calendario'[Date], ""MMMM"")",,True,,GroupOnValue,,,,803fe812-5443-5171-a877-e9b44ae43683
+168481429,TRIMESTRE,Calendario,Text,Regular,,False,False,False,True,Default,None,,Calculated,,"""Trim. "" & INT((MONTH('Calendario'[Date]) + 2) / 3)",,True,,GroupOnValue,,,,3caf6d0d-998f-5241-aedf-cd29b05fd394
+147457843,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,ASEGURADORAS,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+132004522,OID,ASEGURADORAS,Integer,Regular,,False,True,False,True,Default,Sum,,Data,OID,,0,True,,GroupOnValue,,,,d35f075d-c841-59ed-9d00-e50d46b73cd5
+183747220,NOMBRE,ASEGURADORAS,Text,Regular,,False,False,False,True,Default,None,,Data,NOMBRE,,,True,,GroupOnValue,,,,893d2ae9-4bda-5c92-8e78-5b41e0732359
+126400339,REGIMEN,ASEGURADORAS,Text,Regular,,False,False,False,True,Default,None,,Data,REGIMEN,,,True,,GroupOnValue,,,,5a5200ea-4611-51c7-b5e8-6fcee9b2eabb
+215695585,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,CONSULTAS_AMBULATORIAS,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+229122582,FECHA_CITA,CONSULTAS_AMBULATORIAS,Date,Regular,,False,False,False,True,Default,None,,Data,FECHA_CITA,,,True,,GroupOnValue,,,,c5490d70-18a0-50af-a810-4ea13a985a72
+143197913,ESPECIALIDAD,CONSULTAS_AMBULATORIAS,Text,Regular,,False,False,False,True,Default,None,,Data,ESPECIALIDAD,,,True,,GroupOnValue,,,,29f9074b-97a4-5fb5-a1d1-39fab289bcc5
+69619275,ESTADO_CITA,CONSULTAS_AMBULATORIAS,Text,Regular,,False,False,False,True,Default,None,,Data,ESTADO_CITA,,,True,,GroupOnValue,,,,75bf39a4-08af-5152-990a-e220f8beb730
+60583115,TIPO_CONSULTA,CONSULTAS_AMBULATORIAS,Text,Regular,,False,False,False,True,Default,None,,Data,TIPO_CONSULTA,,,True,,GroupOnValue,,,,138e1a66-0f34-56f7-bc23-a79a1bed2a40
+261464912,OID_ASEGURADORA,CONSULTAS_AMBULATORIAS,Integer,Regular,,False,False,False,True,Default,Sum,,Data,OID_ASEGURADORA,,0,True,,GroupOnValue,,,,34c6a495-0ac9-57ad-b797-12a827f0ef78
+145893695,IDENTIFICACION,CONSULTAS_AMBULATORIAS,Text,Regular,,False,False,False,True,Default,None,,Data,IDENTIFICACION,,,True,,GroupOnValue,,,,eb860bd2-92e8-5df4-835c-39dd76ad7fbc
+190904500,DIAS_OPORTUNIDAD,CONSULTAS_AMBULATORIAS,Integer,Regular,,False,False,False,True,Default,Sum,,Data,DIAS_OPORTUNIDAD,,0,True,,GroupOnValue,,,,24b9a870-e6d9-5ea2-9851-98791d65f8db

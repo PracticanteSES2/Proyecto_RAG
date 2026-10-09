@@ -10,7 +10,7 @@ importar código del proyecto:
   sentence_transformers               -> SentenceTransformer con embedding hash determinista
   qdrant_client / qdrant_client.models-> QdrantClient en memoria que carga <path>/points.json
   ollama                              -> Client falso (list/chat)
-  clr                                 -> AddReference no-op
+  clr                                 -> AddReference no-op            (tests/common/adomd.py)
   Microsoft.AnalysisServices.AdomdClient -> AdomdConnection falso sobre FakeDaxEngine
 
 De este modo se usan las CLASES REALES del proyecto (HybridRetriever,
@@ -28,6 +28,8 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
+
+from tests.common.adomd import install_adomd_modules
 
 # Registro global de lo que pasó (consultas DAX, advertencias, llamadas LLM)
 SIM_LOG = {"dax": [], "warnings": [], "llm_calls": 0}
@@ -703,46 +705,21 @@ class FakeDaxEngine:
 
 
 
-class _State:
-    def __init__(self, value):
-        self.value = value
+class _SimBackend:
+    """Backend del cliente ADOMD compartido (tests/common/adomd.py) sobre FakeDaxEngine."""
 
-    def ToString(self):
-        return self.value
+    def open(self, catalog):
+        if not CONFIG["powerbi_up"]:
+            raise ConnectionError("[sim] XMLA endpoint no disponible")
 
+    def catalogs(self):
+        return list(FAKE_ENGINE.models)
 
-class FakeAdomdReader:
-    def __init__(self, columns, rows):
-        self._columns, self._rows, self._i = columns, rows, -1
-        self.FieldCount = len(columns)
-
-    def GetName(self, i):
-        return self._columns[i]
-
-    def Read(self):
-        self._i += 1
-        return self._i < len(self._rows)
-
-    def GetValue(self, i):
-        return self._rows[self._i][i]
-
-    def Close(self):
-        pass
-
-    def Dispose(self):
-        pass
-
-
-class FakeAdomdCommand:
-    def __init__(self, conn):
-        self.conn = conn
-        self.CommandText = ""
-
-    def ExecuteReader(self):
-        entry = {"semantic_model": self.conn.catalog, "dax": self.CommandText}
+    def execute(self, catalog, dax):
+        entry = {"semantic_model": catalog, "dax": dax}
         SIM_LOG["dax"].append(entry)
         try:
-            columns, rows = FAKE_ENGINE.execute(self.conn.catalog, self.CommandText)
+            columns, rows = FAKE_ENGINE.execute(catalog, dax)
         except FakeDaxError as exc:
             entry["error"] = str(exc)
             entry["type_mismatch"] = list(FAKE_ENGINE.mismatches)
@@ -751,41 +728,7 @@ class FakeAdomdCommand:
         entry["result"] = [list(r) for r in rows[:50]]
         # Comparaciones de tipo imposibles (p. ej. columna entera AÑO vs DATE())
         entry["type_mismatch"] = list(FAKE_ENGINE.mismatches)
-        return FakeAdomdReader(columns, rows)
-
-    def Dispose(self):
-        pass
-
-
-class FakeAdomdConnection:
-    def __init__(self, connection_string):
-        self.connection_string = connection_string
-        m = re.search(r"Initial Catalog=([^;]+);", connection_string)
-        self.catalog = m.group(1) if m else None
-        self.State = _State("Closed")
-        self.down = not CONFIG["powerbi_up"]
-
-    def Open(self):
-        if self.down:
-            raise ConnectionError("[sim] XMLA endpoint no disponible")
-        self.State = _State("Open")
-
-    def Close(self):
-        self.State = _State("Closed")
-
-    def Dispose(self):
-        pass
-
-    def CreateCommand(self):
-        return FakeAdomdCommand(self)
-
-    def GetSchemaDataSet(self, name, restrictions):
-        rows = [{"CATALOG_NAME": k} for k in FAKE_ENGINE.models]
-        return _Obj(Tables=[_Obj(Rows=rows)])
-
-
-class FakeAdomdRestrictionCollection:
-    pass
+        return columns, rows
 
 
 FAKE_ENGINE = None
@@ -827,14 +770,8 @@ def install_stubs(fixtures_root):
 
     _module("ollama", Client=FakeOllamaClient, ResponseError=FakeResponseError)
 
-    _module("clr", AddReference=lambda name: None)
-    ms = _module("Microsoft")
-    asv = _module("Microsoft.AnalysisServices")
-    adomd = _module("Microsoft.AnalysisServices.AdomdClient",
-                    AdomdConnection=FakeAdomdConnection,
-                    AdomdRestrictionCollection=FakeAdomdRestrictionCollection)
-    ms.AnalysisServices = asv
-    asv.AdomdClient = adomd
+    # clr + Microsoft.AnalysisServices.AdomdClient (cliente compartido con tests/realistic)
+    install_adomd_modules(_SimBackend())
 
     # Variables de entorno dummy (solo en este proceso)
     os.environ["POWERBI_XMLA_ENDPOINT"] = "powerbi://api.powerbi.com/v1.0/myorg/SIMULADO"
