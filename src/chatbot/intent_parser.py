@@ -1,6 +1,7 @@
 import re
 import unicodedata
 from dataclasses import dataclass, asdict
+from difflib import SequenceMatcher
 from typing import Optional
 
 
@@ -62,6 +63,49 @@ METRIC_KEYWORDS = {
 }
 
 
+# Palabras de un alias de tablero que no lo distinguen de los demás:
+# «tablero de lavandería» se reconoce por «lavandería».
+DASHBOARD_GENERIC_WORDS = {
+    "tablero", "tableros", "informe", "informes", "reporte", "reportes",
+    "dashboard", "de", "del", "la", "el", "los", "las", "y", "en", "pagina",
+}
+
+# Ordinales con los que se elige una opción de una lista («la primera»).
+ORDINALS = {
+    "primer": 1, "primera": 1, "primero": 1, "1a": 1, "1ra": 1, "1ro": 1, "1era": 1, "1er": 1,
+    "segunda": 2, "segundo": 2, "2a": 2, "2da": 2, "2do": 2,
+    "tercera": 3, "tercero": 3, "tercer": 3, "3a": 3, "3ra": 3, "3ro": 3, "3er": 3,
+    "cuarta": 4, "cuarto": 4, "4a": 4, "4ta": 4, "4to": 4,
+    "quinta": 5, "quinto": 5, "5a": 5, "5ta": 5, "5to": 5,
+    "sexta": 6, "sexto": 6, "6a": 6, "6ta": 6, "6to": 6,
+    "septima": 7, "septimo": 7, "7a": 7, "7ma": 7, "7mo": 7,
+}
+_LAST_WORDS = {"ultima", "ultimo"}
+_ORDINAL_RE = re.compile(
+    r"(?:(?:quiero|dame|elijo|escojo|prefiero|seria|es|me\s+quedo\s+con|con)\s+)?"
+    r"(?:(?:la|el|lo)\s+)?"
+    r"(?P<ord>[a-z0-9]+)"
+    r"(?:\s+(?:opcion|alternativa|indicador|tablero|de\s+(?:la\s+lista|ellas|ellos|arriba)|"
+    r"que\s+(?:aparece|sale)|por\s+favor|porfa|gracias))*"
+)
+
+
+def ordinal_choice_index(text, count):
+    """Índice (base 0) elegido con un ordinal («la primera», «el segundo»,
+    «la última», «primera opción»), o None si el texto no es un ordinal o se
+    sale de la lista. `text` debe venir normalizado (minúsculas, sin tildes)."""
+    match = _ORDINAL_RE.fullmatch(str(text or "").strip())
+    if not match or not count:
+        return None
+    word = match.group("ord")
+    if word in _LAST_WORDS:
+        return count - 1
+    position = ORDINALS.get(word)
+    if position is None or position > count:
+        return None
+    return position - 1
+
+
 # ============================================================
 # MODELO DE RESULTADO
 # ============================================================
@@ -88,6 +132,10 @@ class ParsedIntent:
     candidate_dashboards: Optional[list] = None
 
     original_question: Optional[str] = None
+
+    # Cómo se identificó el tablero (nombre, alias, alias con error de
+    # tipeo o único candidato de la búsqueda): se muestra en el razonamiento.
+    dashboard_reason: Optional[str] = None
 
     def to_dict(self):
         return asdict(self)
@@ -136,13 +184,21 @@ class IntentParser:
 
     def __init__(
         self,
-        retriever
+        retriever,
+        source_router=None,
     ):
 
         self.retriever = retriever
 
         # Los tableros ya los conoce nuestro HybridRetriever
         self.dashboards = retriever.dashboards
+
+        # Registro de fuentes (informe + alias): «tablero de lavandería»
+        # identifica «Tablero Lavanderia» aunque no se escriba su nombre exacto.
+        self.source_router = source_router
+
+        # Motivo con el que detect_dashboard identificó el último tablero.
+        self.last_dashboard_reason = None
 
 
     # --------------------------------------------------------
@@ -297,8 +353,90 @@ class IntentParser:
                 reverse=True
             )
 
+            self.last_dashboard_reason = "nombre del tablero"
             return exact_matches[0]
 
+        alias_match = self._detect_dashboard_by_alias(text)
+        if alias_match:
+            dashboard, reason = alias_match
+            self.last_dashboard_reason = reason
+            return dashboard
+
+        self.last_dashboard_reason = None
+        return None
+
+    # --------------------------------------------------------
+    # TABLERO POR ALIAS (índice RAG + registro de fuentes)
+    # --------------------------------------------------------
+
+    def _dashboard_aliases(self):
+        """{alias normalizado: tablero}: alias del índice RAG y del registro
+        de fuentes (informe y alias) de los tableros conocidos."""
+        dashboards = list(self.dashboards or [])
+        known = {normalize_text(name): name for name in dashboards if name}
+        aliases = {}
+        retriever_aliases = getattr(self.retriever, "dashboard_aliases", None) or {}
+        for alias, dashboard in retriever_aliases.items():
+            if dashboard in dashboards and normalize_text(alias):
+                aliases[normalize_text(alias)] = dashboard
+        for source in getattr(self.source_router, "sources", None) or []:
+            dashboard = known.get(normalize_text(source.get("report")))
+            if not dashboard:
+                continue
+            for alias in [source.get("report"), *(source.get("aliases") or [])]:
+                normalized = normalize_text(alias)
+                if normalized and normalized not in aliases:
+                    aliases[normalized] = dashboard
+        return aliases
+
+    @staticmethod
+    def _distinctive_words(text):
+        return [
+            word for word in text.split()
+            if word not in DASHBOARD_GENERIC_WORDS and len(word) >= 3
+        ]
+
+    def _detect_dashboard_by_alias(self, text):
+        """(tablero, motivo) por alias normalizado; tolera un error de tipeo
+        en palabras largas («lavandria»). Solo responde si las coincidencias
+        señalan un único tablero (o una es claramente más específica)."""
+        aliases = self._dashboard_aliases()
+        if not text or not aliases:
+            return None
+
+        exact = {}
+        for alias, dashboard in aliases.items():
+            if re.search(r"(?<![a-z0-9])" + re.escape(alias) + r"(?![a-z0-9])", text):
+                exact[dashboard] = max(exact.get(dashboard, 0), len(alias))
+        if exact:
+            ranked = sorted(exact.items(), key=lambda item: item[1], reverse=True)
+            if len(ranked) == 1 or ranked[0][1] > ranked[1][1]:
+                return ranked[0][0], "alias del tablero"
+            return None
+
+        # Mismas palabras distintivas que un alias, con a lo sumo un error
+        # de tipeo por palabra (solo palabras de 6 letras o más). Solo cuando
+        # la pregunta nombra un tablero («tablero de lavandria»): «cirugías»
+        # suelto no debe fijar el Tablero Quirúrgico.
+        if not re.search(r"(?<![a-z0-9])(?:tablero|tableros|informe|reporte|dashboard)(?![a-z0-9])", text):
+            return None
+        words = self._distinctive_words(text)
+        fuzzy = set()
+        for alias, dashboard in aliases.items():
+            alias_words = self._distinctive_words(alias)
+            if alias_words and all(
+                any(
+                    word == other or (
+                        len(word) >= 6 and len(other) >= 6
+                        and SequenceMatcher(None, word, other).ratio() >= 0.88
+                    )
+                    for other in words
+                )
+                for word in alias_words
+            ):
+                fuzzy.add(dashboard)
+        if len(fuzzy) == 1:
+            return fuzzy.pop(), "alias del tablero (con error de tipeo)"
         return None
 
 
@@ -360,11 +498,15 @@ class IntentParser:
 
         text = normalize_text(question)
 
+        # Palabra completa: «mayores de edad» no es mayo.
         for month_name, number in (
             MONTHS.items()
         ):
 
-            if month_name in text:
+            if re.search(
+                r"(?<![a-z0-9])" + month_name + r"(?![a-z0-9])",
+                text
+            ):
                 return number
 
         return None
@@ -516,6 +658,10 @@ class IntentParser:
             )
         )
 
+        dashboard_reason = (
+            self.last_dashboard_reason if dashboard else None
+        )
+
         candidates = []
 
         if (
@@ -528,6 +674,18 @@ class IntentParser:
                     question
                 )
             )
+
+            # Un único tablero candidato: no se pregunta «¿A qué tablero?»
+            # con un solo botón.
+            if len(candidates) == 1:
+                dashboard = candidates[0]
+                dashboard_reason = "único tablero candidato en la documentación"
+                candidates = []
+                missing_fields = self.determine_missing_fields(
+                    intent,
+                    dashboard,
+                    metric_type
+                )
 
         if missing_fields:
 
@@ -587,6 +745,8 @@ class IntentParser:
             candidate_dashboards=[],
 
             original_question=question,
+
+            dashboard_reason=dashboard_reason,
         )
 
 if __name__ == "__main__":

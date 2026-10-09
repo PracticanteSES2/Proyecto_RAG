@@ -1,6 +1,7 @@
 import re
 import unicodedata
 
+from src.chatbot.intent_parser import ordinal_choice_index
 from src.chatbot.reasoning_trace import ReasoningTrace, format_score, short
 from src.chatbot.response_formatter import NONE_OF_THE_ABOVE_ID, format_value_es
 
@@ -102,14 +103,25 @@ class QueryEngine:
         self._pending_query_plan = None
         self._pending_dashboard_clarification = None
 
+        # Última consulta numérica exitosa (pregunta + indicador + filtros +
+        # agrupación). Permite seguimientos como «¿y en 2025?». Sobrevive a
+        # reset() (app.py lo llama tras cada respuesta final) y solo se borra
+        # con reset(full=True) («Nueva conversación») o tras una respuesta
+        # final que no sea un dato de Power BI.
+        self._last_success = None
+
     # ========================================================
     # ESTADO
     # ========================================================
 
-    def reset(self):
+    def reset(self, full=False):
+        """Limpia las contrapreguntas pendientes. Con full=True («Nueva
+        conversación») también olvida el contexto de seguimiento."""
         self._pending_master_metric = None
         self._pending_query_plan = None
         self._pending_dashboard_clarification = None
+        if full:
+            self._last_success = None
 
     # ========================================================
     # RAZONAMIENTO (qué revisó y por qué decidió)
@@ -174,10 +186,23 @@ class QueryEngine:
     @staticmethod
     def _filter_line(item):
         if item.get("type") == "date_range":
-            period = "-".join(str(v) for v in (item.get("year"), item.get("month")) if v)
+            period = item.get("label") or "-".join(
+                str(v) for v in (item.get("year"), item.get("month")) if v
+            )
             column = f"{item.get('table')}[{item.get('column')}]" if item.get("column") else ""
-            return f"periodo {period} {column}".strip()
-        line = f"{item.get('table')}[{item.get('column')}] = {item.get('value')}"
+            if item.get("start") and item.get("end"):
+                column += f" >= {item['start']} y < {item['end']}"
+            elif item.get("months"):
+                column += f" meses {item['months']} de todos los años"
+            return f"periodo {period} · {column}".strip(" ·")
+        if item.get("type") == "temporal_set":
+            columns = " y ".join(f"{c.get('table')}[{c.get('column')}]" for c in item.get("columns") or [])
+            pairs = ", ".join(f"{y}-{m:02d}" for y, m in item.get("values") or [])
+            return f"periodo {item.get('label')} · ({columns}) en {pairs}"
+        value = item.get("value") if item.get("value") is not None else item.get("values")
+        line = f"{item.get('table')}[{item.get('column')}] = {value}"
+        if item.get("temporal") and item.get("label"):
+            line += f" (periodo {item.get('label')})"
         if item.get("source"):
             line += f" (origen {item.get('source')}"
             if item.get("match_score") is not None:
@@ -229,14 +254,24 @@ class QueryEngine:
                 f"medida/expresión: {metric.get('dax_expression') or metric.get('measure')}",
                 f"coincidió con «{match.get('matched_name')}» (puntaje {format_score(match.get('score'))})"
                 if match.get("matched_name") else None,
+                f"interpretación: {match.get('interpretation')}" if match.get("interpretation") else None,
                 f"modo: {plan.get('mode')}",
             )
+            period = plan.get("period") or {}
+            buckets = plan.get("temporal_buckets") or []
             self._think(
                 "Filtros y agrupación",
+                f"periodo interpretado: «{period.get('phrase')}» → {period.get('label')}"
+                f" (referencia: hoy {period.get('today')})"
+                if period.get("label") else None,
                 *([f"filtro: {self._filter_line(item)}" for item in plan.get("filters") or []]
                   or ["sin filtros"]),
                 *[f"agrupar por: {item.get('table')}[{item.get('column')}]"
-                  for item in plan.get("group_by") or []],
+                  for item in plan.get("group_by") or [] if not item.get("temporal")],
+                *[f"agrupar por {str(item.get('label')).lower()}: {len(buckets)} periodos "
+                  f"({buckets[0]['label']} … {buckets[-1]['label']})" if buckets else
+                  f"agrupar por {str(item.get('label')).lower()}"
+                  for item in plan.get("group_by") or [] if item.get("temporal")],
                 *[f"no aplicado: {term}" for term in plan.get("unapplied_terms") or []],
                 *[f"nota: {note}" for note in plan.get("notes") or []],
             )
@@ -247,8 +282,14 @@ class QueryEngine:
                 f"motivo: {plan.get('reason')}" if plan.get("reason") else None,
                 f"palabras sin interpretar: «{plan.get('unresolved_text')}»"
                 if plan.get("unresolved_text") else None,
+                f"indicador descartado: {plan['rejected_metric'].get('label')} (coincidió con "
+                f"«{plan['rejected_metric'].get('matched_name')}» solo por las palabras de la "
+                "agrupación o del filtro; ninguna palabra distintiva de la pregunta lo respalda)"
+                if plan.get("rejected_metric") else None,
                 f"valor pedido: {plan.get('requested_value')}" if plan.get("requested_value") else None,
                 f"dimensión pedida: {dimension}" if dimension else None,
+                f"periodo pedido: {plan.get('requested_period')}" if plan.get("requested_period") else None,
+                *[f"no aplicado: {term}" for term in plan.get("unapplied_terms") or []],
                 f"error de dominio: {plan.get('domain_error')}" if plan.get("domain_error") else None,
             )
 
@@ -1405,8 +1446,45 @@ class QueryEngine:
             return True
         return str(value).strip().upper() in ("", "BLANK", "NONE", "NAN", "NULL")
 
+    def _apply_ranking(self, plan, rows):
+        """Orden y límite pedidos («top 5», «el servicio con más peso»).
+        La DAX ya los aplica (TOPN/ORDER BY); aquí se garantiza el mismo
+        resultado aunque el generador no soporte ranking."""
+        ranking = plan.get("ranking") or {}
+        if not ranking or not rows:
+            return rows
+
+        def key(row):
+            value = self._row_value(row)
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return float("-inf")
+
+        ordered = sorted(rows, key=key, reverse=ranking.get("direction") != "asc")
+        limit = ranking.get("limit")
+        return ordered[: int(limit)] if limit else ordered
+
     def _execute_query_plan(self, plan):
-        dax_result = self.query_plan_dax_generator.generate(plan)
+        ranked_generator = (
+            getattr(self.query_plan_dax_generator, "generate_ranked", None)
+            if plan.get("ranking") else None
+        )
+        if plan.get("ranking"):
+            ranking = plan["ranking"]
+            self._think(
+                "Ranking pedido en la pregunta",
+                f"«{ranking.get('phrase')}»: orden "
+                + ("de menor a mayor" if ranking.get("direction") == "asc" else "de mayor a menor")
+                + (f", límite {ranking.get('limit')}" if ranking.get("limit") else ", sin límite"),
+                "se agrupa por: " + ", ".join(
+                    f"{item.get('table')}[{item.get('column')}]" for item in plan.get("group_by") or []
+                ),
+            )
+        dax_result = (
+            ranked_generator(plan) if callable(ranked_generator)
+            else self.query_plan_dax_generator.generate(plan)
+        )
         if dax_result.get("status") != "generated":
             self._trace_dax("Consulta a Power BI", dax_result)
             return {
@@ -1449,6 +1527,8 @@ class QueryEngine:
         value = None
         answer = None
 
+        if mode == "grouped":
+            rows = self._apply_ranking(plan, rows)
         total_rows = len(rows)
         if mode == "grouped":
             answer = self._format_grouped_answer(plan, rows)
@@ -1829,9 +1909,13 @@ class QueryEngine:
     def select_clarification_option(self, option_id, label=None):
         """Resuelve una contrapregunta pendiente con la opción elegida (botón).
         `label` (texto del botón) solo se usa en el razonamiento."""
+        def run():
+            result = self._select_clarification_option(option_id)
+            self._remember_success(result)
+            return result
+
         return self._traced(
-            "option", f"{label} [{option_id}]" if label else option_id,
-            lambda: self._select_clarification_option(option_id),
+            "option", f"{label} [{option_id}]" if label else option_id, run,
         )
 
     def _select_clarification_option(self, option_id):
@@ -1897,6 +1981,22 @@ class QueryEngine:
         if number:
             index = int(number.group(1))
             return choices[index - 1] if 1 <= index <= len(choices) else None
+
+        # Ordinales: «la primera», «el segundo», «primera opción», «la última»
+        # («la última» es la última opción real, no «Ninguna de las anteriores»).
+        position = ordinal_choice_index(norm, len(choices))
+        # Una palabra suelta que forma parte de una etiqueta («primera» con
+        # la opción «Primera vez») se empareja por nombre, no como ordinal.
+        if position is not None and len(norm.split()) == 1 and any(
+            norm in self._normalize_text(c["label"]).split() for c in choices
+        ):
+            position = None
+        if position is not None:
+            self._think(
+                "La respuesta es un ordinal",
+                f"«{message}» -> opción {position + 1}: {choices[position]['label']}",
+            )
+            return choices[position]
 
         exact = [c for c in choices if self._normalize_text(c["label"]) == norm]
         if len(exact) == 1:
@@ -2025,11 +2125,78 @@ class QueryEngine:
                 "query_plan": plan,
                 "powerbi_unavailable": bool(plan.get("domain_error")),
             }
-        return {
+        return self._metric_not_resolved_response(plan)
+
+    @staticmethod
+    def _examples_text(examples):
+        parts = [
+            f"«{item['label']}»" + (f" ({item['report']})" if item.get("report") else "")
+            for item in examples or [] if item.get("label")
+        ]
+        if not parts:
+            return ""
+        return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " o " + parts[-1]
+
+    def _metric_not_resolved_response(self, plan):
+        """Sin indicador ni sugerencias. Distingue:
+        - fuera de alcance (ninguna palabra coincide con el catálogo) -> se dice;
+        - pregunta genérica o con palabras conocidas -> se pide el indicador o
+          el tablero con un ejemplo real del catálogo."""
+        response = {
             "status": "metric_not_resolved", "route": "powerbi",
             "stage": "query_plan_metric", "query_plan": plan,
             "details": plan.get("metric_resolution"),
         }
+        describe = getattr(self.query_plan_builder, "describe_unresolved", None)
+        if not callable(describe) or not plan.get("question"):
+            return response
+        try:
+            info = describe(plan["question"]) or {}
+        except Exception as error:
+            self._think("No se pudo clasificar la pregunta", f"{type(error).__name__}: {error}")
+            return response
+        kind = info.get("kind")
+        words = ", ".join(f"«{word}»" for word in info.get("words") or [])
+        examples = self._examples_text(info.get("examples"))
+        example_text = f" Por ejemplo: {examples}." if examples else ""
+        if kind == "out_of_scope":
+            self._think(
+                "Pregunta fuera de alcance",
+                f"ninguna palabra distintiva ({words}) aparece en los indicadores, "
+                "tableros o dimensiones del catálogo",
+            )
+            return {
+                "status": "not_found", "route": "out_of_scope",
+                "stage": "query_plan_metric", "query_plan": plan,
+                "question": plan.get("question"), "sources": [],
+                "answer": (
+                    "Esa pregunta está fuera del alcance de los tableros disponibles: no "
+                    "corresponde a ninguno de sus indicadores ni a su documentación. "
+                    "Puedo ayudarte con indicadores de los tableros institucionales."
+                    + example_text
+                ),
+            }
+        if kind == "generic":
+            self._think(
+                "Pregunta genérica",
+                "no nombra un indicador concreto y ningún indicador del catálogo coincide",
+            )
+            answer = (
+                "Tu pregunta no menciona un indicador concreto. ¿Qué indicador o "
+                "tablero necesitas? Escribe su nombre." + example_text
+            )
+        else:
+            self._think(
+                "Indicador no identificado",
+                f"palabras conocidas por el catálogo: "
+                f"{', '.join(info.get('known_words') or []) or '-'}; ningún indicador coincide",
+            )
+            answer = (
+                f"No identifiqué un indicador para {words or 'tu pregunta'} en los tableros "
+                "disponibles. Escribe el nombre del indicador o del tablero donde lo ves."
+                + example_text
+            )
+        return {**response, "answer": answer, "unresolved_kind": kind}
 
     # ========================================================
     # PREGUNTAS COMPUESTAS (participación / varias métricas)
@@ -2053,17 +2220,22 @@ class QueryEngine:
         period = None
         scope = "total"
         for item in plan.get("filters", []) or []:
-            if item.get("type") != "date_range":
+            if item.get("type") != "date_range" and not (item.get("temporal") and item.get("label")):
                 continue
             year, month = item.get("year"), item.get("month")
-            if year and month:
+            kind = item.get("period_kind")
+            if year and month and kind in (None, "month"):
                 name = item.get("month_name") or str(month)
                 period, scope = f"{name} de {year}", "total del mes"
-            elif year:
-                period, scope = f"{year}", "total del año"
+            elif year and kind in (None, "year"):
+                period, scope = item.get("label") or f"{year}", "total del año"
+            elif item.get("label"):
+                # Rango, trimestre, «2026 hasta hoy», días...
+                period, scope = item["label"], "total del periodo"
         values = [
             str(item.get("value")) for item in plan.get("filters", []) or []
             if item.get("type") == "categorical" and item.get("value") is not None
+            and not item.get("temporal")  # AÑO/MES ya van en el periodo
         ]
         return period, values, scope
 
@@ -2264,8 +2436,167 @@ class QueryEngine:
     # PROCESS
     # ========================================================
 
+    # ========================================================
+    # SEGUIMIENTO («¿y en 2025?», «y por especialidad»)
+    # ========================================================
+
+    _FOLLOWUP_MAX_WORDS = 10
+
+    @staticmethod
+    def _is_temporal_filter(item):
+        return (
+            item.get("type") == "date_range"
+            or bool(item.get("temporal"))
+            or item.get("source") == "query_plan_temporal"
+        )
+
+    def _has_pending_clarification(self):
+        state = getattr(self.conversation_manager, "state", None)
+        return bool(
+            self._pending_query_plan is not None
+            or self._pending_master_metric is not None
+            or self._pending_dashboard_clarification is not None
+            or getattr(state, "awaiting_clarification", False)
+        )
+
+    def _remember_success(self, result, followup=False):
+        """Guarda la última consulta numérica exitosa (indicador + filtros +
+        agrupación). Una respuesta final que no es un dato de Power BI (RAG,
+        fuera de alcance...) a una pregunta nueva borra el contexto; una
+        contrapregunta, un resultado vacío o un seguimiento fallido lo conservan."""
+        if not isinstance(result, dict):
+            return
+        status = result.get("status")
+        plan = result.get("query_plan") or {}
+        metric = plan.get("metric") or {}
+        if (
+            status == "success" and result.get("route") == "powerbi"
+            and plan.get("status") == "ready" and metric.get("metric_id")
+            and not result.get("measures")
+        ):
+            self._last_success = {
+                "question": plan.get("followup_base_question") or plan.get("question"),
+                "metric_id": metric.get("metric_id"),
+                "metric_label": metric.get("label"),
+                "semantic_model": plan.get("semantic_model"),
+                "filters": [dict(item) for item in plan.get("filters") or []],
+                "group_by": [dict(item) for item in plan.get("group_by") or []],
+                "ranking": dict(plan["ranking"]) if plan.get("ranking") else None,
+            }
+            return
+        if status in ("needs_clarification", "empty_result", "error") or followup:
+            return
+        self._last_success = None
+
+    def _followup_plan(self, message):
+        """Plan de seguimiento o None si el mensaje no es claramente un
+        complemento de la última respuesta numérica.
+
+        Condiciones: hay una consulta exitosa previa y ninguna contrapregunta
+        pendiente; el mensaje empieza con «y», es corto, no nombra otro
+        indicador y aporta un período, un filtro o una agrupación.
+        """
+        last = self._last_success
+        builder = self.query_plan_builder
+        if last is None or builder is None or self.query_plan_dax_generator is None:
+            return None
+        if self._has_pending_clarification():
+            return None
+        words = self._normalize_text(message).split()
+        if len(words) < 2 or words[0] != "y" or len(words) > self._FOLLOWUP_MAX_WORDS:
+            return None
+        complement = " ".join(words[1:])
+        metric_words = getattr(builder, "metric_words", None)
+        named = metric_words(complement) if callable(metric_words) else []
+        if named:
+            self._think(
+                "¿Es un seguimiento de la consulta anterior?",
+                f"no: nombra un indicador ({', '.join(named)}); se trata como pregunta nueva",
+            )
+            return None
+
+        plan = builder.build(complement, selected_metric_id=last["metric_id"])
+        status = plan.get("status")
+        if status == "ready":
+            new_filters = plan.get("filters") or []
+            if not new_filters and not plan.get("group_by"):
+                self._think(
+                    "¿Es un seguimiento de la consulta anterior?",
+                    f"no: «{complement}» no aporta un período, filtro ni agrupación reconocible",
+                )
+                return None
+            def column_key(item):
+                return (self._normalize_text(item.get("table")), self._normalize_text(item.get("column")))
+
+            new_temporal = any(self._is_temporal_filter(item) for item in new_filters)
+            new_columns = {
+                column_key(item) for item in new_filters if not self._is_temporal_filter(item)
+            }
+            # «y por especialidad» tras «... de urología»: agrupar por la
+            # columna reemplaza el filtro sobre ella; «y de ortopedia?» tras
+            # una tabla por especialidad reemplaza esa agrupación.
+            new_groups = {column_key(item) for item in plan.get("group_by") or []}
+            inherited = []
+            replaced = []
+            for item in last["filters"]:
+                temporal = self._is_temporal_filter(item)
+                key = column_key(item)
+                if (temporal and new_temporal) or (
+                    not temporal and (key in new_columns or key in new_groups)
+                ):
+                    replaced.append(item)
+                    continue
+                inherited.append(dict(item))
+            group_by = plan.get("group_by") or [
+                dict(item) for item in last["group_by"] if column_key(item) not in new_columns
+            ]
+            ranking = plan.get("ranking") or (last.get("ranking") if not plan.get("group_by") else None)
+            plan = {
+                **plan,
+                "filters": inherited + list(new_filters),
+                "group_by": group_by,
+                "mode": "grouped" if group_by else "scalar",
+                "ranking": ranking if group_by else None,
+                "question": f"{last['question']} ({message.strip()})",
+                "followup_base_question": last["question"],
+                "followup_of": {"question": last["question"], "metric": last["metric_label"]},
+            }
+            self._think(
+                "Seguimiento de la consulta anterior",
+                f"se interpretó «{message.strip()}» como seguimiento de «{last['question']}» "
+                f"(indicador {last['metric_label']})",
+                *[f"se conserva: {self._filter_line(item)}" for item in inherited],
+                *[f"se reemplaza: {self._filter_line(item)}" for item in replaced],
+                *[f"nuevo: {self._filter_line(item)}" for item in new_filters],
+                *[f"agrupar por: {item.get('table')}[{item.get('column')}]" for item in group_by],
+            )
+            return plan
+        if status == "unsupported_filter":
+            self._think(
+                "Seguimiento de la consulta anterior",
+                f"se interpretó «{message.strip()}» como seguimiento de «{last['question']}» "
+                f"(indicador {last['metric_label']}), pero el complemento no se pudo aplicar",
+            )
+            return {**plan, "followup_of": {"question": last["question"], "metric": last["metric_label"]}}
+        return None
+
+    def _process_turn(self, message):
+        followup = self._followup_plan(message)
+        if followup is not None:
+            self._trace_plan(followup, "Query Plan del seguimiento")
+            if followup.get("status") == "ready":
+                result = self._execute_query_plan(followup)
+            else:
+                result = self._query_plan_failure(followup)
+            result["followup_of"] = followup.get("followup_of")
+            self._remember_success(result, followup=True)
+            return result
+        result = self._process(message)
+        self._remember_success(result)
+        return result
+
     def process(self, message):
-        return self._traced("question", message, lambda: self._process(message))
+        return self._traced("question", message, lambda: self._process_turn(message))
 
     def _process(
         self,
@@ -2375,6 +2706,17 @@ class QueryEngine:
                 )
                 if early_status != "not_found":
                     return early_response
+                is_ranking = getattr(self.query_plan_builder, "is_ranking", None)
+                if (
+                    early_response.get("status") == "needs_clarification"
+                    and callable(is_ranking) and is_ranking(message)
+                ):
+                    self._think(
+                        "Pregunta de ranking",
+                        "pide ordenar o limitar un indicador («top», «con más/menos»): "
+                        "se contrapregunta por el indicador sin pasar por la documentación",
+                    )
+                    return early_response
                 # Métrica no resuelta: la pregunta puede ser documental
                 # aunque use palabras numéricas. Se intenta el RAG y solo si
                 # también falla se devuelve este resultado (que puede ser una
@@ -2404,7 +2746,10 @@ class QueryEngine:
         self._think(
             "Analizador de intención",
             f"estado: {intent_result.get('status')} · intención: {intent_result.get('intent')}",
-            f"tablero: {intent_result.get('dashboard')}" if intent_result.get("dashboard") else None,
+            f"tablero: {intent_result.get('dashboard')}"
+            + (f" (identificado por {intent_result.get('dashboard_reason')})"
+               if intent_result.get("dashboard_reason") else "")
+            if intent_result.get("dashboard") else None,
             f"faltan: {', '.join(intent_result.get('missing_fields') or [])}"
             if intent_result.get("missing_fields") else None,
             f"tableros candidatos: {', '.join(str(c) for c in intent_result.get('candidates') or [])}"

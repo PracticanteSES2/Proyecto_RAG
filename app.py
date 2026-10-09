@@ -102,6 +102,10 @@ def build_system():
             .default_semantic_model,
     )
 
+    # El analizador de intención reconoce los tableros también por los
+    # alias del registro de fuentes («tablero de lavandería»).
+    intent_parser.source_router = source_router
+
     filter_resolver = (
         MultiModelFilterResolver(
             source_router=
@@ -277,7 +281,12 @@ def get_display_answer(result, formatter):
 
         return f"El resultado consultado en Power BI es {value}."
     if status == "metric_not_resolved":
-        return "No encontré un indicador suficientemente específico. Incluye la sección o página del tablero."
+        # El motor redacta el mensaje (pregunta genérica / indicador no
+        # identificado, con ejemplos reales del catálogo).
+        return result.get("answer") or (
+            "No identifiqué el indicador que buscas. Escribe el nombre del "
+            "indicador o del tablero donde lo ves."
+        )
     if status == "unsupported_filter":
         details = result.get("details", {})
         reason = details.get("reason")
@@ -290,6 +299,12 @@ def get_display_answer(result, formatter):
         if reason == "requested_value_not_found":
             return "Identifiqué la métrica, pero no pude verificar el valor del filtro solicitado."
         if reason == "date_dimension_not_found_in_report":
+            period = details.get("requested_period")
+            if period:
+                return (
+                    "Identifiqué la métrica, pero este tablero no tiene una fecha que permita "
+                    f"aplicar el período «{period}». Prueba con un año o un mes."
+                )
             return "Identifiqué la métrica, pero no encontré una fecha validada para aplicar ese período."
         return "Identifiqué la métrica, pero no pude verificar la dimensión solicitada en este tablero."
     if status == "powerbi_error":
@@ -311,6 +326,8 @@ def get_display_answer(result, formatter):
 
 def reset_if_finished(result, engine, conversation_manager):
     # Solo conservamos contexto mientras hay una contrapregunta pendiente.
+    # engine.reset() (sin full=True) conserva a propósito la última consulta
+    # numérica exitosa para seguimientos como «¿y en 2025?».
     if result.get("status") == "needs_clarification":
         return
     conversation_manager.reset()
@@ -523,7 +540,8 @@ with st.sidebar:
         )
 
         if callable(reset_method):
-            reset_method()
+            # full=True: también olvida el contexto de seguimiento.
+            reset_method(full=True)
 
         st.session_state.messages = []
         clear_pending_clarification()

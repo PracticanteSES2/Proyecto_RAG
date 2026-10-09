@@ -9,13 +9,27 @@ una función test_* en test_smoke.py.
 
 CASES = {
     # ---- 12 mensajes del prototipo, agrupados en conversaciones ----
+    # Sin nombrar el tablero: hay varios candidatos y se pregunta cuál.
     "base_descriptivo": {
         "label": "descriptivo + respuesta a aclaración",
-        "turns": ["¿Qué muestra el tablero de atenciones?", "Tablero de Atenciones Institucionales"],
+        "turns": ["¿Qué muestra el tablero?", "Tablero de Atenciones Institucionales"],
     },
     "base_descriptivo_filtros": {
         "label": "descriptivo-filtros + respuesta a aclaración",
-        "turns": ["¿Qué filtros tiene el tablero de cirugías?", "Tablero Quirurgico"],
+        "turns": ["¿Qué filtros tiene el tablero?", "Tablero Quirurgico"],
+    },
+    # Tablero nombrado por un alias (o con un error de tipeo): no se pregunta.
+    "tablero_por_alias": {
+        "label": "descriptivo con alias del tablero",
+        "turns": ["¿Qué muestra el tablero de atenciones?"],
+    },
+    "tablero_alias_typo": {
+        "label": "descriptivo con alias del tablero mal escrito",
+        "turns": ["que filtros tiene el tablero de lavandria"],
+    },
+    "tablero_ordinal": {
+        "label": "contrapregunta de tablero respondida con un ordinal",
+        "turns": ["¿Qué muestra el tablero?", "la segunda"],
     },
     "base_dato_aclaracion": {
         "label": "dato ambiguo entre modelos + respuesta '1'",
@@ -108,5 +122,111 @@ CASES = {
     "req_sugerencias_abandonadas": {
         "label": "opciones sugeridas + pregunta nueva fuera de alcance",
         "turns": ["cuantas cirugias hubo en 2024", "¿Cuál es la capital de Francia?"],
+    },
+    # ---- elección por ordinal ----
+    "ordinal_metrica": {
+        "label": "contrapregunta de indicador respondida con «la primera»",
+        "turns": ["¿Cuántas cirugías realizadas hubo en 2024?", "la primera"],
+    },
+    "ordinal_ultima": {
+        "label": "contrapregunta respondida con «la última»",
+        "turns": ["cuantas cirugias hubo en 2024", "la última"],
+    },
+    # ---- palabras corrientes y sinónimos que no son filtros ----
+    "verbo_registrado": {
+        "label": "«hay registrado» no es un filtro",
+        "turns": ["cuanto peso total hay registrado en lavanderia"],
+    },
+    "verbo_llevamos": {
+        "label": "«llevamos» no es un filtro",
+        "turns": ["cuantas cirugias programadas llevamos en 2024 en el tablero quirurgico"],
+    },
+    "sinonimo_kilos": {
+        "label": "«kilos» = peso",
+        "turns": ["cuantos kilos hubo en lavanderia en enero de 2026"],
+    },
+    "sinonimo_colaborador": {
+        "label": "«por colaborador» = NOMBRE_COMPLETO",
+        "turns": ["peso por colaborador en lavanderia en enero de 2026"],
+    },
+    # ---- «cuántas X» ≈ «total de X» y filtro por servicio ----
+    "conteo_como_total": {
+        "label": "«cuántas atenciones» con sede, servicio y año",
+        "turns": ["cuantas atenciones hubo en la sede sur en 2024 en urgencias"],
+    },
+    "atenciones_urgencias": {
+        "label": "«atenciones de urgencias» es Power BI con SERVICIO = URGENCIAS",
+        "turns": ["atenciones de urgencias en 2024"],
+    },
+    # ---- indicador sin respaldo / fuera de alcance / genérico ----
+    "metrica_sin_respaldo": {
+        "label": "la agrupación no basta para elegir el indicador",
+        "turns": ["citas asignadas por especialidad"],
+    },
+    "agrupacion_no_elige_indicador": {
+        "label": "«total de cirugías por especialidad» es TOTAL CIRUGÍAS, no la visual por especialidad",
+        "turns": ["total de cirugias por especialidad en 2024"],
+    },
+    "fuera_alcance_numerico": {
+        "label": "pregunta numérica fuera de alcance",
+        "turns": ["cuanto gana un medico general en colombia"],
+    },
+    "pregunta_generica": {
+        "label": "pregunta genérica sin indicador",
+        "turns": ["promedio mensual"],
+    },
+    # ---- ranking ----
+    "ranking_servicio": {
+        "label": "el servicio con más peso",
+        "turns": ["cual fue el servicio con mas peso en lavanderia en enero 2026"],
+    },
+    "ranking_menos": {
+        "label": "el servicio con menos peso",
+        "turns": ["que servicio tuvo menos peso en enero 2026 en lavanderia"],
+    },
+    "ranking_top": {
+        "label": "top 5 especialidades con más cirugías + elección del indicador",
+        "turns": ["top 5 especialidades con mas cirugias", "2"],
+    },
+    # ---- seguimiento de la última respuesta numérica ----
+    "seguimiento": {
+        "label": "«y en 2025?», «y por especialidad», «y de ortopedia?»",
+        "turns": ["cirugias programadas de urologia en 2024", "y en 2025?", "y por especialidad",
+                  "y de ortopedia?"],
+    },
+    "seguimiento_tras_otro_tema": {
+        "label": "sin seguimiento después de una respuesta no numérica",
+        "turns": ["cirugias programadas de urologia en 2024", "¿Cuál es la capital de Francia?",
+                  "y en 2025?"],
+    },
+    "seguimiento_pregunta_nueva": {
+        "label": "«y ...» con otro indicador es una pregunta nueva",
+        "turns": ["cirugias programadas de urologia en 2024",
+                  "y cuanto peso hubo en lavanderia en enero de 2026?"],
+    },
+    # ---- periodos: rangos, relativos y agrupación temporal ----
+    "per_lav_rango_meses": {
+        "label": "Lavandería: rango de meses (columna de fecha)",
+        "turns": ["peso de lavanderia entre enero y marzo de 2025"],
+    },
+    "per_lav_este_anio": {
+        "label": "Lavandería: «este año» (relativo a la fecha de referencia)",
+        "turns": ["cuanto peso lleva la lavanderia este año"],
+    },
+    "per_lav_por_mes_2025": {
+        "label": "Lavandería: peso por mes en 2025 (agrupación temporal)",
+        "turns": ["peso lavanderia 2025 por mes"],
+    },
+    "per_qx_por_mes_2024": {
+        "label": "Quirúrgico: por mes con AÑO/MES enteros",
+        "turns": ["cirugias programadas por mes en el tablero quirurgico en 2024"],
+    },
+    "per_qx_rango_cruzado": {
+        "label": "Quirúrgico: rango de meses entre dos años con AÑO/MES enteros",
+        "turns": ["total cirugias del tablero quirurgico de noviembre de 2024 a febrero de 2025"],
+    },
+    "per_qx_hoy": {
+        "label": "Quirúrgico: «hoy» sin columna de fecha diaria",
+        "turns": ["cirugias programadas de hoy en el tablero quirurgico"],
     },
 }

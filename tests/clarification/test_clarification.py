@@ -259,6 +259,36 @@ def test_typed_exact_label():
     assert builder.calls[-1]["selected"] == "a_cx", result
 
 
+def test_typed_ordinals():
+    for text, expected in [("la primera", "q_cx"), ("el segundo", "a_cx"), ("primera opción", "q_cx"),
+                           ("la tercera", "q_prog"), ("la última", "q_prog"), ("Quiero la segunda", "a_cx"),
+                           ("la 2da opcion", "a_cx")]:
+        result, builder = typed(text)
+        assert result["status"] == "success" and builder.calls[-1]["selected"] == expected, (text, result)
+        titles = [step["title"] for step in result["reasoning"]["steps"]] if "reasoning" in result else []
+        assert not titles or "La respuesta es un ordinal" in titles
+    # Fuera de rango: no adivina, vuelve a preguntar.
+    result, builder = typed("la cuarta")
+    assert result["status"] == "needs_clarification" and not builder.calls
+    # Una palabra de una etiqueta no es un ordinal: «primera» con «Primera vez».
+    engine, _ = make_engine()
+    choices = [{"id": "a", "label": "Consulta de control"}, {"id": "b", "label": "Primera vez"}]
+    assert engine._match_query_plan_choice("primera", choices)["id"] == "b"
+    assert engine._match_query_plan_choice("la primera", choices)["id"] == "a"
+
+
+def test_ordinal_choice_index_helper():
+    from src.chatbot.intent_parser import ordinal_choice_index
+    assert ordinal_choice_index("la primera", 3) == 0
+    assert ordinal_choice_index("el tercero", 3) == 2
+    assert ordinal_choice_index("la ultima", 4) == 3
+    assert ordinal_choice_index("segunda opcion por favor", 2) == 1
+    assert ordinal_choice_index("la quinta", 3) is None
+    assert ordinal_choice_index("la primera cirugia", 3) is None
+    assert ordinal_choice_index("primera vez que", 3) is None
+    assert ordinal_choice_index("", 3) is None
+
+
 def test_long_reply_matching_option_is_not_a_new_question():
     result, builder = typed("quiero la de cirugias realizadas del tablero de atenciones institucionales por favor")
     assert result is not None and result["status"] == "success", result
@@ -512,6 +542,128 @@ def test_grouped_truncation_message():
 
 
 # ---------------------------------------------------------------------------
+# Seguimiento («¿y en 2025?») con un planificador falso
+# ---------------------------------------------------------------------------
+
+class FollowupBuilder(FakeBuilder):
+    """Interpreta año, especialidad y «por especialidad» del texto."""
+
+    def metric_words(self, question):
+        return [w for w in question.lower().split() if w in ("peso", "programadas")]
+
+    def build(self, question, intent_result=None, selected_metric_id=None):
+        import re as _re
+        plan = super().build(question, intent_result, selected_metric_id)
+        text = question.lower()
+        filters, group_by = [], []
+        for year in _re.findall(r"20\d\d", text):
+            filters.append({"type": "categorical", "table": "Calendario", "column": "AÑO",
+                            "value": int(year), "temporal": "year", "source": "query_plan_temporal"})
+        for value in ("urologia", "ortopedia"):
+            if value in text:
+                filters.append({"type": "categorical", "table": "QX", "column": "ESPECIALIDAD",
+                                "value": value.upper(), "source": "query_plan_implicit_value"})
+        if "por especialidad" in text:
+            group_by.append({"table": "QX", "column": "ESPECIALIDAD", "label": "especialidad"})
+        return {**plan, "status": "ready", "filters": filters, "group_by": group_by,
+                "mode": "grouped" if group_by else "scalar"}
+
+
+def followup_engine():
+    engine, _ = make_engine()
+    builder = FollowupBuilder()
+    engine.query_plan_builder = builder
+    engine._pending_query_plan = {
+        "type": "query_plan_metric", "question": "cirugias programadas de urologia en 2024",
+        "choices": [{"id": "q_prog", "label": "CIRUGÍAS PROGRAMADAS"}], "excluded": [],
+    }
+    first = engine.select_clarification_option("q_prog")
+    assert first["status"] == "success", first
+    return engine, builder
+
+
+def test_followup_inherits_metric_and_filters_and_survives_reset():
+    engine, builder = followup_engine()
+    engine.reset()  # app.py::reset_if_finished tras cada respuesta final
+    result = engine.process("¿y en 2025?")
+    assert result["status"] == "success", result
+    assert builder.calls[-1] == {"question": "en 2025", "selected": "q_prog"}
+    values = [(f["column"], f["value"]) for f in result["filters"]]
+    assert values == [("ESPECIALIDAD", "UROLOGIA"), ("AÑO", 2025)], values
+    titles = [step["title"] for step in result["reasoning"]["steps"]]
+    assert "Seguimiento de la consulta anterior" in titles
+    text = " ".join(line for step in result["reasoning"]["steps"] for line in step["lines"])
+    assert "como seguimiento de «cirugias programadas de urologia en 2024»" in text
+    assert result["followup_of"]["question"] == "cirugias programadas de urologia en 2024"
+    # Encadenado: «y por especialidad» agrupa y deja de filtrar la especialidad.
+    grouped = engine.process("y por especialidad")
+    assert grouped["result_type"] == "table" and [(f["column"], f["value"]) for f in grouped["filters"]] == [
+        ("AÑO", 2025)], grouped["filters"]
+
+
+def test_followup_is_bounded():
+    engine, builder = followup_engine()
+    calls = len(builder.calls)
+    # No empieza con «y», nombra otro indicador o es largo: no es seguimiento.
+    for text in ("en 2025", "y cuantas programadas hubo en 2025",
+                 "y en 2025 en la sede norte de la ciudad para la especialidad de urologia"):
+        assert engine._followup_plan(text) is None, text
+    # Sin período, filtro ni agrupación reconocibles: no es seguimiento.
+    assert engine._followup_plan("y la luna?") is None
+    assert len(builder.calls) == calls + 1  # solo «y la luna?» llegó a construir un plan
+    # Con una contrapregunta pendiente manda la contrapregunta.
+    clarify(engine)
+    assert engine._followup_plan("y en 2025") is None
+    # «Nueva conversación» olvida el contexto.
+    engine.reset(full=True)
+    assert engine._last_success is None and engine._followup_plan("y en 2025") is None
+
+
+def test_final_non_powerbi_answer_clears_followup_context():
+    engine, _ = followup_engine()
+    engine._remember_success({"status": "not_found", "route": "out_of_scope"})
+    assert engine._last_success is None
+    engine, _ = followup_engine()
+    engine._remember_success({"status": "needs_clarification"})
+    engine._remember_success({"status": "empty_result", "route": "powerbi"})
+    assert engine._last_success is not None
+
+
+# ---------------------------------------------------------------------------
+# Indicador no resuelto: fuera de alcance / genérico / desconocido
+# ---------------------------------------------------------------------------
+
+class DescribingBuilder(FakeBuilder):
+    def __init__(self, kind):
+        super().__init__()
+        self.kind = kind
+
+    def describe_unresolved(self, question):
+        return {"kind": self.kind, "words": ["gana", "colombia"], "known_words": [],
+                "examples": [{"label": "PESO", "report": "Tablero Lavanderia"},
+                             {"label": "TOTAL ATENCIONES", "report": "Tablero de Atenciones"}]}
+
+
+def unresolved(kind):
+    engine, _ = make_engine()
+    engine.query_plan_builder = DescribingBuilder(kind)
+    plan = {"status": "not_found", "question": "cuanto gana un medico",
+            "metric_resolution": {"candidates": [], "suggestions": []}}
+    return engine._query_plan_failure(plan)
+
+
+def test_unresolved_metric_messages_distinguish_out_of_scope_and_generic():
+    out = unresolved("out_of_scope")
+    assert out["status"] == "not_found" and out["route"] == "out_of_scope"
+    assert "fuera del alcance" in out["answer"] and "Incluye la sección" not in out["answer"]
+    assert "«PESO» (Tablero Lavanderia) o «TOTAL ATENCIONES»" in out["answer"]
+    generic = unresolved("generic")
+    assert generic["status"] == "metric_not_resolved" and "no menciona un indicador" in generic["answer"]
+    unknown = unresolved("unknown")
+    assert unknown["status"] == "metric_not_resolved" and "«gana», «colombia»" in unknown["answer"]
+
+
+# ---------------------------------------------------------------------------
 # Tablero (ConversationManager)
 # ---------------------------------------------------------------------------
 
@@ -567,6 +719,66 @@ def test_dashboard_partial_name_and_number_are_accepted():
         assert result["status"] == "ready", (reply, result)
         expected = "Tablero Quirúrgico" if reply in ("tablero quirurgico", "2", "quirurgico") else "Tablero de Lavandería"
         assert result["dashboard"] == expected, (reply, result)
+
+
+def test_dashboard_ordinal_reply():
+    for reply, expected in (("la primera", "Tablero de Lavandería"), ("el segundo", "Tablero Quirúrgico"),
+                            ("la última", "Tablero Quirúrgico")):
+        cm = ConversationManager(FakeIntentParser())
+        cm.handle_message("¿Qué muestra?")
+        result = cm.handle_message(reply)
+        assert result["status"] == "ready" and result["dashboard"] == expected, (reply, result)
+
+
+class FakeRetriever:
+    dashboards = ["Tablero Lavanderia", "Tablero Quirurgico", "Tablero de Atenciones Institucionales"]
+    dashboard_aliases = {"lavanderia": "Tablero Lavanderia", "tablero de cirugias": "Tablero Quirurgico"}
+
+    def __init__(self, found=None):
+        self.found = found or []
+
+    def search(self, question, limit=10):
+        return [{"dashboard": name} for name in self.found]
+
+
+class FakeRegistry:
+    sources = [
+        {"report": "Tablero de Atenciones Institucionales",
+         "aliases": ["atenciones institucionales", "tablero de atenciones"]},
+        {"report": "Informe que no está en el RAG", "aliases": ["otro"]},
+    ]
+
+
+def test_intent_parser_detects_dashboard_by_alias_and_typo():
+    from src.chatbot.intent_parser import IntentParser
+    parser = IntentParser(FakeRetriever(), source_router=FakeRegistry())
+    cases = {
+        "¿Qué muestra el tablero de lavandería?": "Tablero Lavanderia",
+        "que filtros tiene el tablero de atenciones": "Tablero de Atenciones Institucionales",
+        "¿Qué muestra el tablero de lavandria?": "Tablero Lavanderia",       # error de tipeo
+        "describe el tablero de cirugías": "Tablero Quirurgico",
+        "que muestra el Tablero Quirurgico": "Tablero Quirurgico",           # nombre exacto
+    }
+    for question, expected in cases.items():
+        assert parser.detect_dashboard(question) == expected, question
+        assert parser.last_dashboard_reason, question
+    # Una palabra suelta con error de tipeo y sin «tablero» no fija tablero;
+    # tampoco el alias de un informe que no está en el índice RAG.
+    assert parser.detect_dashboard("cuantas cirugias hubo") is None
+    assert parser.detect_dashboard("que hay en el tablero otro") is None
+    parsed = parser.parse("¿Qué muestra el tablero de lavandería?")
+    assert parsed.status == "ready" and parsed.dashboard == "Tablero Lavanderia"
+    assert parsed.dashboard_reason == "alias del tablero"
+
+
+def test_intent_parser_single_candidate_does_not_ask():
+    from src.chatbot.intent_parser import IntentParser
+    parsed = IntentParser(FakeRetriever(found=["Tablero Lavanderia"])).parse("¿Qué muestra el tablero?")
+    assert parsed.status == "ready" and parsed.dashboard == "Tablero Lavanderia", parsed
+    assert "único" in parsed.dashboard_reason
+    several = IntentParser(FakeRetriever(found=["Tablero Lavanderia", "Tablero Quirurgico"]))
+    parsed = several.parse("¿Qué muestra el tablero?")
+    assert parsed.status == "needs_clarification" and len(parsed.candidate_dashboards) == 2
 
 
 def test_dashboard_unknown_reply_asks_again_with_candidates():
@@ -642,7 +854,8 @@ def test_builder_alternatives_exclude_shown_metrics():
 def test_e2e_dashboard_clarification_shows_real_question_and_button_reruns():
     harness, (engine, cm, formatter, *_rest) = system()
     harness.new_conversation(engine, cm)
-    first, ui = harness.ask(engine, cm, formatter, "¿Qué muestra el tablero de atenciones?")
+    # Sin nombrar el tablero («tablero de atenciones» ya es un alias).
+    first, ui = harness.ask(engine, cm, formatter, "¿Qué muestra el tablero?")
     assert first["status"] == "needs_clarification"
     assert ui.startswith("¿A qué tablero"), ui
     assert first["clarification_type"] == "dashboard"

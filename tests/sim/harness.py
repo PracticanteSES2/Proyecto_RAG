@@ -95,7 +95,10 @@ def new_conversation(engine, conversation_manager):
     conversation_manager.reset()
     reset = getattr(engine, "reset", None)
     if callable(reset):
-        reset()
+        try:
+            reset(full=True)  # también olvida el contexto de seguimiento
+        except TypeError:
+            reset()
 
 
 def ask(engine, conversation_manager, formatter, text, quiet=True):

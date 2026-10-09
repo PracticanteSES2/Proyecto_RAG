@@ -20,6 +20,9 @@ class ConversationState:
 
     original_question: Optional[str] = None
 
+    # Cómo se identificó el tablero (para el razonamiento visible).
+    dashboard_reason: Optional[str] = None
+
 
     def update_from_intent(
         self,
@@ -33,6 +36,7 @@ class ConversationState:
 
         if data.get("dashboard"):
             self.dashboard = data["dashboard"]
+            self.dashboard_reason = data.get("dashboard_reason")
 
         if data.get("metric_type"):
             self.metric_type = data["metric_type"]
@@ -97,3 +101,4 @@ class ConversationState:
 
         self.awaiting_clarification = False
         self.original_question = None
+        self.dashboard_reason = None
