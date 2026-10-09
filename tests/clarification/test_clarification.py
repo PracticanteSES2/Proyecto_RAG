@@ -388,27 +388,47 @@ def test_option_describer_prompt_and_parsing():
     from src.chatbot.option_describer import OptionDescriber
 
     class Provider:
-        def __init__(self, answer, status="success"):
-            self.answer, self.status, self.messages = answer, status, None
+        # Una llamada por opción: responde según el indicador del prompt.
+        def __init__(self, answers, status="success"):
+            self.answers, self.status, self.prompts = answers, status, []
 
         def chat(self, messages, **kwargs):
-            self.messages = messages
-            return {"status": self.status, "answer": self.answer, "model": "fake"}
+            prompt = messages[-1]["content"]
+            self.prompts.append(prompt)
+            answer = next((a for key, a in self.answers.items() if key in prompt), None)
+            return {"status": self.status, "answer": answer, "model": "fake"}
 
     options = [{"id": "a", "label": "Total cirugías", "measure": "Total Cirugias",
-                "report": "Tablero Quirúrgico", "page": "Inicio"},
+                "dax_expression": "COUNTROWS(CIRUGIAS)", "report": "Tablero Quirúrgico"},
                {"id": "b", "label": "Cirugías programadas"}]
-    provider = Provider("1. **Número total de cirugías** del tablero quirúrgico.\n"
-                        "2) \"Cirugías agendadas por especialidad\"\nnota extra")
-    outcome = OptionDescriber(provider).describe("¿cuántas cirugías?", options)
+    provider = Provider({
+        "Total cirugías": "1. **Cuenta todas las cirugías** del tablero. Está en Inicio.",
+        "Cirugías programadas": "El indicador Cirugías programadas cuenta las agendadas\nnota",
+    })
+    outcome = OptionDescriber(provider).describe("¿cuántas cirugías en marzo?", options)
     assert outcome["status"] == "success"
     assert outcome["descriptions"] == {
-        "a": "Número total de cirugías del tablero quirúrgico.",
-        "b": "Cirugías agendadas por especialidad",
+        "a": "Cuenta todas las cirugías del tablero.",
+        "b": "Cuenta las agendadas",
     }, outcome
-    prompt = provider.messages[-1]["content"]
-    assert "¿cuántas cirugías?" in prompt and "Informe: Tablero Quirúrgico" in prompt
-    down = OptionDescriber(Provider(None, "ollama_error")).describe("x", options)
+    assert len(provider.prompts) == 2
+    # La pregunta no se envía: sesgaba al modelo a describir todas igual.
+    assert all("marzo" not in prompt for prompt in provider.prompts)
+    assert any("Expresión DAX: COUNTROWS(CIRUGIAS)" in prompt for prompt in provider.prompts)
+    # Misma frase para dos opciones: se distinguen por su DAX.
+    twins = [
+        {"id": "t", "label": "TOTAL CIRUGÍAS", "dax_expression": "COUNTROWS(CIRUGIAS)"},
+        {"id": "r", "label": "CIRUGÍAS REALIZADAS",
+         "dax_expression": "CALCULATE(COUNTROWS(PROGRAMACION), PROGRAMACION[ESTADO] = \"REALIZADA\")"},
+    ]
+    same = OptionDescriber(Provider({"CIRUG": "Muestra el número de cirugías."})).describe("x", twins)
+    assert same["descriptions"] == {
+        "t": "Muestra el número de cirugías (tabla CIRUGIAS).",
+        "r": "Muestra el número de cirugías (tabla PROGRAMACION, ESTADO = REALIZADA).",
+    }, same
+    partial = OptionDescriber(Provider({"Total cirugías": "Cuenta todo."})).describe("x", options)
+    assert partial["status"] == "partial" and list(partial["descriptions"]) == ["a"]
+    down = OptionDescriber(Provider({}, "ollama_error")).describe("x", options)
     assert down["status"] == "ollama_error" and down["descriptions"] == {}
 
 
