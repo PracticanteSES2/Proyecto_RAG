@@ -109,4 +109,29 @@ CASES = {
         "label": "opciones sugeridas + pregunta nueva fuera de alcance",
         "turns": ["cuantas cirugias hubo en 2024", "¿Cuál es la capital de Francia?"],
     },
+    # ---- periodos: rangos, relativos y agrupación temporal ----
+    "per_lav_rango_meses": {
+        "label": "Lavandería: rango de meses (columna de fecha)",
+        "turns": ["peso de lavanderia entre enero y marzo de 2025"],
+    },
+    "per_lav_este_anio": {
+        "label": "Lavandería: «este año» (relativo a la fecha de referencia)",
+        "turns": ["cuanto peso lleva la lavanderia este año"],
+    },
+    "per_lav_por_mes_2025": {
+        "label": "Lavandería: peso por mes en 2025 (agrupación temporal)",
+        "turns": ["peso lavanderia 2025 por mes"],
+    },
+    "per_qx_por_mes_2024": {
+        "label": "Quirúrgico: por mes con AÑO/MES enteros",
+        "turns": ["cirugias programadas por mes en el tablero quirurgico en 2024"],
+    },
+    "per_qx_rango_cruzado": {
+        "label": "Quirúrgico: rango de meses entre dos años con AÑO/MES enteros",
+        "turns": ["total cirugias del tablero quirurgico de noviembre de 2024 a febrero de 2025"],
+    },
+    "per_qx_hoy": {
+        "label": "Quirúrgico: «hoy» sin columna de fecha diaria",
+        "turns": ["cirugias programadas de hoy en el tablero quirurgico"],
+    },
 }

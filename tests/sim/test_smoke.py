@@ -12,7 +12,7 @@ pasar, el runner lo reporta como XPASS para que se quite la marca.
 import json
 import sys
 import traceback
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -298,6 +298,94 @@ def test_lav_control_grouped_by_turno_ok_works():
     rows = dict(result["_sim"]["dax_log"][-1]["result"])
     for etiqueta, turno in (("MAÑANA", 1), ("TARDE", 2), ("NOCHE", 3)):
         assert rows[etiqueta] == lav_sum(None, 2026, 1, turno)
+
+
+# ----------------------------------------------------------------------------
+# Periodos: rangos, relativos («este año») y agrupación temporal («por mes»)
+# ----------------------------------------------------------------------------
+
+def run_on(case_name, today):
+    """Corre un caso con la fecha de referencia del Query Plan fijada (sin caché)."""
+    engine, cm, formatter, *_ = system()
+    builder = engine.query_plan_builder
+    previous = builder.today
+    builder.today = today
+    try:
+        return harness.run_case(CASES[case_name], engine, cm, formatter)
+    finally:
+        builder.today = previous
+
+
+def lav_total(start, end):
+    """Peso de Lavandería con Fecha en [start, end)."""
+    total = 0
+    for r in lav_rows():
+        if start <= datetime.fromisoformat(r["Fecha"]) < end:
+            total += round(r["Peso"] * 10)
+    return total / 10
+
+
+MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+         "septiembre", "octubre", "noviembre", "diciembre"]
+
+
+def test_period_month_range_applies_the_whole_range():
+    result, ui = last("per_lav_rango_meses")
+    assert result["status"] == "success", (result["status"], ui)
+    dax = dax_of(result)
+    assert "DATE(2025, 1, 1)" in dax and "DATE(2025, 4, 1)" in dax, dax
+    assert num_in(ui, lav_total(datetime(2025, 1, 1), datetime(2025, 4, 1))), ui
+    assert "Filtros: enero–marzo 2025" in ui and "entre" not in ui, ui
+
+
+def test_period_this_year_is_relative_to_the_reference_date():
+    ((_, result, ui),) = run_on("per_lav_este_anio", date(2026, 3, 20))
+    assert result["status"] == "success", (result["status"], ui)
+    dax = dax_of(result)
+    assert "DATE(2026, 1, 1)" in dax and "DATE(2026, 3, 21)" in dax, dax
+    assert num_in(ui, lav_total(datetime(2026, 1, 1), datetime(2026, 3, 21))), ui
+    assert "2026 hasta hoy" in ui, ui
+    assert "este año" in format_reasoning(result), "el razonamiento debe citar el periodo pedido"
+
+
+def format_reasoning(result):
+    from src.chatbot.reasoning_trace import format_reasoning_text
+    return format_reasoning_text(result.get("reasoning"))
+
+
+def test_period_grouped_by_month_adds_up_to_the_year():
+    result, ui = last("per_lav_por_mes_2025")
+    assert result["status"] == "success" and result["result_type"] == "table", (result["status"], ui)
+    rows = result["_sim"]["dax_log"][-1]["result"]
+    assert [row[1] for row in rows] == [f"{mes} 2025" for mes in MESES], rows
+    for month, row in enumerate(rows, 1):
+        assert round(row[2], 1) == lav_sum(None, 2025, month), (month, row)
+    assert "| Mes | PESO |" in ui and "diciembre 2025" in ui, ui
+    assert result["_sim"]["type_mismatch"] == []
+
+
+def test_period_grouped_by_month_on_integer_year_month_columns():
+    result, ui = last("per_qx_por_mes_2024")
+    assert result["status"] == "success" and result["result_type"] == "table", (result["status"], ui)
+    dax = dax_of(result)
+    assert "DATE(" not in dax, dax
+    assert "TREATAS({2024}, 'Calendario'[AÑO])" in dax and "TREATAS({12}, 'Calendario'[MES])" in dax
+    assert len(result["_sim"]["dax_log"][-1]["result"]) == 12
+    assert result["_sim"]["type_mismatch"] == []
+
+
+def test_period_range_across_years_on_integer_columns():
+    result, ui = last("per_qx_rango_cruzado")
+    assert result["status"] == "success", (result["status"], ui)
+    assert ("TREATAS({(2024, 11), (2024, 12), (2025, 1), (2025, 2)}, "
+            "'Calendario'[AÑO], 'Calendario'[MES])") in dax_of(result)
+    assert "Filtros: noviembre 2024–febrero 2025" in ui, ui
+
+
+def test_period_by_day_without_date_column_is_declared():
+    result, ui = last("per_qx_hoy")
+    assert result["status"] == "unsupported_filter", (result["status"], ui)
+    assert "hoy" in ui and "período" in ui, ui
 
 
 # ----------------------------------------------------------------------------

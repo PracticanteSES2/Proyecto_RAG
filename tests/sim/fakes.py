@@ -384,7 +384,7 @@ class FakeDaxEngine:
             self._column(model, t.replace("''", "'"), c.replace("]]", "]"))
         stripped = TC_RE.sub("", dax)
         for name in re.findall(r"\[([^\]]+)\]", stripped):
-            if name in ("Value", "__value", "Resultado"):
+            if name in ("Value", "__value", "Resultado") or name.startswith("__"):
                 continue
             self._measure(model, name)
 
@@ -401,6 +401,14 @@ class FakeDaxEngine:
     def _parse_filter(self, model, arg):
         a = arg.strip()
         up = a.upper()
+        if up.startswith("TREATAS(") and "{(" in a.replace(" ", ""):
+            # Pares (AÑO, MES): TREATAS({(2024, 11), (2025, 1)}, 'T'[AÑO], 'T'[MES])
+            braces, rest = a.split("}", 1)
+            tuples = [tuple(v.strip().strip('"') for v in t.split(","))
+                      for t in re.findall(r"\(([^()]*)\)", braces)]
+            cols = [self._column(model, t, c) for t, c in TC_RE.findall(rest)]
+            return {"kind": "tuple", "table": cols[0][0], "column": cols[0][1], "meta": cols[0][2],
+                    "columns": cols, "values": tuples}
         if up.startswith("TREATAS("):
             braces = a.split("}", 1)[0]
             vals = re.findall(r'"((?:[^"]|"")*)"', braces)
@@ -423,7 +431,12 @@ class FakeDaxEngine:
             month_only = re.search(r"MONTH\([^)]*\)\s*=\s*(\d{1,2})", a)
             if month_only:
                 return {"kind": "month", "table": t, "column": c, "meta": meta,
-                        "month": int(month_only.group(1))}
+                        "month": int(month_only.group(1)), "months": [int(month_only.group(1))]}
+            months_in = re.search(r"MONTH\([^)]*\)\s+IN\s+\{([^}]*)\}", a, re.I)
+            if months_in:
+                months = [int(v) for v in re.findall(r"\d{1,2}", months_in.group(1))]
+                return {"kind": "month", "table": t, "column": c, "meta": meta,
+                        "month": months[0], "months": months}
             dates = re.findall(r"DATE\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})\)", a)
             return {"kind": "date_range", "table": t, "column": c, "meta": meta,
                     "dates": [tuple(int(x) for x in d) for d in dates]}
@@ -448,7 +461,18 @@ class FakeDaxEngine:
             if meta.get("type") != "DateTime":
                 self._flag_mismatch(flt)
                 return 0.0
-            return 1.0 / 12.0
+            return len(flt.get("months") or [flt["month"]]) / 12.0
+        if flt["kind"] == "tuple":
+            factor = 0.0
+            for values in flt["values"]:
+                part = 1.0
+                for (t, c, _), v in zip(flt["columns"], values):
+                    if _norm(c) in ("ano", "year") and str(v).isdigit():
+                        part *= 1.0 / len(self.years) if int(v) in self.years else 0.0
+                    else:
+                        part *= _stable_fraction(salt, t, c, v)
+                factor += part
+            return factor
         if flt["kind"] == "date_range":
             if meta.get("type") != "DateTime":
                 self._flag_mismatch(flt)
@@ -479,7 +503,10 @@ class FakeDaxEngine:
             wanted = {str(v).casefold() for v in flt["values"]}
             return val is not None and str(val).casefold() in wanted
         if flt["kind"] == "month":
-            return isinstance(val, datetime) and val.month == flt["month"]
+            return isinstance(val, datetime) and val.month in (flt.get("months") or [flt["month"]])
+        if flt["kind"] == "tuple":
+            row_values = tuple(str(row.get(c)) for _, c, _ in flt["columns"])
+            return any(row_values == tuple(str(v) for v in values) for values in flt["values"])
         if flt["kind"] == "date_range":
             if not isinstance(val, datetime):
                 return False
@@ -598,34 +625,69 @@ class FakeDaxEngine:
             rows.sort(key=lambda r: r[1], reverse=True)
             return [f"{t}[{c}]", f"[{colname}]"], rows
 
+        # UNION(ROW("__orden", 1, "Mes", "enero 2025", "__value", CALCULATE(...)), ...)
+        # ORDER BY [__orden]: agrupación temporal por subperiodos.
+        if re.match(r"EVALUATE\s+UNION\(", dax.strip(), re.I):
+            columns, rows = None, []
+            for part in self._split_args(self._inside(dax, "UNION")):
+                cols, row = self._eval_row(model, self._split_args(self._inside(part, "ROW")), rowlevel)
+                columns = columns or cols
+                rows.append(row)
+            return columns, self._order_rows(dax, columns, rows)
+
         if "ROW(" in up:
             args = self._split_args(self._inside(dax, "ROW"))
-            colname = args[0].strip('"')
-            expr = args[1]
-            if expr.upper().startswith("DIVIDE("):
-                # DIVIDE(CALCULATE(base, filtros), CALCULATE(base, REMOVEFILTERS(col), filtros))
-                num, den = self._split_args(self._inside(expr, "DIVIDE"))[:2]
-                vals = []
-                for part in (num, den):
-                    cargs = self._split_args(self._inside(part, "CALCULATE"))
-                    base = cargs[0]
-                    flts = [self._parse_filter(model, a) for a in cargs[1:]
-                            if not a.upper().startswith("REMOVEFILTERS(")]
-                    srows = self._apply_filters(self._row_source(model, base, flts, []), flts)
-                    vals.append(self._row_aggregate(model, base, srows))
-                value = None if not vals[1] or vals[0] is None else vals[0] / vals[1]
-                return [f"[{colname}]"], [[value]]
-            if expr.upper().startswith("CALCULATE("):
-                cargs = self._split_args(self._inside(expr, "CALCULATE"))
-                base, filters = cargs[0], [self._parse_filter(model, a) for a in cargs[1:]]
-            else:
-                base, filters = expr, []
-            if rowlevel:
-                rows = self._apply_filters(self._row_source(model, base, filters, []), filters)
-                return [f"[{colname}]"], [[self._row_aggregate(model, base, rows)]]
-            return [f"[{colname}]"], [[self._eval_measure_expr(model, base, filters)]]
+            cols, row = self._eval_row(model, args, rowlevel)
+            return cols, self._order_rows(dax, cols, [row])
 
         raise FakeDaxError(f"[sim] patrón DAX no soportado: {dax[:120]}")
+
+    @staticmethod
+    def _order_rows(dax, columns, rows):
+        m = re.search(r"ORDER\s+BY\s+\[([^\]]+)\]\s*(ASC|DESC)?\s*$", dax.strip(), re.I)
+        if not m or f"[{m.group(1)}]" not in columns:
+            return rows
+        index = columns.index(f"[{m.group(1)}]")
+        return sorted(rows, key=lambda r: (r[index] is None, r[index]),
+                      reverse=(m.group(2) or "").upper() == "DESC")
+
+    def _eval_row(self, model, args, rowlevel):
+        """ROW("nombre", expr, ...): literales de texto/número o una expresión de medida."""
+        columns, values = [], []
+        for name, expr in zip(args[0::2], args[1::2]):
+            columns.append(f"[{name.strip().strip(chr(34))}]")
+            text = expr.strip()
+            if text.startswith('"'):
+                values.append(text[1:-1].replace('""', '"'))
+            elif re.fullmatch(r"-?\d+(?:\.\d+)?", text):
+                values.append(float(text) if "." in text else int(text))
+            else:
+                values.append(self._eval_scalar(model, text, rowlevel))
+        return columns, values
+
+    def _eval_scalar(self, model, expr, rowlevel):
+        if expr.upper().startswith("DIVIDE("):
+            # DIVIDE(CALCULATE(base, filtros), CALCULATE(base, REMOVEFILTERS(col), filtros))
+            num, den = self._split_args(self._inside(expr, "DIVIDE"))[:2]
+            vals = []
+            for part in (num, den):
+                cargs = self._split_args(self._inside(part, "CALCULATE"))
+                base = cargs[0]
+                flts = [self._parse_filter(model, a) for a in cargs[1:]
+                        if not a.upper().startswith("REMOVEFILTERS(")]
+                srows = self._apply_filters(self._row_source(model, base, flts, []), flts)
+                vals.append(self._row_aggregate(model, base, srows))
+            return None if not vals[1] or vals[0] is None else vals[0] / vals[1]
+        if expr.upper().startswith("CALCULATE("):
+            cargs = self._split_args(self._inside(expr, "CALCULATE"))
+            base, filters = cargs[0], [self._parse_filter(model, a) for a in cargs[1:]]
+        else:
+            base, filters = expr, []
+        if rowlevel:
+            rows = self._apply_filters(self._row_source(model, base, filters, []), filters)
+            return self._row_aggregate(model, base, rows)
+        return self._eval_measure_expr(model, base, filters)
+
 
 
 class _State:
