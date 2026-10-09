@@ -123,6 +123,44 @@ def test_normalizer_text_measures_and_unrecognized_text_kept():
     )
 
 
+def test_normalizer_title_description_then_expression_layout():
+    # Formato de la documentación de Antibióticos:
+    #   Nombre / descripción / 'Nombre =' / DAX (multilínea)
+    # Antes el título y la descripción de la medida siguiente quedaban pegados
+    # al DAX de la anterior y la descripción se perdía.
+    blocks = [
+        P("MEDIDAS USADAS PARA ESTE TABLERO"),
+        P("Fecha Inicio"),
+        P("Primera fecha registrada de aplicación del antibiótico."),
+        P("Fecha Inicio ="),
+        P("MIN( ANTIBIOTICOS[HORA_APLICACION])"),
+        P("Días Suministrados"),
+        P("Número de aplicaciones registradas en el periodo filtrado."),
+        P("Dias Suministrados ="),
+        P("DISTINCTCOUNT( ANTIBIOTICOS[HORA_APLICACION] )"),
+        P("PAC_ACT"),
+        P("Número de pacientes únicos con tratamiento activo."),
+        P("PAC_ACT ="),
+        P("CALCULATE("),
+        P("DISTINCTCOUNT(ANTIBIOTICOS[DOCUMENTO]),"),
+        P('ANTIBIOTICOS[Suspension] = "ACTIVO"'),
+        P(")"),
+    ]
+    out = norm.normalize_dashboard({"name": "X", "blocks": blocks})
+    measures = out["documented_measures"]
+    assert [m["name"] for m in measures] == [
+        "Fecha Inicio", "Dias Suministrados", "PAC_ACT",
+    ], measures
+    assert measures[0]["expression"] == "MIN( ANTIBIOTICOS[HORA_APLICACION])", measures[0]
+    assert measures[1]["expression"] == "DISTINCTCOUNT( ANTIBIOTICOS[HORA_APLICACION] )"
+    assert measures[2]["expression"].startswith("CALCULATE(")
+    assert measures[2]["expression"].rstrip().endswith(")")
+    assert "Número de pacientes" not in measures[1]["expression"]
+    assert measures[0]["description"].startswith("Primera fecha"), measures[0]
+    assert measures[2]["description"].startswith("Número de pacientes"), measures[2]
+    assert not out["other_sections"], out["other_sections"]
+
+
 def test_normalizer_sql_stops_at_next_heading_and_column_tables():
     blocks = [
         P("CONSULTA UTILIZADA PARA CREAR ESTE TABLERO"),
