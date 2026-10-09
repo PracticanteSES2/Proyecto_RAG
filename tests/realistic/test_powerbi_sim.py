@@ -353,9 +353,16 @@ def test_info_view_and_sync_roundtrip_with_real_provider():
         copy = PowerBISimulator([Path(tmp) / "data" / "model_metadata"], today=TODAY)
         assert copy.list_models() == [CONSULTA]   # nombre desde _metadata_sync.json
         assert value(CONSULTA, "[Total Consultas]", copy) == value(CONSULTA, "[Total Consultas]")
-    # Tipos .NET como los entrega pythonnet (cultura es-CO)
+    # Tipos .NET como los entrega pythonnet (cultura es-CO): el proveedor los
+    # convierte sin depender de la cultura de Windows.
     rows = provider.execute_dax("EVALUATE TOPN(1, 'Calendario', 'Calendario'[Date], ASC)", CONSULTA)["rows"]
-    assert rows[0]["Calendario[Date]"] == "1/01/2023 12:00:00 a. m."
+    assert rows[0]["Calendario[Date]"] == "2023-01-01", rows[0]
+    from decimal import Decimal
+    from src.providers.powerbi_provider import _net_to_python
+    for culture in ("es-CO", "en-US"):
+        assert _net_to_python(adomd.to_net(Decimal("3906.4"), culture)) == 3906.4
+        assert _net_to_python(adomd.to_net(Decimal("0.125"), culture)) == 0.125
+        assert _net_to_python(adomd.to_net(dt.datetime(2025, 3, 7, 14, 5), culture)) == "2025-03-07 14:05:00"
     error = provider.execute_dax("EVALUATE ROW(\"v\", [Nada])", CONSULTA)
     assert error["status"] == "error" and error["error_type"] == "AdomdErrorResponseException"
     backend.config["powerbi_up"] = False
