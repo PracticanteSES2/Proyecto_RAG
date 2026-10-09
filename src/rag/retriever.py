@@ -1,6 +1,4 @@
 import os
-import re
-import unicodedata
 from pathlib import Path
 
 from sentence_transformers import SentenceTransformer
@@ -9,6 +7,16 @@ from qdrant_client.models import (
     FieldCondition,
     Filter,
     MatchValue,
+)
+
+from src.rag.ranking import (
+    LexicalIndex,
+    ScopeIndex,
+    detect_question_intent,
+    normalize_text,
+    select_diverse,
+    tokenize,
+    type_prior,
 )
 
 
@@ -31,16 +39,8 @@ LEGACY_COLLECTION_NAME = (
 # NORMALIZACIÓN
 # ============================================================
 
-def normalize_text(text):
-    text = str(text or "").lower().strip()
-    text = "".join(
-        character
-        for character in unicodedata.normalize("NFD", text)
-        if unicodedata.category(character) != "Mn"
-    )
-    text = re.sub(r"[^a-z0-9\s]", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+# normalize_text vive en ranking.py (lógica pura); se reexporta aquí por
+# compatibilidad con quienes la importan desde src.rag.retriever.
 
 
 def _as_list(value):
