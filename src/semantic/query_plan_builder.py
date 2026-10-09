@@ -39,6 +39,18 @@ STOPWORDS = {
     "mostrar", "valor", "cantidad", "informe", "tablero", "modelo",
     "semantico", "dashboard", "reporte", "pagina", "hacer", "ver",
 }
+# Forma de pedir el dato («necesito saber», «me podrías indicar»): no es
+# filtro ni métrica. _is_request_word tolera además un error de tipeo.
+REQUEST_WORDS = {
+    "necesito", "necesitamos", "necesitaria", "necesitaba", "requiero",
+    "quisiera", "queria", "quisieramos", "gustaria", "conocer", "consultar",
+    "obtener", "informacion", "info", "porfa", "porfavor", "puedes", "puede",
+    "podrias", "podria", "pueden", "ayudame", "indicame",
+    "indiqueme", "dimelo", "muestrame", "mostrarme", "regalame", "dar",
+    "darme", "decir", "decirme", "hola", "gracias", "nos", "dato", "datos",
+    "cifra", "cifras",
+}
+STOPWORDS |= REQUEST_WORDS
 
 GENERIC_PAGE_WORDS = {"general", "inicio", "resumen", "principal", "home", "detalle", "portada", "indicadores"}
 
@@ -161,6 +173,31 @@ def _token_similarity(left, right):
         return 0.90
     ratio = SequenceMatcher(None, left, right).ratio()
     return ratio if ratio >= 0.88 else min(ratio, 0.80)
+
+
+# Solo verbos de petición que nunca nombran un valor: «consulta» o «ayudas»
+# sí pueden ser valores reales (consulta externa, ayudas diagnósticas).
+_TYPO_REQUEST_TOKENS = {
+    canonical_token(word) for word in (
+        "necesito", "necesitamos", "necesitaria", "quisiera", "gustaria",
+        "informacion", "podrias", "indicame", "muestrame",
+    )
+}
+_REQUEST_TOKENS = {canonical_token(word) for word in REQUEST_WORDS}
+
+
+def _is_request_word(token):
+    """Palabra de petición (token canónico), también con un error de tipeo («necsito»)."""
+    if token in _REQUEST_TOKENS:
+        return True
+    if len(token) < 6:
+        return False
+    return any(
+        SequenceMatcher(None, token, word).ratio() >= 0.88
+        # Letras intercambiadas («nesecito»): mismas letras y mismo inicio.
+        or (token[:2] == word[:2] and sorted(token) == sorted(word))
+        for word in _TYPO_REQUEST_TOKENS
+    )
 
 
 def _exact_phrase(question, candidate):
@@ -398,7 +435,7 @@ class QueryPlanBuilder:
         ignored.update(canonical_token(word) for word in MONTHS)
         penalty = 0.0
         for token in set(canonical_tokens(business_question)):
-            if token in ignored or token.isdigit() or len(token) < 3:
+            if token in ignored or token.isdigit() or len(token) < 3 or _is_request_word(token):
                 continue
             if any(_token_similarity(token, other) >= 0.82 for other in explained_tokens):
                 continue
@@ -437,7 +474,83 @@ class QueryPlanBuilder:
             normalize_text(metric.get("dax_expression")),
         )
 
-    def _resolve_metric(self, question, source_context, selected_metric_id=None):
+    _SUGGESTION_LIMIT = 6
+
+    def _metric_suggestions(self, business_question, model_hint="", strong=False):
+        """Métricas que comparten alguna palabra distintiva con la pregunta.
+
+        No alcanzan para responder, pero sí para contrapreguntar: «¿cuántas
+        cirugías hay?» -> Total cirugías / Cirugías realizadas / ...
+        """
+        weights = self._token_weight_index()
+        ignored = {
+            canonical_token(word)
+            for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS | set(MONTHS)
+        }
+        question_tokens = {
+            token for token in canonical_tokens(business_question)
+            if len(token) >= 4 and not token.isdigit()
+            and token not in ignored and not _is_request_word(token)
+        }
+        if not question_tokens:
+            return []
+
+        suggestions = []
+        for metric in self._dedupe_metrics(self.metrics):
+            if metric.get("validation_status") != "approved":
+                continue
+            best_score, best_name, best_extra = 0.0, None, 0
+            for name in self._metric_names(metric):
+                name_tokens = canonical_tokens(name)
+                score = sum(
+                    weights.get(token, 1.0) for token in question_tokens
+                    if any(_token_similarity(token, other) >= 0.88 for other in name_tokens)
+                )
+                # Palabras del nombre que la pregunta no menciona: a igual
+                # puntaje va primero el nombre más cercano («Total cirugías»
+                # antes que «Cirugías programadas» para «¿cuántas cirugías?»).
+                extra = sum(
+                    1 for other in set(name_tokens)
+                    if other not in ignored and not any(
+                        _token_similarity(other, token) >= 0.88 for token in question_tokens
+                    )
+                )
+                if score > best_score or (score == best_score and score > 0 and extra < best_extra):
+                    best_score, best_name, best_extra = score, name, extra
+            if best_score <= 0:
+                continue
+            if model_hint and normalize_text(metric.get("semantic_model")) == model_hint:
+                best_score += 0.20 if strong else 0.01
+            # Las que el usuario ve en un tablero van primero.
+            if not (metric.get("appearances") or []):
+                best_score -= 0.25
+            suggestions.append({
+                "metric": metric, "score": round(best_score, 4),
+                "business_score": round(best_score, 4), "matched_name": best_name,
+                "_extra": best_extra,
+            })
+
+        suggestions.sort(key=lambda item: (
+            -item["score"], item["_extra"], normalize_text(item["metric"].get("label")),
+            str(item["metric"].get("metric_id")),
+        ))
+        result, seen = [], set()
+        for item in suggestions:
+            key = self._logical_key(item["metric"])
+            if key in seen:
+                continue
+            seen.add(key)
+            if item["score"] > 0:
+                result.append(item)
+        if not result:
+            return []
+        # Solo las cercanas a la mejor: una palabra suelta compartida con una
+        # métrica lejana no debe llenar la lista.
+        best = result[0]["score"]
+        return [item for item in result if item["score"] >= best * 0.6][: self._SUGGESTION_LIMIT]
+
+    def _resolve_metric(self, question, source_context, selected_metric_id=None,
+                        with_suggestions=False):
         # Una selección realizada durante una aclaración manda por ID,
         # no por el texto de la respuesta del usuario.
         if selected_metric_id is not None:
@@ -464,6 +577,14 @@ class QueryPlanBuilder:
         model_hint = normalize_text(source_context.get("semantic_model")) if (strong or weak) else ""
         report_hint = normalize_text(source_context.get("report")) if strong else ""
         candidates = []
+
+        def not_found(weak_candidates):
+            result = {"status": "not_found", "candidates": weak_candidates}
+            if with_suggestions:
+                result["suggestions"] = self._metric_suggestions(
+                    business_question, model_hint=model_hint, strong=strong,
+                )
+            return result
 
         for metric in self._dedupe_metrics(self.metrics):
             if metric.get("validation_status") != "approved":
@@ -560,7 +681,7 @@ class QueryPlanBuilder:
             })
 
         if not candidates:
-            return {"status": "not_found", "candidates": []}
+            return not_found([])
 
         # Informe nombrado explícitamente y la métrica existe allí: solo
         # compiten las métricas de ese informe. Si no existe allí, el
@@ -594,7 +715,7 @@ class QueryPlanBuilder:
 
         best = groups[0]
         if best["business_score"] < self.min_metric_score:
-            return {"status": "not_found", "candidates": groups[:8]}
+            return not_found(groups[:8])
         tied = [
             item for item in groups
             if best["score"] - item["score"] < self.ambiguity_margin
@@ -1025,7 +1146,10 @@ class QueryPlanBuilder:
         result = []
         for word in normalize_text(question).split():
             token = canonical_token(word)
-            if token in removals or re.fullmatch(r"20\d{2}", token) or token.isdigit():
+            if (
+                token in removals or re.fullmatch(r"20\d{2}", token)
+                or token.isdigit() or _is_request_word(token)
+            ):
                 continue
             result.append(word)
         return " ".join(result).strip()
@@ -1607,7 +1731,8 @@ class QueryPlanBuilder:
         dashboard = intent_result.get("dashboard")
         source_context = self._source_context(question, dashboard=dashboard)
         metric_result = self._resolve_metric(
-            question, source_context, selected_metric_id=selected_metric_id
+            question, source_context, selected_metric_id=selected_metric_id,
+            with_suggestions=True,
         )
 
         if metric_result.get("status") != "resolved":

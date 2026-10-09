@@ -1342,7 +1342,35 @@ class QueryEngine:
             str(metric.get("semantic_model") or "").strip(),
         )
 
-    def _build_clarification_choices(self, raw_candidates):
+    @staticmethod
+    def _short_text(text, limit=110):
+        """Primera frase, cortada a `limit` caracteres."""
+        text = re.sub(r"\s+", " ", str(text or "")).strip()
+        if not text:
+            return ""
+        text = re.split(r"(?<=[.;])\s", text, maxsplit=1)[0].rstrip(".;").strip()
+        if len(text) > limit:
+            text = text[:limit].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+        return text
+
+    def _choice_summary(self, label, description, report, page):
+        """Descripción corta de una opción sin repetir lo que ya dice su etiqueta."""
+        label_tokens = set(self._normalize_text(label).split())
+
+        def adds(text):
+            tokens = set(self._normalize_text(text).split())
+            return bool(tokens) and not tokens <= label_tokens
+
+        location = []
+        if report and adds(report):
+            location.append(report)
+            label_tokens |= set(self._normalize_text(report).split())
+        if page and adds(page):
+            location.append(f"página {page}" if location else f"Página {page}")
+        parts = [self._short_text(description), " › ".join(location)]
+        return " · ".join(part for part in parts if part)
+
+    def _build_clarification_choices(self, raw_candidates, margin=_CLARIFICATION_MARGIN):
         scored = []
         seen_ids = set()
         for item in raw_candidates:
@@ -1358,7 +1386,7 @@ class QueryEngine:
         best = max(score for score, _ in scored)
         scored = [
             pair for pair in scored
-            if best - pair[0] <= self._CLARIFICATION_MARGIN
+            if margin is None or best - pair[0] <= margin
         ][: self._CLARIFICATION_MAX_OPTIONS]
 
         choices = []
@@ -1382,6 +1410,7 @@ class QueryEngine:
                 "detail": detail,
                 "description": str(metric.get("description") or "").strip(),
                 "_parts": [report, page, model, str(metric.get("measure") or "").strip()],
+                "_where": (report, page),
             })
 
         # Etiquetas distinguibles: se agregan reporte/página/modelo
@@ -1407,26 +1436,35 @@ class QueryEngine:
                     choice["label"] = f"{choice['label']} ({number})"
         for choice in choices:
             choice.pop("_parts", None)
+            report, page = choice.pop("_where")
+            choice["summary"] = self._choice_summary(
+                choice["label"], choice["description"], report, page,
+            )
         return choices
 
     def _clarification_response(self, choices, question=None):
+        # `prompt` es solo la pregunta: la interfaz muestra las opciones como
+        # botones con su descripción corta. `question` conserva además la
+        # lista numerada para quien responde escribiendo.
+        prompt = question or "Encontré varios indicadores. ¿Cuál necesitas?"
         lines = []
         for index, choice in enumerate(choices, 1):
             line = f"{index}. {choice['label']}"
-            if choice.get("detail") and choice["detail"] not in choice["label"]:
-                line += f" ({choice['detail']})"
+            if choice.get("summary"):
+                line += f" ({choice['summary']})"
             lines.append(line)
         return {
             "status": "needs_clarification", "route": "clarification",
             "clarification_type": "query_plan_metric",
-            "question": (question or "Encontré varios indicadores. ¿Cuál necesitas?")
-            + "\n\n" + "\n".join(lines),
+            "prompt": prompt,
+            "question": prompt + "\n\n" + "\n".join(lines),
             "clarification_options": [dict(choice) for choice in choices],
         }
 
-    def _query_plan_clarification(self, plan):
-        raw_candidates = plan.get("metric_resolution", {}).get("candidates", [])
-        choices = self._build_clarification_choices(raw_candidates)
+    def _query_plan_clarification(self, plan, raw_candidates=None, prompt=None, margin=_CLARIFICATION_MARGIN):
+        if raw_candidates is None:
+            raw_candidates = plan.get("metric_resolution", {}).get("candidates", [])
+        choices = self._build_clarification_choices(raw_candidates, margin=margin)
         if not choices:
             return {
                 "status": "metric_not_resolved", "route": "powerbi",
@@ -1438,7 +1476,41 @@ class QueryEngine:
             "intent": plan.get("intent"),
             "choices": choices,
         }
-        response = self._clarification_response(choices)
+        response = self._clarification_response(choices, prompt)
+        response["query_plan"] = plan
+        return response
+
+    def _unresolved_words_clarification(self, plan):
+        """Palabras que no se pudieron interpretar como filtro: se pregunta si
+        se calcula la métrica sin ellas en lugar de responder que no se pudo."""
+        metric = (plan.get("metric_resolution") or {}).get("metric") or {}
+        words = str(plan.get("unresolved_text") or "").strip()
+        if not metric.get("metric_id") or not words:
+            return None
+        label = str(metric.get("label") or "").strip()
+        report, page, _ = self._clarification_context(metric)
+        choices = [{
+            "id": metric.get("metric_id"),
+            "label": f"Consultar {label.capitalize()} sin «{words}»",
+            "detail": " › ".join(part for part in (report, page) if part),
+            "description": str(metric.get("description") or "").strip(),
+            "summary": self._choice_summary(
+                label, metric.get("description"), report, page,
+            ),
+        }]
+        self._pending_query_plan = {
+            "type": "query_plan_metric",
+            "question": plan.get("question"),
+            "intent": plan.get("intent"),
+            "choices": choices,
+        }
+        response = self._clarification_response(
+            choices,
+            f"Identifiqué el indicador {label.capitalize()}, pero no entendí «{words}» "
+            "como un filtro de ese tablero. ¿Lo consulto sin ese filtro? "
+            "También puedes reescribir la pregunta indicando el servicio, la "
+            "especialidad u otro filtro.",
+        )
         response["query_plan"] = plan
         return response
 
@@ -1493,6 +1565,14 @@ class QueryEngine:
         norm = self._normalize_text(message)
         if not norm:
             return None
+
+        # Una sola opción («¿Lo consulto sin ese filtro?»): basta con un «sí».
+        if len(choices) == 1 and re.fullmatch(
+            r"(?:si|ok|okay|dale|claro|de acuerdo|correcto|hazlo|adelante|consultalo)"
+            r"(?:\s+(?:por favor|porfa|gracias))?",
+            norm,
+        ):
+            return choices[0]
 
         number = re.fullmatch(
             r"(?:(?:la|el|opcion|numero|num|no|n)\s+)*(\d{1,2})(?:\s+(?:opcion|por favor))?",
@@ -1566,6 +1646,22 @@ class QueryEngine:
     def _query_plan_failure(self, plan):
         if plan.get("status") == "ambiguous":
             return self._query_plan_clarification(plan)
+        if plan.get("status") == "not_found":
+            # Ningún indicador coincide lo suficiente, pero algunos comparten
+            # palabras con la pregunta: se ofrecen en lugar de «no encontré».
+            suggestions = (plan.get("metric_resolution") or {}).get("suggestions") or []
+            if suggestions:
+                return self._query_plan_clarification(
+                    plan, raw_candidates=suggestions, margin=None,
+                    prompt="No identifiqué con certeza el indicador. ¿Es alguno de estos?",
+                )
+        if (
+            plan.get("status") == "unsupported_filter"
+            and plan.get("reason") == "possible_dimension_value_not_resolved"
+        ):
+            clarification = self._unresolved_words_clarification(plan)
+            if clarification is not None:
+                return clarification
         if plan.get("status") == "unsupported_filter":
             return {
                 "status": "unsupported_filter", "route": "powerbi",
@@ -1872,6 +1968,7 @@ class QueryEngine:
         # cuantitativa debe pasar primero por esta capa.
 
         unresolved_plan_response = None
+        unresolved_plan_pending = None
         query_plan_attempted = False
 
         if self.query_plan_builder and self.query_plan_dax_generator:
@@ -1901,8 +1998,12 @@ class QueryEngine:
                     return early_response
                 # Métrica no resuelta: la pregunta puede ser documental
                 # aunque use palabras numéricas. Se intenta el RAG y solo si
-                # también falla se devuelve este resultado.
+                # también falla se devuelve este resultado (que puede ser una
+                # contrapregunta con indicadores sugeridos: queda pendiente
+                # solo si finalmente se devuelve).
                 unresolved_plan_response = early_response
+                unresolved_plan_pending = self._pending_query_plan
+                self._pending_query_plan = None
                 query_plan_attempted = True
 
         # ----------------------------------------------------
@@ -1956,6 +2057,11 @@ class QueryEngine:
                 clarification["clarification_options"] = [
                     dict(option) for option in options
                 ]
+                # Los tableros ya se muestran como botones: sin «Por ejemplo: ...».
+                clarification["prompt"] = (
+                    re.split(r"\s*Por ejemplo:", clarification["question"] or "")[0].strip()
+                    or "¿A qué tablero te refieres?"
+                )
             return clarification
 
         if (
@@ -2041,9 +2147,13 @@ class QueryEngine:
                     fallback_response, fallback_status = self._run_query_plan(
                         original_question, intent_result, "query_plan_fallback"
                     )
-                    if fallback_status in ("ready", "composite", "ambiguous"):
+                    if (
+                        fallback_status in ("ready", "composite", "ambiguous")
+                        or fallback_response.get("status") == "needs_clarification"
+                    ):
                         return fallback_response
                 if unresolved_plan_response is not None:
+                    self._pending_query_plan = unresolved_plan_pending
                     return unresolved_plan_response
                 return {
                     "status":

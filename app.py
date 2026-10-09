@@ -20,6 +20,7 @@ from src.chatbot.answer_synthesizer import AnswerSynthesizer
 from src.chatbot.response_formatter import (
     ResponseFormatter,
     clarification_buttons,
+    clarification_prompt,
     format_filters_line,
     format_query_plan_answer,
     format_unapplied_line,
@@ -232,7 +233,7 @@ def get_display_answer(result, formatter):
     status = result.get("status")
     route = result.get("route")
     if status == "needs_clarification":
-        return result.get("question") or "Necesito una aclaración para continuar."
+        return clarification_prompt(result)
     if status == "not_found":
         return result.get("answer") or "No encontré información relacionada con esa pregunta."
     if route == "rag":
@@ -327,16 +328,23 @@ def queue_option(option_id, label):
 
 
 def render_clarification_buttons(pending):
-    # Un botón por opción, debajo del mensaje del asistente.
+    # Un botón por opción, con su descripción corta debajo.
     for index, button in enumerate(pending["buttons"]):
         st.button(
             button["label"],
             key=f"clarification_{pending['id']}_{index}",
             on_click=queue_option,
             args=(button["id"], button["label"]),
-            help=button.get("help"),
             use_container_width=True,
         )
+        if button.get("caption"):
+            st.caption(button["caption"])
+
+
+def render_past_options(buttons):
+    # Contrapregunta ya respondida o abandonada: las opciones quedan como
+    # referencia, sin botones.
+    st.caption("Opciones: " + " · ".join(button["label"] for button in buttons))
 
 
 def execute_turn(user_text, runner):
@@ -361,10 +369,12 @@ def execute_turn(user_text, runner):
         st.markdown(answer)
 
         buttons = clarification_buttons(result)
+        clarification_id = None
         if buttons:
             st.session_state.clarification_counter += 1
+            clarification_id = st.session_state.clarification_counter
             st.session_state.pending_clarification = {
-                "id": st.session_state.clarification_counter,
+                "id": clarification_id,
                 "buttons": buttons,
             }
             render_clarification_buttons(st.session_state.pending_clarification)
@@ -444,7 +454,10 @@ def execute_turn(user_text, runner):
                     language="text",
                 )
 
-    st.session_state.messages.append({"role": "assistant", "content": answer})
+    st.session_state.messages.append({
+        "role": "assistant", "content": answer,
+        "buttons": buttons, "clarification_id": clarification_id,
+    })
     reset_if_finished(result, engine, conversation_manager)
 
 
@@ -497,12 +510,22 @@ if "queued_option" not in st.session_state:
 if "clarification_counter" not in st.session_state:
     st.session_state.clarification_counter = 0
 
+# st.chat_input queda fijo abajo aunque se llame antes del historial; se lee
+# primero para saber si la contrapregunta vigente sigue activa en este pase.
+prompt = st.chat_input("Escribe tu pregunta...")
+queued = st.session_state.queued_option
+pending = st.session_state.pending_clarification
+active_id = pending["id"] if pending and not prompt and not queued else None
+
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-
-prompt = st.chat_input("Escribe tu pregunta...")
-queued = st.session_state.queued_option
+        if message.get("buttons"):
+            if message.get("clarification_id") == active_id:
+                # Rerun por otro widget: botones de la contrapregunta vigente.
+                render_clarification_buttons(pending)
+            else:
+                render_past_options(message["buttons"])
 
 if prompt:
     execute_turn(prompt, lambda: engine.process(prompt))
@@ -511,8 +534,3 @@ elif queued:
         queued["label"],
         lambda: engine.select_clarification_option(queued["id"]),
     )
-elif st.session_state.pending_clarification:
-    # Rerun por otro widget: se vuelven a mostrar los botones de la
-    # contrapregunta vigente (solo la última).
-    with st.chat_message("assistant"):
-        render_clarification_buttons(st.session_state.pending_clarification)

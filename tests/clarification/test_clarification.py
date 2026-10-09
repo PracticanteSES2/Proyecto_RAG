@@ -20,6 +20,7 @@ from src.chatbot.query_engine import QueryEngine  # noqa: E402
 from src.chatbot.response_formatter import (  # noqa: E402
     EMPTY_RESULT_MESSAGE,
     clarification_buttons,
+    clarification_prompt,
     format_filters_line,
     format_number_es,
     format_percent_es,
@@ -140,10 +141,53 @@ def test_button_model_from_result():
     engine, _ = make_engine()
     buttons = clarification_buttons(clarify(engine))
     assert [b["id"] for b in buttons] == ["q_cx", "a_cx", "q_prog"]
-    assert buttons[0]["help"] and "Tablero Quirurgico" in buttons[0]["help"]
+    # Descripción corta visible bajo el botón, sin repetir lo que dice la etiqueta.
+    assert buttons[0]["caption"] == "Cirugías hechas en quirófano", buttons[0]
+    assert "Tablero Quirurgico" in buttons[0]["label"]
+    prog = next(b for b in buttons if b["id"] == "q_prog")
+    assert prog["caption"] == "Tablero Quirurgico › página Programacion", prog
     assert clarification_buttons({"status": "success"}) == []
     assert clarification_buttons({"status": "needs_clarification",
                                   "clarification_options": ["a", "b"]}) == []
+
+
+def test_prompt_shows_only_the_question_when_there_are_buttons():
+    engine, _ = make_engine()
+    result = clarify(engine)
+    prompt = clarification_prompt(result)
+    assert prompt == "Encontré varios indicadores. ¿Cuál necesitas?", prompt
+    # La lista numerada sigue disponible para quien responde escribiendo.
+    assert "1. " in result["question"]
+    plain = {"status": "needs_clarification", "question": "¿Qué año?"}
+    assert clarification_prompt(plain) == "¿Qué año?"
+
+
+def test_suggestions_on_not_found_become_options():
+    engine, _ = make_engine()
+
+    def cand(m, score):
+        return {"metric": m, "score": score, "business_score": score}
+
+    plan = {
+        "status": "not_found", "question": "¿cuántas cirugías?",
+        "metric_resolution": {"candidates": [], "suggestions": [
+            cand(M_PROG, 0.6), cand(M_QUIR, 0.6), cand(M_NOISE, 0.1),
+        ]},
+    }
+    result = engine._query_plan_failure(plan)
+    assert result["status"] == "needs_clarification"
+    # Sin margen: se ofrecen todas las sugerencias que vienen del planificador.
+    assert [o["id"] for o in result["clarification_options"]] == ["q_prog", "q_cx", "n_x"]
+    empty = engine._query_plan_failure({**plan, "metric_resolution": {"candidates": []}})
+    assert empty["status"] == "metric_not_resolved"
+
+
+def test_request_words_tolerate_typos_but_not_real_values():
+    from src.semantic.query_plan_builder import _is_request_word, canonical_token
+    for word in ("necesito", "necsito", "nesecito", "quisiera", "informacion", "podrias", "datos"):
+        assert _is_request_word(canonical_token(word)), word
+    for word in ("consulta", "ayudas", "cirugias", "urgencias", "hospitalizacion", "necropsia"):
+        assert not _is_request_word(canonical_token(word)), word
 
 
 # ---------------------------------------------------------------------------

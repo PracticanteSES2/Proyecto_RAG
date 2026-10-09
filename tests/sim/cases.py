@@ -92,4 +92,21 @@ CASES = {
         "label": "Lavandería: peso agrupado por TURNO_OK (nombre técnico de la columna)",
         "turns": ["Cuanto peso por turno ok en lavanderia en enero de 2026"],
     },
+    # ---- contrapreguntas en lugar de «no encontré» ----
+    "req_necesito_typo": {
+        "label": "petición con «necsito» (error de tipeo) + total + año",
+        "turns": ["necsito saber el total de la cirugias del 2024?"],
+    },
+    "req_sugerencias": {
+        "label": "métrica poco específica -> opciones sugeridas + respuesta '1'",
+        "turns": ["cuantas cirugias hubo en 2024", "1"],
+    },
+    "req_palabra_no_entendida": {
+        "label": "palabra que no es filtro -> ¿consultar sin ella? + 'sí'",
+        "turns": ["total de cirugías azules en 2024", "sí"],
+    },
+    "req_sugerencias_abandonadas": {
+        "label": "opciones sugeridas + pregunta nueva fuera de alcance",
+        "turns": ["cuantas cirugias hubo en 2024", "¿Cuál es la capital de Francia?"],
+    },
 }

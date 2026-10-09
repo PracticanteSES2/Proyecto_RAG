@@ -553,8 +553,20 @@ def format_query_plan_answer(result):
     return "\n\n".join(lines)
 
 
+def clarification_prompt(result):
+    """Texto de la contrapregunta. Con botones, solo la pregunta: cada opción
+    ya se ve en su botón con su descripción corta (sin lista repetida)."""
+    question = result.get("question") or "Necesito una aclaración para continuar."
+    if clarification_buttons(result):
+        return result.get("prompt") or question
+    return question
+
+
 def clarification_buttons(result):
-    """Modelo de botones de una contrapregunta: [{id, label, help}] (vacío si no aplica)."""
+    """Modelo de botones de una contrapregunta: [{id, label, caption}] (vacío si no aplica).
+
+    `caption` es la descripción corta que se muestra bajo el botón.
+    """
     if result.get("status") != "needs_clarification":
         return []
     buttons = []
@@ -566,14 +578,15 @@ def clarification_buttons(result):
             continue
         seen.add(str(option["id"]))
         label = str(option.get("label") or option["id"]).strip()
-        help_parts = [
-            str(part).strip()
-            for part in (option.get("detail"), option.get("description"))
-            if part and str(part).strip()
-        ]
+        caption = option.get("summary")
+        if caption is None:
+            caption = option.get("description")
+        caption = " ".join(str(caption or "").split())
+        if caption.casefold() in label.casefold():
+            caption = ""
         buttons.append({
             "id": option["id"],
             "label": label,
-            "help": "\n\n".join(help_parts)[:500] or None,
+            "caption": caption[:160] or None,
         })
     return buttons

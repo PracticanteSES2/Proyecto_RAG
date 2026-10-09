@@ -166,19 +166,62 @@ def test_base_out_of_scope():
 
 
 def test_base_ambiguous_question_asks_for_specificity():
+    # «¿Cuántas cirugías hay?» no nombra un indicador concreto: en lugar de
+    # «no encontré» se ofrecen los indicadores de cirugías como opciones.
     result, ui = last("base_ambigua")
-    assert result["status"] == "metric_not_resolved"
+    assert result["status"] == "needs_clarification", result["status"]
+    ids = [o["id"] for o in result["clarification_options"]]
+    assert ids[0] == "b_total_cx", ids
+    assert {"b_cx_programadas", "a_cx_realizadas", "b_cx_realizadas"} <= set(ids), ids
+    assert "b_cx_canceladas" not in ids  # pendiente de revisión
     assert "indicador" in ui
 
 
 def test_base_ambiguous_metric_offers_options_and_resolves_by_number():
     (_, first, ui1), (_, second, ui2) = run("base_dato_aclaracion")
     assert first["status"] == "needs_clarification"
-    assert len(first["clarification_options"]) == 2 and "1." in ui1
+    assert len(first["clarification_options"]) == 2
+    # La interfaz muestra solo la pregunta (las opciones van en botones); la
+    # lista numerada se conserva en `question` para quien responde escribiendo.
+    assert "1." not in ui1 and "1." in first["question"], ui1
     # La selección fija la métrica; el valor puede venir vacío (BLANK) por el
     # bug de DATE() vs columna entera, que ahora se informa como empty_result.
     assert second["status"] in ("success", "empty_result") and second["route"] == "powerbi"
     assert second["query_plan"]["metric"]["metric_id"] == "b_cx_realizadas"
+
+
+def test_request_words_and_typos_are_not_filters():
+    # «necsito saber ...» no es un valor de dimensión: antes detenía la consulta.
+    result, ui = last("req_necesito_typo")
+    assert result["status"] == "success", (result["status"], ui)
+    assert result["query_plan"]["metric"]["metric_id"] == "b_total_cx"
+    assert [(f["column"], f["value"]) for f in result["filters"]] == [("AÑO", 2024)]
+    assert not result["query_plan"].get("unapplied_terms"), result["query_plan"]
+
+
+def test_unspecific_metric_offers_suggestions_then_resolves_by_number():
+    (_, first, ui1), (_, second, ui2) = run("req_sugerencias")
+    assert first["status"] == "needs_clarification", (first["status"], ui1)
+    assert first["clarification_options"][0]["id"] == "b_total_cx"
+    assert "No encontré" not in ui1 and "1." not in ui1, ui1
+    assert second["status"] == "success", (second["status"], ui2)
+    assert second["query_plan"]["metric"]["metric_id"] == "b_total_cx"
+    assert [(f["column"], f["value"]) for f in second["filters"]] == [("AÑO", 2024)]
+
+
+def test_unknown_word_asks_to_query_without_it():
+    (_, first, ui1), (_, second, ui2) = run("req_palabra_no_entendida")
+    assert first["status"] == "needs_clarification", (first["status"], ui1)
+    assert "azules" in ui1
+    assert [o["id"] for o in first["clarification_options"]] == ["b_total_cx"]
+    assert second["status"] == "success", (second["status"], ui2)
+    assert [(f["column"], f["value"]) for f in second["filters"]] == [("AÑO", 2024)]
+
+
+def test_abandoned_suggestions_do_not_hijack_new_question():
+    (_, first, _), (_, second, ui2) = run("req_sugerencias_abandonadas")
+    assert first["status"] == "needs_clarification"
+    assert second["status"] == "not_found", (second["status"], ui2)
 
 
 def test_base_definition_goes_to_rag():
@@ -267,7 +310,8 @@ def test_clarification_question_is_not_the_generic_text():
     real_question = (first.get("intent") or {}).get("question")
     assert real_question, "el ConversationManager debía producir una pregunta"
     assert ui != GENERIC_CLARIFICATION, ui
-    assert ui == real_question
+    # Sin «Por ejemplo: ...»: los tableros ya se muestran como botones.
+    assert real_question.startswith(ui) and "Por ejemplo" not in ui, ui
 
 
 def test_displayed_answer_never_contains_none():
