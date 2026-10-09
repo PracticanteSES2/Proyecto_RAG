@@ -1,4 +1,13 @@
+import os
+import threading
+
 from src.rag.ranking import detect_question_intent
+
+
+# Tiempo máximo de la síntesis RAG (segundos). Si el LLM no responde a tiempo
+# se usa el resumen extractivo: el usuario no espera minutos por una
+# respuesta documental. Configurable con RAG_SYNTHESIS_TIMEOUT (0 = sin límite).
+DEFAULT_SYNTHESIS_TIMEOUT = 40.0
 
 
 NO_EVIDENCE_ANSWER = (
@@ -100,9 +109,25 @@ REGLAS OBLIGATORIAS:
         max_context_chars=7000,
         max_source_chars=2500,
         max_tokens=600,
+        timeout_seconds=None,
     ):
         self.llm_provider = (
             llm_provider
+        )
+
+        if timeout_seconds is None:
+            try:
+                timeout_seconds = float(
+                    os.getenv(
+                        "RAG_SYNTHESIS_TIMEOUT",
+                        DEFAULT_SYNTHESIS_TIMEOUT,
+                    )
+                )
+            except (TypeError, ValueError):
+                timeout_seconds = DEFAULT_SYNTHESIS_TIMEOUT
+
+        self.timeout_seconds = (
+            timeout_seconds
         )
 
         self.max_sources = (
@@ -231,6 +256,16 @@ REGLAS OBLIGATORIAS:
                 "answer": None,
             }
 
+        intent = self._question_intent(question, sources)
+        task = TASK_BY_INTENT.get(intent, TASK_BY_INTENT["general"])
+
+        # «¿Cómo se calcula X?» / «¿qué es X?»: el resumen del tablero (qué
+        # mide) sube justo después de la fuente principal.
+        if intent in ("calculation", "definition") and len(sources) > 2:
+            head, rest = list(sources[:1]), list(sources[1:])
+            rest.sort(key=lambda source: source.get("chunk_type") != "dashboard_overview")
+            sources = head + rest
+
         context = self._build_context(
             sources
         )
@@ -240,9 +275,6 @@ REGLAS OBLIGATORIAS:
                 "status": "not_found",
                 "answer": None,
             }
-
-        intent = self._question_intent(question, sources)
-        task = TASK_BY_INTENT.get(intent, TASK_BY_INTENT["general"])
 
         user_prompt = f"""
 PREGUNTA DEL USUARIO:
@@ -257,7 +289,7 @@ Usa únicamente el CONTEXTO. Solo si el CONTEXTO no contiene nada que
 responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
 """.strip()
 
-        result = self.llm_provider.chat(
+        result = self._chat_with_timeout(
             messages=[
                 {
                     "role": "system",
@@ -285,17 +317,70 @@ responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
                 "details": result,
             }
 
+        answer = self._clean_answer(
+            result.get(
+                "answer"
+            )
+        )
+
         return {
             "status": "success",
-            "answer": self._clean_answer(
-                result.get(
-                    "answer"
-                )
-            ),
+            "answer": answer,
             "model": result.get(
                 "model"
             ),
             "intent": intent,
+            # El LLM no halló respuesta en el contexto: quien llama lo trata
+            # como «no encontrado» (p. ej. pregunta fuera de alcance).
+            "no_evidence": self.is_no_evidence(answer),
+        }
+
+    @staticmethod
+    def is_no_evidence(answer):
+        text = str(answer or "").strip().lower().rstrip(".")
+        return text == NO_EVIDENCE_ANSWER.lower().rstrip(".")
+
+    def _chat_with_timeout(self, **kwargs):
+        """Llama al LLM con un límite de tiempo propio de la síntesis RAG.
+
+        El cliente de Ollama tiene su propio timeout (minutos); aquí se corta
+        antes y se devuelve llm_timeout para usar el resumen extractivo. El
+        hilo queda como daemon: si el servidor responde tarde, se descarta.
+        """
+        timeout = self.timeout_seconds
+        if not timeout or timeout <= 0:
+            return self.llm_provider.chat(**kwargs)
+
+        holder = {}
+
+        def run():
+            try:
+                holder["result"] = self.llm_provider.chat(**kwargs)
+            except Exception as exc:  # el proveedor normalmente no lanza
+                holder["result"] = {
+                    "status": "llm_error",
+                    "answer": None,
+                    "error": str(exc),
+                }
+
+        worker = threading.Thread(
+            target=run,
+            name="rag-synthesis",
+            daemon=True,
+        )
+        worker.start()
+        worker.join(timeout)
+
+        if worker.is_alive():
+            return {
+                "status": "llm_timeout",
+                "answer": None,
+                "timeout_seconds": timeout,
+            }
+
+        return holder.get("result") or {
+            "status": "llm_error",
+            "answer": None,
         }
 
     @staticmethod
@@ -317,7 +402,7 @@ responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
             text[:position] + text[position + len(phrase):]
         ).strip(" .\n\t")
 
-        if len(remainder) < 80:
+        if len(remainder) < 40:
             return NO_EVIDENCE_ANSWER
 
         return remainder + ("." if remainder[-1].isalnum() else "")

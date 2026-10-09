@@ -1,5 +1,7 @@
 import inspect
 
+from src.rag.extractive import readable_fallback
+
 
 class RAGAnswerEngine:
 
@@ -82,6 +84,22 @@ class RAGAnswerEngine:
                     result for result in overview
                     if (result.get("source_group") or "") in groups
                 ]
+            # «¿Qué filtros tiene?»: los chunks de filtros/segmentadores que
+            # ya priorizó el retriever van primero; el resumen se incluye al
+            # final (dentro del límite) como contexto.
+            # (Si el texto no habla de filtros, p. ej. la respuesta a «¿a qué
+            # tablero?» es solo el nombre, el resumen sigue yendo primero.)
+            ranked_for_filters = bool(filtered_results) and filtered_results[0].get("intent") == "filters"
+            if overview and intent_data.get("intent") == "get_filters" and ranked_for_filters:
+                overview_text = (overview[0].get("text") or "").strip()
+                kept = [
+                    result
+                    for result in self._deduplicate_results(filtered_results)
+                    if (result.get("text") or "").strip() != overview_text
+                ]
+                # Solo si alguna otra fuente habla de filtros/segmentadores.
+                if any(float(result.get("lexical_score") or 0) > 0 for result in kept):
+                    return kept[:max(self.default_limit - 1, 1)] + overview
         else:
             retrieval_limit = limit or max(self.default_limit * 2, 6)
             results = self.retriever.search_general(
@@ -102,12 +120,24 @@ class RAGAnswerEngine:
 
         return self._deduplicate_results(overview + filtered_results)[:self.default_limit]
 
-    def _synthesize_answer(self, question, results):
-        contexts = [r.get("text", "") for r in results if r.get("text")]
-        fallback = "\n\n".join(contexts)
+    NOT_FOUND_ANSWER = (
+        "No encontré información relacionada con esa pregunta en la "
+        "documentación de los tableros disponibles."
+    )
 
+    def _fallback_answer(self, results):
+        """Resumen extractivo legible (sin prefijos técnicos ni DAX); si no
+        se puede armar, el texto de las fuentes como antes."""
+        readable = readable_fallback(results)
+        if readable:
+            return readable
+        contexts = [r.get("text", "") for r in results if r.get("text")]
+        return "\n\n".join(contexts)
+
+    def _synthesize_answer(self, question, results):
+        """(respuesta, modo, sin_evidencia)."""
         if self.answer_synthesizer is None:
-            return fallback, "extractive"
+            return self._fallback_answer(results), "extractive", False
 
         synthesis = self.answer_synthesizer.synthesize_rag(
             question=question,
@@ -115,25 +145,35 @@ class RAGAnswerEngine:
         )
 
         if synthesis.get("status") == "success":
-            return synthesis.get("answer"), "llm"
+            return synthesis.get("answer"), "llm", bool(synthesis.get("no_evidence"))
 
-        return fallback, "extractive"
+        return self._fallback_answer(results), "extractive", False
+
+    def _not_found_response(self, sources=None, synthesis_mode="none", reason="no_relevant_context"):
+        return {
+            "status": "not_found",
+            # no_relevant_context: ninguna fuente superó el umbral de
+            # evidencia; llm_no_evidence: el LLM leyó las fuentes y no halló
+            # respuesta. En ambos casos la pregunta queda fuera de la
+            # documentación (QueryEngine puede tratarla como fuera de alcance).
+            "not_found_reason": reason,
+            "answer": self.NOT_FOUND_ANSWER,
+            "contexts": [],
+            "sources": sources or [],
+            "retrieval_mode": "open",
+            "synthesis_mode": synthesis_mode,
+        }
 
     def _build_context_response(self, question, results):
         if not results:
-            return {
-                "status": "not_found",
-                "answer": (
-                    "No encontré información relacionada con esa pregunta en la "
-                    "documentación de los tableros disponibles."
-                ),
-                "contexts": [],
-                "sources": [],
-                "retrieval_mode": "open",
-                "synthesis_mode": "none",
-            }
+            return self._not_found_response()
 
-        answer, synthesis_mode = self._synthesize_answer(question, results)
+        answer, synthesis_mode, no_evidence = self._synthesize_answer(question, results)
+
+        # El LLM leyó las fuentes y no halló respuesta: es «no encontrado»
+        # (QueryEngine lo trata como fuera de alcance / sin evidencia).
+        if no_evidence:
+            return self._not_found_response(results, synthesis_mode, reason="llm_no_evidence")
 
         return {
             "status": "success",
