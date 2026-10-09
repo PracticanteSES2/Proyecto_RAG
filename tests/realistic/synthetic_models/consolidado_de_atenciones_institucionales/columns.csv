@@ -1,0 +1,41 @@
+﻿[ID],[Name],[Table],[DataType],[DataCategory],[Description],[IsHidden],[IsUnique],[IsKey],[IsNullable],[Alignment],[SummarizeBy],[ColumnStorage],[Type],[SourceColumn],[Expression],[FormatString],[IsAvailableInMDX],[SortByColumn],[GroupingBehavior],[SourceProviderType],[DisplayFolder],[AlternateOf],[LineageTag]
+36646518,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,Calendario,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+129588903,Date,Calendario,Date,Regular,,False,False,False,True,Default,None,,CalculatedTableColumn,,,Short Date,True,,GroupOnValue,,,,d34e042f-6d55-5e5a-af3a-8b4ddd633188
+59986676,AÑO,Calendario,Integer,Regular,,False,False,False,True,Default,Sum,,Calculated,,YEAR('Calendario'[Date]),0,True,,GroupOnValue,,,,fc462690-ad1a-53e7-a498-e95ba531d353
+28250642,MES,Calendario,Integer,Regular,,False,False,False,True,Default,Sum,,Calculated,,MONTH('Calendario'[Date]),0,True,,GroupOnValue,,,,a630ff70-8cf3-5af5-8f85-4266a8582cde
+239767968,NOMBRE_MES,Calendario,Text,Regular,,False,False,False,True,Default,None,,Calculated,,"FORMAT('Calendario'[Date], ""MMMM"")",,True,,GroupOnValue,,,,5afc2305-108b-53f2-a891-859f5da7583c
+211136263,TRIMESTRE,Calendario,Text,Regular,,False,False,False,True,Default,None,,Calculated,,"""Trim. "" & INT((MONTH('Calendario'[Date]) + 2) / 3)",,True,,GroupOnValue,,,,c290fe87-289e-5ee9-b3d6-79af254d9e30
+158062783,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,ASEGURADORAS,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+166754242,OID,ASEGURADORAS,Integer,Regular,,False,True,False,True,Default,Sum,,Data,OID,,0,True,,GroupOnValue,,,,9c2226cd-7a3f-581e-808d-2afa6b32f845
+75688201,NOMBRE,ASEGURADORAS,Text,Regular,,False,False,False,True,Default,None,,Data,NOMBRE,,,True,,GroupOnValue,,,,c0062450-e216-5f2a-845d-8310bcca33a9
+161404539,REGIMEN,ASEGURADORAS,Text,Regular,,False,False,False,True,Default,None,,Data,REGIMEN,,,True,,GroupOnValue,,,,b5c9aa17-f4a5-539c-b400-f7ca3043a7a2
+73988882,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,DIM_SERVICIO,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+229265080,SERVICIO_HOMOLOGADO,DIM_SERVICIO,Text,Regular,,False,True,False,True,Default,None,,Data,SERVICIO_HOMOLOGADO,,,True,,GroupOnValue,,,,e9f1a5e0-20b1-5721-9ed9-f4b62fb77aef
+113702613,AREA,DIM_SERVICIO,Text,Regular,,False,False,False,True,Default,None,,Data,AREA,,,True,,GroupOnValue,,,,80af65a3-3011-5f45-a597-eff91cb9b6b7
+56014211,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,EGRESOS,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+48818031,OID_EGRESO,EGRESOS,Integer,Regular,,False,True,False,True,Default,Sum,,Data,OID_EGRESO,,0,True,,GroupOnValue,,,,27096e49-7d64-58c0-80ed-ae0b98d37464
+9686417,FECHA,EGRESOS,Date,Regular,,False,False,False,True,Default,None,,Data,FECHA,,,True,,GroupOnValue,,,,6f886122-6ff2-5505-bd8d-01405f0ace05
+204558150,OID_ASEGURADORA,EGRESOS,Integer,Regular,,False,False,False,True,Default,Sum,,Data,OID_ASEGURADORA,,0,True,,GroupOnValue,,,,5febf5d0-330f-5eed-a49f-b20dd169d314
+26904402,SERVICIO_HOMOLOGADO,EGRESOS,Text,Regular,,False,False,False,True,Default,None,,Data,SERVICIO_HOMOLOGADO,,,True,,GroupOnValue,,,,119ae605-c2ec-5aba-8e74-6228b270bc33
+40809007,DIAS_ESTANCIA,EGRESOS,Integer,Regular,,False,False,False,True,Default,Sum,,Data,DIAS_ESTANCIA,,0,True,,GroupOnValue,,,,dfa5d552-3108-5d48-88f4-78f5093cfe9c
+41225313,TIPO_EGRESO,EGRESOS,Text,Regular,,False,False,False,True,Default,None,,Data,TIPO_EGRESO,,,True,,GroupOnValue,,,,51a9ff41-709c-5ea6-8ea7-737ea648bde5
+53095633,SEXO,EGRESOS,Text,Regular,,False,False,False,True,Default,None,,Data,SEXO,,,True,,GroupOnValue,,,,2900d54e-0e3d-569f-ac52-4349fbbe90aa
+72437496,EDAD,EGRESOS,Integer,Regular,,False,False,False,True,Default,Sum,,Data,EDAD,,0,True,,GroupOnValue,,,,bdd9c4f8-7ab6-5330-80be-7c2c8c2dc9ba
+120619660,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,CIRUGIAS,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+215833822,OID,CIRUGIAS,Integer,Regular,,False,True,False,True,Default,Sum,,Data,OID,,0,True,,GroupOnValue,,,,2a165919-cad9-5f7e-95df-20642843d785
+211942684,FECHA,CIRUGIAS,Date,Regular,,False,False,False,True,Default,None,,Data,FECHA,,,True,,GroupOnValue,,,,2bf4bad6-1700-5761-956c-8c63a6813863
+200380848,ESPECIALIDAD,CIRUGIAS,Text,Regular,,False,False,False,True,Default,None,,Data,ESPECIALIDAD,,,True,,GroupOnValue,,,,3f297810-3046-508b-95d5-84894ef4bd8c
+86532779,ESTADO_CIRUGIA,CIRUGIAS,Text,Regular,,False,False,False,True,Default,None,,Data,ESTADO_CIRUGIA,,,True,,GroupOnValue,,,,1266e12d-adbc-5864-879b-410db3c1a3ba
+87986453,OID_ASEGURADORA,CIRUGIAS,Integer,Regular,,False,False,False,True,Default,Sum,,Data,OID_ASEGURADORA,,0,True,,GroupOnValue,,,,ab0d1ce0-aaea-5038-8eda-559bb938395a
+27972806,QUIROFANO,CIRUGIAS,Text,Regular,,False,False,False,True,Default,None,,Data,QUIROFANO,,,True,,GroupOnValue,,,,40cbe883-a6fc-520f-93e2-5843fa276242
+199824873,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,CONSULTA_URGENCIAS,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+77602416,OID,CONSULTA_URGENCIAS,Integer,Regular,,False,True,False,True,Default,Sum,,Data,OID,,0,True,,GroupOnValue,,,,f5a4353c-d6d7-5dd9-bab4-21e506c67229
+33409737,FECHA_ADMISION,CONSULTA_URGENCIAS,Date,Regular,,False,False,False,True,Default,None,,Data,FECHA_ADMISION,,,True,,GroupOnValue,,,,f649307a-ae5f-5dbe-bcb6-b5922d54d31f
+9824105,CLASIFICACION_TRIAGE,CONSULTA_URGENCIAS,Text,Regular,,False,False,False,True,Default,None,,Data,CLASIFICACION_TRIAGE,,,True,,GroupOnValue,,,,42b00dd5-2e7b-5472-a603-8233c24d748d
+47974653,OID_ASEGURADORA,CONSULTA_URGENCIAS,Integer,Regular,,False,False,False,True,Default,Sum,,Data,OID_ASEGURADORA,,0,True,,GroupOnValue,,,,0fe4b5b2-0140-5092-bf48-571c22102c38
+101264179,DOCUMENTO,CONSULTA_URGENCIAS,Text,Regular,,False,False,False,True,Default,None,,Data,DOCUMENTO,,,True,,GroupOnValue,,,,ce06c459-df55-5b46-a109-192b94b5f1b4
+205989776,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,PORCENTAJE_OCUPACIONAL,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+101174318,FECHADES,PORCENTAJE_OCUPACIONAL,Date,Regular,,False,False,False,True,Default,None,,Data,FECHADES,,,True,,GroupOnValue,,,,942107e8-6ff2-5af1-ab7d-ebfac6516552
+84426223,SERVICIO_HOMOLOGADO,PORCENTAJE_OCUPACIONAL,Text,Regular,,False,False,False,True,Default,None,,Data,SERVICIO_HOMOLOGADO,,,True,,GroupOnValue,,,,6df59e4b-120c-5176-a936-6805e1563ce7
+85168691,DIAS_CAMA_OCUPADA,PORCENTAJE_OCUPACIONAL,Integer,Regular,,False,False,False,True,Default,Sum,,Data,DIAS_CAMA_OCUPADA,,0,True,,GroupOnValue,,,,7eba56d3-ca7e-58e5-946e-97fdea8a8d35
+17225003,CAMAS_HABILITADAS,PORCENTAJE_OCUPACIONAL,Integer,Regular,,False,False,False,True,Default,Sum,,Data,CAMAS_HABILITADAS,,0,True,,GroupOnValue,,,,7a6c95d3-1810-5e84-a5a0-264174effe52

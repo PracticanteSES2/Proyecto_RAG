@@ -1,0 +1,3 @@
+﻿[ID],[Name],[Relationship],[Model],[IsActive],[CrossFilteringBehavior],[RelyOnReferentialIntegrity],[FromTable],[FromColumn],[FromCardinality],[ToTable],[ToColumn],[ToCardinality],[State],[SecurityFilteringBehavior]
+19324711,6b7136fc-7fa4-5ee9-a62a-167c8cff9030,'CONSULTAS_AMBULATORIAS'[FECHA_CITA] *[<-]1 'Calendario'[Date],481cfd8d-c87f-50b0-85f5-3f702eec9492,True,OneDirection,False,CONSULTAS_AMBULATORIAS,FECHA_CITA,Many,Calendario,Date,One,Ready,Single
+230461332,02b803bc-30e5-5616-8b3d-307b2783ff30,'CONSULTAS_AMBULATORIAS'[OID_ASEGURADORA] *[<-]1 'ASEGURADORAS'[OID],481cfd8d-c87f-50b0-85f5-3f702eec9492,True,OneDirection,False,CONSULTAS_AMBULATORIAS,OID_ASEGURADORA,Many,ASEGURADORAS,OID,One,Ready,Single

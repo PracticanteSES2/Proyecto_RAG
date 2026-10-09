@@ -1,0 +1,207 @@
+{
+  "source_group": "tablero_consulta_externa",
+  "report": "TABLERO CONSULTA EXTERNA",
+  "semantic_model": "TABLERO CONSULTA EXTERNA",
+  "semantic_model_key": "tablero_consulta_externa",
+  "aliases": [
+    "consulta externa",
+    "consultas ambulatorias",
+    "citas medicas"
+  ],
+  "default_dashboard": "TABLERO CONSULTA EXTERNA",
+  "document_type": "dashboard_documentation",
+  "workspace": "Gestion Clinica",
+  "pages": [
+    {
+      "name": "Consulta externa",
+      "visuals": [
+        [
+          "card",
+          "Total consultas",
+          [
+            [
+              "measure",
+              "CONSULTAS_AMBULATORIAS",
+              "Total Consultas"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "Consultas cumplidas",
+          [
+            [
+              "measure",
+              "CONSULTAS_AMBULATORIAS",
+              "Consultas"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "% Inasistencia",
+          [
+            [
+              "measure",
+              "CONSULTAS_AMBULATORIAS",
+              "% Inasistencia"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "Oportunidad (días)",
+          [
+            [
+              "measure",
+              "CONSULTAS_AMBULATORIAS",
+              "Oportunidad promedio (días)"
+            ]
+          ]
+        ],
+        [
+          "clusteredBarChart",
+          "Consultas por especialidad",
+          [
+            [
+              "column",
+              "CONSULTAS_AMBULATORIAS",
+              "ESPECIALIDAD",
+              "Category"
+            ],
+            [
+              "measure",
+              "CONSULTAS_AMBULATORIAS",
+              "Total Consultas",
+              "Y"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "CONSULTAS_AMBULATORIAS",
+              "ESPECIALIDAD"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "ASEGURADORAS",
+              "NOMBRE"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "Calendario",
+              "AÑO"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "Calendario",
+              "NOMBRE_MES"
+            ]
+          ]
+        ]
+      ]
+    }
+  ],
+  "documentation": {
+    "name": "TABLERO CONSULTA EXTERNA",
+    "description": "Tablero de consulta externa: consultas programadas y cumplidas por especialidad, inasistencia, oportunidad de la cita en días y consultas de primera vez por aseguradora.",
+    "aliases": [
+      "consulta externa",
+      "consultas ambulatorias",
+      "citas medicas"
+    ],
+    "filters": [
+      "Filtro por AÑO (Calendario) en la página Consulta externa.",
+      "Filtro por ESPECIALIDAD (CONSULTAS_AMBULATORIAS) en la página Consulta externa.",
+      "Filtro por NOMBRE (ASEGURADORAS) en la página Consulta externa.",
+      "Filtro por NOMBRE_MES (Calendario) en la página Consulta externa."
+    ],
+    "visuals": [
+      "Consulta externa: Total consultas.",
+      "Consulta externa: Consultas cumplidas.",
+      "Consulta externa: % Inasistencia.",
+      "Consulta externa: Oportunidad (días).",
+      "Consulta externa: Consultas por especialidad."
+    ],
+    "indicators": [
+      "Total Consultas: Total de citas de consulta externa.",
+      "Consultas: Consultas cumplidas.",
+      "Total Atenciones: Atenciones de consulta externa (consultas cumplidas).",
+      "% Inasistencia: Porcentaje de citas con inasistencia.",
+      "Oportunidad promedio (días): Días promedio entre la solicitud y la cita.",
+      "Consultas Primera Vez: Consultas de primera vez."
+    ],
+    "measures": [
+      {
+        "table": "CONSULTAS_AMBULATORIAS",
+        "name": "Total Consultas",
+        "expression": "COUNT(CONSULTAS_AMBULATORIAS[IDENTIFICACION])",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Total de citas de consulta externa."
+      },
+      {
+        "table": "CONSULTAS_AMBULATORIAS",
+        "name": "Consultas",
+        "expression": "CALCULATE([Total Consultas], CONSULTAS_AMBULATORIAS[ESTADO_CITA] = \"CUMPLIDA\")",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Consultas cumplidas."
+      },
+      {
+        "table": "CONSULTAS_AMBULATORIAS",
+        "name": "Total Atenciones",
+        "expression": "[Consultas]",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Atenciones de consulta externa (consultas cumplidas)."
+      },
+      {
+        "table": "CONSULTAS_AMBULATORIAS",
+        "name": "% Inasistencia",
+        "expression": "DIVIDE(CALCULATE([Total Consultas], CONSULTAS_AMBULATORIAS[ESTADO_CITA] = \"INASISTENCIA\"), [Total Consultas])",
+        "data_type": "Number",
+        "format_string": "0.0%",
+        "description": "Porcentaje de citas con inasistencia."
+      },
+      {
+        "table": "CONSULTAS_AMBULATORIAS",
+        "name": "Oportunidad promedio (días)",
+        "expression": "AVERAGE(CONSULTAS_AMBULATORIAS[DIAS_OPORTUNIDAD])",
+        "data_type": "Number",
+        "format_string": "0.0",
+        "description": "Días promedio entre la solicitud y la cita."
+      },
+      {
+        "table": "CONSULTAS_AMBULATORIAS",
+        "name": "Consultas Primera Vez",
+        "expression": "CALCULATE([Total Consultas], CONSULTAS_AMBULATORIAS[TIPO_CONSULTA] = \"PRIMERA VEZ\")",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Consultas de primera vez."
+      }
+    ]
+  }
+}

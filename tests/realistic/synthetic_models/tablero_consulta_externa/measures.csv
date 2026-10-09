@@ -1,0 +1,7 @@
+﻿[ID],[Name],[Table],[Description],[DataType],[Expression],[FormatString],[IsHidden],[State],[KPIID],[IsSimpleMeasure],[DisplayFolder],[DetailRowsDefinition],[DataCategory],[FormatStringDefinition],[LineageTag]
+56598185,Total Consultas,CONSULTAS_AMBULATORIAS,Total de citas de consulta externa.,Integer,COUNT(CONSULTAS_AMBULATORIAS[IDENTIFICACION]),"#,0",False,Ready,,False,,,,,9394d230-3c03-5a57-a0ca-adf7013cb625
+244526981,Consultas,CONSULTAS_AMBULATORIAS,Consultas cumplidas.,Integer,"CALCULATE([Total Consultas], CONSULTAS_AMBULATORIAS[ESTADO_CITA] = ""CUMPLIDA"")","#,0",False,Ready,,False,,,,,80f8b012-1588-5913-8c61-80239d838130
+264311804,Total Atenciones,CONSULTAS_AMBULATORIAS,Atenciones de consulta externa (consultas cumplidas).,Integer,[Consultas],"#,0",False,Ready,,False,,,,,2b5d94ac-33a8-5975-bb4b-35283a83f496
+181633329,% Inasistencia,CONSULTAS_AMBULATORIAS,Porcentaje de citas con inasistencia.,Number,"DIVIDE(CALCULATE([Total Consultas], CONSULTAS_AMBULATORIAS[ESTADO_CITA] = ""INASISTENCIA""), [Total Consultas])",0.0%,False,Ready,,False,,,,,695da9b2-c46f-5871-ac85-47fcd0fe4f5e
+100937178,Oportunidad promedio (días),CONSULTAS_AMBULATORIAS,Días promedio entre la solicitud y la cita.,Number,AVERAGE(CONSULTAS_AMBULATORIAS[DIAS_OPORTUNIDAD]),0.0,False,Ready,,False,,,,,d396eab0-3bb5-5e31-a2f7-3c5cdfc3ba45
+100453446,Consultas Primera Vez,CONSULTAS_AMBULATORIAS,Consultas de primera vez.,Integer,"CALCULATE([Total Consultas], CONSULTAS_AMBULATORIAS[TIPO_CONSULTA] = ""PRIMERA VEZ"")","#,0",False,Ready,,False,,,,,38214db2-027f-5ee1-95d0-5b5346930968

@@ -1,0 +1,5 @@
+﻿[ID],[Name],[Model],[DataCategory],[Description],[IsHidden],[StorageMode],[TableStorage],[Expression],[ShowAsVariationOnly],[IsPrivate],[CalculationGroupPrecedence],[LineageTag]
+216717959,Calendario,85dc2147-21ee-55e2-a12c-ee244c1d09d4,Regular,,False,Import,Calendario (216717959),"CALENDAR(""2023-01-01"", DATE(YEAR(TODAY()), 12, 31))",False,False,,e7161df1-851d-55e3-9011-24944364e5d8
+268070820,DIM_SEDE,85dc2147-21ee-55e2-a12c-ee244c1d09d4,Regular,,False,Import,DIM_SEDE (268070820),,False,False,,5f00c22b-2068-5061-92da-a00dcbd02426
+79949615,FACT_INDICADORES,85dc2147-21ee-55e2-a12c-ee244c1d09d4,Regular,,False,Import,FACT_INDICADORES (79949615),,False,False,,c0d461cb-2c9c-51e2-98e9-a068fb92da98
+158274251,FACT_OCUPACION,85dc2147-21ee-55e2-a12c-ee244c1d09d4,Regular,,False,Import,FACT_OCUPACION (158274251),,False,False,,e88c1914-ade5-5c2b-859e-4a28b51013df

@@ -1,0 +1,216 @@
+{
+  "source_group": "informes_ejecutivos_2026",
+  "report": "INFORMES EJECUTIVOS 2026",
+  "semantic_model": "INFORMES EJECUTIVOS 2026",
+  "semantic_model_key": "informes_ejecutivos_2026",
+  "aliases": [
+    "informe ejecutivo",
+    "informes ejecutivos",
+    "indicadores gerenciales"
+  ],
+  "default_dashboard": "INFORMES EJECUTIVOS 2026",
+  "document_type": "dashboard_documentation",
+  "workspace": "Gestion Clinica",
+  "pages": [
+    {
+      "name": "Indicadores trazadores",
+      "visuals": [
+        [
+          "card",
+          "Total atenciones",
+          [
+            [
+              "measure",
+              "FACT_INDICADORES",
+              "Total Atenciones"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "Egresos",
+          [
+            [
+              "measure",
+              "FACT_INDICADORES",
+              "Egresos"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "Cirugías realizadas",
+          [
+            [
+              "measure",
+              "FACT_INDICADORES",
+              "Cirugías realizadas"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "Consultas",
+          [
+            [
+              "measure",
+              "FACT_INDICADORES",
+              "Consultas"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "% Ocupación",
+          [
+            [
+              "measure",
+              "FACT_OCUPACION",
+              "% Ocupación"
+            ]
+          ]
+        ],
+        [
+          "clusteredColumnChart",
+          "Atenciones por sede",
+          [
+            [
+              "column",
+              "DIM_SEDE",
+              "SEDE",
+              "Category"
+            ],
+            [
+              "measure",
+              "FACT_INDICADORES",
+              "Total Atenciones",
+              "Y"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "DIM_SEDE",
+              "SEDE"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "Calendario",
+              "AÑO"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "Calendario",
+              "NOMBRE_MES"
+            ]
+          ]
+        ]
+      ]
+    }
+  ],
+  "documentation": {
+    "name": "INFORMES EJECUTIVOS 2026",
+    "description": "Informe ejecutivo para la gerencia con los indicadores trazadores del año: total de atenciones, egresos, cirugías realizadas, consultas y porcentaje de ocupación por sede y servicio.",
+    "aliases": [
+      "informe ejecutivo",
+      "informes ejecutivos",
+      "indicadores gerenciales"
+    ],
+    "filters": [
+      "Filtro por AÑO (Calendario) en la página Indicadores trazadores.",
+      "Filtro por NOMBRE_MES (Calendario) en la página Indicadores trazadores.",
+      "Filtro por SEDE (DIM_SEDE) en la página Indicadores trazadores."
+    ],
+    "visuals": [
+      "Indicadores trazadores: Total atenciones.",
+      "Indicadores trazadores: Egresos.",
+      "Indicadores trazadores: Cirugías realizadas.",
+      "Indicadores trazadores: Consultas.",
+      "Indicadores trazadores: % Ocupación.",
+      "Indicadores trazadores: Atenciones por sede."
+    ],
+    "indicators": [
+      "Total Atenciones: Total de atenciones de todos los indicadores trazadores.",
+      "Egresos: Egresos hospitalarios reportados en el informe ejecutivo.",
+      "Cirugías realizadas: Cirugías realizadas reportadas en el informe ejecutivo.",
+      "Consultas: Consultas (externas y de urgencias) del informe ejecutivo.",
+      "Urgencias: Atenciones de urgencias del informe ejecutivo.",
+      "% Ocupación: Ocupación promedio de camas por sede.",
+      "Variación Egresos vs Año Anterior: Variación porcentual de egresos frente al mismo periodo del año anterior."
+    ],
+    "measures": [
+      {
+        "table": "FACT_INDICADORES",
+        "name": "Total Atenciones",
+        "expression": "SUM(FACT_INDICADORES[CANTIDAD])",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Total de atenciones de todos los indicadores trazadores."
+      },
+      {
+        "table": "FACT_INDICADORES",
+        "name": "Egresos",
+        "expression": "CALCULATE(SUM(FACT_INDICADORES[CANTIDAD]), FACT_INDICADORES[INDICADOR] = \"EGRESOS\")",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Egresos hospitalarios reportados en el informe ejecutivo."
+      },
+      {
+        "table": "FACT_INDICADORES",
+        "name": "Cirugías realizadas",
+        "expression": "CALCULATE(SUM(FACT_INDICADORES[CANTIDAD]), FACT_INDICADORES[INDICADOR] = \"CIRUGIAS\")",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Cirugías realizadas reportadas en el informe ejecutivo."
+      },
+      {
+        "table": "FACT_INDICADORES",
+        "name": "Consultas",
+        "expression": "CALCULATE(SUM(FACT_INDICADORES[CANTIDAD]), FACT_INDICADORES[INDICADOR] = \"CONSULTAS\")",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Consultas (externas y de urgencias) del informe ejecutivo."
+      },
+      {
+        "table": "FACT_INDICADORES",
+        "name": "Urgencias",
+        "expression": "CALCULATE(SUM(FACT_INDICADORES[CANTIDAD]), FACT_INDICADORES[INDICADOR] = \"URGENCIAS\")",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Atenciones de urgencias del informe ejecutivo."
+      },
+      {
+        "table": "FACT_OCUPACION",
+        "name": "% Ocupación",
+        "expression": "AVERAGE(FACT_OCUPACION[PORCENTAJE])",
+        "data_type": "Number",
+        "format_string": "0.0%",
+        "description": "Ocupación promedio de camas por sede."
+      },
+      {
+        "table": "FACT_INDICADORES",
+        "name": "Variación Egresos vs Año Anterior",
+        "expression": "VAR Actual = [Egresos] VAR Anterior = CALCULATE([Egresos], SAMEPERIODLASTYEAR('Calendario'[Date])) RETURN DIVIDE(Actual - Anterior, Anterior)",
+        "data_type": "Number",
+        "format_string": "0.0%",
+        "description": "Variación porcentual de egresos frente al mismo periodo del año anterior."
+      }
+    ]
+  }
+}

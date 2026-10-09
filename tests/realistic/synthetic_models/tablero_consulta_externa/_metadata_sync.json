@@ -1,0 +1,6 @@
+{
+  "semantic_model": "TABLERO CONSULTA EXTERNA",
+  "status": "success",
+  "origin": "synthetic",
+  "note": "Modelo sintético para pruebas (tests/realistic/build_synthetic_models.py)."
+}
