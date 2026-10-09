@@ -49,7 +49,9 @@ TASK_BY_INTENT = {
         "condiciones intervienen y qué representa el resultado. Si el "
         "CONTEXTO trae la fórmula o expresión documentada, cítala tal como "
         "aparece (resume las muy largas). Si el cálculo produce categorías "
-        "o rangos, enuméralos con sus valores."
+        "o rangos, enuméralos con sus valores. No añadas pasos ni operaciones "
+        "que el CONTEXTO no diga (por ejemplo, no agregues «× 100» ni "
+        "redondeos si la fórmula documentada no los trae)."
     ),
     "definition": (
         "Define el término o indicador (qué es, para qué existe y a qué "
