@@ -1,7 +1,8 @@
 import re
 import unicodedata
 
-from src.chatbot.response_formatter import format_value_es
+from src.chatbot.reasoning_trace import ReasoningTrace, format_score, short
+from src.chatbot.response_formatter import NONE_OF_THE_ABOVE_ID, format_value_es
 
 class QueryEngine:
 
@@ -21,6 +22,7 @@ class QueryEngine:
         source_router=None,
         query_plan_builder=None,
         query_plan_dax_generator=None,
+        option_describer=None,
     ):
 
         self.conversation_manager = (
@@ -86,6 +88,14 @@ class QueryEngine:
             query_plan_dax_generator
         )
 
+        # LLM que describe en una frase qué consultaría cada opción de una
+        # contrapregunta. Sin él se usa la descripción del catálogo.
+        self.option_describer = option_describer
+
+        # Razonamiento del turno en curso y del último turno terminado.
+        self._trace = None
+        self.last_reasoning = None
+
         # Estado de conversación para una ambigüedad
         # producida por MasterMetricResolver.
         self._pending_master_metric = None
@@ -100,6 +110,168 @@ class QueryEngine:
         self._pending_master_metric = None
         self._pending_query_plan = None
         self._pending_dashboard_clarification = None
+
+    # ========================================================
+    # RAZONAMIENTO (qué revisó y por qué decidió)
+    # ========================================================
+
+    def _think(self, title, *lines):
+        if self._trace is not None:
+            self._trace.add(title, *lines)
+
+    def _traced(self, kind, text, runner):
+        """Ejecuta un turno registrando su razonamiento en result["reasoning"]."""
+        if self._trace is not None:
+            return runner()  # turno anidado (p. ej. tablero elegido -> process)
+        self._trace = ReasoningTrace(kind, text)
+        try:
+            result = runner()
+            if isinstance(result, dict):
+                self._think(
+                    "Resultado del turno",
+                    f"estado={result.get('status')} · ruta={result.get('route')}"
+                    + (f" · etapa={result.get('stage')}" if result.get("stage") else ""),
+                    f"error: {result.get('error')}" if result.get("error") else None,
+                )
+                result["reasoning"] = self._trace.to_dict()
+            self.last_reasoning = self._trace.to_dict()
+            return result
+        except Exception as error:
+            self._think("Error inesperado", f"{type(error).__name__}: {error}")
+            self.last_reasoning = self._trace.to_dict()
+            raise
+        finally:
+            self._trace = None
+
+    @staticmethod
+    def _metric_where(metric):
+        appearances = metric.get("appearances") or []
+        reports = metric.get("reports") or []
+        report = metric.get("report") or (reports[0] if reports else None) or next(
+            (a.get("report") for a in appearances if a.get("report")), None
+        )
+        pages = []
+        for appearance in appearances:
+            page = appearance.get("page_display_name")
+            if page and page not in pages:
+                pages.append(page)
+        where = " › ".join(part for part in (report, ", ".join(pages[:3])) if part)
+        return where or "sin informe"
+
+    def _candidate_line(self, item):
+        metric = item.get("metric") or {}
+        line = (
+            f"{metric.get('label')} [{metric.get('metric_id')}] · {self._metric_where(metric)}"
+            f" · modelo {metric.get('semantic_model') or '-'}"
+            f" · puntaje {format_score(item.get('score'))}"
+        )
+        if item.get("business_score") is not None:
+            line += f" (por nombre {format_score(item.get('business_score'))})"
+        if item.get("matched_name"):
+            line += f" · coincidió con «{item.get('matched_name')}»"
+        return line
+
+    @staticmethod
+    def _filter_line(item):
+        if item.get("type") == "date_range":
+            period = "-".join(str(v) for v in (item.get("year"), item.get("month")) if v)
+            column = f"{item.get('table')}[{item.get('column')}]" if item.get("column") else ""
+            return f"periodo {period} {column}".strip()
+        line = f"{item.get('table')}[{item.get('column')}] = {item.get('value')}"
+        if item.get("source"):
+            line += f" (origen {item.get('source')}"
+            if item.get("match_score") is not None:
+                line += f", coincidencia {format_score(item.get('match_score'))}"
+            line += ")"
+        return line
+
+    def _trace_plan(self, plan, title="Query Plan"):
+        if self._trace is None or not isinstance(plan, dict):
+            return
+        context = plan.get("source_context") or {}
+        resolution = plan.get("metric_resolution") or {}
+        lines = [
+            f"estado del plan: {plan.get('status')}"
+            + (f" (etapa {plan.get('stage')})" if plan.get("stage") else "")
+        ]
+        if context:
+            lines.append("enrutamiento a tablero/modelo: " + ", ".join(
+                f"{key}={context.get(key)}"
+                for key in ("status", "routing_strength", "report", "semantic_model",
+                            "dashboard", "reason")
+                if context.get(key)
+            ))
+        if resolution.get("status"):
+            lines.append(f"resolución del indicador: {resolution.get('status')}")
+        self._think(title, *lines)
+
+        candidates = resolution.get("candidates") or []
+        if candidates:
+            self._think(
+                "Indicadores evaluados (de mayor a menor puntaje)",
+                *[self._candidate_line(item) for item in candidates[:8]],
+                f"... y {len(candidates) - 8} más" if len(candidates) > 8 else None,
+            )
+        suggestions = resolution.get("suggestions") or []
+        if suggestions:
+            self._think(
+                "Ninguno alcanzó el puntaje mínimo; indicadores que comparten palabras con la pregunta",
+                *[self._candidate_line(item) for item in suggestions[:8]],
+            )
+
+        if plan.get("status") == "ready":
+            metric = plan.get("metric") or {}
+            match = plan.get("metric_match") or {}
+            self._think(
+                "Indicador elegido",
+                f"{metric.get('label')} [{metric.get('metric_id')}] · {self._metric_where(metric)}",
+                f"modelo semántico: {plan.get('semantic_model')}",
+                f"medida/expresión: {metric.get('dax_expression') or metric.get('measure')}",
+                f"coincidió con «{match.get('matched_name')}» (puntaje {format_score(match.get('score'))})"
+                if match.get("matched_name") else None,
+                f"modo: {plan.get('mode')}",
+            )
+            self._think(
+                "Filtros y agrupación",
+                *([f"filtro: {self._filter_line(item)}" for item in plan.get("filters") or []]
+                  or ["sin filtros"]),
+                *[f"agrupar por: {item.get('table')}[{item.get('column')}]"
+                  for item in plan.get("group_by") or []],
+                *[f"no aplicado: {term}" for term in plan.get("unapplied_terms") or []],
+                *[f"nota: {note}" for note in plan.get("notes") or []],
+            )
+        elif plan.get("reason") or plan.get("unresolved_text"):
+            dimension = plan.get("requested_dimension") or plan.get("dimension")
+            self._think(
+                "Por qué no se pudo armar la consulta",
+                f"motivo: {plan.get('reason')}" if plan.get("reason") else None,
+                f"palabras sin interpretar: «{plan.get('unresolved_text')}»"
+                if plan.get("unresolved_text") else None,
+                f"valor pedido: {plan.get('requested_value')}" if plan.get("requested_value") else None,
+                f"dimensión pedida: {dimension}" if dimension else None,
+                f"error de dominio: {plan.get('domain_error')}" if plan.get("domain_error") else None,
+            )
+
+    def _trace_dax(self, title, dax_result, powerbi_result=None):
+        if self._trace is None:
+            return
+        lines = [f"generación DAX: {dax_result.get('status')}"]
+        if dax_result.get("dax"):
+            lines.append("DAX: " + " ".join(str(dax_result.get("dax")).split()))
+        if dax_result.get("status") != "generated":
+            lines.append(f"detalle: {short(dax_result, 300)}")
+        if powerbi_result is not None:
+            lines.append(f"Power BI: {powerbi_result.get('status')}")
+            if powerbi_result.get("status") == "success":
+                rows = powerbi_result.get("rows") or []
+                lines.append(f"filas devueltas: {len(rows)}")
+                if rows:
+                    lines.append(f"primera fila: {short(rows[0], 200)}")
+            else:
+                lines.append(
+                    f"error de Power BI: {short(powerbi_result.get('error') or powerbi_result, 300)}"
+                )
+        self._think(title, *lines)
 
     # ========================================================
     # NORMALIZACIÓN
@@ -1236,6 +1408,7 @@ class QueryEngine:
     def _execute_query_plan(self, plan):
         dax_result = self.query_plan_dax_generator.generate(plan)
         if dax_result.get("status") != "generated":
+            self._trace_dax("Consulta a Power BI", dax_result)
             return {
                 "status": "dax_not_generated",
                 "route": "powerbi",
@@ -1248,6 +1421,7 @@ class QueryEngine:
             dax=dax_result.get("dax"),
             semantic_model=plan.get("semantic_model"),
         )
+        self._trace_dax("Consulta a Power BI", dax_result, powerbi_result)
         if powerbi_result.get("status") != "success":
             return {
                 "status": "powerbi_error",
@@ -1353,7 +1527,7 @@ class QueryEngine:
             text = text[:limit].rsplit(" ", 1)[0].rstrip(",;:") + "…"
         return text
 
-    def _choice_summary(self, label, description, report, page):
+    def _choice_summary(self, label, description, report, page, limit=110):
         """Descripción corta de una opción sin repetir lo que ya dice su etiqueta."""
         label_tokens = set(self._normalize_text(label).split())
 
@@ -1367,10 +1541,74 @@ class QueryEngine:
             label_tokens |= set(self._normalize_text(report).split())
         if page and adds(page):
             location.append(f"página {page}" if location else f"Página {page}")
-        parts = [self._short_text(description), " › ".join(location)]
+        parts = [self._short_text(description, limit), " › ".join(location)]
         return " · ".join(part for part in parts if part)
 
-    def _build_clarification_choices(self, raw_candidates, margin=_CLARIFICATION_MARGIN):
+    def _describe_choices(self, question, choices, metrics):
+        """Pide al LLM una frase por opción («qué obtendrías de este
+        indicador»). Queda en choice["model_description"]."""
+        if self.option_describer is None or not question:
+            self._think(
+                "Descripción de las opciones",
+                "sin LLM disponible: se usa la descripción del catálogo",
+            )
+            return
+        options = []
+        for choice in choices:
+            metric = metrics.get(choice["id"]) or {}
+            report, page = choice["_where"]
+            visuals = []
+            for appearance in metric.get("appearances") or []:
+                title = str(appearance.get("visual_title") or "").strip()
+                if title and title not in visuals:
+                    visuals.append(title)
+            options.append({
+                "id": choice["id"],
+                "label": metric.get("label") or choice["label"],
+                "measure": metric.get("measure"),
+                "dax_expression": metric.get("dax_expression"),
+                "description": metric.get("description"),
+                "report": report, "page": page,
+                "visuals": ", ".join(visuals[:4]),
+                "semantic_model": metric.get("semantic_model"),
+            })
+        try:
+            outcome = self.option_describer.describe(question, options)
+        except Exception as error:
+            outcome = {"status": "error", "descriptions": {},
+                       "error": f"{type(error).__name__}: {error}"}
+        descriptions = outcome.get("descriptions") or {}
+        for choice in choices:
+            if descriptions.get(choice["id"]):
+                choice["model_description"] = descriptions[choice["id"]]
+        self._think(
+            "Descripción de las opciones con el LLM",
+            f"estado: {outcome.get('status')} · {outcome.get('elapsed_s', '-')} s"
+            + (f" · modelo {outcome.get('model')}" if outcome.get("model") else ""),
+            f"opciones descritas por el modelo: {len(descriptions)} de {len(choices)}"
+            + (" (las demás usan la descripción del catálogo)"
+               if len(descriptions) < len(choices) else ""),
+            f"error: {outcome.get('error')}" if outcome.get("error") else None,
+            f"respuesta del modelo: {short(outcome.get('raw'), 900)}" if outcome.get("raw") else None,
+        )
+
+    def _finalize_choices(self, question, choices, metrics):
+        """Descripción corta visible de cada opción: la del LLM si la dio, si
+        no la del catálogo; más informe/página cuando la etiqueta no los dice."""
+        self._describe_choices(question, choices, metrics)
+        for choice in choices:
+            report, page = choice.pop("_where")
+            model_text = choice.get("model_description")
+            choice["summary"] = self._choice_summary(
+                choice.pop("_summary_label", choice["label"]),
+                model_text or choice["description"], report, page,
+                limit=170 if model_text else 110,
+            )
+            choice["summary_source"] = "modelo" if model_text else "catálogo"
+        return choices
+
+    def _build_clarification_choices(self, raw_candidates, margin=_CLARIFICATION_MARGIN,
+                                     question=None):
         scored = []
         seen_ids = set()
         for item in raw_candidates:
@@ -1390,6 +1628,7 @@ class QueryEngine:
         ][: self._CLARIFICATION_MAX_OPTIONS]
 
         choices = []
+        metrics = {metric.get("metric_id"): metric for _, metric in scored}
         for _, metric in scored:
             report, page, model = self._clarification_context(metric)
             title = next(
@@ -1436,16 +1675,16 @@ class QueryEngine:
                     choice["label"] = f"{choice['label']} ({number})"
         for choice in choices:
             choice.pop("_parts", None)
-            report, page = choice.pop("_where")
-            choice["summary"] = self._choice_summary(
-                choice["label"], choice["description"], report, page,
-            )
-        return choices
+        return self._finalize_choices(question, choices, metrics)
 
-    def _clarification_response(self, choices, question=None):
+    _NONE_LABEL = "Ninguna de las anteriores"
+    _NONE_CAPTION = "Buscar otros indicadores parecidos a la pregunta"
+
+    def _clarification_response(self, choices, question=None, none_label=_NONE_LABEL):
         # `prompt` es solo la pregunta: la interfaz muestra las opciones como
         # botones con su descripción corta. `question` conserva además la
-        # lista numerada para quien responde escribiendo.
+        # lista numerada para quien responde escribiendo. La última opción
+        # («Ninguna de las anteriores») busca otros indicadores.
         prompt = question or "Encontré varios indicadores. ¿Cuál necesitas?"
         lines = []
         for index, choice in enumerate(choices, 1):
@@ -1453,18 +1692,34 @@ class QueryEngine:
             if choice.get("summary"):
                 line += f" ({choice['summary']})"
             lines.append(line)
+        lines.append(f"{len(choices) + 1}. {none_label}")
+        self._think(
+            "Contrapregunta al usuario",
+            prompt,
+            *[
+                f"opción {line} [descripción: {choice.get('summary_source', 'catálogo')}]"
+                for line, choice in zip(lines, choices)
+            ],
+            f"opción {lines[-1]}",
+        )
         return {
             "status": "needs_clarification", "route": "clarification",
             "clarification_type": "query_plan_metric",
             "prompt": prompt,
             "question": prompt + "\n\n" + "\n".join(lines),
             "clarification_options": [dict(choice) for choice in choices],
+            "none_option": {
+                "id": NONE_OF_THE_ABOVE_ID, "label": none_label,
+                "caption": self._NONE_CAPTION,
+            },
         }
 
     def _query_plan_clarification(self, plan, raw_candidates=None, prompt=None, margin=_CLARIFICATION_MARGIN):
         if raw_candidates is None:
             raw_candidates = plan.get("metric_resolution", {}).get("candidates", [])
-        choices = self._build_clarification_choices(raw_candidates, margin=margin)
+        choices = self._build_clarification_choices(
+            raw_candidates, margin=margin, question=plan.get("question"),
+        )
         if not choices:
             return {
                 "status": "metric_not_resolved", "route": "powerbi",
@@ -1475,10 +1730,50 @@ class QueryEngine:
             "question": plan.get("question"),
             "intent": plan.get("intent"),
             "choices": choices,
+            "excluded": [],
         }
         response = self._clarification_response(choices, prompt)
         response["query_plan"] = plan
         return response
+
+    def _search_alternatives(self, pending):
+        """«Ninguna de las anteriores»: ofrece los indicadores más cercanos a
+        la pregunta que aún no se mostraron; si no quedan, pide reformular."""
+        excluded = list(dict.fromkeys(
+            [*pending.get("excluded", []), *(c["id"] for c in pending["choices"])]
+        ))
+        self._think(
+            "El usuario descartó las opciones ofrecidas",
+            f"pregunta original: {pending['question']}",
+            f"indicadores descartados: {', '.join(str(i) for i in excluded)}",
+        )
+        finder = getattr(self.query_plan_builder, "alternative_metrics", None)
+        raw = []
+        if callable(finder):
+            try:
+                raw = finder(pending["question"], exclude_ids=excluded) or []
+            except Exception as error:
+                self._think("La búsqueda de alternativas falló", f"{type(error).__name__}: {error}")
+        self._think(
+            "Otros indicadores cercanos a la pregunta",
+            *([self._candidate_line(item) for item in raw] or ["no quedan indicadores parecidos"]),
+        )
+        choices = self._build_clarification_choices(raw, margin=None, question=pending["question"])
+        if not choices:
+            self._pending_query_plan = None
+            return {
+                "status": "not_found", "route": "clarification",
+                "stage": "none_of_the_above", "question": pending["question"],
+                "answer": (
+                    f"No encontré otros indicadores parecidos a «{pending['question']}». "
+                    "Reformula la pregunta con el nombre del indicador o indica el "
+                    "tablero o la página donde lo ves."
+                ),
+            }
+        self._pending_query_plan = {**pending, "choices": choices, "excluded": excluded}
+        return self._clarification_response(
+            choices, "Busqué otros indicadores parecidos a tu pregunta. ¿Es alguno de estos?",
+        )
 
     def _unresolved_words_clarification(self, plan):
         """Palabras que no se pudieron interpretar como filtro: se pregunta si
@@ -1489,20 +1784,21 @@ class QueryEngine:
             return None
         label = str(metric.get("label") or "").strip()
         report, page, _ = self._clarification_context(metric)
-        choices = [{
+        choices = self._finalize_choices(plan.get("question"), [{
             "id": metric.get("metric_id"),
             "label": f"Consultar {label.capitalize()} sin «{words}»",
             "detail": " › ".join(part for part in (report, page) if part),
             "description": str(metric.get("description") or "").strip(),
-            "summary": self._choice_summary(
-                label, metric.get("description"), report, page,
-            ),
-        }]
+            "_summary_label": label,
+            "_where": (report, page),
+        }], {metric.get("metric_id"): metric})
         self._pending_query_plan = {
             "type": "query_plan_metric",
             "question": plan.get("question"),
             "intent": plan.get("intent"),
             "choices": choices,
+            "excluded": [],
+            "none_label": "No, buscar otro indicador",
         }
         response = self._clarification_response(
             choices,
@@ -1510,21 +1806,35 @@ class QueryEngine:
             "como un filtro de ese tablero. ¿Lo consulto sin ese filtro? "
             "También puedes reescribir la pregunta indicando el servicio, la "
             "especialidad u otro filtro.",
+            none_label="No, buscar otro indicador",
         )
         response["query_plan"] = plan
         return response
 
     def _run_selected_metric(self, pending, choice):
         self._pending_query_plan = None
+        self._think(
+            "El usuario eligió una opción",
+            f"{choice['label']} [{choice['id']}]",
+            f"pregunta original: {pending['question']}",
+        )
         plan = self.query_plan_builder.build(
             pending["question"], selected_metric_id=choice["id"]
         )
+        self._trace_plan(plan, "Query Plan con el indicador elegido")
         if plan.get("status") == "ready":
             return self._execute_query_plan(plan)
         return self._query_plan_failure(plan)
 
-    def select_clarification_option(self, option_id):
-        """Resuelve una contrapregunta pendiente con la opción elegida (botón)."""
+    def select_clarification_option(self, option_id, label=None):
+        """Resuelve una contrapregunta pendiente con la opción elegida (botón).
+        `label` (texto del botón) solo se usa en el razonamiento."""
+        return self._traced(
+            "option", f"{label} [{option_id}]" if label else option_id,
+            lambda: self._select_clarification_option(option_id),
+        )
+
+    def _select_clarification_option(self, option_id):
         unavailable = {
             "status": "error", "route": "clarification",
             "stage": "select_option",
@@ -1532,6 +1842,8 @@ class QueryEngine:
         }
         pending = self._pending_query_plan
         if pending is not None:
+            if str(option_id) == NONE_OF_THE_ABOVE_ID:
+                return self._search_alternatives(pending)
             choice = next(
                 (c for c in pending["choices"] if str(c["id"]) == str(option_id)),
                 None,
@@ -1549,6 +1861,10 @@ class QueryEngine:
             if choice is None:
                 return unavailable
             self._pending_dashboard_clarification = None
+            self._think(
+                "El usuario eligió un tablero",
+                f"{choice['id']} · pregunta original: {dashboard_pending['question']}",
+            )
             select = getattr(self.conversation_manager, "select_dashboard", None)
             if callable(select):
                 select(choice["id"])
@@ -1625,21 +1941,61 @@ class QueryEngine:
             return choices[scores.index(best)]
         return None
 
+    _NONE_REPLY = re.compile(
+        r"(?:no\s+(?:es\s+)?)?(?:ningun|ninguna|ninguno)"
+        r"(?:\s+de)?(?:\s+(?:las|los|esas|esos|estas|estos))?"
+        r"(?:\s+(?:anteriores|anterior|opciones|indicadores))?"
+        r"(?:\s+(?:me\s+)?sirven?)?"
+        r"|(?:(?:busca|buscar|busque|quiero|dame)\s+)?(?:otro|otra|otros|otras)"
+        r"(?:\s+(?:opcion|opciones|indicador|indicadores))?"
+    )
+
+    def _is_none_reply(self, message, count):
+        """«Ninguna de las anteriores» escrito (o el número de esa opción)."""
+        norm = self._normalize_text(message)
+        if not norm:
+            return False
+        if count == 1 and re.fullmatch(r"no(?:\s+(?:gracias|es ese|ese no|por favor))?", norm):
+            return True
+        number = re.fullmatch(
+            r"(?:(?:la|el|opcion|numero|num|no|n)\s+)*(\d{1,2})(?:\s+(?:opcion|por favor))?",
+            norm,
+        )
+        if number:
+            return int(number.group(1)) == count + 1
+        return bool(self._NONE_REPLY.fullmatch(norm))
+
     def _continue_query_plan(self, message):
         pending = self._pending_query_plan
         if pending is None:
             return None
         choices = pending["choices"]
+        self._think(
+            "Hay una contrapregunta pendiente",
+            f"pregunta original: {pending['question']}",
+            "opciones: " + " | ".join(str(c["label"]) for c in choices),
+        )
+        if self._is_none_reply(message, len(choices)):
+            return self._search_alternatives(pending)
         # Primero intentar emparejar una opción: una respuesta larga puede
         # ser una opción y no una pregunta nueva.
         selected = self._match_query_plan_choice(message, choices)
         if selected is None:
             if self._looks_like_new_question(message):
+                self._think(
+                    "La respuesta no coincide con ninguna opción",
+                    "parece una pregunta nueva: se descarta la contrapregunta",
+                )
                 self._pending_query_plan = None
                 return None
+            self._think(
+                "La respuesta no coincide con ninguna opción",
+                "se vuelve a preguntar",
+            )
             return self._clarification_response(
                 choices,
                 "Indica el número o el nombre de la opción correspondiente.",
+                none_label=pending.get("none_label") or self._NONE_LABEL,
             )
         return self._run_selected_metric(pending, selected)
 
@@ -1768,6 +2124,7 @@ class QueryEngine:
             else:
                 dax_result = self.query_plan_dax_generator.generate(plan)
             if dax_result.get("status") != "generated":
+                self._trace_dax(f"Consulta a Power BI: {item['label']}", dax_result)
                 last_failure = self._composite_failure("query_plan_dax", plan, dax_result)
                 failed_labels.append(item["label"])
                 continue
@@ -1775,6 +2132,7 @@ class QueryEngine:
                 dax=dax_result.get("dax"),
                 semantic_model=plan.get("semantic_model"),
             )
+            self._trace_dax(f"Consulta a Power BI: {item['label']}", dax_result, powerbi_result)
             if powerbi_result.get("status") != "success":
                 last_failure = self._composite_failure(
                     "query_plan_powerbi", plan, dax_result, powerbi_result
@@ -1876,12 +2234,24 @@ class QueryEngine:
             )
             if composite is not None:
                 if composite.get("status") == "composite":
+                    self._think(
+                        "Pregunta compuesta (varias medidas o participación)",
+                        *[f"{item['kind']}: {item['label']}" for item in composite["items"]],
+                        *[f"sin interpretar: «{word}»" for word in composite.get("unresolved") or []],
+                        *[f"no resuelta: {label}" for label in composite.get("failed_labels") or []],
+                    )
+                    for item in composite["items"]:
+                        self._trace_plan(item["plan"], f"Plan de «{item['label']}»")
                     return self._execute_composite(composite), "composite"
+                self._think("Pregunta compuesta que no se pudo resolver")
+                self._trace_plan(composite)
                 return self._query_plan_failure(composite), composite.get("status")
             plan = self.query_plan_builder.build(
                 question=question, intent_result=intent_result,
             )
+            self._trace_plan(plan, f"Query Plan ({stage})")
         except Exception as error:
+            self._think("El Query Plan lanzó un error", f"{type(error).__name__}: {error}")
             return {
                 "status": "error", "route": "powerbi", "stage": stage,
                 "error": f"{type(error).__name__}: {error}",
@@ -1894,7 +2264,10 @@ class QueryEngine:
     # PROCESS
     # ========================================================
 
-    def process(
+    def process(self, message):
+        return self._traced("question", message, lambda: self._process(message))
+
+    def _process(
         self,
         message,
     ):
@@ -1980,6 +2353,12 @@ class QueryEngine:
             except Exception:
                 early_numeric = False
 
+            self._think(
+                "¿La pregunta pide un dato numérico?",
+                "sí: se intenta primero el Query Plan (Power BI)" if early_numeric
+                else "no se detectó: se pasa al analizador de intención",
+            )
+
             if early_numeric:
                 early_intent = {
                     "status": "ready",
@@ -2001,6 +2380,11 @@ class QueryEngine:
                 # también falla se devuelve este resultado (que puede ser una
                 # contrapregunta con indicadores sugeridos: queda pendiente
                 # solo si finalmente se devuelve).
+                self._think(
+                    "Indicador no identificado con certeza",
+                    "se prueba la documentación (RAG); si tampoco responde se "
+                    "devuelve el resultado del Query Plan",
+                )
                 unresolved_plan_response = early_response
                 unresolved_plan_pending = self._pending_query_plan
                 self._pending_query_plan = None
@@ -2015,6 +2399,16 @@ class QueryEngine:
             .handle_message(
                 message
             )
+        )
+
+        self._think(
+            "Analizador de intención",
+            f"estado: {intent_result.get('status')} · intención: {intent_result.get('intent')}",
+            f"tablero: {intent_result.get('dashboard')}" if intent_result.get("dashboard") else None,
+            f"faltan: {', '.join(intent_result.get('missing_fields') or [])}"
+            if intent_result.get("missing_fields") else None,
+            f"tableros candidatos: {', '.join(str(c) for c in intent_result.get('candidates') or [])}"
+            if intent_result.get("candidates") else None,
         )
 
         if (
@@ -2127,6 +2521,17 @@ class QueryEngine:
                 .answer(
                     intent_result
                 )
+            )
+
+            self._think(
+                "Búsqueda en la documentación (RAG)",
+                f"estado: {rag_result.get('status')} · síntesis: {rag_result.get('synthesis_mode')}",
+                *[
+                    f"fuente: {source.get('dashboard') or '-'} · {source.get('chunk_type') or '-'}"
+                    f" · puntaje {format_score(source.get('score'))}"
+                    f" · {short(source.get('text'), 120)}"
+                    for source in rag_result.get("sources") or []
+                ],
             )
 
             if (
@@ -2396,6 +2801,14 @@ class QueryEngine:
             master_result.get(
                 "status"
             )
+        )
+
+        self._think(
+            "Ruta MasterMetric (anterior al Query Plan)",
+            f"pregunta para la métrica: {metric_question}",
+            f"resolución: {master_status}",
+            None if master_status in ("resolved", "ambiguous")
+            else "se usa el resolvedor legacy",
         )
 
         if (

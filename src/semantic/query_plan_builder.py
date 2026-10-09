@@ -476,7 +476,8 @@ class QueryPlanBuilder:
 
     _SUGGESTION_LIMIT = 6
 
-    def _metric_suggestions(self, business_question, model_hint="", strong=False):
+    def _metric_suggestions(self, business_question, model_hint="", strong=False,
+                            ratio=0.6, limit=_SUGGESTION_LIMIT):
         """Métricas que comparten alguna palabra distintiva con la pregunta.
 
         No alcanzan para responder, pero sí para contrapreguntar: «¿cuántas
@@ -547,10 +548,10 @@ class QueryPlanBuilder:
         # Solo las cercanas a la mejor: una palabra suelta compartida con una
         # métrica lejana no debe llenar la lista.
         best = result[0]["score"]
-        return [item for item in result if item["score"] >= best * 0.6][: self._SUGGESTION_LIMIT]
+        return [item for item in result if item["score"] >= best * ratio][:limit]
 
     def _resolve_metric(self, question, source_context, selected_metric_id=None,
-                        with_suggestions=False):
+                        with_suggestions=False, candidate_limit=8):
         # Una selección realizada durante una aclaración manda por ID,
         # no por el texto de la respuesta del usuario.
         if selected_metric_id is not None:
@@ -715,7 +716,7 @@ class QueryPlanBuilder:
 
         best = groups[0]
         if best["business_score"] < self.min_metric_score:
-            return not_found(groups[:8])
+            return not_found(groups[:candidate_limit])
         tied = [
             item for item in groups
             if best["score"] - item["score"] < self.ambiguity_margin
@@ -723,14 +724,55 @@ class QueryPlanBuilder:
         ]
         if len(tied) > 1:
             rest = [item for item in groups if item not in tied]
-            return {"status": "ambiguous", "candidates": (tied + rest)[:max(8, len(tied))]}
+            limit = None if candidate_limit is None else max(candidate_limit, len(tied))
+            return {"status": "ambiguous", "candidates": (tied + rest)[:limit]}
 
         return {
             "status": "resolved", "metric": best["metric"],
             "matched_name": best["matched_name"], "score": best["score"],
-            "candidates": groups[:8],
+            "candidates": groups[:candidate_limit],
             "source_hint_ignored": hint_ignored,
         }
+
+    def alternative_metrics(self, question, intent_result=None, exclude_ids=(),
+                            limit=_SUGGESTION_LIMIT):
+        """Indicadores más cercanos a la pregunta que aún no se ofrecieron.
+
+        Se usa con «Ninguna de las anteriores»: primero los candidatos del
+        resolutor (en su orden) y luego los que solo comparten alguna palabra
+        distintiva con la pregunta. Excluye las métricas ya ofrecidas y sus
+        duplicados (misma medida publicada en otro informe).
+        """
+        intent_result = intent_result or {}
+        source_context = self._source_context(question, dashboard=intent_result.get("dashboard"))
+        excluded_ids = {str(value) for value in exclude_ids or ()}
+        excluded_keys = {
+            self._logical_key(metric) for metric in self.metrics
+            if str(metric.get("metric_id")) in excluded_ids
+        }
+        resolution = self._resolve_metric(question, source_context, candidate_limit=None)
+        resolved_routing = source_context.get("status") == "resolved"
+        strength = source_context.get("routing_strength")
+        strong = resolved_routing and strength == "strong"
+        model_hint = (
+            normalize_text(source_context.get("semantic_model"))
+            if resolved_routing and strength in ("strong", "weak") else ""
+        )
+        suggestions = self._metric_suggestions(
+            self._metric_business_question(question, source_context),
+            model_hint=model_hint, strong=strong, ratio=0.0, limit=None,
+        )
+        result, seen = [], set(excluded_keys)
+        for item in [*(resolution.get("candidates") or []), *suggestions]:
+            metric = item.get("metric") or {}
+            key = self._logical_key(metric)
+            if str(metric.get("metric_id")) in excluded_ids or key in seen:
+                continue
+            seen.add(key)
+            result.append({key_: value for key_, value in item.items() if not key_.startswith("_")})
+            if limit is not None and len(result) >= limit:
+                break
+        return result
 
     # ---------------- dimension index ----------------
     def _physical_column(self, field):

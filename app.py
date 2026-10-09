@@ -17,6 +17,8 @@ from src.chatbot.conversation_manager import ConversationManager
 from src.chatbot.query_engine import QueryEngine
 from src.chatbot.rag_answer_engine import RAGAnswerEngine
 from src.chatbot.answer_synthesizer import AnswerSynthesizer
+from src.chatbot.option_describer import OptionDescriber
+from src.chatbot.reasoning_trace import format_reasoning_text
 from src.chatbot.response_formatter import (
     ResponseFormatter,
     clarification_buttons,
@@ -202,6 +204,12 @@ def build_system():
         source_router=source_router,
         query_plan_builder=query_plan_builder,
         query_plan_dax_generator=query_plan_dax_generator,
+        # MedGemma describe en una frase qué consultaría cada opción.
+        option_describer=(
+            OptionDescriber(medgemma_provider)
+            if medgemma_status.get("status") == "ready"
+            else None
+        ),
     )
 
     print("--------------------------------------------------------------------------------------")
@@ -347,6 +355,19 @@ def render_past_options(buttons):
     st.caption("Opciones: " + " · ".join(button["label"] for button in buttons))
 
 
+def render_reasoning(text):
+    # Qué revisó el asistente y cómo decidió; el bloque de código trae botón
+    # de copiar para compartirlo cuando una respuesta falla.
+    if not text:
+        return
+    with st.expander("🧠 Razonamiento del asistente", expanded=False):
+        st.caption("Qué revisó y cómo tomó cada decisión. Cópialo con el botón del recuadro para compartirlo.")
+        try:
+            st.code(text, language="text", wrap_lines=True)
+        except TypeError:  # Streamlit sin wrap_lines
+            st.code(text, language="text")
+
+
 def execute_turn(user_text, runner):
     st.session_state.pending_clarification = None
     st.session_state.queued_option = None
@@ -363,7 +384,10 @@ def execute_turn(user_text, runner):
             except Exception as exc:
                 traceback.print_exc()
                 error_text = f"{type(exc).__name__}: {exc}"
-                result = {"status": "error", "route": None, "error": error_text}
+                result = {
+                    "status": "error", "route": None, "error": error_text,
+                    "reasoning": getattr(engine, "last_reasoning", None),
+                }
                 answer = "Ocurrió un error al procesar la consulta. Intenta nuevamente."
 
         st.markdown(answer)
@@ -392,8 +416,11 @@ def execute_turn(user_text, runner):
                     st.write("**Métrica:**", result.get("metric"))
                 if result.get("synthesis_mode"):
                     st.write("**Síntesis:**", result.get("synthesis_mode"))
-        elif result.get("status") == "not_found":
+        elif result.get("status") == "not_found" and result.get("route") == "out_of_scope":
             st.caption("Consulta fuera del alcance de la documentación disponible.")
+
+        reasoning_text = format_reasoning_text(result.get("reasoning"), answer)
+        render_reasoning(reasoning_text)
 
         if debug_mode:
             st.write("**Estado:**", result.get("status"))
@@ -457,6 +484,7 @@ def execute_turn(user_text, runner):
     st.session_state.messages.append({
         "role": "assistant", "content": answer,
         "buttons": buttons, "clarification_id": clarification_id,
+        "reasoning": reasoning_text,
     })
     reset_if_finished(result, engine, conversation_manager)
 
@@ -526,11 +554,12 @@ for message in st.session_state.messages:
                 render_clarification_buttons(pending)
             else:
                 render_past_options(message["buttons"])
+        render_reasoning(message.get("reasoning"))
 
 if prompt:
     execute_turn(prompt, lambda: engine.process(prompt))
 elif queued:
     execute_turn(
         queued["label"],
-        lambda: engine.select_clarification_option(queued["id"]),
+        lambda: engine.select_clarification_option(queued["id"], queued["label"]),
     )

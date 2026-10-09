@@ -399,6 +399,8 @@ class ResponseFormatter:
 
 EMPTY_RESULT_MESSAGE = "No hay datos para esos filtros."
 MAX_TABLE_ROWS = 50
+# Botón «Ninguna de las anteriores» de una contrapregunta de indicadores.
+NONE_OF_THE_ABOVE_ID = "__none__"
 
 _BLANK_TEXT = {"", "blank", "none", "nan", "null"}
 _PERCENT_WORDS = ("%", "porcentaje", "participacion", "participación", "proporcion", "proporción")
@@ -565,7 +567,8 @@ def clarification_prompt(result):
 def clarification_buttons(result):
     """Modelo de botones de una contrapregunta: [{id, label, caption}] (vacío si no aplica).
 
-    `caption` es la descripción corta que se muestra bajo el botón.
+    `caption` es la descripción corta que se muestra bajo el botón. Si la
+    contrapregunta lo permite, el último botón es «Ninguna de las anteriores».
     """
     if result.get("status") != "needs_clarification":
         return []
@@ -587,6 +590,13 @@ def clarification_buttons(result):
         buttons.append({
             "id": option["id"],
             "label": label,
-            "caption": caption[:160] or None,
+            "caption": caption[:240] or None,
+        })
+    none_option = result.get("none_option")
+    if buttons and isinstance(none_option, dict) and none_option.get("id"):
+        buttons.append({
+            "id": none_option["id"],
+            "label": str(none_option.get("label") or "Ninguna de las anteriores"),
+            "caption": none_option.get("caption") or None,
         })
     return buttons

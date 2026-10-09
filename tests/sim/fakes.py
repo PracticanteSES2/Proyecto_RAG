@@ -242,6 +242,13 @@ class FakeOllamaClient:
             lines = [l.strip() for l in ctx.splitlines()
                      if l.strip() and not l.startswith(("[FUENTE", "Tipo:", "Contenido:"))]
             content = "[FakeLLM] " + " ".join(lines)[:600]
+        elif "OPCIONES A DESCRIBIR" in user:
+            # OptionDescriber: una línea numerada por indicador.
+            labels = re.findall(r"^(\d+)\. Indicador: (.+)$", user, flags=re.MULTILINE)
+            content = "\n".join(
+                f"{number}. [FakeLLM] Obtiene el valor de {label.strip().lower()}"
+                for number, label in labels
+            )
         else:
             content = "OK"
         return _Obj(message=_Obj(content=content))
