@@ -2,6 +2,7 @@ import json
 import re
 import sys
 import unicodedata
+from collections import Counter
 from pathlib import Path
 
 
@@ -312,8 +313,10 @@ MEASURE_START_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
+# El nombre no admite corchetes: 'TABLA[Col] = "X"' es un filtro dentro de un
+# CALCULATE multilínea, no el inicio de otra medida.
 NAMED_EXPRESSION_RE = re.compile(
-    r"^(?P<name>[A-Za-z_%#À-ſ][^=()\"',;]{0,60}?)\s*=\s*(?P<rest>.*)$",
+    r"^(?P<name>[A-Za-z_%#À-ſ][^=()\[\]\"',;]{0,60}?)\s*=\s*(?P<rest>.*)$",
     re.DOTALL,
 )
 
@@ -341,6 +344,40 @@ def parse_named_expression_line(text):
         return clean_text(match.group("name")), clean_text(match.group("rest") or "")
 
     return None
+
+
+def _upcoming_expression_names(blocks):
+    """Nombres (normalizados) de las líneas 'Nombre = DAX' del tablero."""
+    names = Counter()
+    for block in blocks:
+        if block.get("type") != "paragraph":
+            continue
+        parsed = parse_named_expression_line(block.get("text", ""))
+        if parsed and parsed[0]:
+            names[normalize_heading(parsed[0])] += 1
+    return names
+
+
+def _looks_like_expression_title(text, upcoming_names):
+    """
+    Título suelto de la siguiente medida en el formato
+        Nombre / descripción / 'Nombre =' / DAX
+    (p. ej. 'Fecha Fin' antes de 'Fecha Fin ='). Sin esto el título y la
+    descripción se pegaban al DAX de la medida anterior.
+    """
+    if any(char in text for char in "[]()=\""):
+        return False
+    return upcoming_names.get(normalize_heading(text), 0) > 0
+
+
+def _looks_like_prose(text):
+    text = clean_text(text)
+    return (
+        text.endswith(".")
+        and "[" not in text
+        and len(text.split()) >= 3
+        and not _is_dax_continuation(text)
+    )
 
 
 def _looks_like_description_title(text):
@@ -458,6 +495,11 @@ def normalize_dashboard(dashboard):
     visual_state = {"current": None}
     # Medida/columna escrita como texto que sigue acumulando líneas DAX.
     open_expression = None
+    # Formato 'Nombre / descripción / Nombre = / DAX': título y descripción
+    # pendientes de la siguiente medida.
+    upcoming_names = _upcoming_expression_names(blocks)
+    pending_title = False
+    pending_description = []
 
     def flush_sql():
         nonlocal sql_buffer
@@ -567,12 +609,23 @@ def normalize_dashboard(dashboard):
                 if parsed:
                     flush_expression()
                     name, rest = parsed
+                    upcoming_names[normalize_heading(name)] -= 1
                     open_expression = (target, {
                         "table": None,
                         "name": name,
-                        "description": None,
+                        "description": (
+                            clean_text(" ".join(pending_description)) or None
+                        ),
                         "_lines": [rest] if rest else [],
                     })
+                    pending_title = False
+                    pending_description = []
+                elif _looks_like_expression_title(text, upcoming_names):
+                    flush_expression()
+                    pending_title = True
+                    pending_description = []
+                elif pending_title and _looks_like_prose(text):
+                    pending_description.append(text)
                 elif open_expression is not None:
                     open_expression[1]["_lines"].append(text)
                 else:
