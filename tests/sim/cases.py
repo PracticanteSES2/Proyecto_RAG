@@ -229,4 +229,17 @@ CASES = {
         "label": "Quirúrgico: «hoy» sin columna de fecha diaria",
         "turns": ["cirugias programadas de hoy en el tablero quirurgico"],
     },
+    # ---- enrutamiento v2: descriptivas, tablero nombrado, valores implícitos ----
+    "enr_descriptiva_porcentaje": {
+        "label": "«¿cómo se calcula el porcentaje…?» va a la documentación, no a Power BI",
+        "turns": ["¿Cómo se calcula el porcentaje de participación del peso en la lavandería?"],
+    },
+    "enr_tablero_nombrado_valor": {
+        "label": "Lavandería nombrada como «tablero de …» + valor implícito con su porqué",
+        "turns": ["peso de antifluidos en enero de 2026 del tablero de lavanderia"],
+    },
+    "enr_por_x_tablero_nombrado": {
+        "label": "«por especialidad» + «tablero quirurgico» (sus palabras no son valores)",
+        "turns": ["cirugias programadas por especialidad en 2024 en el tablero quirurgico"],
+    },
 }

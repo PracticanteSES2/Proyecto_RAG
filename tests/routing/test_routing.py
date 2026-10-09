@@ -370,6 +370,59 @@ def test_metric_words_ignore_dimension_aliases():
     assert builder.metric_words("y el peso en 2025") == ["peso"]
 
 
+# ---------------------------------------------------------------- descriptivas con palabras numéricas
+def test_descriptive_question_marked_numeric_by_the_intent_goes_to_rag():
+    engine, _, provider, rag = make_system()
+
+    class NumericIntent:
+        def handle_message(self, message):
+            return {"status": "ready", "intent": "query_metric",
+                    "original_question": message, "dashboard": None}
+
+    engine.conversation_manager = NumericIntent()
+    question = "¿Cómo se calcula el porcentaje de peso por servicio en la lavandería?"
+    result = engine.process(question)
+    assert result["route"] == "rag" and rag.calls == [question], result.get("route")
+    assert not provider.queries
+    titles = [step.get("title") for step in (result.get("reasoning") or {}).get("steps", [])]
+    assert "Pregunta descriptiva" in titles, titles
+
+
+def test_numeric_question_with_percentage_stays_numeric():
+    _, builder, _, _ = make_system()
+    for texto in ("cual es el porcentaje de participacion de antifluidos en enero de 2026",
+                  "cuales son los servicios con mas peso en lavanderia"):
+        assert builder.looks_numeric(texto), texto
+    assert not builder.looks_numeric("cuales son los rangos del peso en lavanderia")
+
+
+def test_implicit_filter_reason_in_plan_and_reasoning():
+    engine, _, _, _ = make_system()
+    result = engine.process(Q3.replace("el servicio de ", ""))
+    assert result["status"] == "success" and result["value"] == 488.3, result.get("status")
+    implicit = [f for f in result["query_plan"]["filters"] if f.get("source") == "query_plan_implicit_value"]
+    assert implicit and "ANTIFLUIDOS" in implicit[0]["reason"], implicit
+    lines = [line for step in result["reasoning"]["steps"] for line in step.get("lines", [])]
+    assert any("por qué:" in line and "ANTIFLUIDOS" in line for line in lines), lines
+
+
+def test_rag_without_evidence_does_not_accept_a_fallback_clarification():
+    rag_no_evidence = {**_NOT_FOUND, "not_found_reason": "llm_no_evidence"}
+    engine, _, provider, rag = make_system(rag_no_evidence)
+    question = "que hago con los registros de un paciente con fiebre y dolor de cabeza"
+    result = engine.process(question)
+    assert rag.calls == [question]
+    assert result["status"] == "not_found" and result["route"] == "out_of_scope", result.get("status")
+    assert engine._pending_query_plan is None
+    titles = [step.get("title") for step in result["reasoning"]["steps"]]
+    assert "Respaldo del Query Plan descartado" in titles, titles
+
+
+# Pruebas de enrutamiento v2 (tablero nombrado, «por X» técnico, valores
+# implícitos estrictos): se ejecutan también con este módulo.
+from tests.routing.test_board_routing import *  # noqa: E402,F401,F403
+
+
 def _run_all():
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     failed = 0

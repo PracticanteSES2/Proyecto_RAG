@@ -63,6 +63,108 @@ def _token_score(question, candidate):
     )
 
 
+# ------------------------------------------------------------------
+# Tablero / informe / página NOMBRADO en la pregunta
+# ------------------------------------------------------------------
+# «dame el total de triages del tablero de triage», «cirugías en el tablero de
+# cirugías», «la página de detalle nedocs»: la palabra que sigue a «tablero de»
+# nombra el tablero (no es un valor de filtro) y, si identifica un único
+# modelo, fija el informe/página para resolver la métrica (routing fuerte).
+BOARD_TRIGGER_RE = re.compile(
+    r"(?<![a-z0-9])(?<!un )(?<!una )(?<!unos )(?<!otro )(?<!otra )"
+    r"(?:tablero|tableros|informe|informes|reporte|reportes|dashboard|pagina|paginas"
+    r"|seccion|pestana|hoja)"
+    r"(?:\s+(?:de\s+la|de\s+los|de\s+las|del|de|llamad[oa]|sobre))?\s+"
+)
+
+# Nombres de página que no identifican un tablero por sí solos.
+GENERIC_BOARD_NAMES = {
+    "inicio", "resumen", "general", "principal", "home", "detalle", "portada",
+    "indicadores", "tablero", "informe", "reporte", "pagina", "menu",
+}
+
+# Palabras que cortan el nombre de un tablero desconocido («tablero de triage
+# en 2025» -> «triage»).
+BOARD_NAME_STOP_WORDS = {
+    "en", "de", "del", "la", "el", "los", "las", "para", "por", "con", "sin", "y",
+    "o", "que", "durante", "entre", "desde", "hasta", "segun", "cuanto", "cuantos",
+    "cuantas", "cuanta", "hay", "hubo", "fue", "fueron", "es", "son", "a", "al",
+    "este", "esta", "ese", "esa", "mes", "ano", "anio", "dia", "semana", "hoy",
+    "ayer", "ultimo", "ultimos", "ultima", "ultimas", "pasado", "pasada", "actual",
+    "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+    "septiembre", "setiembre", "octubre", "noviembre", "diciembre", "total",
+}
+
+# Orden de preferencia cuando varios nombres coinciden en el mismo modelo.
+_BOARD_KIND_ORDER = {"report": 0, "alias": 1, "page": 2, "documentation": 3}
+
+
+def _singular(token):
+    if token.endswith("s") and len(token) > 4:
+        return token[:-1]
+    return token
+
+
+def _board_name_variants(value):
+    """[(forma normalizada, rango)] con las que se nombra un tablero: «TABLERO
+    LAVANDERIA» -> «lavanderia» (rango 0); «FARMACIA – INICIO» -> «farmacia
+    inicio» (0) y «farmacia» (1: sin palabras genéricas, cede ante un nombre
+    completo: «página de ocupación» es «Ocupación», no «DETALLE OCUPACIÓN»)."""
+    text = normalize_text(value)
+    if not text:
+        return []
+    variants = [(text, 0)]
+    stripped = re.sub(r"^(?:tablero|informe|reporte|dashboard)(?:\s+(?:de|del|de la))?\s+", "", text)
+    if stripped and stripped != text:
+        variants.append((stripped, 0))
+    for base, _ in list(variants):
+        words = base.split()
+        core = [word for word in words if word not in GENERIC_BOARD_NAMES]
+        if core and len(core) < len(words):
+            variants.append((" ".join(core), 1))
+    result, seen = [], set()
+    for variant, rank in variants:
+        words = variant.split()
+        if not words or all(word in GENERIC_BOARD_NAMES for word in words):
+            continue
+        if variant not in seen:
+            seen.add(variant)
+            result.append((variant, rank))
+    return result
+
+
+def documentation_dashboards_from_retriever(retriever):
+    """[(tablero documentado, source_group)] a partir de los chunks del índice
+    RAG («TRIAGE» -> tablero_de_atenciones_institucionales). Solo lee: si el
+    retriever no expone sus puntos, devuelve []."""
+    pairs = []
+    try:
+        provider = getattr(retriever, "documentation_dashboards", None)
+        if callable(provider):
+            return [tuple(item) for item in provider()]
+        scroll = getattr(retriever, "_scroll_all", None)
+        if not callable(scroll):
+            return []
+        read = getattr(retriever, "_payload_value", None)
+        seen = set()
+        for point in scroll():
+            payload = getattr(point, "payload", None) or {}
+            if callable(read):
+                dashboard = read(payload, "dashboard")
+                group = read(payload, "source_group")
+            else:
+                metadata = payload.get("metadata") or {}
+                dashboard = payload.get("dashboard") or metadata.get("dashboard")
+                group = payload.get("source_group") or metadata.get("source_group")
+            key = (str(dashboard or ""), str(group or ""))
+            if dashboard and group and key not in seen:
+                seen.add(key)
+                pairs.append(key)
+    except Exception:
+        return []
+    return pairs
+
+
 class SourceModelRouter:
     """
     Resuelve:
@@ -138,6 +240,11 @@ class SourceModelRouter:
         self._sources_by_model = {}
         self._pages_by_model = {}
         self._page_contexts = []
+
+        # Tableros de la documentación (RAG) con su grupo de fuentes y caché
+        # de nombres de tablero/página para board_mentions().
+        self._documentation_dashboards = []
+        self._board_name_index = None
 
         self._build_indexes()
 
@@ -610,7 +717,203 @@ class SourceModelRouter:
 
         return values
 
+    # ------------------------------------------------------------------
+    # Tablero / página nombrado en la pregunta
+    # ------------------------------------------------------------------
+    def register_documentation_dashboards(self, pairs):
+        """Registra tableros documentados [(nombre, source_group)]: «tablero de
+        triage» identifica TABLERO DE ATENCIONES INSTITUCIONALES aunque su
+        página TRIAGE no esté en el catálogo visual."""
+        values = []
+        for item in pairs or []:
+            try:
+                name, group = item
+            except (TypeError, ValueError):
+                continue
+            if name and group and (str(name), str(group)) not in values:
+                values.append((str(name), str(group)))
+        self._documentation_dashboards = values
+        self._board_name_index = None
+        return len(values)
+
+    def _board_names(self):
+        """[(tokens, entrada)] de informes, alias, páginas y tableros
+        documentados. Cada entrada lleva modelo, informe y página."""
+        if self._board_name_index is not None:
+            return self._board_name_index
+        entries = []
+
+        def add(name, kind, semantic_model, report, source_group, dashboard):
+            if not semantic_model:
+                return
+            for variant, rank in _board_name_variants(name):
+                entries.append((variant.split(), {
+                    "name": str(name), "kind": kind,
+                    "semantic_model": semantic_model, "report": report,
+                    "source_group": source_group, "dashboard": dashboard,
+                    "variant_rank": rank, "tokens": variant.split(),
+                }))
+
+        for source in self.sources:
+            model = source.get("semantic_model")
+            report = source.get("report")
+            group = source.get("source_group")
+            add(report, "report", model, report, group, None)
+            add(source.get("default_dashboard"), "report", model, report, group, None)
+            for alias in source.get("aliases") or []:
+                add(alias, "alias", model, report, group, None)
+        for context in self._page_contexts:
+            add(context.get("dashboard"), "page", context.get("semantic_model"),
+                context.get("report"), context.get("source_group"), context.get("dashboard"))
+        by_group = {}
+        for source in self.sources:
+            if source.get("source_group"):
+                by_group.setdefault(normalize_text(source.get("source_group")), source)
+        for name, group in self._documentation_dashboards:
+            source = by_group.get(normalize_text(group))
+            if source is None:
+                continue
+            add(name, "documentation", source.get("semantic_model"), source.get("report"),
+                source.get("source_group"), name)
+        self._board_name_index = entries
+        return entries
+
+    def board_mentions(self, question):
+        """Tableros/páginas nombrados con «tablero/informe/página de X».
+
+        Devuelve [{"phrase", "name", "tokens", "known", "contexts"}]: `phrase`
+        es el fragmento normalizado completo («tablero de triage»), `tokens`
+        las palabras del nombre (no son valores de filtro) y `contexts` los
+        informes/páginas conocidos con ese nombre (vacío si no se reconoce).
+        """
+        text = normalize_text(question)
+        if not text:
+            return []
+        names = self._board_names()
+        mentions = []
+        for trigger in BOARD_TRIGGER_RE.finditer(text):
+            following = text[trigger.end():].split()
+            if not following:
+                continue
+            best_length, matched = 0, []
+            for tokens, entry in names:
+                length = len(tokens)
+                if length < best_length or length > len(following):
+                    continue
+                if all(_singular(following[i]) == _singular(tokens[i]) for i in range(length)):
+                    if length > best_length:
+                        best_length, matched = length, []
+                    matched.append(entry)
+            if best_length:
+                name_tokens = following[:best_length]
+                # Nombre completo antes que nombre sin palabras genéricas, e
+                # informe/alias propio antes que páginas homónimas de otros
+                # informes («tablero de gestión camas» es TABLERO GESTION
+                # CAMAS aunque el BRIEFING tenga una página GESTIÓN CAMAS).
+                best_rank = min(entry.get("variant_rank", 0) for entry in matched)
+                matched = [entry for entry in matched if entry.get("variant_rank", 0) == best_rank]
+                reports = [entry for entry in matched if entry["kind"] in ("report", "alias")]
+                if reports:
+                    matched = reports
+            else:
+                name_tokens = []
+                for word in following[:3]:
+                    if word in BOARD_NAME_STOP_WORDS or word.isdigit():
+                        break
+                    name_tokens.append(word)
+                if not name_tokens or all(word in GENERIC_BOARD_NAMES for word in name_tokens):
+                    continue
+            contexts, seen = [], set()
+            # Primero la misma forma escrita («triage» = TRIAGE) y luego la
+            # que solo coincide en singular/plural (TRIAGES); `exact` lo marca
+            # para desempatar entre modelos (QueryPlanBuilder).
+            ordered = sorted(matched, key=lambda item: (
+                item.get("tokens") != name_tokens, _BOARD_KIND_ORDER.get(item["kind"], 9),
+            ))
+            for entry in ordered:
+                key = (normalize_text(entry["semantic_model"]), normalize_text(entry["report"]),
+                       normalize_text(entry["dashboard"]))
+                if key not in seen:
+                    seen.add(key)
+                    contexts.append({**entry, "exact": entry.get("tokens") == name_tokens})
+            mentions.append({
+                "phrase": (trigger.group(0) + " ".join(name_tokens)).strip(),
+                "name": " ".join(name_tokens),
+                "tokens": list(name_tokens),
+                "known": bool(contexts),
+                "contexts": contexts,
+            })
+        return mentions
+
+    def board_context(self, entry, mentions=None, candidates=None):
+        """source_context «fuerte» para un informe/página nombrado."""
+        model = entry.get("semantic_model")
+        catalog_path = self.catalog_path_for_model(model, required=False)
+        kind = entry.get("kind")
+        return {
+            "status": "resolved",
+            "reason": "explicit_board_mention",
+            "routing_strength": "strong",
+            "semantic_model": model,
+            "report": entry.get("report"),
+            "source_group": entry.get("source_group"),
+            "dashboard": entry.get("dashboard") if kind in ("page", "documentation") else None,
+            "board_name": entry.get("name"),
+            "board_kind": kind,
+            "technical_catalog": str(catalog_path) if catalog_path else None,
+            "score": 1.0,
+            "candidates": list(candidates or []),
+            "board_mentions": list(mentions or []),
+        }
+
+    def _apply_board_mentions(self, result, mentions):
+        """Fija el informe/página nombrado si identifica un único modelo.
+
+        Si el nombre existe en varios modelos (una página «URGENCIAS» en un
+        informe y un tablero documentado «URGENCIAS» en otro) no se fija nada:
+        solo se informa en `board_mention_models`.
+        """
+        result = dict(result or {})
+        result["board_mentions"] = mentions
+        contexts = [context for mention in mentions for context in mention["contexts"]]
+        if not contexts:
+            return result
+        models = sorted({normalize_text(context["semantic_model"]) for context in contexts})
+        if len(models) != 1:
+            result["board_mention_models"] = sorted({
+                context["semantic_model"] for context in contexts
+            })
+            return result
+        if (
+            result.get("status") == "resolved"
+            and result.get("routing_strength") == "strong"
+            and normalize_text(result.get("semantic_model")) != models[0]
+        ):
+            # Un informe nombrado por su nombre propio manda sobre la página.
+            return result
+        return self.board_context(
+            contexts[0], mentions=mentions, candidates=result.get("candidates"),
+        )
+
     def resolve(
+        self,
+        question=None,
+        dashboard=None,
+        semantic_model=None,
+        report=None,
+    ):
+        result = self._resolve_registry(
+            question=question, dashboard=dashboard,
+            semantic_model=semantic_model, report=report,
+        )
+        if semantic_model or not question:
+            return result
+        mentions = self.board_mentions(question)
+        if not mentions:
+            return result
+        return self._apply_board_mentions(result, mentions)
+
+    def _resolve_registry(
         self,
         question=None,
         dashboard=None,
