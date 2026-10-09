@@ -252,6 +252,8 @@ class QueryEngine:
         if resolution.get("status"):
             lines.append(f"resolución del indicador: {resolution.get('status')}")
         self._think(title, *lines)
+        if plan.get("resolution_notes"):
+            self._think("Decisiones al resolver el indicador", *plan["resolution_notes"])
 
         candidates = resolution.get("candidates") or []
         if candidates:
@@ -309,10 +311,17 @@ class QueryEngine:
                 f"motivo: {plan.get('reason')}" if plan.get("reason") else None,
                 f"palabras sin interpretar: «{plan.get('unresolved_text')}»"
                 if plan.get("unresolved_text") else None,
-                f"indicador descartado: {plan['rejected_metric'].get('label')} (coincidió con "
-                f"«{plan['rejected_metric'].get('matched_name')}» solo por las palabras de la "
-                "agrupación o del filtro; ninguna palabra distintiva de la pregunta lo respalda)"
+                (
+                    f"indicador descartado: {plan['rejected_metric'].get('label')} (coincidió con "
+                    f"«{plan['rejected_metric'].get('matched_name')}», pero "
+                    f"{plan['rejected_metric']['why']})"
+                    if plan["rejected_metric"].get("why") else
+                    f"indicador descartado: {plan['rejected_metric'].get('label')} (coincidió con "
+                    f"«{plan['rejected_metric'].get('matched_name')}» solo por las palabras de la "
+                    "agrupación o del filtro; ninguna palabra distintiva de la pregunta lo respalda)"
+                )
                 if plan.get("rejected_metric") else None,
+                f"tablero nombrado: {plan.get('named_report')}" if plan.get("named_report") else None,
                 f"valor pedido: {plan.get('requested_value')}" if plan.get("requested_value") else None,
                 f"dimensión pedida: {dimension}" if dimension else None,
                 f"periodo pedido: {plan.get('requested_period')}" if plan.get("requested_period") else None,
@@ -1757,26 +1766,36 @@ class QueryEngine:
                 "detail": detail,
                 "description": str(metric.get("description") or "").strip(),
                 "_parts": [report, page, model, str(metric.get("measure") or "").strip()],
-                "_where": (report, page),
+                # Sin página, la descripción muestra al menos el tablero o el
+                # modelo: así dos opciones parecidas nunca son indistinguibles.
+                "_where": (report or model, page),
             })
 
         # Etiquetas distinguibles: se agregan reporte/página/modelo
-        # progresivamente solo mientras existan duplicados.
-        for index in range(4):
+        # progresivamente solo mientras existan duplicados. Se comparan sin
+        # tildes, mayúsculas ni guiones bajos («Total cirugías» = «TOTAL_CIRUGIAS»).
+        def label_key(choice):
+            return self._normalize_text(choice["label"]) or choice["label"].casefold()
+
+        for _ in range(4):
             groups = {}
             for choice in choices:
-                groups.setdefault(choice["label"].casefold(), []).append(choice)
+                groups.setdefault(label_key(choice), []).append(choice)
             duplicated = [group for group in groups.values() if len(group) > 1]
             if not duplicated:
                 break
             for group in duplicated:
                 for choice in group:
-                    part = choice["_parts"][index]
-                    if part and part.casefold() not in choice["label"].casefold():
-                        choice["label"] = f"{choice['label']} — {part}"
+                    # Siguiente dato no vacío (informe, página, modelo, medida):
+                    # una medida sin informe ni página muestra su modelo.
+                    while choice["_parts"]:
+                        part = choice["_parts"].pop(0)
+                        if part and self._normalize_text(part) not in self._normalize_text(choice["label"]):
+                            choice["label"] = f"{choice['label']} — {part}"
+                            break
         groups = {}
         for choice in choices:
-            groups.setdefault(choice["label"].casefold(), []).append(choice)
+            groups.setdefault(label_key(choice), []).append(choice)
         for group in groups.values():
             if len(group) > 1:
                 for number, choice in enumerate(group, 1):
@@ -1891,14 +1910,16 @@ class QueryEngine:
         if not metric.get("metric_id") or not words:
             return None
         label = str(metric.get("label") or "").strip()
-        report, page, _ = self._clarification_context(metric)
+        report, page, model = self._clarification_context(metric)
         choices = self._finalize_choices(plan.get("question"), [{
             "id": metric.get("metric_id"),
             "label": f"Consultar {label.capitalize()} sin «{words}»",
-            "detail": " › ".join(part for part in (report, page) if part),
+            "detail": " · ".join(
+                part for part in (" › ".join(p for p in (report, page) if p), model) if part
+            ),
             "description": str(metric.get("description") or "").strip(),
             "_summary_label": label,
-            "_where": (report, page),
+            "_where": (report or model, page),
         }], {metric.get("metric_id"): metric})
         self._pending_query_plan = {
             "type": "query_plan_metric",
@@ -2067,6 +2088,41 @@ class QueryEngine:
         best = max(scores, default=(0, 0))
         if best[1] > 0 and scores.count(best) == 1:
             return choices[scores.index(best)]
+        return self._choice_by_location(message, choices)
+
+    _LOCATION_REPLY = re.compile(
+        r"^(?:(?:es|seria|quiero|prefiero|dame)\s+)?(?:el|la|los|las|lo)?\s*"
+        r"(?:(?:de|del|en|en el|en la)\s+)?(?:(?:el|la)\s+)?"
+        r"(?:(?:tablero|informe|reporte|pagina|modelo|hoja)\s+(?:de\s+|del\s+)?)?(?P<rest>.+)$"
+    )
+
+    def _choice_by_location(self, message, choices):
+        """«el de referencia», «la del tablero de camas», «el de urgencias»:
+        elige la opción cuyo tablero/página/modelo (o etiqueta) contiene esas
+        palabras, tolerando plurales y tildes. Solo si una única opción las tiene."""
+        from src.semantic.query_plan_builder import _tokens_match_loosely, canonical_token
+
+        norm = self._normalize_text(message)
+        match = self._LOCATION_REPLY.match(norm)
+        rest = match.group("rest") if match else norm
+        wanted = [
+            canonical_token(token) for token in rest.split()
+            if len(token) >= 3 and token not in self._CLARIFICATION_STOPWORDS
+        ]
+        if not wanted:
+            return None
+        hits = []
+        for choice in choices:
+            text = f"{choice.get('label') or ''} {choice.get('detail') or ''}"
+            tokens = {canonical_token(token) for token in self._normalize_text(text).split() if len(token) >= 3}
+            if all(any(_tokens_match_loosely(word, token) for token in tokens) for word in wanted):
+                hits.append(choice)
+        if len(hits) == 1:
+            self._think(
+                "La respuesta nombra el tablero o la página de una opción",
+                f"«{message}» -> {hits[0]['label']}",
+            )
+            return hits[0]
         return None
 
     _NONE_REPLY = re.compile(
@@ -2127,9 +2183,41 @@ class QueryEngine:
             )
         return self._run_selected_metric(pending, selected)
 
+    def _resolution_prompt(self, plan):
+        """Texto de la contrapregunta según por qué no se eligió un indicador."""
+        reason = plan.get("reason")
+        words = str(plan.get("unresolved_text") or "").strip()
+        if reason == "same_name_in_several_boards":
+            return "Ese indicador existe en varios tableros. ¿Cuál necesitas?"
+        if reason == "qualifier_matches_other_metrics" and words:
+            return f"«{words}» aparece en varios indicadores. ¿Cuál necesitas?"
+        if reason == "metric_not_in_named_report":
+            board = plan.get("named_report") or "ese tablero"
+            suggestions = (plan.get("metric_resolution") or {}).get("suggestions") or []
+            in_board = any(
+                self._normalize_text((item.get("metric") or {}).get("semantic_model"))
+                == self._normalize_text((plan.get("source_context") or {}).get("semantic_model"))
+                for item in suggestions
+            )
+            if in_board:
+                return (
+                    f"En el tablero {board} no encontré ese indicador. Estos son los más "
+                    "parecidos de ese tablero. ¿Es alguno de estos?"
+                )
+            return (
+                f"En el tablero {board} no encontré ese indicador. Lo encontré en otro "
+                "tablero. ¿Es este?"
+            )
+        if reason == "unresolved_words_outweigh_metric" and words:
+            return (
+                f"No encontré un indicador que corresponda a «{words}». "
+                "¿Es alguno de estos?"
+            )
+        return None
+
     def _query_plan_failure(self, plan):
         if plan.get("status") == "ambiguous":
-            return self._query_plan_clarification(plan)
+            return self._query_plan_clarification(plan, prompt=self._resolution_prompt(plan))
         if plan.get("status") == "not_found":
             # Ningún indicador coincide lo suficiente, pero algunos comparten
             # palabras con la pregunta: se ofrecen en lugar de «no encontré».
@@ -2137,7 +2225,8 @@ class QueryEngine:
             if suggestions:
                 return self._query_plan_clarification(
                     plan, raw_candidates=suggestions, margin=None,
-                    prompt="No identifiqué con certeza el indicador. ¿Es alguno de estos?",
+                    prompt=self._resolution_prompt(plan)
+                    or "No identifiqué con certeza el indicador. ¿Es alguno de estos?",
                 )
         if (
             plan.get("status") == "unsupported_filter"
@@ -2183,10 +2272,32 @@ class QueryEngine:
         except Exception as error:
             self._think("No se pudo clasificar la pregunta", f"{type(error).__name__}: {error}")
             return response
-        kind = info.get("kind")
+        # El plan puede traer ya la clasificación (p. ej. el indicador se
+        # descartó porque nada de lo no interpretado existe en el catálogo).
+        kind = plan.get("unresolved_kind") or info.get("kind")
         words = ", ".join(f"«{word}»" for word in info.get("words") or [])
         examples = self._examples_text(info.get("examples"))
         example_text = f" Por ejemplo: {examples}." if examples else ""
+        board = plan.get("named_report")
+        if board and plan.get("unresolved_kind") != "out_of_scope":
+            # La pregunta nombra un tablero que existe: no es «fuera de
+            # alcance», sino que ese tablero no tiene el indicador pedido.
+            board_words = set(self._normalize_text(board).split())
+            words = ", ".join(
+                f"«{word}»" for word in info.get("words") or []
+                if word not in board_words and word.rstrip("s") not in board_words
+            )
+            self._think(
+                "Indicador no encontrado en el tablero nombrado",
+                f"tablero: {board}; ningún indicador de ese tablero coincide con "
+                f"{words or 'la pregunta'}",
+            )
+            answer = (
+                f"En el tablero {board} no encontré un indicador para "
+                f"{words or 'tu pregunta'}. Escribe el nombre del indicador tal como "
+                "aparece en el tablero o pregunta qué muestra ese tablero."
+            )
+            return {**response, "answer": answer, "unresolved_kind": "not_in_named_board"}
         if kind == "out_of_scope":
             self._think(
                 "Pregunta fuera de alcance",

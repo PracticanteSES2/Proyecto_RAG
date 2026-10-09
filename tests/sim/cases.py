@@ -242,4 +242,17 @@ CASES = {
         "label": "«por especialidad» + «tablero quirurgico» (sus palabras no son valores)",
         "turns": ["cirugias programadas por especialidad en 2024 en el tablero quirurgico"],
     },
+    # ---- resolución del indicador: tipeo, calificativos, núcleo sin interpretar ----
+    "typo_nesesito": {
+        "label": "«nesesito» (c/s) es una palabra de petición, no un filtro",
+        "turns": ["nesesito saber el total de atenciones en 2024"],
+    },
+    "calificativo_aproximado": {
+        "label": "«ortopédicas» se empareja por raíz con ORTOPEDIA Y TRAUMATOLOGIA",
+        "turns": ["cuantas cirugias programadas ortopedicas hubo en 2024"],
+    },
+    "nucleo_sin_interpretar": {
+        "label": "el sustantivo principal no es el indicador: no se ofrece «sin X»",
+        "turns": ["escribeme un codigo en python para ordenar las cirugias programadas"],
+    },
 }

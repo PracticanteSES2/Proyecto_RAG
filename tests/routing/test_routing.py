@@ -415,7 +415,9 @@ def test_rag_without_evidence_does_not_accept_a_fallback_clarification():
     assert result["status"] == "not_found" and result["route"] == "out_of_scope", result.get("status")
     assert engine._pending_query_plan is None
     titles = [step.get("title") for step in result["reasoning"]["steps"]]
-    assert "Respaldo del Query Plan descartado" in titles, titles
+    # Lo descarta el enrutamiento («Respaldo… descartado») o, antes, la propia
+    # resolución del indicador al ver que la pregunta está fuera de alcance.
+    assert {"Respaldo del Query Plan descartado", "Pregunta fuera de alcance"} & set(titles), titles
 
 
 # Pruebas de enrutamiento v2 (tablero nombrado, «por X» técnico, valores
