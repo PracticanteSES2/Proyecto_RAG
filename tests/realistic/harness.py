@@ -41,8 +41,7 @@ ADOMD_DIR = REPO_ROOT / "tests" / "sim" / "fixtures" / "adomd"     # DLL vacías
 APP_CONSTANTS = {"PROJECT_ROOT", "QDRANT_PATH", "SOURCE_REGISTRY", "VISUAL_METRICS", "MASTER_METRICS"}
 APP_FUNCTIONS = {"build_system", "get_display_answer", "reset_if_finished"}
 
-STATE = {"backend": None, "simulator": None, "ns": {}, "llm": None, "project_root": None,
-         "llm_calls_before": 0}
+STATE = {"backend": None, "simulator": None, "ns": {}, "llm": None, "project_root": None, "engine": None}
 
 
 # ----------------------------------------------------------------------------
@@ -189,7 +188,7 @@ def build_simulator(data_root=None, synthetic=True, today=None, tableros_root="a
     return PowerBISimulator(roots, registry_path=registry, tableros_root=tableros_root, today=today, seed=seed)
 
 
-def build_engine(data_root=None, llm="fake", powerbi_up=True, synthetic=True, ollama_up=True, quiet=True,
+def build_engine(data_root=None, llm="fake", powerbi_up=True, synthetic=None, ollama_up=True, quiet=True,
                  today=None, culture="es-CO", net_types=True, default_model=None, env_file=None,
                  tableros_root="auto"):
     """Construye el sistema real de app.py con Power BI simulado.
@@ -199,20 +198,25 @@ def build_engine(data_root=None, llm="fake", powerbi_up=True, synthetic=True, ol
     """
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")   # el modelo de embeddings ya está en caché local
     from tests.realistic import overlay
     from tests.realistic.powerbi_sim import adomd
 
+    if synthetic is None:   # SIM_SYNTHETIC=0 desactiva el overlay (p. ej. desde tests/eval/run.py)
+        synthetic = os.getenv("SIM_SYNTHETIC", "1").strip().lower() not in ("0", "false", "no")
     data_root = resolve_data_root(data_root)
-    project_root = overlay.build_merged_root(data_root, quiet=quiet) if synthetic else data_root.parent
-    if not synthetic and data_root.name != "data":
-        raise ValueError("Sin modelos sintéticos, data_root debe llamarse 'data' (app.py usa PROJECT_ROOT/data).")
+    # Siempre sobre una copia en caché: data_root (p. ej. ROOT/data) nunca se modifica.
+    project_root = overlay.build_merged_root(data_root, quiet=quiet, synthetic=synthetic)
 
     simulator = build_simulator(project_root / "data", synthetic=False, today=today,
                                 tableros_root=tableros_root)
     backend = adomd.install(simulator, culture=culture, net_types=net_types, powerbi_up=powerbi_up)
     STATE.update(backend=backend, simulator=simulator, project_root=project_root)
 
+    _close_previous()
     _install_streamlit_stub()
+    for name in ("sentence_transformers", "qdrant_client"):
+        _restore_real(name)          # por si tests/sim los dejó falsos en este proceso
     _forget_project_modules()
     env_root = None
     llm_note = None
@@ -226,10 +230,11 @@ def build_engine(data_root=None, llm="fake", powerbi_up=True, synthetic=True, ol
             llm_note = f".env no encontrado en {env_path.parent}"
             # Sin .env: un host que rechaza la conexión al instante.
             os.environ.setdefault("MEDGEMMA_BASE_URL", "http://127.0.0.1:9")
-    elif llm == "fake":
-        _install_fake_llm(ollama_up=ollama_up)
+    elif llm in ("fake", "down"):
+        # "down" (tests/eval): Ollama falso caído.
+        _install_fake_llm(ollama_up=ollama_up and llm != "down")
     else:
-        raise ValueError("llm debe ser 'real' o 'fake'")
+        raise ValueError("llm debe ser 'real', 'fake' o 'down'")
     STATE["llm"] = llm
 
     # Power BI simulado: estas variables ganan sobre el .env (load_dotenv no sobrescribe).
@@ -243,15 +248,33 @@ def build_engine(data_root=None, llm="fake", powerbi_up=True, synthetic=True, ol
     os.environ.setdefault("QDRANT_COLLECTION_NAME", "gestion_clinica_rag")
 
     ns = load_app_namespace(project_root, env_root=env_root)
+    STATE["engine"] = None
     STATE["ns"] = ns
     sink = io.StringIO()
     with contextlib.redirect_stdout(sink if quiet else sys.stdout):
         engine, conversation_manager, formatter, llm_status, powerbi_connection = ns["build_system"]()
+    STATE["engine"] = engine
     llm_status = dict(llm_status or {})
     llm_status["mode"] = llm
     if llm_note:
         llm_status["sim_note"] = llm_note
     return engine, conversation_manager, formatter, llm_status, powerbi_connection, backend.log["dax"]
+
+
+def _close_previous():
+    """Cierra el Qdrant local del motor anterior (Qdrant en disco no admite dos clientes)."""
+    engine = STATE.get("engine")
+    if engine is None:
+        return
+    seen = set()
+    for holder in (engine, getattr(engine, "rag_answer_engine", None), getattr(engine, "metric_resolver", None)):
+        retriever = getattr(holder, "retriever", None)
+        client = getattr(retriever, "client", None)
+        if client is not None and id(client) not in seen:
+            seen.add(id(client))
+            with contextlib.suppress(Exception):
+                client.close()
+    STATE["engine"] = None
 
 
 def new_conversation(engine, conversation_manager):
@@ -302,6 +325,9 @@ def choose(engine, conversation_manager, formatter, option_id, label=None, quiet
     """Equivale a pulsar un botón de contrapregunta (engine.select_clarification_option)."""
     return _run(engine, conversation_manager, formatter,
                 lambda: engine.select_clarification_option(option_id, label), quiet)
+
+
+ask_option = choose   # nombre que usa tests/eval/run.py
 
 
 def run_case(case, engine, conversation_manager, formatter):

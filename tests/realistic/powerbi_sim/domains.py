@@ -132,6 +132,7 @@ def text_domain(table_name, column_name):
     col = str(column_name)
     tab = str(table_name)
     both = f"{tab} {col}"
+    norm_col = normalize_text(col).replace(" ", "_")
     if is_person_column(tab, col):
         return None
     if _has(col, "especialidad", "especiali"):
@@ -140,8 +141,12 @@ def text_domain(table_name, column_name):
         return SEXOS
     if _has(col, "regimen"):
         return REGIMENES
-    if _has(col, "triage", "clasificacion", "nivel_urg", "prioridad"):
+    if _has(col, "triage", "trige") and _has(col, "descri", "nombre", "detalle"):
+        return [f"TRIAGE {nivel}" for nivel in TRIAGE]
+    if _has(col, "triage", "trige", "clasificacion", "nivel_urg", "prioridad"):
         return TRIAGE
+    if norm_col.startswith("ter") and _has(col, "nom") or _has(col, "nomcom", "tercer", "razon_soc"):
+        return ASEGURADORAS
     if _has(col, "turno"):
         return TURNOS
     if _has(col, "dia_semana", "diasemana", "nombre_dia", "weekday"):

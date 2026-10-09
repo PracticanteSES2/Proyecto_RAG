@@ -494,9 +494,26 @@ class Evaluator:
     # ======================================================================
     # Modificación de contexto
     # ======================================================================
+    def _date_key_tables(self):
+        """Tablas cuya columna fecha es clave (lado uno) de una relación: tablas calendario."""
+        if not hasattr(self, "_date_keys"):
+            keys = set()
+            for rel in self.schema.relationships:
+                for table, column, card in ((rel.to_table, rel.to_column, rel.to_card),
+                                            (rel.from_table, rel.from_column, rel.from_card)):
+                    col = self.schema.column(table, column)
+                    if col is not None and col.dtype == "date" and card.lower() == "one":
+                        keys.add((key(table), key(column)))
+            self._date_keys = keys
+        return self._date_keys
+
     def add_filter(self, ctx, flt, keep=False):
         if keep:
             return ctx.copy(filters=ctx.filters + (flt,))
+        if len(flt.cols) == 1 and flt.cols[0] in self._date_key_tables():
+            # Como DAX: filtrar la columna fecha clave de un calendario (p. ej. SAMEPERIODLASTYEAR,
+            # DATESBETWEEN) quita los filtros del resto de columnas de esa tabla (AÑO, MES...).
+            ctx = self.remove_filters(ctx, tables={flt.cols[0][0]})
         new_cols = set(flt.cols)
         new_tables_rowid = {t for t, c in flt.cols if c == ROWID}
         kept = []
@@ -1789,11 +1806,29 @@ class Evaluator:
         lineage, dates = self._dates(node.args[0], ctx)
         n = int(self._n(node, ctx, 1, 0) or 0)
         unit = node.args[2].name.upper()
-        return self._date_table(lineage, [self._shift(d, n, unit) for d in dates])
+        return self._date_table(lineage, self._shift_dates(dates, n, unit))
 
     def tf_SAMEPERIODLASTYEAR(self, node, ctx):
         lineage, dates = self._dates(node.args[0], ctx)
-        return self._date_table(lineage, [self._shift(d, -1, "YEAR") for d in dates])
+        return self._date_table(lineage, self._shift_dates(dates, -1, "YEAR"))
+
+    def _shift_dates(self, dates, n, unit):
+        """DATEADD: los meses completos se desplazan como meses completos (29-feb, fin de mes)."""
+        if unit not in ("YEAR", "QUARTER", "MONTH"):
+            return [self._shift(d, n, unit) for d in dates]
+        by_month = {}
+        for d in dates:
+            by_month.setdefault((d.year, d.month), set()).add(d.day)
+        out = []
+        for (year, month), days in by_month.items():
+            last = calendar.monthrange(year, month)[1]
+            if len(days) == last:
+                target = self._shift(dt.datetime(year, month, 1), n, unit)
+                out.extend(dt.datetime(target.year, target.month, day)
+                           for day in range(1, calendar.monthrange(target.year, target.month)[1] + 1))
+            else:
+                out.extend(self._shift(dt.datetime(year, month, day), n, unit) for day in days)
+        return out
 
     def _period_bounds(self, value, unit):
         if unit == "YEAR":
