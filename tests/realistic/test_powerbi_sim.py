@@ -219,6 +219,43 @@ def test_project_generators_scalar_grouped_and_share():
     assert abs(sum(r[1] for r in shares["rows"]) - 1.0) < 1e-9
 
 
+def test_project_generators_ranking_temporal_sets():
+    """Patrones nuevos del generador: TOPN/ORDER BY, UNION de ROW por periodo, MONTH IN y pares AÑO-MES."""
+    from src.dax.query_plan_dax_generator import QueryPlanDAXGenerator
+    generator = QueryPlanDAXGenerator()
+    metric = {"dax_expression": "[Total Consultas]", "validation_status": "approved"}
+    group = [{"table": "CONSULTAS_AMBULATORIAS", "column": "ESPECIALIDAD"}]
+    ranked = generator.generate_ranked({"status": "ready", "mode": "grouped", "metric": metric, "group_by": group,
+                                        "filters": [], "ranking": {"direction": "desc", "limit": 3}})
+    top = table(CONSULTA, ranked["dax"])
+    full = table(CONSULTA, generator.generate({"status": "ready", "mode": "grouped", "metric": metric,
+                                               "group_by": group, "filters": []})["dax"])
+    assert [r[1] for r in top["rows"]] == [r[1] for r in full["rows"]][:len(top["rows"])] and len(top["rows"]) >= 3
+    pairs = {"type": "temporal_set", "columns": [{"table": "Calendario", "column": "AÑO"},
+                                                 {"table": "Calendario", "column": "MES"}],
+             "values": [[2024, 11], [2025, 1]]}
+    scalar = lambda filters: table(CONSULTA, generator.generate(
+        {"status": "ready", "mode": "scalar", "metric": metric, "filters": filters})["dax"])["rows"][0][0]
+    nov = scalar([{"type": "date_range", "table": "Calendario", "column": "Date", "year": 2024, "month": 11}])
+    jan = scalar([{"type": "date_range", "table": "Calendario", "column": "Date", "year": 2025, "month": 1}])
+    assert scalar([pairs]) == nov + jan
+    months = scalar([{"type": "date_range", "table": "Calendario", "column": "Date", "months": [1, 2, 3]}])
+    years = scalar([{"type": "categorical", "table": "Calendario", "column": "MES", "values": [1, 2, 3],
+                     "data_type": "number"}])
+    assert months == years > 0
+    union_dax = (
+        "EVALUATE\nUNION(\n"
+        "    ROW(\"__orden\", 2, \"MES\", \"enero 2025\", \"__value\", CALCULATE([Total Consultas], "
+        "TREATAS({(2025, 1)}, 'Calendario'[AÑO], 'Calendario'[MES]))),\n"
+        "    ROW(\"__orden\", 1, \"MES\", \"noviembre 2024\", \"__value\", CALCULATE([Total Consultas], "
+        "TREATAS({(2024, 11)}, 'Calendario'[AÑO], 'Calendario'[MES])))\n"
+        ")\nORDER BY [__orden] ASC"
+    )
+    union = table(CONSULTA, union_dax)
+    assert union["columns"] == ["[__orden]", "[MES]", "[__value]"]
+    assert [r[1] for r in union["rows"]] == ["noviembre 2024", "enero 2025"] and [r[2] for r in union["rows"]] == [nov, jan]
+
+
 def test_domain_query_like_query_plan_builder():
     dax = ("EVALUATE\nTOPN(\n    2500,\n    FILTER(\n        SELECTCOLUMNS(\n            VALUES('CIRUGIAS'[ESTADO_CIRUGIA]),\n"
            "            \"Value\", 'CIRUGIAS'[ESTADO_CIRUGIA]\n        ),\n        NOT ISBLANK([Value])\n    ),\n"

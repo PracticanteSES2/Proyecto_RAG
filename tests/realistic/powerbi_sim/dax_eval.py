@@ -1506,6 +1506,14 @@ class Evaluator:
                            "or too small.", "value", node.pos)
         return None if a is None or b is None else a - b * math.floor(a / b)
 
+    def fn_QUOTIENT(self, node, ctx):
+        a, b = self._n(node, ctx, 0), self._n(node, ctx, 1)
+        if a is None or b is None:
+            return None
+        if b == 0:
+            raise DaxError("Function QUOTIENT: division by zero.", "value", node.pos)
+        return int(a / b)
+
     def fn_POWER(self, node, ctx):
         return self._n(node, ctx, 0) ** self._n(node, ctx, 1)
 

@@ -24,6 +24,7 @@ LLM:
                 existe o MedGemma no responde, llm_status lo indica (status != "ready").
 """
 import ast
+import atexit
 import contextlib
 import io
 import os
@@ -254,6 +255,7 @@ def build_engine(data_root=None, llm="fake", powerbi_up=True, synthetic=None, ol
     with contextlib.redirect_stdout(sink if quiet else sys.stdout):
         engine, conversation_manager, formatter, llm_status, powerbi_connection = ns["build_system"]()
     STATE["engine"] = engine
+    atexit.register(_close_previous)   # cierra Qdrant antes del apagado (evita el ruido del __del__)
     llm_status = dict(llm_status or {})
     llm_status["mode"] = llm
     if llm_note:
@@ -282,7 +284,10 @@ def new_conversation(engine, conversation_manager):
     conversation_manager.reset()
     reset = getattr(engine, "reset", None)
     if callable(reset):
-        reset()
+        try:
+            reset(full=True)  # también olvida el contexto de seguimiento («¿y en 2025?»)
+        except TypeError:
+            reset()
 
 
 def _run(engine, conversation_manager, formatter, runner, quiet=True):
