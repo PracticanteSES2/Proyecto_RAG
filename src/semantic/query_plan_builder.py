@@ -1108,6 +1108,25 @@ class QueryPlanBuilder:
         result.sort(key=lambda item: item.get("relevance_score", 0), reverse=True)
         return result
 
+    def _period_in_metric_note(self, question, temporal, metric, metric_result):
+        """Nota visible cuando el periodo pedido forma parte del nombre del
+        indicador («triages en 2025» -> TRIAGES_2025): no se agrega otro
+        filtro de fecha, pero la respuesta lo dice en vez de callarlo."""
+        if temporal.get("period"):
+            return None
+        period = self._period_parser().parse(normalize_text(question))
+        if not period:
+            return None
+        phrase = normalize_text(period.get("phrase"))
+        names = [metric_result.get("matched_name"), metric.get("label"), metric.get("measure")]
+        name = next((n for n in names if n and _exact_phrase(normalize_text(n), phrase)), None)
+        if not name:
+            return None
+        return (
+            f"El periodo «{_original_phrase(question, period.get('phrase'))}» ya está incluido en "
+            f"el indicador {name}; no se aplicó otro filtro de fecha."
+        )
+
     @staticmethod
     def _technical_columns_used(candidates, filters, group_by):
         """«TABLA[COLUMNA]» del catálogo técnico usadas en filtros o agrupación
@@ -2974,6 +2993,9 @@ class QueryPlanBuilder:
                 "La métrica no existe en el informe mencionado; se usó "
                 f"{report or semantic_model}."
             )
+        absorbed = self._period_in_metric_note(question, temporal, metric, metric_result)
+        if absorbed:
+            notes.append(absorbed)
         for spec in explicit_specs:
             field = spec["field"]
             resolved = None

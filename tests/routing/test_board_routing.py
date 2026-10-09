@@ -315,6 +315,19 @@ def test_metric_with_visuals_keeps_its_visual_dimensions():
     assert builder._with_technical_dimensions(metric, candidates) == candidates
 
 
+def test_period_inside_the_metric_name_is_declared():
+    _, builder, _ = system()
+    question = "triages de menores de edad en 2025"
+    temporal = builder._analyze_periods(question, {"label": "TRIAGES_2025"}, "TRIAGES_2025")
+    assert temporal["period"] is None  # el año es parte del nombre del indicador
+    note = builder._period_in_metric_note(
+        question, temporal, {"label": "TRIAGES_2025"}, {"matched_name": "TRIAGES_2025"},
+    )
+    assert note and "2025" in note and "no se aplicó" in note, note
+    plain = builder._analyze_periods(question, {"label": "Triages"}, "Triages")
+    assert builder._period_in_metric_note(question, plain, {"label": "Triages"}, {}) is None
+
+
 # ---------------------------------------------------------------- 3. valores implícitos estrictos
 def test_implicit_value_shared_by_several_values_is_not_applied():
     _, builder, _ = system()
