@@ -2,8 +2,21 @@ import json
 import math
 import re
 import unicodedata
+from datetime import date, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
+
+from src.semantic.period_parser import (
+    GRANULARITY_LABELS,
+    MONTH_NAMES as PERIOD_MONTH_NAMES,
+    MONTHS as PERIOD_MONTHS,
+    TO_DATE_WORDS,
+    PeriodParser,
+    as_date,
+    neutral_phrases,
+    split_period,
+    year_months,
+)
 
 MONTHS = {
     "enero": 1, "febrero": 2, "marzo": 3, "abril": 4,
@@ -51,6 +64,28 @@ REQUEST_WORDS = {
     "cifra", "cifras",
 }
 STOPWORDS |= REQUEST_WORDS
+
+# Verbos, auxiliares y adverbios corrientes de la pregunta («hay registrado»,
+# «lleva», «tuvimos», «se hicieron», «más»): nunca son un filtro ni un valor
+# de dimensión, así que no deben quedar como «palabras sin interpretar».
+COMMON_VERB_WORDS = {
+    "registrado", "registrados", "registrada", "registradas", "registraron",
+    "registramos", "lleva", "llevan", "llevamos", "llevaba", "llevaban",
+    "llevado", "tuvimos", "tenemos", "tenia", "tenian", "habia", "habian",
+    "habido", "hicieron", "hizo", "hecho", "hechos", "hecha", "hechas",
+    "hacen", "hace", "va", "van", "vamos", "iba", "iban", "mas", "menos",
+    "aproximadamente", "exactamente", "alrededor", "solo", "solamente",
+    "top", "ranking",
+}
+STOPWORDS |= COMMON_VERB_WORDS
+
+# Sinónimos de negocio por palabra (genéricos, no de un tablero concreto):
+# «kilos de ropa» o «cuánto pesaron» preguntan por el PESO.
+BUSINESS_TOKEN_SYNONYMS = {
+    "kilo": "peso", "kilos": "peso", "kg": "peso", "kgs": "peso",
+    "kilogramo": "peso", "kilogramos": "peso", "pesaron": "peso",
+    "pesamos": "peso", "pesaba": "peso", "pesaban": "peso",
+}
 
 GENERIC_PAGE_WORDS = {"general", "inicio", "resumen", "principal", "home", "detalle", "portada", "indicadores"}
 
@@ -120,6 +155,12 @@ DIMENSION_SYNONYMS = {
     "sexo": {"sexo", "genero"},
     "clasificacion": {"clasificacion", "triage"},
     "tipo": {"tipo", "tipos"},
+    # Persona que registra/atiende («NOMBRE_COMPLETO», «USUARIO»).
+    "colaborador": {
+        "nombre completo", "usuario", "usuarios", "colaborador", "colaboradores",
+        "empleado", "empleados", "funcionario", "funcionarios", "trabajador",
+        "trabajadores", "operario", "operarios",
+    },
 }
 
 
@@ -137,6 +178,7 @@ def canonical_token(token):
     token = normalize_text(token)
     if not token:
         return ""
+    token = BUSINESS_TOKEN_SYNONYMS.get(token, token)
     if token.endswith("iones") and len(token) > 6:
         return token[:-5] + "ion"
     if token.endswith("ales") and len(token) > 5:
@@ -257,6 +299,24 @@ def _phrase_score(question, candidate, weights=None):
     return min(0.99, 0.68 * coverage + 0.24 * average + 0.08 * precision)
 
 
+def _original_phrase(question, phrase):
+    """Fragmento de la pregunta original (con tildes) que corresponde a una
+    frase normalizada: «este ano» -> «este año». Si no se ubica, la frase."""
+    target = normalize_text(phrase)
+    if not target:
+        return phrase
+    words = list(re.finditer(r"[^\W_]+|%", str(question or "")))
+    for i in range(len(words)):
+        joined = ""
+        for j in range(i, len(words)):
+            joined = (joined + " " + normalize_text(words[j].group(0))).strip()
+            if joined == target or re.sub(r"(\d) (er|ero|ro|do|to|o|a)\b", r"\1\2", joined) == target:
+                return question[words[i].start():words[j].end()]
+            if len(joined) > len(target) + 4:
+                break
+    return phrase
+
+
 def _unique_strings(values):
     result = []
     seen = set()
@@ -283,7 +343,11 @@ class QueryPlanBuilder:
         min_metric_score=0.74,
         ambiguity_margin=0.055,
         max_implicit_dimensions=6,
+        today=None,
     ):
+        # Fecha de referencia de los periodos relativos («este año», «mes
+        # pasado»): date, callable o None (= hoy). Las pruebas la fijan.
+        self.today = today
         self.master_metrics_path = Path(master_metrics_path)
         self.visual_catalog_path = Path(visual_catalog_path)
         self.source_router = source_router
@@ -433,6 +497,7 @@ class QueryPlanBuilder:
         """Castiga palabras distintivas de la pregunta que el candidato no explica."""
         ignored = {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS}
         ignored.update(canonical_token(word) for word in MONTHS)
+        ignored.update(self._period_words(business_question))  # «este año», «últimos 3 meses»
         penalty = 0.0
         for token in set(canonical_tokens(business_question)):
             if token in ignored or token.isdigit() or len(token) < 3 or _is_request_word(token):
@@ -1366,74 +1431,350 @@ class QueryPlanBuilder:
         found.sort(key=lambda field: field.get("relevance_score", 0), reverse=True)
         return found[0] if found else None
 
+    # ---------------- periodos (src/semantic/period_parser.py) ----------------
+    def _today(self):
+        """Fecha de referencia de los periodos relativos (inyectable en pruebas)."""
+        value = self.__dict__.get("today")
+        if callable(value):
+            value = value()
+        return as_date(value) or date.today()
+
+    def _period_parser(self):
+        return PeriodParser(self._today())
+
+    @staticmethod
+    def _strip_phrase(text, phrase):
+        """Quita una frase temporal del texto normalizado (o sus meses/años sueltos)."""
+        phrase = normalize_text(phrase)
+        if not phrase:
+            return text
+        # Con la preposición que lo introduce: «servicio en 2024» -> «servicio».
+        lead = r"(?:(?:en|de|del|durante|para|desde|hasta)\s+(?:(?:el|la|los|las)\s+)?)?"
+        pattern = r"(?<![a-z0-9])" + lead + re.escape(phrase) + r"(?![a-z0-9])"
+        if re.search(pattern, text):
+            text = re.sub(pattern, " ", text)
+        else:
+            for word in phrase.split():
+                if word in PERIOD_MONTHS or re.fullmatch(r"(?:19|20)\d{2}", word):
+                    text = re.sub(
+                        r"(?<![a-z0-9])" + lead + re.escape(word) + r"(?![a-z0-9])", " ", text,
+                    )
+        return re.sub(r"\s+", " ", text).strip()
+
+    def _analyze_periods(self, question, metric=None, matched_name=None):
+        """Periodo y agrupación temporal de la pregunta.
+
+        Devuelve {"period", "granularity", "tokens", "clean_question"}:
+        `tokens` son las palabras que expresaron el periodo (no son filtros
+        de dimensión) y `clean_question` la pregunta sin esas frases, para
+        buscar agrupaciones y filtros explícitos sin confundirlas con valores.
+        Una frase que forma parte del nombre de la métrica («Egresos año
+        anterior», «Promedio mensual») no se toma como periodo.
+        """
+        normalized = normalize_text(question)
+        parser = self._period_parser()
+        period = parser.parse(normalized)
+        granularity = parser.granularity(normalized)
+        names = [
+            normalize_text(name)
+            for name in ((metric or {}).get("label"), (metric or {}).get("measure"), matched_name)
+            if name
+        ]
+
+        def in_metric_name(phrase):
+            phrase = normalize_text(phrase)
+            return bool(phrase) and any(_exact_phrase(name, phrase) for name in names)
+
+        if period and in_metric_name(period["phrase"]):
+            period = None
+        if granularity and in_metric_name(granularity["phrase"]):
+            granularity = None
+
+        clean = normalized
+        tokens = set()
+        phrases = [*(neutral_phrases(normalized))]
+        if period:
+            phrases.append(period["phrase"])
+            tokens.update(canonical_token(word) for word in TO_DATE_WORDS)
+        if granularity:
+            phrases.append(granularity["phrase"])
+        for phrase in phrases:
+            tokens.update(canonical_tokens(phrase))
+            clean = self._strip_phrase(clean, phrase)
+        return {
+            "period": period, "granularity": granularity,
+            "tokens": tokens, "clean_question": clean, "question": question,
+        }
+
+    def _period_words(self, text):
+        """Palabras canónicas de las expresiones de periodo del texto (con caché).
+
+        Solo las que de verdad forman un periodo («este año», «últimos 3
+        meses»): «días de estancia» no es un periodo y sigue contando.
+        """
+        cache = self.__dict__.setdefault("_period_words_cache", {})
+        key = normalize_text(text)
+        if key not in cache:
+            if len(cache) > 512:
+                cache.clear()
+            cache[key] = frozenset(self._analyze_periods(key)["tokens"])
+        return cache[key]
+
+    def _month_values(self, field, semantic_model, months):
+        """Valores de la columna MES para esos meses (número o nombre según su tipo)."""
+        month_type = self._column_type(semantic_model, field["table"], field["column"])
+        if month_type != "text":
+            return list(months), "number"
+        domain = self._get_values(semantic_model, field["table"], field["column"]) or []
+        names = {normalize_text(item): item for item in domain}
+        values = [names.get(PERIOD_MONTH_NAMES[month]) for month in months]
+        if any(value is None for value in values):
+            return None, "text"
+        return values, "text"
+
+    def _period_filters(self, period, candidates, semantic_model=None):
+        """Filtros de un periodo según el TIPO real de las columnas temporales.
+
+        Devuelve (filtros, términos_sin_aplicar, notas):
+        - columna de fecha -> date_range [start, end) (o MONTH() IN {...} para
+          meses sin año);
+        - columnas AÑO/MES enteras (o MES de texto) -> filtros categóricos por
+          valor: AÑO = 2025 + MES IN {1, 2, 3}; varios años completos -> AÑO IN
+          {...}; meses de años distintos -> pares (AÑO, MES).
+        Sin fecha diaria, un periodo por días no se aplica (se devuelve vacío).
+        Cada filtro lleva `label` con el periodo legible («enero–marzo 2025»).
+        """
+        label = period.get("label")
+        unapplied, notes = [], []
+        kind = period.get("kind")
+        months_any_year = kind == "months_any_year"
+        if months_any_year:
+            names = label if len(period["months"]) > 1 else period.get("month_name")
+            notes.append(f"Mes sin año ({names}): se consideran todos los años.")
+
+        date_field = (
+            self._best_date_field(candidates, semantic_model) if semantic_model
+            else self._best_date_field(candidates)
+        )
+        if date_field:
+            item = {
+                "type": "date_range",
+                "table": date_field["table"],
+                "column": date_field["column"],
+                "year": period.get("year"),
+                "month": period.get("month"),
+                "month_name": period.get("month_name"),
+                "label": label,
+                "period_kind": kind,
+                "source": "query_plan_temporal",
+            }
+            if months_any_year:
+                item["months"] = list(period["months"])
+            else:
+                item["start"] = as_date(period["start"]).isoformat()
+                item["end"] = as_date(period["end"]).isoformat()
+            return [item], unapplied, notes
+
+        if period.get("daily"):
+            # AÑO/MES no bastan para «hoy», «ayer» o «últimos 7 días».
+            return [], [f"periodo {label} (el tablero no tiene fecha diaria)"], notes
+
+        year_field = self._best_temporal_field(candidates, semantic_model, "year")
+        month_field = self._best_temporal_field(candidates, semantic_model, "month")
+
+        def year_filter(values):
+            single = len(values) == 1
+            return {
+                "type": "categorical", "concept": "año",
+                "table": year_field["table"], "column": year_field["column"],
+                "operator": "=" if single else "IN",
+                "value": values[0] if single else None,
+                **({} if single else {"values": list(values)}),
+                "data_type": "number", "temporal": "year", "label": label,
+                "source": "query_plan_temporal",
+            }
+
+        def month_filter(months):
+            values, data_type = self._month_values(month_field, semantic_model, months)
+            if values is None:
+                return None
+            single = len(values) == 1
+            return {
+                "type": "categorical", "concept": "mes",
+                "table": month_field["table"], "column": month_field["column"],
+                "operator": "=" if single else "IN",
+                "value": values[0] if single else None,
+                **({} if single else {"values": values}),
+                "data_type": data_type, "temporal": "month", "label": label,
+                "source": "query_plan_temporal",
+            }
+
+        filters = []
+        if months_any_year:
+            item = month_filter(period["months"]) if month_field else None
+            if item:
+                filters.append(item)
+            else:
+                unapplied.append(f"mes {label}")
+            return filters, unapplied, notes
+
+        pairs = year_months(as_date(period["start"]), as_date(period["end"]))
+        years = sorted({year for year, _ in pairs})
+        by_year = {year: [m for y, m in pairs if y == year] for year in years}
+        whole_years = all(len(by_year[year]) == 12 for year in years)
+        if len(years) == 1 or whole_years:
+            if year_field:
+                filters.append(year_filter(years))
+            else:
+                unapplied.append(f"año {', '.join(str(year) for year in years)}")
+            if not whole_years:
+                item = month_filter(by_year[years[0]]) if month_field else None
+                if item:
+                    filters.append(item)
+                else:
+                    unapplied.append(f"meses de {label}")
+            return filters, unapplied, notes
+
+        # Meses de años distintos (noviembre 2024–febrero 2025): pares (AÑO, MES).
+        if year_field and month_field and self._column_type(
+            semantic_model, month_field["table"], month_field["column"]
+        ) != "text":
+            filters.append({
+                "type": "temporal_set", "concept": "año y mes",
+                "columns": [
+                    {"table": year_field["table"], "column": year_field["column"]},
+                    {"table": month_field["table"], "column": month_field["column"]},
+                ],
+                "values": [[year, month] for year, month in pairs],
+                "label": label, "temporal": "year_month",
+                "source": "query_plan_temporal",
+            })
+        else:
+            unapplied.append(f"periodo {label}")
+        return filters, unapplied, notes
+
     def _temporal_filters(self, question, candidates, semantic_model=None):
-        """Filtros de año/mes según el TIPO real de la columna.
+        """Filtros del periodo de la pregunta según el TIPO real de la columna.
 
         Devuelve (filtros, términos_sin_aplicar, notas). Columna de fecha ->
         date_range; columnas enteras AÑO/MES -> filtro por valor numérico.
         Un mes sin año filtra el mes en todos los años y lo dice en las notas.
         """
-        year, month, month_name = self._detect_year_month(question)
-        if year is None and month is None:
+        period = self._period_parser().parse(normalize_text(question))
+        if not period:
             return [], [], []
+        return self._period_filters(period, candidates, semantic_model)
 
-        unapplied = []
-        notes = []
-        date_field = self._best_date_field(candidates, semantic_model) if semantic_model else self._best_date_field(candidates)
-        if date_field:
-            if month is not None and year is None:
-                notes.append(f"Mes sin año ({month_name}): se consideran todos los años.")
-            return [{
-                "type": "date_range",
-                "table": date_field["table"],
-                "column": date_field["column"],
-                "year": year,
-                "month": month,
-                "month_name": month_name,
-                "source": "query_plan_temporal",
-            }], unapplied, notes
+    def _bucket_period(self, bucket):
+        """Subperiodo de split_period con la forma de un periodo."""
+        today = self._today()
+        if bucket.get("start") is None:
+            month = bucket["months"][0]
+            return {
+                "kind": "months_any_year", "months": [month], "year": None, "month": month,
+                "month_name": PERIOD_MONTH_NAMES[month], "label": bucket["label"],
+                "daily": False, "start": None, "end": None,
+            }
+        start, end = as_date(bucket["start"]), as_date(bucket["end"])
+        last = end - timedelta(days=1)
+        same_month = (start.year, start.month) == (last.year, last.month)
+        return {
+            "kind": "range", "start": start, "end": end,
+            "year": start.year if start.year == last.year else None,
+            "month": start.month if same_month else None,
+            "month_name": None, "label": bucket["label"],
+            "daily": bucket.get("daily", False), "to_date": end > today,
+        }
 
-        filters = []
+    def _year_domain_period(self, candidates, semantic_model):
+        """Años con datos (columna AÑO entera) como periodo para «por año» sin periodo."""
         year_field = self._best_temporal_field(candidates, semantic_model, "year")
-        month_field = self._best_temporal_field(candidates, semantic_model, "month")
-        if year is not None:
-            if year_field:
-                filters.append({
-                    "type": "categorical", "concept": "año",
-                    "table": year_field["table"], "column": year_field["column"],
-                    "operator": "=", "value": year, "data_type": "number",
-                    "temporal": "year", "source": "query_plan_temporal",
-                })
-            else:
-                unapplied.append(f"año {year}")
-        if month is not None:
-            month_filter = None
-            if month_field:
-                month_type = self._column_type(semantic_model, month_field["table"], month_field["column"])
-                value = month
-                data_type = "number"
-                if month_type == "text":
-                    data_type = "text"
-                    value = None
-                    domain = self._get_values(semantic_model, month_field["table"], month_field["column"]) or []
-                    for item in domain:
-                        if normalize_text(item) == month_name:
-                            value = item
-                            break
-                if value is not None:
-                    month_filter = {
-                        "type": "categorical", "concept": "mes",
-                        "table": month_field["table"], "column": month_field["column"],
-                        "operator": "=", "value": value, "data_type": data_type,
-                        "temporal": "month", "source": "query_plan_temporal",
-                    }
-            if month_filter:
-                filters.append(month_filter)
-                if year is None:
-                    notes.append(f"Mes sin año ({month_name}): se consideran todos los años.")
-            else:
-                unapplied.append(f"mes {month_name}")
-        return filters, unapplied, notes
+        if not year_field or self._best_date_field(candidates, semantic_model):
+            return None
+        values = self._get_values(semantic_model, year_field["table"], year_field["column"]) or []
+        years = sorted({int(v) for v in values if str(v).isdigit()})[-10:]
+        if not years:
+            return None
+        parser = self._period_parser()
+        period = parser._range(date(years[0], 1, 1), date(years[-1] + 1, 1, 1), "")
+        period["label"] = f"{period['label']} (años con datos)"
+        return period
+
+    def _apply_temporal(self, analysis, candidates, semantic_model, group_by):
+        """Filtros del periodo + agrupación temporal («por mes») del plan.
+
+        Devuelve {"filters", "unapplied", "notes", "unsupported_period",
+        "group", "buckets"}. La agrupación usa subperiodos explícitos
+        (`buckets`, uno por mes/trimestre/año...) que el generador DAX evalúa
+        con los mismos filtros de periodo: funciona igual con columna de fecha
+        o con columnas AÑO/MES enteras. Si no se puede agrupar, se declara.
+        """
+        result = {
+            "filters": [], "unapplied": [], "notes": [], "unsupported_period": None,
+            "group": None, "buckets": [],
+        }
+        period = analysis.get("period")
+        granularity = analysis.get("granularity")
+        if period:
+            filters, unapplied, notes = self._period_filters(period, candidates, semantic_model)
+            if not filters:
+                result["unsupported_period"] = period
+                result["unapplied"] = unapplied
+                return result
+            result["filters"].extend(filters)
+            result["unapplied"].extend(unapplied)
+            result["notes"].extend(notes)
+            for word in period.get("ignored") or []:
+                what = "mes" if word in PERIOD_MONTHS else "año"
+                result["unapplied"].append(f"{what} {word} (solo se aplicó {period['label']})")
+
+        if not granularity:
+            return result
+        unit = granularity["unit"]
+        name = GRANULARITY_LABELS[unit]
+        if group_by:
+            result["unapplied"].append(
+                f"agrupar por {name.lower()} (ya se agrupa por {group_by[0].get('column')})"
+            )
+            return result
+
+        base = period
+        if base is None:
+            base = (self._year_domain_period(candidates, semantic_model) if unit == "year" else None) \
+                or self._period_parser().default_window(unit)
+            filters, unapplied, _ = self._period_filters(base, candidates, semantic_model)
+            if filters and not unapplied:
+                result["filters"].extend(filters)
+                result["notes"].append(f"Sin periodo en la pregunta: se muestra {base['label']}.")
+        buckets = split_period(base, unit, self._today())
+        if not buckets:
+            result["unapplied"].append(
+                f"agrupar por {name.lower()} (más de 62 periodos o periodo sin año: acota el periodo)"
+            )
+            return result
+        planned = []
+        table = None
+        for bucket in buckets:
+            filters, unapplied, _ = self._period_filters(
+                self._bucket_period(bucket), candidates, semantic_model,
+            )
+            if not filters or unapplied:
+                result["unapplied"].append(
+                    f"agrupar por {name.lower()} (el tablero no tiene la columna de fecha necesaria)"
+                )
+                # Sin agrupación, el filtro por defecto ya no tiene sentido.
+                if period is None:
+                    result["filters"] = []
+                    result["notes"] = [n for n in result["notes"] if not n.startswith("Sin periodo")]
+                return result
+            table = table or filters[0].get("table") or (filters[0].get("columns") or [{}])[0].get("table")
+            planned.append({"order": bucket["order"], "label": bucket["label"], "filters": filters})
+        result["buckets"] = planned
+        result["group"] = {
+            "table": table, "column": name, "label": name,
+            "source": "query_plan_temporal_group", "temporal": unit,
+        }
+        return result
 
     # ---------------- public API ----------------
     def is_descriptive(self, question):
@@ -1451,6 +1792,10 @@ class QueryPlanBuilder:
         return bool(
             re.search(r"(?<![a-z0-9])(?:" + months + r")(?![a-z0-9])", normalized)
             or re.search(r"(?<![0-9])20\d{2}(?![0-9])", normalized)
+            # Periodos relativos («este año», «mes pasado», «últimos 3 meses»)
+            # y agrupaciones temporales («por mes», «mensual»).
+            or PeriodParser().parse(normalized)
+            or PeriodParser().granularity(normalized)
         )
 
     def looks_numeric(self, question, dashboard=None):
@@ -1477,11 +1822,14 @@ class QueryPlanBuilder:
         )
         has_period = self._has_period(normalized)
         has_group = bool(re.search(r"(?<![a-z0-9])(?:por|segun)\s+[a-z]", normalized))
+        # «top 5 ...», «el servicio con más ...»: un ranking siempre es numérico.
+        if self._mentions_ranking(normalized):
+            return True
         if not (has_verb or has_period or has_group):
             return False
 
         source_context = self._source_context(question, dashboard=dashboard)
-        metric_result = self._resolve_metric(question, source_context)
+        metric_result = self._resolve_metric_flexible(question, source_context)
         return metric_result.get("status") in ("resolved", "ambiguous")
 
     # ---------------- participación / multi-métrica ----------------
@@ -1768,11 +2116,387 @@ class QueryPlanBuilder:
             "source_context": source_context,
         }
 
+    # ---------------- «cuántas X» ≈ «total de X» ----------------
+    _COUNT_WORDS_RE = re.compile(
+        r"(?<![a-z0-9])(?:cuant[oa]s?|numero\s+(?:de|del)|cantidad\s+(?:de|del))(?![a-z0-9])"
+    )
+
+    def _total_variant(self, question):
+        """Variante «total de ...» de una pregunta de conteo: «cuántas
+        atenciones hubo» o «atenciones de urgencias» -> «total de atenciones...»."""
+        text = normalize_text(question)
+        if not text or re.search(r"(?<![a-z0-9])totale?s?(?![a-z0-9])", text):
+            return None
+        variant, replaced = self._COUNT_WORDS_RE.subn("total de", text, count=1)
+        return variant if replaced else f"total de {text}"
+
+    def _resolve_metric_flexible(self, question, source_context, selected_metric_id=None, **kwargs):
+        """_resolve_metric que, si no encuentra indicador, prueba la variante
+        «total de ...» SOLO cuando las palabras de la pregunta señalan un único
+        indicador del catálogo (p. ej. TOTAL ATENCIONES). Con varios candidatos
+        («cuántas cirugías»: total / realizadas / programadas) se mantiene el
+        resultado original para que se contrapregunte."""
+        result = self._resolve_metric(
+            question, source_context, selected_metric_id=selected_metric_id, **kwargs
+        )
+        if selected_metric_id is not None or result.get("status") != "not_found":
+            return result
+        variant = self._total_variant(question)
+        if not variant:
+            return result
+        related = self._metric_suggestions(self._metric_business_question(question, source_context))
+        related_keys = {self._logical_key(item["metric"]) for item in related}
+        if len(related_keys) != 1:
+            return result
+        alternative = self._resolve_metric(variant, source_context, **kwargs)
+        if (
+            alternative.get("status") != "resolved"
+            or self._logical_key(alternative["metric"]) not in related_keys
+        ):
+            return result
+        alternative["interpretation"] = (
+            f"«{normalize_text(question)}» se interpretó como «{variant}» "
+            "(único indicador del catálogo con esas palabras)"
+        )
+        return alternative
+
+    # ---------------- respaldo del indicador elegido ----------------
+    def _metric_evidence_rejection(self, question, metric, metric_result, group_by,
+                                   explicit_specs, source_context):
+        """Plan not_found si el indicador se eligió solo por las palabras de la
+        agrupación o de un filtro («citas asignadas por especialidad» no es
+        CIRUGÍAS REALIZADAS aunque una de sus visuales se llame «Cirugías por
+        especialidad»). Con ello se contrapregunta en lugar de responder."""
+        ignored = {
+            canonical_token(word)
+            for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS | set(MONTHS)
+        } | {"por", "segun", "total"}
+        dimension_tokens = set()
+        for field in [*group_by, *(spec["field"] for spec in explicit_specs)]:
+            # El nombre de la tabla («ATENCIONES.SEDE») no nombra la dimensión.
+            table_tokens = set(canonical_tokens(field.get("table")))
+            for alias in field.get("aliases", []) or []:
+                dimension_tokens.update(set(canonical_tokens(alias)) - table_tokens)
+        if not dimension_tokens:
+            return None
+
+        words = [
+            word for word in normalize_text(question).split()
+            if canonical_token(word) not in ignored and not word.isdigit()
+            and len(word) >= 3 and not _is_request_word(canonical_token(word))
+        ]
+        distinctive = [word for word in words if canonical_token(word) not in dimension_tokens]
+        name_tokens = set()
+        for name in self._metric_names(metric):
+            name_tokens.update(canonical_tokens(name))
+        evidence = [
+            word for word in distinctive
+            if any(_token_similarity(canonical_token(word), other) >= 0.82 for other in name_tokens)
+        ]
+        if evidence:
+            return None
+
+        # Palabras de la pregunta, sin las de la agrupación/filtro, para buscar
+        # indicadores parecidos que ofrecer como opciones.
+        remaining = " ".join(
+            word for word in normalize_text(question).split()
+            if canonical_token(word) not in dimension_tokens
+        )
+        resolved_routing = source_context.get("status") == "resolved"
+        strong = resolved_routing and source_context.get("routing_strength") == "strong"
+        model_hint = (
+            normalize_text(source_context.get("semantic_model"))
+            if resolved_routing and source_context.get("routing_strength") in ("strong", "weak") else ""
+        )
+        suggestions = [
+            item for item in self._metric_suggestions(
+                self._metric_business_question(remaining, source_context),
+                model_hint=model_hint, strong=strong,
+            )
+            if self._logical_key(item["metric"]) != self._logical_key(metric)
+        ]
+        return {
+            "status": "not_found",
+            "stage": "metric",
+            "reason": "metric_matched_only_dimension_words",
+            "question": question,
+            "source_context": source_context,
+            "unresolved_text": " ".join(distinctive),
+            "rejected_metric": {
+                "metric_id": metric.get("metric_id"), "label": metric.get("label"),
+                "matched_name": metric_result.get("matched_name"),
+            },
+            "metric_resolution": {
+                "status": "not_found", "candidates": [],
+                "suggestions": [
+                    {key: value for key, value in item.items() if not key.startswith("_")}
+                    for item in suggestions
+                ],
+            },
+        }
+
+    def _metric_without_group_phrase(self, question, metric_result, group_by, source_context):
+        """La agrupación («por especialidad») no debe elegir el indicador.
+
+        Se vuelve a resolver la pregunta sin esa frase; si así se identifica
+        con certeza OTRO indicador («total de cirugías por especialidad» ->
+        TOTAL CIRUGÍAS y no la visual «Cirugías por especialidad»), se usa ese.
+        Si sin la frase queda ambiguo o sin indicador, se conserva el original.
+        """
+        if not group_by:
+            return None
+        text = normalize_text(question)
+        stripped = text
+        for field in group_by:
+            aliases = sorted(
+                {normalize_text(alias) for alias in field.get("aliases", []) or [] if normalize_text(alias)},
+                key=len, reverse=True,
+            )
+            for alias in aliases:
+                stripped = re.sub(
+                    r"(?<![a-z0-9])(?:por|segun|agrupad[oa]\s+por|desglosad[oa]\s+por)\s+"
+                    r"(?:el\s+|la\s+|los\s+|las\s+)?" + re.escape(alias) + r"(?![a-z0-9])",
+                    " ", stripped,
+                )
+        stripped = re.sub(r"\s+", " ", stripped).strip()
+        if not stripped or stripped == text:
+            return None
+        alternative = self._resolve_metric_flexible(stripped, source_context)
+        if (
+            alternative.get("status") != "resolved"
+            or self._logical_key(alternative["metric"]) == self._logical_key(metric_result["metric"])
+        ):
+            return None
+        alternative["interpretation"] = (
+            f"el indicador se eligió sin la agrupación («{stripped}»): "
+            f"{alternative['metric'].get('label')} en lugar de "
+            f"{metric_result['metric'].get('label')} (que coincidía por «{metric_result.get('matched_name')}»)"
+        )
+        return alternative
+
+    # ---------------- ranking («top 5», «el servicio con más peso») ----------------
+    _RANKING_WORDS = {"top", "mas", "mayor", "mayores", "menos", "menor", "menores", "ranking"}
+    # «con más de 3 días» / «más que» comparan con una cifra: no son ranking.
+    _RANKING_HINT_RE = re.compile(
+        r"(?<![a-z0-9])(?:top\s+\d{1,2}|ranking|"
+        r"(?:con|tuvo|tiene|tuvieron|tienen|registro|registraron|hizo|hicieron)\s+"
+        r"(?:el\s+|la\s+|los\s+|las\s+)?(?:mas|mayor|menos|menor)(?:es)?)(?![a-z0-9])"
+        r"(?!\s+(?:de|que)(?![a-z0-9]))"
+    )
+    _NUMBER_WORDS = {
+        "uno": 1, "una": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
+        "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10,
+    }
+
+    def _mentions_ranking(self, normalized):
+        return bool(self._RANKING_HINT_RE.search(normalized))
+
+    def is_ranking(self, question):
+        """«top 5 ...», «el servicio con más ...»: pide orden/límite sobre un indicador."""
+        return self._mentions_ranking(normalize_text(question))
+
+    def _detect_ranking(self, question, candidates, group_by=None):
+        """Orden y límite sobre una agrupación.
+
+        «cuál fue el servicio con más peso» -> SERVICIO, desc, 1;
+        «top 5 especialidades con más cirugías» -> ESPECIALIDAD, desc, 5;
+        «las sedes con menos atenciones» -> SEDE, asc, sin límite.
+        Devuelve None si la pregunta no pide un ranking.
+        """
+        text = normalize_text(question)
+        if not self._mentions_ranking(text):
+            return None
+        verb = (
+            r"(?:con|que\s+(?:tuvo|tiene|tuvieron|tienen|registro|registraron|hizo|hicieron)|"
+            r"tuvo|tiene|tuvieron|tienen)\s+(?:el\s+|la\s+|los\s+|las\s+)?"
+            r"(?P<dir>mas|mayor(?:es)?|menos|menor(?:es)?)(?![a-z0-9])"
+            r"(?!\s+(?:de|que)(?![a-z0-9]))"
+        )
+        number = r"(?P<n>\d{1,2}|" + "|".join(self._NUMBER_WORDS) + r")"
+        fields = [field for field in (group_by or [])] or [
+            field for field in candidates if not self._is_temporal_field(field)
+        ]
+        best = None
+        for field in fields:
+            aliases = sorted(
+                {normalize_text(alias) for alias in field.get("aliases", []) or [] if normalize_text(alias)},
+                key=len, reverse=True,
+            )
+            for alias in aliases:
+                if len(alias) < 3:
+                    continue
+                escaped = re.escape(alias)
+                match = re.search(
+                    r"(?:(?:top|los|las|primeros|primeras)\s+" + number + r"\s+)?"
+                    r"(?<![a-z0-9])" + escaped + r"(?![a-z0-9])\s+" + verb,
+                    text,
+                )
+                top = None
+                if not match:
+                    top = re.search(
+                        r"(?<![a-z0-9])top\s+" + number + r"\s+" + escaped + r"(?![a-z0-9])", text,
+                    )
+                    if not top:
+                        continue
+                found = match or top
+                raw_n = found.groupdict().get("n")
+                limit = None
+                if raw_n:
+                    limit = int(raw_n) if raw_n.isdigit() else self._NUMBER_WORDS.get(raw_n)
+                direction_word = (match.group("dir") if match else "mas")
+                direction = "asc" if direction_word.startswith(("menos", "menor")) else "desc"
+                plural = alias.endswith("s") and canonical_token(alias) != alias
+                if limit is None and match and not plural:
+                    limit = 1  # «el servicio con más peso»: solo el primero
+                candidate = {
+                    "field": field, "direction": direction, "limit": limit,
+                    "phrase": found.group(0).strip(),
+                    "tokens": {canonical_token(word) for word in self._RANKING_WORDS},
+                }
+                if best is None or len(candidate["phrase"]) > len(best["phrase"]):
+                    best = candidate
+                break
+        return best
+
+    @staticmethod
+    def _ranking_note(ranking, label):
+        order = "de menor a mayor" if ranking.get("direction") == "asc" else "de mayor a menor"
+        limit = ranking.get("limit")
+        if limit == 1:
+            which = "menor" if ranking.get("direction") == "asc" else "mayor"
+            return f"Se muestra solo el {label} con {which} valor."
+        if limit:
+            return f"Ordenado {order}; se muestran los {limit} primeros ({label})."
+        return f"Ordenado {order} ({label})."
+
+    # ---------------- preguntas sin indicador ----------------
+    _GENERIC_MEASURE_WORDS = {
+        "promedio", "media", "mensual", "mensuales", "anual", "anuales", "diario",
+        "diaria", "semanal", "porcentaje", "porcentual", "suma", "sumatoria", "tasa",
+        "variacion", "proporcion", "participacion", "indicador", "indicadores",
+        "metrica", "metricas", "resultado", "resultados", "pendiente", "pendientes",
+    }
+
+    def _catalog_vocabulary(self):
+        """Palabras (canónicas) que el catálogo conoce: nombres de indicadores,
+        informes, páginas, modelos y alias de dimensiones."""
+        if getattr(self, "_vocabulary", None) is not None:
+            return self._vocabulary
+        values = []
+        for metric in self.metrics:
+            if metric.get("validation_status") != "approved":
+                continue
+            values.extend(self._metric_names(metric))
+            values.extend(self._metric_reports(metric))
+            values.extend(self._metric_pages(metric))
+            values.append(metric.get("semantic_model"))
+        for field in self.dimension_fields:
+            values.extend(field.get("aliases", []) or [])
+            values.extend([field.get("report"), field.get("page"), field.get("semantic_model")])
+        ignored = {canonical_token(word) for word in STOPWORDS | GENERIC_PAGE_WORDS}
+        vocabulary = set()
+        for value in values:
+            for token in canonical_tokens(value):
+                if len(token) >= 3 and token not in ignored and not token.isdigit():
+                    vocabulary.add(token)
+        self._vocabulary = vocabulary
+        return vocabulary
+
+    def catalog_examples(self, limit=2):
+        """Indicadores reales para dar ejemplos: uno por modelo, visibles en un
+        tablero y sin cifras en el nombre. -> [{"label", "report"}]."""
+        by_model = {}
+        for metric in self._dedupe_metrics(self.metrics):
+            label = str(metric.get("label") or "").strip()
+            if (
+                metric.get("validation_status") != "approved" or not label
+                or not (metric.get("appearances") or []) or re.search(r"\d", label)
+            ):
+                continue
+            model = normalize_text(metric.get("semantic_model"))
+            reports = self._metric_reports(metric)
+            current = by_model.get(model)
+            if current is None or len(label) < len(current["label"]):
+                by_model[model] = {"label": label, "report": reports[0] if reports else None}
+        return [by_model[key] for key in sorted(by_model)][:limit]
+
+    def metric_words(self, question):
+        """Palabras de la pregunta que nombran un indicador del catálogo (sin
+        contar alias de dimensiones como «especialidad» o «servicio»). Sirve
+        para distinguir un seguimiento («y por especialidad») de una pregunta
+        nueva completa («y cuántas cirugías programadas»)."""
+        if getattr(self, "_metric_vocabulary", None) is None:
+            dimension_tokens = set()
+            for field in self.dimension_fields:
+                table_tokens = set(canonical_tokens(field.get("table")))
+                for alias in field.get("aliases", []) or []:
+                    dimension_tokens.update(set(canonical_tokens(alias)) - table_tokens)
+            for synonyms in DIMENSION_SYNONYMS.values():
+                for synonym in synonyms:
+                    dimension_tokens.update(canonical_tokens(synonym))
+            ignored = {
+                canonical_token(word)
+                for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS | set(MONTHS)
+            }
+            vocabulary = set()
+            for metric in self.metrics:
+                if metric.get("validation_status") != "approved":
+                    continue
+                for name in self._metric_names(metric):
+                    for token in canonical_tokens(name):
+                        if (
+                            len(token) >= 3 and not token.isdigit()
+                            and token not in ignored and token not in dimension_tokens
+                        ):
+                            vocabulary.add(token)
+            self._metric_vocabulary = vocabulary
+        return [
+            word for word in normalize_text(question).split()
+            if len(word) >= 3 and any(
+                _token_similarity(canonical_token(word), token) >= 0.88
+                for token in self._metric_vocabulary
+            )
+        ]
+
+    def describe_unresolved(self, question):
+        """Clasifica una pregunta para la que no se encontró indicador:
+
+        - "generic": solo palabras genéricas («promedio mensual», «cuántos hay»);
+        - "unknown": tiene palabras que el catálogo conoce, pero ningún indicador;
+        - "out_of_scope": ninguna palabra distintiva aparece en el catálogo
+          («cuánto gana un médico en Colombia»).
+        """
+        ignored = {
+            canonical_token(word)
+            for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS
+            | set(MONTHS) | self._GENERIC_MEASURE_WORDS | self._RANKING_WORDS
+        }
+        words = [
+            word for word in normalize_text(question).split()
+            if canonical_token(word) not in ignored and not word.isdigit()
+            and len(word) >= 3 and not _is_request_word(canonical_token(word))
+        ]
+        vocabulary = self._catalog_vocabulary()
+        known = [
+            word for word in words
+            if any(_token_similarity(canonical_token(word), token) >= 0.88 for token in vocabulary)
+        ]
+        if not words:
+            kind = "generic"
+        elif known:
+            kind = "unknown"
+        else:
+            kind = "out_of_scope"
+        return {
+            "kind": kind, "words": words, "known_words": known,
+            "examples": self.catalog_examples(),
+        }
+
     def build(self, question, intent_result=None, selected_metric_id=None):
         intent_result = intent_result or {}
         dashboard = intent_result.get("dashboard")
         source_context = self._source_context(question, dashboard=dashboard)
-        metric_result = self._resolve_metric(
+        metric_result = self._resolve_metric_flexible(
             question, source_context, selected_metric_id=selected_metric_id,
             with_suggestions=True,
         )
@@ -1791,9 +2515,34 @@ class QueryPlanBuilder:
         reports = metric.get("reports", []) or []
         report = metric.get("report") or (reports[0] if reports else source_context.get("report"))
         candidates = self._relevant_dimensions(metric)
+        # Periodo («entre enero y marzo», «este año») y agrupación temporal
+        # («por mes»): sus palabras no son valores ni dimensiones.
+        temporal = self._analyze_periods(question, metric, metric_result.get("matched_name"))
+        dimension_question = temporal["clean_question"]
 
-        group_detection = self._detect_group_or_dimension_filter(question, metric, candidates)
+        group_detection = self._detect_group_or_dimension_filter(dimension_question, metric, candidates)
         group_by = group_detection["group_by"]
+        switched = None if selected_metric_id is not None else self._metric_without_group_phrase(
+            question, metric_result, group_by, source_context,
+        )
+        if switched is not None:
+            metric_result = switched
+            metric = metric_result["metric"]
+            semantic_model = metric.get("semantic_model")
+            reports = metric.get("reports", []) or []
+            report = metric.get("report") or (reports[0] if reports else source_context.get("report"))
+            candidates = self._relevant_dimensions(metric)
+            temporal = self._analyze_periods(question, metric, metric_result.get("matched_name"))
+            dimension_question = temporal["clean_question"]
+            group_detection = self._detect_group_or_dimension_filter(
+                dimension_question, metric, candidates,
+            )
+            group_by = group_detection["group_by"]
+        # Ranking («el servicio con más peso», «top 5 especialidades»): la
+        # dimensión nombrada se agrupa y el resultado se ordena/limita.
+        ranking = self._detect_ranking(question, candidates, group_by)
+        if ranking and not group_by:
+            group_by = [ranking["field"]]
 
         # Nunca convertir silenciosamente "por servicio" en total escalar
         # si la metadata de ese informe no expone SERVICIO.
@@ -1823,15 +2572,27 @@ class QueryPlanBuilder:
         )
         explicit_specs.extend(
             self._detect_explicit_dimension_filters(
-                question, candidates, already_fields=used_fields,
+                dimension_question, candidates, already_fields=used_fields,
                 metric=metric, source_context=source_context,
             )
         )
 
+        if selected_metric_id is None:
+            rejection = self._metric_evidence_rejection(
+                question, metric, metric_result, group_by, explicit_specs, source_context,
+            )
+            if rejection is not None:
+                return rejection
+
         filters = []
         unapplied_terms = []
         notes = []
-        consumed_tokens = set()
+        consumed_tokens = set(temporal["tokens"])
+        if ranking:
+            consumed_tokens.update(ranking["tokens"])
+            notes.append(self._ranking_note(
+                ranking, (ranking["field"].get("aliases") or [ranking["field"]["column"]])[0],
+            ))
         if metric_result.get("source_hint_ignored"):
             notes.append(
                 "La métrica no existe en el informe mencionado; se usó "
@@ -1887,21 +2648,22 @@ class QueryPlanBuilder:
             used_fields.add((normalize_text(field["table"]), normalize_text(field["column"])))
             consumed_tokens.update(implicit.get("tokens", ()))
 
-        temporal_filters, temporal_unapplied, temporal_notes = self._temporal_filters(
-            question, candidates, semantic_model,
-        )
-        year, month, _ = self._detect_year_month(question)
-        if (year is not None or month is not None) and not temporal_filters:
+        temporal_result = self._apply_temporal(temporal, candidates, semantic_model, group_by)
+        requested_period = temporal_result["unsupported_period"]
+        if requested_period:
             return {
                 "status": "unsupported_filter", "stage": "temporal_filters",
                 "reason": "date_dimension_not_found_in_report",
-                "requested_year": year, "requested_month": month,
+                "requested_year": requested_period.get("year"),
+                "requested_month": requested_period.get("month"),
+                "requested_period": requested_period.get("label"),
+                "unapplied_terms": temporal_result["unapplied"],
                 "question": question, "semantic_model": semantic_model,
                 "source_context": source_context, "metric_resolution": metric_result,
             }
-        filters.extend(temporal_filters)
-        unapplied_terms.extend(temporal_unapplied)
-        notes.extend(temporal_notes)
+        filters.extend(temporal_result["filters"])
+        unapplied_terms.extend(temporal_result["unapplied"])
+        notes.extend(temporal_result["notes"])
 
         # Palabras específicas que ningún filtro explicó. Sin ningún filtro
         # categórico el resultado sería un total engañoso: se detiene. Con
@@ -1931,6 +2693,8 @@ class QueryPlanBuilder:
             "label": (field.get("aliases") or [field["column"]])[0],
             "source": "query_plan_group_by",
         } for field in group_by]
+        if temporal_result["group"]:
+            normalized_group_by = [temporal_result["group"]]
 
         pages = self._metric_pages(metric)
         return {
@@ -1946,10 +2710,38 @@ class QueryPlanBuilder:
             "metric_match": {
                 "matched_name": metric_result.get("matched_name"),
                 "score": metric_result.get("score"),
+                "interpretation": metric_result.get("interpretation"),
             },
             "filters": filters,
             "unapplied_terms": unapplied_terms,
             "notes": notes,
             "group_by": normalized_group_by,
+            "ranking": (
+                {key: ranking[key] for key in ("direction", "limit", "phrase")}
+                if ranking and normalized_group_by else None
+            ),
+            "temporal_buckets": temporal_result["buckets"],
+            "period": self._period_summary(temporal),
             "dimension_candidates_checked": min(len(candidates), 20),
         }
+
+    def _period_summary(self, temporal):
+        """Periodo interpretado (para el razonamiento y la respuesta), o None."""
+        period, granularity = temporal.get("period"), temporal.get("granularity")
+        if not period and not granularity:
+            return None
+        summary = {"today": self._today().isoformat()}
+        question = temporal.get("question") or ""
+        if period:
+            summary.update({
+                "phrase": _original_phrase(question, period.get("phrase")),
+                "label": period.get("label"),
+                "kind": period.get("kind"), "relative": period.get("relative"),
+                "start": as_date(period.get("start")).isoformat() if period.get("start") else None,
+                "end": as_date(period.get("end")).isoformat() if period.get("end") else None,
+                "months": period.get("months"),
+            })
+        if granularity:
+            summary["granularity"] = granularity.get("unit")
+            summary["granularity_phrase"] = _original_phrase(question, granularity.get("phrase"))
+        return summary

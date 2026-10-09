@@ -2,6 +2,7 @@ import re
 import unicodedata
 
 from src.chatbot.conversation_state import ConversationState
+from src.chatbot.intent_parser import ordinal_choice_index
 
 _DASHBOARD_STOPWORDS = {
     "tablero", "tableros", "informe", "reporte", "servicio", "area",
@@ -50,6 +51,11 @@ class ConversationManager:
             index = int(text)
             return candidates[index - 1] if 1 <= index <= len(candidates) else None
 
+        # «la primera», «el segundo», «la última».
+        position = ordinal_choice_index(text, len(candidates))
+        if position is not None:
+            return candidates[position]
+
         exact = [c for c in candidates if _normalize(c) == text]
         if len(exact) == 1:
             return exact[0]
@@ -75,6 +81,7 @@ class ConversationManager:
     def select_dashboard(self, dashboard):
         """Fija el tablero elegido (botón); la pregunta original se reejecuta."""
         self.state.dashboard = dashboard
+        self.state.dashboard_reason = "botón elegido por el usuario"
         self.state.missing_fields = [
             f for f in self.state.missing_fields if f != "dashboard"
         ]
@@ -104,6 +111,7 @@ class ConversationManager:
 
             if dashboard:
                 self.state.dashboard = dashboard
+                self.state.dashboard_reason = "respuesta del usuario a la contrapregunta"
 
         # --------------------------------------------
         # Métrica
@@ -163,6 +171,9 @@ class ConversationManager:
 
             "original_question":
                 self.state.original_question,
+
+            "dashboard_reason":
+                self.state.dashboard_reason,
         }
 
     # ========================================================

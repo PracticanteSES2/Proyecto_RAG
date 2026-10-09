@@ -17,10 +17,35 @@ class RAGAnswerEngine:
             unique_results.append(result)
         return unique_results
 
+    # Preguntas sobre el tablero completo («¿qué muestra?», «¿qué filtros
+    # tiene?»): su resumen (dashboard_overview) es la mejor evidencia.
+    _OVERVIEW_INTENTS = ("describe_dashboard", "get_filters")
+
+    def _dashboard_overview(self, intent_data):
+        dashboard = intent_data.get("dashboard")
+        search = getattr(self.retriever, "search", None)
+        if intent_data.get("intent") not in self._OVERVIEW_INTENTS or not dashboard or not callable(search):
+            return []
+        try:
+            results = search(
+                intent_data.get("original_question") or "",
+                limit=2,
+                dashboard=dashboard,
+                chunk_type="dashboard_overview",
+            ) or []
+        except Exception:
+            return []
+        return [
+            result for result in results
+            if result.get("dashboard") == dashboard
+            and result.get("chunk_type") == "dashboard_overview"
+        ][:1]
+
     def _retrieve_general_context(self, intent_data, limit=None):
         question = intent_data.get("original_question") or ""
         dashboard = intent_data.get("dashboard")
         retrieval_limit = limit or max(self.default_limit * 2, 6)
+        overview = self._dashboard_overview(intent_data)
 
         results = self.retriever.search_general(
             question=question,
@@ -28,20 +53,21 @@ class RAGAnswerEngine:
             dashboard=dashboard,
         )
 
-        if not results:
+        if not results and not overview:
             return []
 
         filtered_results = [
             result
-            for result in results
+            for result in results or []
             if float(result.get("score", 0) or 0) >= self.min_score
         ]
 
-        # IMPORTANTE: si nada supera el umbral, no usamos resultados débiles.
-        if not filtered_results:
+        # IMPORTANTE: si nada supera el umbral, no usamos resultados débiles
+        # (el resumen del tablero nombrado sí es evidencia válida).
+        if not filtered_results and not overview:
             return []
 
-        return self._deduplicate_results(filtered_results)[:self.default_limit]
+        return self._deduplicate_results(overview + filtered_results)[:self.default_limit]
 
     def _synthesize_answer(self, question, results):
         contexts = [r.get("text", "") for r in results if r.get("text")]
