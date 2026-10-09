@@ -350,7 +350,10 @@ def test_documented_values_and_realistic_domains():
           [[20, "Triages", "TRIAGES", "Integer", "COUNTROWS(TRIAGES)", "0"]])
     write("relationships.csv", ["ID", "FromTable", "FromColumn", "ToTable", "ToColumn"], [])
     (folder / "_documented_values.json").write_text(json.dumps({"columns": [
-        {"table": None, "column": "ASEGURADORA", "values": ["NUEVA EPS", "SURA", "SANITAS", "MALLAMAS"]},
+        # Tabla conocida: el dominio documentado reemplaza al genérico.
+        {"table": "TRIAGES", "column": "ASEGURADORA", "values": ["NUEVA EPS", "SURA", "SANITAS", "MALLAMAS"]},
+        # Sin tabla: se suma al genérico de las columnas con ese nombre.
+        {"table": None, "column": "SERVICIO", "values": ["ANTIFLUIDOS ESPECIALES"]},
     ]}), encoding="utf-8")
 
     s = PowerBISimulator([root], today=TODAY)
@@ -360,7 +363,7 @@ def test_documented_values_and_realistic_domains():
     oids = _values(model, "'TRIAGES'[ServicioOid]", s)
     assert oids and not set(oids) & {"URGENCIAS", "HOSPITALIZACION"}, f"OID: códigos, no nombres {oids[:5]}"
     servicios = _values(model, "'LAVANDERIA'[SERVICIO]", s)
-    assert {"ANTIFLUIDOS", "URGENCIAS", "UCI ADULTOS"} <= set(servicios), servicios
+    assert {"ANTIFLUIDOS", "URGENCIAS", "UCI ADULTOS", "ANTIFLUIDOS ESPECIALES"} <= set(servicios), servicios
     assert not any("CARDIO" in v for v in servicios), servicios
 
 

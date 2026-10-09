@@ -207,7 +207,8 @@ def test_inference_measure_vs_calculated_column():
 
 LAVANDERIA_DOC = {
     "dashboards": [{
-        "name": "LAVANDERIA",
+        "name": "LAVADERIA",
+        "aliases": ["LAVANDERIA"],
         "sql_queries": [
             "SELECT A.OID, A.Peso, A.FechaRegistro, B.Fecha, B.Turno, C.Nombre SERVICIO, "
             "D.usu_nombres, D.usu_apellidos FROM PESAJE A"
@@ -310,7 +311,13 @@ def test_documented_report_numeric_column_and_types():
     assert ("tableEx", None, ["LAVANDERIA.NOMBRE_COMPLETO", "Sum(LAVANDERIA.Peso)"]) in fields, fields
     assert ("clusteredBarChart", None, ["LAVANDERIA.TURNO_OK", "Sum(LAVANDERIA.Peso)"]) in fields, fields
     # «cargas mensuales» no nombra ninguna columna: no se inventa un visual.
-    assert len(fields) == 3, fields
+    # «Filtros por Años y Mes»: Año/Mes de la jerarquía de LAVANDERIA[Fecha]
+    # (no FechaRegistro).
+    assert ("slicer", None, ["LAVANDERIA.Fecha.Variación.Jerarquía de fechas.Año"]) in fields, fields
+    assert ("slicer", None, ["LAVANDERIA.Fecha.Variación.Jerarquía de fechas.Mes"]) in fields, fields
+    assert len(fields) == 5, fields
+    # La página toma el alias del tablero («LAVADERIA» es una errata del docx).
+    assert [p["name"] for p in result["inferred_report"]["pages"]] == ["LAVANDERIA"]
     assert result["inferred_report"]["summary"]["added_measures"] == []
     by_name = {c["Name"]: c for c in columns}
     # LAVANDERIA[Turno]=1 en el DAX documentado -> entero (no texto).
@@ -323,7 +330,9 @@ def test_documented_report_links_cards_to_documented_measures():
     fields = _fields(result)
     assert ("card", "Total de dosis de antibióticos suministradas", ["ANTIBIOTICOS.TOTAL ATB"]) in fields, fields
     assert ("card", "Cantidad de pacientes activos", ["ANTIBIOTICOS.PAC_ACT"]) in fields, fields
-    assert ("clusteredBarChart", "Pacientes activos por servicio",
+    # El gráfico reutiliza el título de la tarjeta de la página (mismo valor);
+    # la agrupación la da la categoría SERVICIO.
+    assert ("clusteredBarChart", "Cantidad de pacientes activos",
             ["ANTIBIOTICOS.SERVICIO", "ANTIBIOTICOS.PAC_ACT"]) in fields, fields
     assert {m["Name"] for m in measures} == {"Dias Suministrados", "PAC_ACT", "TOTAL ATB"}
     assert '"SUSPENDIDO"' in values and '"FINALIZADO"' in values
@@ -361,6 +370,11 @@ def test_inferred_pbir_feeds_owner_visual_catalog():
     metrics = catalog["metrics"]
     assert metrics and all(m["dax_expression"] == "SUM('LAVANDERIA'[Peso])" for m in metrics), metrics
     assert all(m["validation_status"] == "approved" for m in metrics)
+    levels = [
+        (field["table"], field.get("level")) for page in catalog["pages"] for visual in page["visuals"]
+        for field in visual["fields"] if field.get("kind") == "hierarchy_level"
+    ]
+    assert ("LAVANDERIA", "Año") in levels and ("LAVANDERIA", "Mes") in levels, levels
 
 
 def test_documented_values_sql_case_and_filters():

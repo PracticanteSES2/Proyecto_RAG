@@ -269,6 +269,10 @@ class DomainHarvest:
     def get(self, table, column):
         return list(self.values.get((key(table), key(column)), []))
 
+    def get_weak(self, column):
+        """Valores por nombre de columna (sin tabla conocida): complementan, no reemplazan."""
+        return list(self.by_column.get(key(column), []))
+
     # ---------- desde expresiones DAX ----------
     def harvest_schema(self, schema):
         exprs = [m.expression for m in schema.measures.values()]
@@ -321,7 +325,9 @@ class DomainHarvest:
     # ---------- desde la documentación ----------
     def harvest_documented(self, schema):
         """Valores de <modelo>/_documented_values.json (tools/local_data: CASE/IN del SQL
-        documentado y literales DAX). Entradas sin tabla: columnas con ese nombre."""
+        documentado y literales DAX). Las entradas sin tabla (no se sabe a qué tabla del
+        modelo fue el SELECT) son débiles: se suman al dominio genérico de las columnas
+        con ese nombre en lugar de reemplazarlo."""
         path = Path(schema.path) / "_documented_values.json" if getattr(schema, "path", None) else None
         if not path or not path.exists():
             return 0
@@ -343,7 +349,7 @@ class DomainHarvest:
                     continue
                 for value in entry.get("values", []) or []:
                     if isinstance(value, str):
-                        self.add(column.table, column.name, value)
+                        self.add(column.table, column.name, value, weak=not entry.get("table"))
                         count += 1
         return count
 

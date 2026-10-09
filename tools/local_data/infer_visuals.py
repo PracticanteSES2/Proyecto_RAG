@@ -32,6 +32,7 @@ data/pbir/<Reporte>.Report: así el pipeline del propietario
 (PowerBICatalogManager) construye el catálogo visual y master_metrics.json
 igual que con un reporte real.
 """
+import difflib
 import hashlib
 import json
 import re
@@ -639,6 +640,13 @@ class DocumentedReportInference:
 
     def _ingest_dashboard(self, dashboard):
         page_name = str(dashboard.get("name") or "Tablero").strip()
+        # Nombre con errata en el docx («LAVADERIA») -> su alias («LAVANDERIA»).
+        for alias in dashboard.get("aliases", []) or []:
+            if normalize_text(alias) != normalize_text(page_name) and difflib.SequenceMatcher(
+                None, normalize_text(alias), normalize_text(page_name)
+            ).ratio() >= 0.85:
+                page_name = str(alias).strip()
+                break
         visuals = []
         slicer_columns = []
         page_indicators = []   # [(tokens de la tarjeta, valor)]
@@ -726,11 +734,22 @@ class DocumentedReportInference:
                 resolved = self.resolve_dimension(dimension, value["table"], allow_add=True)
                 if resolved and resolved not in categories:
                     categories.append(resolved)
-            # Las agregaciones implícitas de una columna numérica se dejan sin
-            # título (Power BI muestra «Suma de Peso por SERVICIO»): todas las
-            # apariciones forman una sola métrica «Peso».
-            title_text = None if value["kind"] == "aggregation" and value["rule"] == "numeric_column" \
-                else clean_title(title)
+            # Títulos: las agregaciones implícitas de una columna numérica se
+            # dejan sin título (Power BI muestra «Suma de Peso por SERVICIO»):
+            # todas las apariciones forman una sola métrica «Peso». En el resto
+            # se usa el título de la tarjeta de la página con el mismo valor o
+            # la parte del título documentado antes de «por» («Pacientes
+            # activos»): la agrupación la da la categoría, no un alias.
+            if value["kind"] == "aggregation" and value["rule"] == "numeric_column":
+                title_text = None
+            else:
+                card_titles = [
+                    v["title"] for v in visuals
+                    if v["visual_type"] == "card" and v["fields"]
+                    and v["fields"][0]["queryRef"] == self._value_field(value, "Values")["queryRef"]
+                ]
+                indicator_title = clean_title(title).split(" por ")[0].strip()
+                title_text = card_titles[0] if card_titles else (indicator_title or clean_title(title))
             fields = [self._column_field(t, c, "Category" if kind == "chart" else "Values")
                       for t, c in categories]
             fields.append(self._value_field(value, "Y" if kind == "chart" else "Values"))
@@ -749,6 +768,34 @@ class DocumentedReportInference:
                 source="filtros documentados",
             ))
 
+        # «Filtros por Año y Mes», «por mes», «mensual»: segmentadores Año/Mes
+        # sobre la jerarquía automática de la fecha de cada tabla con
+        # indicadores de la página (sin relaciones, la fecha debe ser de la
+        # misma tabla que el valor).
+        texts = " ".join(
+            f"{item['title']} {item['description']}" for item in parse_documented_visuals(dashboard)
+        )
+        if visuals and re.search(r"\b(ano|anos|mes|meses|mensual|mensuales|mensualmente|fecha|fechas)\b",
+                                 normalize_text(texts)):
+            value_tables = []
+            for visual in visuals:
+                for field in visual["fields"]:
+                    node = field["field"]
+                    if "Measure" in node or "Aggregation" in node:
+                        table_name = field["queryRef"].split("(")[-1].split(".")[0]
+                        if table_name not in value_tables:
+                            value_tables.append(table_name)
+            for table_name in value_tables:
+                date_column = self._date_column(table_name)
+                if date_column is None:
+                    continue
+                for level in ("Año", "Mes"):
+                    visuals.append(self._visual(
+                        page_name, "slicer", None,
+                        [self._hierarchy_field(table_name, date_column, level)],
+                        source="filtros de periodo documentados",
+                    ))
+
         if visuals:
             self.pages.append({"name": page_name, "visuals": visuals})
 
@@ -764,6 +811,43 @@ class DocumentedReportInference:
             "field": {"Column": {"Expression": self._source_ref(table), "Property": column}},
             "queryRef": f"{table}.{column}",
             "nativeQueryRef": column,
+        }
+
+    def _date_column(self, table_name):
+        """Fecha principal de una tabla: 'FECHA' exacta, luego FECHA_*, luego cualquier fecha."""
+        table = next((t for t in self.model["tables"] if t["name"] == table_name), None)
+        if table is None:
+            return None
+        dates = [c["name"] for c in table["columns"] if c["data_type"] == "Date"]
+        if not dates:
+            return None
+
+        def rank(name):
+            words = split_identifier(name).split()
+            if words == ["fecha"]:
+                return 0
+            if words and words[0] == "fecha":
+                return 1
+            return 2
+        return sorted(dates, key=lambda name: (rank(name), len(name)))[0]
+
+    def _hierarchy_field(self, table, column, level):
+        """Nivel de la jerarquía automática de fechas (como Power BI en español)."""
+        return {
+            "role": "Values",
+            "field": {"HierarchyLevel": {
+                "Expression": {"Hierarchy": {
+                    "Expression": {"PropertyVariationSource": {
+                        "Expression": self._source_ref(table),
+                        "Name": "Variación",
+                        "Property": column,
+                    }},
+                    "Hierarchy": "Jerarquía de fechas",
+                }},
+                "Level": level,
+            }},
+            "queryRef": f"{table}.{column}.Variación.Jerarquía de fechas.{level}",
+            "nativeQueryRef": f"{column} {level}",
         }
 
     def _value_field(self, value, role):
