@@ -360,11 +360,15 @@ class IntentParser:
 
         text = normalize_text(question)
 
+        # Palabra completa: «mayores de edad» no es mayo.
         for month_name, number in (
             MONTHS.items()
         ):
 
-            if month_name in text:
+            if re.search(
+                r"(?<![a-z0-9])" + month_name + r"(?![a-z0-9])",
+                text
+            ):
                 return number
 
         return None

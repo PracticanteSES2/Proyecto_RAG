@@ -1,4 +1,5 @@
 import re
+from datetime import date
 
 
 class QueryPlanDAXGenerator:
@@ -43,13 +44,48 @@ class QueryPlanDAXGenerator:
 
     def _categorical_filter(self, item):
         column = self._column_expression(item["table"], item["column"])
+        # Varios valores (AÑO IN {2024, 2025}, MES IN {1, 2, 3}).
+        values = item.get("values") if item.get("value") is None else None
+        if values:
+            literals = ", ".join(self._value_literal(value, item.get("data_type")) for value in values)
+            return f"TREATAS({{{literals}}}, {column})"
         literal = self._value_literal(item.get("value"), item.get("data_type"))
         return f"TREATAS({{{literal}}}, {column})"
+
+    def _temporal_set_filter(self, item):
+        """Pares (AÑO, MES) de años distintos: TREATAS({(2024, 11), (2025, 1)}, AÑO, MES)."""
+        columns = [self._column_expression(c["table"], c["column"]) for c in item.get("columns") or []]
+        rows = []
+        for row in item.get("values") or []:
+            literals = [self._value_literal(value, "number") for value in row]
+            rows.append("(" + ", ".join(literals) + ")")
+        if not columns or not rows:
+            return None
+        return f"TREATAS({{{', '.join(rows)}}}, {', '.join(columns)})"
+
+    @staticmethod
+    def _date_literal(value):
+        value = value if isinstance(value, date) else date.fromisoformat(str(value)[:10])
+        return f"DATE({value.year}, {value.month}, {value.day})"
 
     def _date_filter(self, item):
         column = self._column_expression(item["table"], item["column"])
         year = item.get("year")
         month = item.get("month")
+
+        # Periodo explícito [start, end) («enero–marzo 2025», «2026 hasta hoy»).
+        if item.get("start") and item.get("end"):
+            return (
+                f"FILTER(ALL({column}), "
+                f"{column} >= {self._date_literal(item['start'])} && "
+                f"{column} < {self._date_literal(item['end'])})"
+            )
+
+        # Meses sin año («entre enero y marzo»): esos meses en todos los años.
+        months = item.get("months") or []
+        if len(months) > 1:
+            listed = ", ".join(str(int(value)) for value in months)
+            return f"FILTER(ALL({column}), MONTH({column}) IN {{{listed}}})"
 
         if year and month:
             if month == 12:
@@ -83,6 +119,8 @@ class QueryPlanDAXGenerator:
                 expression = self._categorical_filter(item)
             elif item.get("type") == "date_range":
                 expression = self._date_filter(item)
+            elif item.get("type") == "temporal_set":
+                expression = self._temporal_set_filter(item)
             if expression:
                 result.append(expression)
         return result
@@ -99,6 +137,9 @@ class QueryPlanDAXGenerator:
             return {"status": "rejected", "reason": "metric_not_approved"}
 
         filters = self._filter_expressions(plan)
+
+        if plan.get("mode") == "grouped" and plan.get("temporal_buckets"):
+            return self._temporal_grouped(plan, expression)
 
         if plan.get("mode") == "grouped":
             groups = [
@@ -137,6 +178,41 @@ class QueryPlanDAXGenerator:
         )
         return {"status": "generated", "mode": "scalar", "dax": dax}
 
+    # ---------------- agrupación temporal («por mes») ----------------
+    def _temporal_grouped(self, plan, expression):
+        """Una fila por subperiodo (mes, trimestre, año...), en orden cronológico.
+
+        Cada fila evalúa la métrica con los filtros no temporales del plan y
+        el filtro de su subperiodo, con la misma traducción que un periodo
+        suelto (fecha -> FILTER/DATE; AÑO/MES enteros -> TREATAS). Así funciona
+        igual con columna de fecha, jerarquía de fechas o AÑO/MES.
+        """
+        buckets = plan.get("temporal_buckets") or []
+        group = (plan.get("group_by") or [{}])[0]
+        name = group.get("column") or "Periodo"
+        others = self._filter_expressions({
+            "filters": [
+                item for item in plan.get("filters", []) or []
+                if item.get("source") != "query_plan_temporal"
+            ]
+        })
+        rows = []
+        for bucket in buckets:
+            bucket_filters = self._filter_expressions({"filters": bucket.get("filters") or []})
+            if not bucket_filters:
+                return {"status": "rejected", "reason": "temporal_bucket_without_filter"}
+            value = "CALCULATE(" + ", ".join([expression, *others, *bucket_filters]) + ")"
+            rows.append(
+                f'ROW("__orden", {int(bucket.get("order") or len(rows) + 1)}, '
+                f'{self._string_literal(name)}, {self._string_literal(bucket.get("label"))}, '
+                f'"__value", {value})'
+            )
+        if not rows:
+            return {"status": "rejected", "reason": "grouped_without_dimensions"}
+        body = rows[0] if len(rows) == 1 else "UNION(\n    " + ",\n    ".join(rows) + "\n)"
+        dax = "EVALUATE\n" + body + "\nORDER BY [__orden] ASC"
+        return {"status": "generated", "mode": "grouped", "dax": dax}
+
     # ---------------- participación (% del total) ----------------
     def generate_share(self, plan):
         """Participación de un valor de dimensión sobre el total del período.
@@ -149,6 +225,9 @@ class QueryPlanDAXGenerator:
         dimension = plan.get("share_dimension") or {}
         if plan.get("status") != "ready" or not dimension.get("column"):
             return {"status": "rejected", "reason": "share_without_dimension"}
+        if dimension.get("temporal") or plan.get("temporal_buckets"):
+            # «participación por mes»: no hay columna física que quitar.
+            return {"status": "rejected", "reason": "share_by_period_not_supported"}
 
         metric = plan.get("metric", {})
         expression = metric.get("dax_expression")
