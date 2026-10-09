@@ -299,6 +299,12 @@ def get_display_answer(result, formatter):
         if reason == "requested_value_not_found":
             return "Identifiqué la métrica, pero no pude verificar el valor del filtro solicitado."
         if reason == "date_dimension_not_found_in_report":
+            period = details.get("requested_period")
+            if period:
+                return (
+                    "Identifiqué la métrica, pero este tablero no tiene una fecha que permita "
+                    f"aplicar el período «{period}». Prueba con un año o un mes."
+                )
             return "Identifiqué la métrica, pero no encontré una fecha validada para aplicar ese período."
         return "Identifiqué la métrica, pero no pude verificar la dimensión solicitada en este tablero."
     if status == "powerbi_error":

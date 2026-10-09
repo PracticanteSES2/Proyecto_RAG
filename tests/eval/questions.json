@@ -464,7 +464,6 @@
       },
       "arneses": ["sim", "realistic"],
       "descripcion": "Rango de meses: no debe responder solo enero ni ignorar el rango.",
-      "xfail": {"sim": "«entre» se toma por filtro desconocido y, si se acepta, solo aplica enero 2025 sin avisar"},
       "turns": [
         {
           "user": "peso de lavanderia entre enero y marzo de 2025",
@@ -487,7 +486,6 @@
       },
       "arneses": ["sim", "realistic"],
       "descripcion": "Periodo relativo («este año»): filtrar el año en curso o preguntar el año, nunca el total histórico.",
-      "xfail": {"sim": "«este año» no se interpreta: da el total de todos los años sin avisar (lógica temporal pendiente)"},
       "turns": [
         {
           "user": "cuanto peso lleva la lavanderia este año",
@@ -496,6 +494,72 @@
             "metrics_any": ["peso"],
             "filters": [{"year": "actual"}],
             "prompt_any": ["año"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_lav_anio_pasado",
+      "category": "b_kpi_periodo",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Filtros por Años y Mes"
+      },
+      "arneses": ["sim", "realistic"],
+      "descripcion": "Periodo relativo («el año pasado»): el año anterior completo, declarado en la respuesta.",
+      "turns": [
+        {
+          "user": "cuanto peso hubo en la lavanderia el año pasado",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["peso"],
+            "filters": [{"year": "anterior"}],
+            "answer_any": ["año pasado"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_sim_lav_primer_trimestre_2025",
+      "category": "b_kpi_periodo",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Gráfico de Barras por Distribución Mensual"
+      },
+      "arneses": ["sim"],
+      "descripcion": "Trimestre ordinal: enero–marzo 2025 (mismo total que «entre enero y marzo de 2025»).",
+      "turns": [
+        {
+          "user": "peso de lavanderia en el primer trimestre de 2025",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["peso"],
+            "filters": [{"year": 2025}],
+            "numbers": [11400.2],
+            "answer_all": ["trimestre", "marzo"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_lav_ultimos_3_meses",
+      "category": "b_kpi_periodo",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Filtros por Años y Mes"
+      },
+      "arneses": ["sim", "realistic"],
+      "descripcion": "«Últimos N meses»: N meses completos antes del actual; la respuesta dice cuáles (o que no hay datos).",
+      "turns": [
+        {
+          "user": "peso de la lavanderia en los ultimos 3 meses",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["peso"],
+            "answer_any": ["últimos 3 meses"]
           }
         }
       ]
@@ -900,7 +964,6 @@
         "seccion": "Gráfico de Barras por Distribución Mensual"
       },
       "arneses": ["sim", "realistic"],
-      "xfail": {"sim": "«por mes» se ignora en silencio: devuelve el total anual"},
       "turns": [
         {
           "user": "peso lavanderia 2025 por mes",
@@ -909,6 +972,28 @@
             "result_type": "table",
             "group_by_any": ["mes", "month", "fecha"],
             "filters": [{"year": 2025}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_lav_peso_por_trimestre_2025",
+      "category": "d_agrupado",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Gráfico de Barras por Distribución Mensual"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "peso de la lavanderia por trimestre en 2025",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["trimestre"],
+            "filters": [{"year": 2025}],
+            "answer_all": ["trimestre 2025"]
           }
         }
       ]

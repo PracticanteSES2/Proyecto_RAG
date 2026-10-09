@@ -2,8 +2,21 @@ import json
 import math
 import re
 import unicodedata
+from datetime import date, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
+
+from src.semantic.period_parser import (
+    GRANULARITY_LABELS,
+    MONTH_NAMES as PERIOD_MONTH_NAMES,
+    MONTHS as PERIOD_MONTHS,
+    TO_DATE_WORDS,
+    PeriodParser,
+    as_date,
+    neutral_phrases,
+    split_period,
+    year_months,
+)
 
 MONTHS = {
     "enero": 1, "febrero": 2, "marzo": 3, "abril": 4,
@@ -286,6 +299,24 @@ def _phrase_score(question, candidate, weights=None):
     return min(0.99, 0.68 * coverage + 0.24 * average + 0.08 * precision)
 
 
+def _original_phrase(question, phrase):
+    """Fragmento de la pregunta original (con tildes) que corresponde a una
+    frase normalizada: «este ano» -> «este año». Si no se ubica, la frase."""
+    target = normalize_text(phrase)
+    if not target:
+        return phrase
+    words = list(re.finditer(r"[^\W_]+|%", str(question or "")))
+    for i in range(len(words)):
+        joined = ""
+        for j in range(i, len(words)):
+            joined = (joined + " " + normalize_text(words[j].group(0))).strip()
+            if joined == target or re.sub(r"(\d) (er|ero|ro|do|to|o|a)\b", r"\1\2", joined) == target:
+                return question[words[i].start():words[j].end()]
+            if len(joined) > len(target) + 4:
+                break
+    return phrase
+
+
 def _unique_strings(values):
     result = []
     seen = set()
@@ -312,7 +343,11 @@ class QueryPlanBuilder:
         min_metric_score=0.74,
         ambiguity_margin=0.055,
         max_implicit_dimensions=6,
+        today=None,
     ):
+        # Fecha de referencia de los periodos relativos («este año», «mes
+        # pasado»): date, callable o None (= hoy). Las pruebas la fijan.
+        self.today = today
         self.master_metrics_path = Path(master_metrics_path)
         self.visual_catalog_path = Path(visual_catalog_path)
         self.source_router = source_router
@@ -462,6 +497,7 @@ class QueryPlanBuilder:
         """Castiga palabras distintivas de la pregunta que el candidato no explica."""
         ignored = {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS}
         ignored.update(canonical_token(word) for word in MONTHS)
+        ignored.update(self._period_words(business_question))  # «este año», «últimos 3 meses»
         penalty = 0.0
         for token in set(canonical_tokens(business_question)):
             if token in ignored or token.isdigit() or len(token) < 3 or _is_request_word(token):
@@ -1395,74 +1431,350 @@ class QueryPlanBuilder:
         found.sort(key=lambda field: field.get("relevance_score", 0), reverse=True)
         return found[0] if found else None
 
+    # ---------------- periodos (src/semantic/period_parser.py) ----------------
+    def _today(self):
+        """Fecha de referencia de los periodos relativos (inyectable en pruebas)."""
+        value = self.__dict__.get("today")
+        if callable(value):
+            value = value()
+        return as_date(value) or date.today()
+
+    def _period_parser(self):
+        return PeriodParser(self._today())
+
+    @staticmethod
+    def _strip_phrase(text, phrase):
+        """Quita una frase temporal del texto normalizado (o sus meses/años sueltos)."""
+        phrase = normalize_text(phrase)
+        if not phrase:
+            return text
+        # Con la preposición que lo introduce: «servicio en 2024» -> «servicio».
+        lead = r"(?:(?:en|de|del|durante|para|desde|hasta)\s+(?:(?:el|la|los|las)\s+)?)?"
+        pattern = r"(?<![a-z0-9])" + lead + re.escape(phrase) + r"(?![a-z0-9])"
+        if re.search(pattern, text):
+            text = re.sub(pattern, " ", text)
+        else:
+            for word in phrase.split():
+                if word in PERIOD_MONTHS or re.fullmatch(r"(?:19|20)\d{2}", word):
+                    text = re.sub(
+                        r"(?<![a-z0-9])" + lead + re.escape(word) + r"(?![a-z0-9])", " ", text,
+                    )
+        return re.sub(r"\s+", " ", text).strip()
+
+    def _analyze_periods(self, question, metric=None, matched_name=None):
+        """Periodo y agrupación temporal de la pregunta.
+
+        Devuelve {"period", "granularity", "tokens", "clean_question"}:
+        `tokens` son las palabras que expresaron el periodo (no son filtros
+        de dimensión) y `clean_question` la pregunta sin esas frases, para
+        buscar agrupaciones y filtros explícitos sin confundirlas con valores.
+        Una frase que forma parte del nombre de la métrica («Egresos año
+        anterior», «Promedio mensual») no se toma como periodo.
+        """
+        normalized = normalize_text(question)
+        parser = self._period_parser()
+        period = parser.parse(normalized)
+        granularity = parser.granularity(normalized)
+        names = [
+            normalize_text(name)
+            for name in ((metric or {}).get("label"), (metric or {}).get("measure"), matched_name)
+            if name
+        ]
+
+        def in_metric_name(phrase):
+            phrase = normalize_text(phrase)
+            return bool(phrase) and any(_exact_phrase(name, phrase) for name in names)
+
+        if period and in_metric_name(period["phrase"]):
+            period = None
+        if granularity and in_metric_name(granularity["phrase"]):
+            granularity = None
+
+        clean = normalized
+        tokens = set()
+        phrases = [*(neutral_phrases(normalized))]
+        if period:
+            phrases.append(period["phrase"])
+            tokens.update(canonical_token(word) for word in TO_DATE_WORDS)
+        if granularity:
+            phrases.append(granularity["phrase"])
+        for phrase in phrases:
+            tokens.update(canonical_tokens(phrase))
+            clean = self._strip_phrase(clean, phrase)
+        return {
+            "period": period, "granularity": granularity,
+            "tokens": tokens, "clean_question": clean, "question": question,
+        }
+
+    def _period_words(self, text):
+        """Palabras canónicas de las expresiones de periodo del texto (con caché).
+
+        Solo las que de verdad forman un periodo («este año», «últimos 3
+        meses»): «días de estancia» no es un periodo y sigue contando.
+        """
+        cache = self.__dict__.setdefault("_period_words_cache", {})
+        key = normalize_text(text)
+        if key not in cache:
+            if len(cache) > 512:
+                cache.clear()
+            cache[key] = frozenset(self._analyze_periods(key)["tokens"])
+        return cache[key]
+
+    def _month_values(self, field, semantic_model, months):
+        """Valores de la columna MES para esos meses (número o nombre según su tipo)."""
+        month_type = self._column_type(semantic_model, field["table"], field["column"])
+        if month_type != "text":
+            return list(months), "number"
+        domain = self._get_values(semantic_model, field["table"], field["column"]) or []
+        names = {normalize_text(item): item for item in domain}
+        values = [names.get(PERIOD_MONTH_NAMES[month]) for month in months]
+        if any(value is None for value in values):
+            return None, "text"
+        return values, "text"
+
+    def _period_filters(self, period, candidates, semantic_model=None):
+        """Filtros de un periodo según el TIPO real de las columnas temporales.
+
+        Devuelve (filtros, términos_sin_aplicar, notas):
+        - columna de fecha -> date_range [start, end) (o MONTH() IN {...} para
+          meses sin año);
+        - columnas AÑO/MES enteras (o MES de texto) -> filtros categóricos por
+          valor: AÑO = 2025 + MES IN {1, 2, 3}; varios años completos -> AÑO IN
+          {...}; meses de años distintos -> pares (AÑO, MES).
+        Sin fecha diaria, un periodo por días no se aplica (se devuelve vacío).
+        Cada filtro lleva `label` con el periodo legible («enero–marzo 2025»).
+        """
+        label = period.get("label")
+        unapplied, notes = [], []
+        kind = period.get("kind")
+        months_any_year = kind == "months_any_year"
+        if months_any_year:
+            names = label if len(period["months"]) > 1 else period.get("month_name")
+            notes.append(f"Mes sin año ({names}): se consideran todos los años.")
+
+        date_field = (
+            self._best_date_field(candidates, semantic_model) if semantic_model
+            else self._best_date_field(candidates)
+        )
+        if date_field:
+            item = {
+                "type": "date_range",
+                "table": date_field["table"],
+                "column": date_field["column"],
+                "year": period.get("year"),
+                "month": period.get("month"),
+                "month_name": period.get("month_name"),
+                "label": label,
+                "period_kind": kind,
+                "source": "query_plan_temporal",
+            }
+            if months_any_year:
+                item["months"] = list(period["months"])
+            else:
+                item["start"] = as_date(period["start"]).isoformat()
+                item["end"] = as_date(period["end"]).isoformat()
+            return [item], unapplied, notes
+
+        if period.get("daily"):
+            # AÑO/MES no bastan para «hoy», «ayer» o «últimos 7 días».
+            return [], [f"periodo {label} (el tablero no tiene fecha diaria)"], notes
+
+        year_field = self._best_temporal_field(candidates, semantic_model, "year")
+        month_field = self._best_temporal_field(candidates, semantic_model, "month")
+
+        def year_filter(values):
+            single = len(values) == 1
+            return {
+                "type": "categorical", "concept": "año",
+                "table": year_field["table"], "column": year_field["column"],
+                "operator": "=" if single else "IN",
+                "value": values[0] if single else None,
+                **({} if single else {"values": list(values)}),
+                "data_type": "number", "temporal": "year", "label": label,
+                "source": "query_plan_temporal",
+            }
+
+        def month_filter(months):
+            values, data_type = self._month_values(month_field, semantic_model, months)
+            if values is None:
+                return None
+            single = len(values) == 1
+            return {
+                "type": "categorical", "concept": "mes",
+                "table": month_field["table"], "column": month_field["column"],
+                "operator": "=" if single else "IN",
+                "value": values[0] if single else None,
+                **({} if single else {"values": values}),
+                "data_type": data_type, "temporal": "month", "label": label,
+                "source": "query_plan_temporal",
+            }
+
+        filters = []
+        if months_any_year:
+            item = month_filter(period["months"]) if month_field else None
+            if item:
+                filters.append(item)
+            else:
+                unapplied.append(f"mes {label}")
+            return filters, unapplied, notes
+
+        pairs = year_months(as_date(period["start"]), as_date(period["end"]))
+        years = sorted({year for year, _ in pairs})
+        by_year = {year: [m for y, m in pairs if y == year] for year in years}
+        whole_years = all(len(by_year[year]) == 12 for year in years)
+        if len(years) == 1 or whole_years:
+            if year_field:
+                filters.append(year_filter(years))
+            else:
+                unapplied.append(f"año {', '.join(str(year) for year in years)}")
+            if not whole_years:
+                item = month_filter(by_year[years[0]]) if month_field else None
+                if item:
+                    filters.append(item)
+                else:
+                    unapplied.append(f"meses de {label}")
+            return filters, unapplied, notes
+
+        # Meses de años distintos (noviembre 2024–febrero 2025): pares (AÑO, MES).
+        if year_field and month_field and self._column_type(
+            semantic_model, month_field["table"], month_field["column"]
+        ) != "text":
+            filters.append({
+                "type": "temporal_set", "concept": "año y mes",
+                "columns": [
+                    {"table": year_field["table"], "column": year_field["column"]},
+                    {"table": month_field["table"], "column": month_field["column"]},
+                ],
+                "values": [[year, month] for year, month in pairs],
+                "label": label, "temporal": "year_month",
+                "source": "query_plan_temporal",
+            })
+        else:
+            unapplied.append(f"periodo {label}")
+        return filters, unapplied, notes
+
     def _temporal_filters(self, question, candidates, semantic_model=None):
-        """Filtros de año/mes según el TIPO real de la columna.
+        """Filtros del periodo de la pregunta según el TIPO real de la columna.
 
         Devuelve (filtros, términos_sin_aplicar, notas). Columna de fecha ->
         date_range; columnas enteras AÑO/MES -> filtro por valor numérico.
         Un mes sin año filtra el mes en todos los años y lo dice en las notas.
         """
-        year, month, month_name = self._detect_year_month(question)
-        if year is None and month is None:
+        period = self._period_parser().parse(normalize_text(question))
+        if not period:
             return [], [], []
+        return self._period_filters(period, candidates, semantic_model)
 
-        unapplied = []
-        notes = []
-        date_field = self._best_date_field(candidates, semantic_model) if semantic_model else self._best_date_field(candidates)
-        if date_field:
-            if month is not None and year is None:
-                notes.append(f"Mes sin año ({month_name}): se consideran todos los años.")
-            return [{
-                "type": "date_range",
-                "table": date_field["table"],
-                "column": date_field["column"],
-                "year": year,
-                "month": month,
-                "month_name": month_name,
-                "source": "query_plan_temporal",
-            }], unapplied, notes
+    def _bucket_period(self, bucket):
+        """Subperiodo de split_period con la forma de un periodo."""
+        today = self._today()
+        if bucket.get("start") is None:
+            month = bucket["months"][0]
+            return {
+                "kind": "months_any_year", "months": [month], "year": None, "month": month,
+                "month_name": PERIOD_MONTH_NAMES[month], "label": bucket["label"],
+                "daily": False, "start": None, "end": None,
+            }
+        start, end = as_date(bucket["start"]), as_date(bucket["end"])
+        last = end - timedelta(days=1)
+        same_month = (start.year, start.month) == (last.year, last.month)
+        return {
+            "kind": "range", "start": start, "end": end,
+            "year": start.year if start.year == last.year else None,
+            "month": start.month if same_month else None,
+            "month_name": None, "label": bucket["label"],
+            "daily": bucket.get("daily", False), "to_date": end > today,
+        }
 
-        filters = []
+    def _year_domain_period(self, candidates, semantic_model):
+        """Años con datos (columna AÑO entera) como periodo para «por año» sin periodo."""
         year_field = self._best_temporal_field(candidates, semantic_model, "year")
-        month_field = self._best_temporal_field(candidates, semantic_model, "month")
-        if year is not None:
-            if year_field:
-                filters.append({
-                    "type": "categorical", "concept": "año",
-                    "table": year_field["table"], "column": year_field["column"],
-                    "operator": "=", "value": year, "data_type": "number",
-                    "temporal": "year", "source": "query_plan_temporal",
-                })
-            else:
-                unapplied.append(f"año {year}")
-        if month is not None:
-            month_filter = None
-            if month_field:
-                month_type = self._column_type(semantic_model, month_field["table"], month_field["column"])
-                value = month
-                data_type = "number"
-                if month_type == "text":
-                    data_type = "text"
-                    value = None
-                    domain = self._get_values(semantic_model, month_field["table"], month_field["column"]) or []
-                    for item in domain:
-                        if normalize_text(item) == month_name:
-                            value = item
-                            break
-                if value is not None:
-                    month_filter = {
-                        "type": "categorical", "concept": "mes",
-                        "table": month_field["table"], "column": month_field["column"],
-                        "operator": "=", "value": value, "data_type": data_type,
-                        "temporal": "month", "source": "query_plan_temporal",
-                    }
-            if month_filter:
-                filters.append(month_filter)
-                if year is None:
-                    notes.append(f"Mes sin año ({month_name}): se consideran todos los años.")
-            else:
-                unapplied.append(f"mes {month_name}")
-        return filters, unapplied, notes
+        if not year_field or self._best_date_field(candidates, semantic_model):
+            return None
+        values = self._get_values(semantic_model, year_field["table"], year_field["column"]) or []
+        years = sorted({int(v) for v in values if str(v).isdigit()})[-10:]
+        if not years:
+            return None
+        parser = self._period_parser()
+        period = parser._range(date(years[0], 1, 1), date(years[-1] + 1, 1, 1), "")
+        period["label"] = f"{period['label']} (años con datos)"
+        return period
+
+    def _apply_temporal(self, analysis, candidates, semantic_model, group_by):
+        """Filtros del periodo + agrupación temporal («por mes») del plan.
+
+        Devuelve {"filters", "unapplied", "notes", "unsupported_period",
+        "group", "buckets"}. La agrupación usa subperiodos explícitos
+        (`buckets`, uno por mes/trimestre/año...) que el generador DAX evalúa
+        con los mismos filtros de periodo: funciona igual con columna de fecha
+        o con columnas AÑO/MES enteras. Si no se puede agrupar, se declara.
+        """
+        result = {
+            "filters": [], "unapplied": [], "notes": [], "unsupported_period": None,
+            "group": None, "buckets": [],
+        }
+        period = analysis.get("period")
+        granularity = analysis.get("granularity")
+        if period:
+            filters, unapplied, notes = self._period_filters(period, candidates, semantic_model)
+            if not filters:
+                result["unsupported_period"] = period
+                result["unapplied"] = unapplied
+                return result
+            result["filters"].extend(filters)
+            result["unapplied"].extend(unapplied)
+            result["notes"].extend(notes)
+            for word in period.get("ignored") or []:
+                what = "mes" if word in PERIOD_MONTHS else "año"
+                result["unapplied"].append(f"{what} {word} (solo se aplicó {period['label']})")
+
+        if not granularity:
+            return result
+        unit = granularity["unit"]
+        name = GRANULARITY_LABELS[unit]
+        if group_by:
+            result["unapplied"].append(
+                f"agrupar por {name.lower()} (ya se agrupa por {group_by[0].get('column')})"
+            )
+            return result
+
+        base = period
+        if base is None:
+            base = (self._year_domain_period(candidates, semantic_model) if unit == "year" else None) \
+                or self._period_parser().default_window(unit)
+            filters, unapplied, _ = self._period_filters(base, candidates, semantic_model)
+            if filters and not unapplied:
+                result["filters"].extend(filters)
+                result["notes"].append(f"Sin periodo en la pregunta: se muestra {base['label']}.")
+        buckets = split_period(base, unit, self._today())
+        if not buckets:
+            result["unapplied"].append(
+                f"agrupar por {name.lower()} (más de 62 periodos o periodo sin año: acota el periodo)"
+            )
+            return result
+        planned = []
+        table = None
+        for bucket in buckets:
+            filters, unapplied, _ = self._period_filters(
+                self._bucket_period(bucket), candidates, semantic_model,
+            )
+            if not filters or unapplied:
+                result["unapplied"].append(
+                    f"agrupar por {name.lower()} (el tablero no tiene la columna de fecha necesaria)"
+                )
+                # Sin agrupación, el filtro por defecto ya no tiene sentido.
+                if period is None:
+                    result["filters"] = []
+                    result["notes"] = [n for n in result["notes"] if not n.startswith("Sin periodo")]
+                return result
+            table = table or filters[0].get("table") or (filters[0].get("columns") or [{}])[0].get("table")
+            planned.append({"order": bucket["order"], "label": bucket["label"], "filters": filters})
+        result["buckets"] = planned
+        result["group"] = {
+            "table": table, "column": name, "label": name,
+            "source": "query_plan_temporal_group", "temporal": unit,
+        }
+        return result
 
     # ---------------- public API ----------------
     def is_descriptive(self, question):
@@ -1480,6 +1792,10 @@ class QueryPlanBuilder:
         return bool(
             re.search(r"(?<![a-z0-9])(?:" + months + r")(?![a-z0-9])", normalized)
             or re.search(r"(?<![0-9])20\d{2}(?![0-9])", normalized)
+            # Periodos relativos («este año», «mes pasado», «últimos 3 meses»)
+            # y agrupaciones temporales («por mes», «mensual»).
+            or PeriodParser().parse(normalized)
+            or PeriodParser().granularity(normalized)
         )
 
     def looks_numeric(self, question, dashboard=None):
@@ -2199,8 +2515,12 @@ class QueryPlanBuilder:
         reports = metric.get("reports", []) or []
         report = metric.get("report") or (reports[0] if reports else source_context.get("report"))
         candidates = self._relevant_dimensions(metric)
+        # Periodo («entre enero y marzo», «este año») y agrupación temporal
+        # («por mes»): sus palabras no son valores ni dimensiones.
+        temporal = self._analyze_periods(question, metric, metric_result.get("matched_name"))
+        dimension_question = temporal["clean_question"]
 
-        group_detection = self._detect_group_or_dimension_filter(question, metric, candidates)
+        group_detection = self._detect_group_or_dimension_filter(dimension_question, metric, candidates)
         group_by = group_detection["group_by"]
         switched = None if selected_metric_id is not None else self._metric_without_group_phrase(
             question, metric_result, group_by, source_context,
@@ -2212,7 +2532,11 @@ class QueryPlanBuilder:
             reports = metric.get("reports", []) or []
             report = metric.get("report") or (reports[0] if reports else source_context.get("report"))
             candidates = self._relevant_dimensions(metric)
-            group_detection = self._detect_group_or_dimension_filter(question, metric, candidates)
+            temporal = self._analyze_periods(question, metric, metric_result.get("matched_name"))
+            dimension_question = temporal["clean_question"]
+            group_detection = self._detect_group_or_dimension_filter(
+                dimension_question, metric, candidates,
+            )
             group_by = group_detection["group_by"]
         # Ranking («el servicio con más peso», «top 5 especialidades»): la
         # dimensión nombrada se agrupa y el resultado se ordena/limita.
@@ -2248,7 +2572,7 @@ class QueryPlanBuilder:
         )
         explicit_specs.extend(
             self._detect_explicit_dimension_filters(
-                question, candidates, already_fields=used_fields,
+                dimension_question, candidates, already_fields=used_fields,
                 metric=metric, source_context=source_context,
             )
         )
@@ -2263,7 +2587,7 @@ class QueryPlanBuilder:
         filters = []
         unapplied_terms = []
         notes = []
-        consumed_tokens = set()
+        consumed_tokens = set(temporal["tokens"])
         if ranking:
             consumed_tokens.update(ranking["tokens"])
             notes.append(self._ranking_note(
@@ -2324,21 +2648,22 @@ class QueryPlanBuilder:
             used_fields.add((normalize_text(field["table"]), normalize_text(field["column"])))
             consumed_tokens.update(implicit.get("tokens", ()))
 
-        temporal_filters, temporal_unapplied, temporal_notes = self._temporal_filters(
-            question, candidates, semantic_model,
-        )
-        year, month, _ = self._detect_year_month(question)
-        if (year is not None or month is not None) and not temporal_filters:
+        temporal_result = self._apply_temporal(temporal, candidates, semantic_model, group_by)
+        requested_period = temporal_result["unsupported_period"]
+        if requested_period:
             return {
                 "status": "unsupported_filter", "stage": "temporal_filters",
                 "reason": "date_dimension_not_found_in_report",
-                "requested_year": year, "requested_month": month,
+                "requested_year": requested_period.get("year"),
+                "requested_month": requested_period.get("month"),
+                "requested_period": requested_period.get("label"),
+                "unapplied_terms": temporal_result["unapplied"],
                 "question": question, "semantic_model": semantic_model,
                 "source_context": source_context, "metric_resolution": metric_result,
             }
-        filters.extend(temporal_filters)
-        unapplied_terms.extend(temporal_unapplied)
-        notes.extend(temporal_notes)
+        filters.extend(temporal_result["filters"])
+        unapplied_terms.extend(temporal_result["unapplied"])
+        notes.extend(temporal_result["notes"])
 
         # Palabras específicas que ningún filtro explicó. Sin ningún filtro
         # categórico el resultado sería un total engañoso: se detiene. Con
@@ -2368,6 +2693,8 @@ class QueryPlanBuilder:
             "label": (field.get("aliases") or [field["column"]])[0],
             "source": "query_plan_group_by",
         } for field in group_by]
+        if temporal_result["group"]:
+            normalized_group_by = [temporal_result["group"]]
 
         pages = self._metric_pages(metric)
         return {
@@ -2393,5 +2720,28 @@ class QueryPlanBuilder:
                 {key: ranking[key] for key in ("direction", "limit", "phrase")}
                 if ranking and normalized_group_by else None
             ),
+            "temporal_buckets": temporal_result["buckets"],
+            "period": self._period_summary(temporal),
             "dimension_candidates_checked": min(len(candidates), 20),
         }
+
+    def _period_summary(self, temporal):
+        """Periodo interpretado (para el razonamiento y la respuesta), o None."""
+        period, granularity = temporal.get("period"), temporal.get("granularity")
+        if not period and not granularity:
+            return None
+        summary = {"today": self._today().isoformat()}
+        question = temporal.get("question") or ""
+        if period:
+            summary.update({
+                "phrase": _original_phrase(question, period.get("phrase")),
+                "label": period.get("label"),
+                "kind": period.get("kind"), "relative": period.get("relative"),
+                "start": as_date(period.get("start")).isoformat() if period.get("start") else None,
+                "end": as_date(period.get("end")).isoformat() if period.get("end") else None,
+                "months": period.get("months"),
+            })
+        if granularity:
+            summary["granularity"] = granularity.get("unit")
+            summary["granularity_phrase"] = _original_phrase(question, granularity.get("phrase"))
+        return summary

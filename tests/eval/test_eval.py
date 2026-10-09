@@ -76,7 +76,7 @@ ENERO_2026 = {"type": "date_range", "table": "LAVANDERIA", "column": "Fecha", "y
 def test_question_bank_is_valid_and_covers_all_categories():
     data = runner.load_questions()
     cases = data["cases"]
-    assert 80 <= len(cases) <= 130, len(cases)
+    assert 80 <= len(cases) <= 200, len(cases)
     for category in runner.CATEGORIES:
         count = sum(1 for c in cases if c["category"] == category)
         assert count >= 8, (category, count)

@@ -478,18 +478,36 @@ def format_value_es(value, label=None, fmt=None, unit=None):
     return text
 
 
+def format_period_es(item):
+    """Periodo de un filtro temporal en español: «enero–marzo 2025», «2026 hasta hoy»."""
+    if item.get("label"):
+        return str(item["label"])
+    months = ResponseFormatter.MONTHS
+    month = item.get("month_name") or months.get(item.get("month"))
+    return " ".join(str(p) for p in (month, item.get("year")) if p)
+
+
 def format_filters_line(filters):
-    """'Filtros: SERVICIO = ANTIFLUIDOS · enero 2026' o '' si no hay filtros."""
+    """'Filtros: SERVICIO = ANTIFLUIDOS · enero 2026' o '' si no hay filtros.
+
+    Los filtros temporales muestran el periodo realmente aplicado una sola vez
+    («enero–marzo 2025»), aunque se apliquen con varias columnas (AÑO y MES).
+    """
     parts = []
     seen = set()
-    months = ResponseFormatter.MONTHS
     for item in filters or []:
         kind = item.get("type")
-        if kind == "date_range":
-            month = item.get("month_name") or months.get(item.get("month"))
-            period = " ".join(str(p) for p in (month, item.get("year")) if p)
-            if period:
+        if kind == "date_range" or (item.get("temporal") and item.get("label")):
+            period = format_period_es(item)
+            if period and period not in seen:
+                seen.add(period)
                 parts.append(period)
+        elif item.get("values") and item.get("value") in (None, ""):
+            name = item.get("concept") or item.get("column") or "Filtro"
+            text = f"{str(name).upper()} = {', '.join(str(v) for v in item['values'])}"
+            if text not in seen:
+                seen.add(text)
+                parts.append(text)
         elif item.get("value") not in (None, ""):
             name = item.get("concept") or item.get("column") or "Filtro"
             text = f"{str(name).upper()} = {item.get('value')}"

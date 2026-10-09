@@ -186,10 +186,23 @@ class QueryEngine:
     @staticmethod
     def _filter_line(item):
         if item.get("type") == "date_range":
-            period = "-".join(str(v) for v in (item.get("year"), item.get("month")) if v)
+            period = item.get("label") or "-".join(
+                str(v) for v in (item.get("year"), item.get("month")) if v
+            )
             column = f"{item.get('table')}[{item.get('column')}]" if item.get("column") else ""
-            return f"periodo {period} {column}".strip()
-        line = f"{item.get('table')}[{item.get('column')}] = {item.get('value')}"
+            if item.get("start") and item.get("end"):
+                column += f" >= {item['start']} y < {item['end']}"
+            elif item.get("months"):
+                column += f" meses {item['months']} de todos los años"
+            return f"periodo {period} · {column}".strip(" ·")
+        if item.get("type") == "temporal_set":
+            columns = " y ".join(f"{c.get('table')}[{c.get('column')}]" for c in item.get("columns") or [])
+            pairs = ", ".join(f"{y}-{m:02d}" for y, m in item.get("values") or [])
+            return f"periodo {item.get('label')} · ({columns}) en {pairs}"
+        value = item.get("value") if item.get("value") is not None else item.get("values")
+        line = f"{item.get('table')}[{item.get('column')}] = {value}"
+        if item.get("temporal") and item.get("label"):
+            line += f" (periodo {item.get('label')})"
         if item.get("source"):
             line += f" (origen {item.get('source')}"
             if item.get("match_score") is not None:
@@ -244,12 +257,21 @@ class QueryEngine:
                 f"interpretación: {match.get('interpretation')}" if match.get("interpretation") else None,
                 f"modo: {plan.get('mode')}",
             )
+            period = plan.get("period") or {}
+            buckets = plan.get("temporal_buckets") or []
             self._think(
                 "Filtros y agrupación",
+                f"periodo interpretado: «{period.get('phrase')}» → {period.get('label')}"
+                f" (referencia: hoy {period.get('today')})"
+                if period.get("label") else None,
                 *([f"filtro: {self._filter_line(item)}" for item in plan.get("filters") or []]
                   or ["sin filtros"]),
                 *[f"agrupar por: {item.get('table')}[{item.get('column')}]"
-                  for item in plan.get("group_by") or []],
+                  for item in plan.get("group_by") or [] if not item.get("temporal")],
+                *[f"agrupar por {str(item.get('label')).lower()}: {len(buckets)} periodos "
+                  f"({buckets[0]['label']} … {buckets[-1]['label']})" if buckets else
+                  f"agrupar por {str(item.get('label')).lower()}"
+                  for item in plan.get("group_by") or [] if item.get("temporal")],
                 *[f"no aplicado: {term}" for term in plan.get("unapplied_terms") or []],
                 *[f"nota: {note}" for note in plan.get("notes") or []],
             )
@@ -266,6 +288,8 @@ class QueryEngine:
                 if plan.get("rejected_metric") else None,
                 f"valor pedido: {plan.get('requested_value')}" if plan.get("requested_value") else None,
                 f"dimensión pedida: {dimension}" if dimension else None,
+                f"periodo pedido: {plan.get('requested_period')}" if plan.get("requested_period") else None,
+                *[f"no aplicado: {term}" for term in plan.get("unapplied_terms") or []],
                 f"error de dominio: {plan.get('domain_error')}" if plan.get("domain_error") else None,
             )
 
@@ -2196,17 +2220,22 @@ class QueryEngine:
         period = None
         scope = "total"
         for item in plan.get("filters", []) or []:
-            if item.get("type") != "date_range":
+            if item.get("type") != "date_range" and not (item.get("temporal") and item.get("label")):
                 continue
             year, month = item.get("year"), item.get("month")
-            if year and month:
+            kind = item.get("period_kind")
+            if year and month and kind in (None, "month"):
                 name = item.get("month_name") or str(month)
                 period, scope = f"{name} de {year}", "total del mes"
-            elif year:
-                period, scope = f"{year}", "total del año"
+            elif year and kind in (None, "year"):
+                period, scope = item.get("label") or f"{year}", "total del año"
+            elif item.get("label"):
+                # Rango, trimestre, «2026 hasta hoy», días...
+                period, scope = item["label"], "total del periodo"
         values = [
             str(item.get("value")) for item in plan.get("filters", []) or []
             if item.get("type") == "categorical" and item.get("value") is not None
+            and not item.get("temporal")  # AÑO/MES ya van en el periodo
         ]
         return period, values, scope
 
