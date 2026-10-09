@@ -137,6 +137,38 @@ class QueryPlanDAXGenerator:
         )
         return {"status": "generated", "mode": "scalar", "dax": dax}
 
+    # ---------------- ranking (orden y límite) ----------------
+    def generate_ranked(self, plan):
+        """Agrupación ordenada y, si se pidió, limitada con TOPN.
+
+        plan["ranking"] = {"direction": "desc" | "asc", "limit": n | None}.
+        Sin ranking (o sin agrupación) equivale a generate().
+        """
+        result = self.generate(plan)
+        ranking = plan.get("ranking") or {}
+        if result.get("status") != "generated" or result.get("mode") != "grouped" or not ranking:
+            return result
+        dax = result["dax"]
+        head = "EVALUATE\n"
+        order_at = dax.rfind("\nORDER BY")
+        if not dax.startswith(head) or order_at < 0:
+            return result
+        table = dax[len(head):order_at]
+        direction = "ASC" if ranking.get("direction") == "asc" else "DESC"
+        limit = ranking.get("limit")
+        if limit:
+            table = (
+                "TOPN(\n    "
+                f"{int(limit)},\n    "
+                + table.replace("\n", "\n    ")
+                + f",\n    [__value], {direction}\n)"
+            )
+        return {
+            **result,
+            "dax": f"{head}{table}\nORDER BY [__value] {direction}",
+            "ranking": {"direction": ranking.get("direction"), "limit": limit},
+        }
+
     # ---------------- participación (% del total) ----------------
     def generate_share(self, plan):
         """Participación de un valor de dimensión sobre el total del período.

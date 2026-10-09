@@ -11,7 +11,6 @@
         "seccion": "Gráfico de Barras por Distribución Mensual"
       },
       "arneses": ["sim", "realistic"],
-      "xfail": {"sim": "el verbo «registrado» se toma por un filtro desconocido y pregunta si consulta sin él"},
       "turns": [
         {
           "user": "cuanto peso total hay registrado en lavanderia",
@@ -488,7 +487,7 @@
       },
       "arneses": ["sim", "realistic"],
       "descripcion": "Periodo relativo («este año»): filtrar el año en curso o preguntar el año, nunca el total histórico.",
-      "xfail": {"sim": "«este año» no se interpreta: pregunta por «lleva» y, si se acepta, da el total de todos los años"},
+      "xfail": {"sim": "«este año» no se interpreta: da el total de todos los años sin avisar (lógica temporal pendiente)"},
       "turns": [
         {
           "user": "cuanto peso lleva la lavanderia este año",
@@ -553,7 +552,6 @@
       },
       "arneses": ["sim"],
       "descripcion": "Error de tipeo en el nombre del tablero («lavandria») y verbo «pesaron».",
-      "xfail": {"sim": "con «lavandria» no enruta al tablero: ofrece PESO como sugerencia en lugar de responder"},
       "turns": [
         {
           "user": "cuanto pesaron los antifluidos en enero del 2026 en lavandria",
@@ -656,7 +654,6 @@
         "seccion": "Filtros (servicio, año)"
       },
       "arneses": ["sim"],
-      "xfail": {"sim": "«urgencias» desvía la pregunta al RAG en vez de filtrar SERVICIO = URGENCIAS"},
       "turns": [
         {
           "user": "atenciones de urgencias en 2024",
@@ -677,7 +674,6 @@
         "seccion": "Filtros (sede, servicio, año)"
       },
       "arneses": ["sim"],
-      "xfail": {"sim": "«cuantas atenciones» no resuelve TOTAL ATENCIONES (sí «total de atenciones»): ofrece sugerencia"},
       "turns": [
         {
           "user": "cuantas atenciones hubo en la sede sur en 2024 en urgencias",
@@ -926,7 +922,6 @@
         "seccion": "Tabla de registro de Usuarios"
       },
       "arneses": ["sim", "realistic"],
-      "xfail": {"sim": "«colaborador» no es sinónimo de NOMBRE_COMPLETO: pregunta si consulta sin ese filtro"},
       "turns": [
         {
           "user": "peso por colaborador en lavanderia en enero de 2026",
@@ -1012,7 +1007,6 @@
       },
       "arneses": ["sim", "realistic"],
       "descripcion": "Ranking / máximo: «el servicio con más peso».",
-      "xfail": {"sim": "no hay soporte de ranking (top-N): pregunta si consulta sin «servicio mas»"},
       "turns": [
         {
           "user": "cual fue el servicio con mas peso en lavanderia en enero 2026",
@@ -1431,7 +1425,6 @@
         "seccion": "Descripción del tablero"
       },
       "arneses": ["sim", "realistic"],
-      "xfail": {"sim": "pide «¿A qué tablero te refieres?» con una sola opción aunque el tablero se nombró"},
       "turns": [
         {
           "user": "¿Qué muestra el tablero de lavandería?",
@@ -1452,7 +1445,6 @@
         "seccion": "Filtros por Años y Mes"
       },
       "arneses": ["sim", "realistic"],
-      "xfail": {"sim": "pide «¿A qué tablero te refieres?» con una sola opción aunque el tablero se nombró"},
       "turns": [
         {
           "user": "que filtros tiene el tablero de lavanderia",
@@ -1890,7 +1882,6 @@
       "fuente": null,
       "arneses": ["sim", "realistic"],
       "descripcion": "Pregunta numérica fuera de alcance: no debe sugerir que falta la página del tablero.",
-      "xfail": {"sim": "responde «No encontré un indicador suficientemente específico. Incluye la sección o página»"},
       "turns": [
         {
           "user": "cuanto gana un medico general en colombia",
@@ -2224,7 +2215,6 @@
         "seccion": "Cirugías realizadas"
       },
       "arneses": ["sim", "realistic"],
-      "xfail": {"sim": "los ordinales («la primera») no se reconocen: vuelve a preguntar"},
       "turns": [
         {
           "user": "¿Cuántas cirugías realizadas hubo en 2024?",
@@ -2427,15 +2417,16 @@
         "seccion": "Descripción"
       },
       "arneses": ["sim"],
+      "descripcion": "Sin nombrar el tablero: se elige con el botón («tablero de atenciones» ya es un alias y no pregunta).",
       "turns": [
         {
-          "user": "¿Qué muestra el tablero de atenciones?",
+          "user": "¿Qué muestra el tablero?",
           "expect": {
-            "route": ["clarification", "rag"]
+            "route": ["clarification"]
           }
         },
         {
-          "button": 1,
+          "button": {"label_any": ["Atenciones"]},
           "expect": {
             "route": ["rag"],
             "keywords": ["atenciones"]
@@ -2452,9 +2443,10 @@
         "seccion": "Filtros"
       },
       "arneses": ["sim"],
+      "descripcion": "Sin nombrar el tablero: se responde escribiendo su nombre («tablero de cirugías» ya es un alias y no pregunta).",
       "turns": [
         {
-          "user": "¿Qué filtros tiene el tablero de cirugías?",
+          "user": "¿Qué filtros tiene el tablero?",
           "expect": {
             "route": ["clarification"]
           }
@@ -2539,7 +2531,6 @@
       },
       "arneses": ["sim"],
       "descripcion": "Pregunta de seguimiento elíptica que hereda métrica y filtros.",
-      "xfail": {"sim": "el contexto se borra tras cada respuesta (reset_if_finished): «y en 2025?» queda fuera de alcance"},
       "turns": [
         {
           "user": "cirugias programadas de urologia en 2024",
@@ -2555,6 +2546,111 @@
             "filters": [{"column": "ESPECIALIDAD", "value": "UROLOGIA"}, {"year": 2025}]
           }
         }
+      ]
+    },
+    {
+      "id": "i_sim_seguimiento_por_especialidad",
+      "category": "i_multiturno",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Filtro Especialidad"
+      },
+      "arneses": ["sim"],
+      "descripcion": "Seguimiento que agrega una agrupación y conserva el período de la consulta anterior.",
+      "turns": [
+        {
+          "user": "cirugias programadas de urologia en 2024",
+          "expect": {"route": ["powerbi"], "filters": [{"column": "ESPECIALIDAD", "value": "UROLOGIA"}, {"year": 2024}]}
+        },
+        {
+          "user": "y por especialidad",
+          "expect": {"route": ["powerbi"], "result_type": "table", "group_by_any": ["especialidad"],
+                     "metrics_any": ["programad"], "filters": [{"year": 2024}]}
+        }
+      ]
+    },
+    {
+      "id": "i_sim_seguimiento_tras_otro_tema",
+      "category": "i_multiturno",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Filtro Especialidad"
+      },
+      "arneses": ["sim"],
+      "descripcion": "El contexto de seguimiento es acotado: una respuesta no numérica lo borra.",
+      "turns": [
+        {"user": "cirugias programadas de urologia en 2024", "expect": {"route": ["powerbi"]}},
+        {"user": "¿Cuál es la capital de Francia?", "expect": {"route": ["out_of_scope", "not_found"]}},
+        {"user": "y en 2025?", "expect": {"route": ["out_of_scope", "not_found", "clarification"],
+                                           "forbid": ["powerbi_answer"]}}
+      ]
+    },
+    {
+      "id": "d_sim_top_especialidades",
+      "category": "d_agrupado",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas por especialidad"
+      },
+      "arneses": ["sim"],
+      "descripcion": "Ranking (top N) sobre una agrupación tras elegir el indicador.",
+      "turns": [
+        {"user": "top 5 especialidades con mas cirugias",
+         "expect": {"route": ["clarification"], "options_any": ["cirug"], "has_none_option": true}},
+        {"button": {"label_any": ["Quirurgico"]},
+         "expect": {"route": ["powerbi"], "result_type": "table", "group_by_any": ["especialidad"],
+                    "answer_any": ["5 primeros"]}}
+      ]
+    },
+    {
+      "id": "c_sim_lav_kilos",
+      "category": "c_kpi_filtro",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Peso"
+      },
+      "arneses": ["sim"],
+      "descripcion": "«kilos» es sinónimo de peso.",
+      "turns": [
+        {"user": "cuantos kilos hubo en lavanderia en enero de 2026",
+         "expect": {"route": ["powerbi"], "metrics_any": ["peso"], "numbers": ["3.906,4"],
+                    "filters": [{"year": 2026, "month": 1}]}}
+      ]
+    },
+    {
+      "id": "e_sim_metrica_solo_por_agrupacion",
+      "category": "e_ambiguo",
+      "tablero": "Varios (fixture sim)",
+      "fuente": {
+        "docx": "2 DOCUMENTACION TABLERO ASIGNACION DE CITAS/10 Documentacion Tablero Asignadas por Especialidad.docx",
+        "seccion": "Gráfico de citas asignadas por especialidad"
+      },
+      "arneses": ["sim"],
+      "descripcion": "En el fixture no hay citas: la agrupación «por especialidad» no basta para responder con otro indicador.",
+      "turns": [
+        {"user": "citas asignadas por especialidad",
+         "expect": {"route": ["clarification", "metric_not_resolved", "not_found", "out_of_scope"],
+                    "forbid": ["powerbi_answer"], "answer_none": ["Incluye la sección o página del tablero"]}}
+      ]
+    },
+    {
+      "id": "e_sim_promedio_mensual_generico",
+      "category": "e_ambiguo",
+      "tablero": "Varios (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/2 Documentacion Tablero Triage.docx",
+        "seccion": "«Promedio mensual» aparece en casi todos los tableros"
+      },
+      "arneses": ["sim"],
+      "descripcion": "Pregunta genérica: pide el indicador con un ejemplo real del catálogo.",
+      "turns": [
+        {"user": "promedio mensual",
+         "expect": {"route": ["clarification", "metric_not_resolved"], "forbid": ["powerbi_answer"],
+                    "answer_any": ["Por ejemplo"], "answer_none": ["Incluye la sección o página del tablero"]}}
       ]
     },
     {

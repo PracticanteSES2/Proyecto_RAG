@@ -293,6 +293,83 @@ def test_numeric_looking_but_unresolved_tries_rag_before_failing():
     assert result["route"] == "rag"
 
 
+# ---------------------------------------------------------------- ranking
+def test_ranking_is_numeric_and_groups_by_the_named_dimension():
+    _, builder, _, _ = make_system()
+    for texto in ("que servicio tuvo mas peso en lavanderia", "top 3 servicios con mas peso",
+                  "cual fue el servicio con menor peso en lavanderia"):
+        assert builder.looks_numeric(texto), texto
+    # «con más de 3» compara con una cifra: no es un ranking.
+    assert not builder.is_ranking("registros del servicio con mas de 3 kilos")
+    assert not builder.is_ranking("peso que tiene mas que antes")
+    plan = builder.build("cual fue el servicio con mas peso en lavanderia en enero de 2026")
+    assert plan["status"] == "ready" and plan["mode"] == "grouped", plan.get("status")
+    assert [g["column"] for g in plan["group_by"]] == ["SERVICIO"]
+    assert plan["ranking"]["direction"] == "desc" and plan["ranking"]["limit"] == 1
+    assert not plan["unapplied_terms"], plan["unapplied_terms"]
+    dax = QueryPlanDAXGenerator().generate_ranked(plan)["dax"]
+    assert dax.startswith("EVALUATE\nTOPN(\n    1,") and "[__value], DESC" in dax, dax
+    assert dax.rstrip().endswith("ORDER BY [__value] DESC")
+    top = builder.build("top 3 servicios con menos peso en lavanderia en enero de 2026")
+    assert top["ranking"] == {"direction": "asc", "limit": 3, "phrase": top["ranking"]["phrase"]}
+    assert "[__value], ASC" in QueryPlanDAXGenerator().generate_ranked(top)["dax"]
+    plural = builder.build("los servicios con mas peso en lavanderia en enero de 2026")
+    assert plural["ranking"]["limit"] is None
+    unranked = QueryPlanDAXGenerator().generate_ranked(plural)["dax"]
+    assert "TOPN" not in unranked and unranked.endswith("ORDER BY [__value] DESC")
+    # Sin ranking, generate_ranked == generate.
+    plain = builder.build("peso por servicio en lavanderia en enero de 2026")
+    assert plain["ranking"] is None
+    assert QueryPlanDAXGenerator().generate_ranked(plain) == QueryPlanDAXGenerator().generate(plain)
+
+
+def test_engine_orders_and_limits_rows_even_without_topn():
+    engine, _, _, _ = make_system()
+    rows = [{"S": "A", "[__value]": 2}, {"S": "B", "[__value]": 9}, {"S": "C", "[__value]": 5}]
+    top = engine._apply_ranking({"ranking": {"direction": "desc", "limit": 2}}, rows)
+    assert [r["S"] for r in top] == ["B", "C"]
+    low = engine._apply_ranking({"ranking": {"direction": "asc", "limit": None}}, rows)
+    assert [r["S"] for r in low] == ["A", "C", "B"]
+    assert engine._apply_ranking({}, rows) == rows
+
+
+# ---------------------------------------------------------------- palabras corrientes y sinónimos
+def test_common_verbs_are_not_unresolved_filters():
+    for texto in ("cuanto peso total hay registrado en lavanderia en enero de 2026",
+                  "cuanto peso llevamos en lavanderia en enero de 2026",
+                  "cuantos kilos se hicieron en lavanderia en enero de 2026",
+                  "cuanto pesaron en lavanderia en enero de 2026"):
+        engine, _, _, _ = make_system()
+        result = engine.process(texto)
+        assert result["status"] == "success" and result["value"] == 3906.4, (texto, result.get("status"))
+        assert not result["unapplied_terms"], (texto, result["unapplied_terms"])
+
+
+def test_colaborador_is_a_synonym_of_nombre_completo():
+    _, builder, _, _ = make_system()
+    plan = builder.build("peso por colaborador en lavanderia en enero de 2026")
+    assert plan["status"] == "ready" and [g["column"] for g in plan["group_by"]] == ["NOMBRE_COMPLETO"]
+
+
+# ---------------------------------------------------------------- preguntas sin indicador
+def test_describe_unresolved_kinds_and_examples():
+    _, builder, _, _ = make_system()
+    out = builder.describe_unresolved("cuanto gana un medico general en colombia")
+    assert out["kind"] == "out_of_scope" and "colombia" in out["words"], out
+    assert builder.describe_unresolved("cual es el promedio mensual")["kind"] == "generic"
+    assert builder.describe_unresolved("cuantas citas por servicio")["kind"] == "unknown"
+    examples = out["examples"]
+    assert examples and all(not any(ch.isdigit() for ch in e["label"]) for e in examples)
+    assert examples[0]["report"] == REPORT
+
+
+def test_metric_words_ignore_dimension_aliases():
+    _, builder, _, _ = make_system()
+    assert builder.metric_words("y por servicio") == []
+    assert builder.metric_words("y de urgencias") == []
+    assert builder.metric_words("y el peso en 2025") == ["peso"]
+
+
 def _run_all():
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     failed = 0
