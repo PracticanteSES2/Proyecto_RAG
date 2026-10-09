@@ -1,6 +1,9 @@
+import inspect
+
+
 class RAGAnswerEngine:
 
-    def __init__(self, retriever, default_limit=3, answer_synthesizer=None, min_score=0.35):
+    def __init__(self, retriever, default_limit=5, answer_synthesizer=None, min_score=0.35):
         self.retriever = retriever
         self.answer_synthesizer = answer_synthesizer
         self.default_limit = default_limit
@@ -41,26 +44,56 @@ class RAGAnswerEngine:
             and result.get("chunk_type") == "dashboard_overview"
         ][:1]
 
+    def _is_hybrid(self):
+        """El HybridRetriever actual aplica él mismo umbral, alcance y
+        diversidad (search_general acepta min_score)."""
+        search_general = getattr(self.retriever, "search_general", None)
+        if not callable(search_general):
+            return False
+        try:
+            return "min_score" in inspect.signature(search_general).parameters
+        except (TypeError, ValueError):
+            return False
+
     def _retrieve_general_context(self, intent_data, limit=None):
         question = intent_data.get("original_question") or ""
         dashboard = intent_data.get("dashboard")
-        retrieval_limit = limit or max(self.default_limit * 2, 6)
         overview = self._dashboard_overview(intent_data)
 
-        results = self.retriever.search_general(
-            question=question,
-            limit=retrieval_limit,
-            dashboard=dashboard,
-        )
-
-        if not results and not overview:
-            return []
-
-        filtered_results = [
-            result
-            for result in results or []
-            if float(result.get("score", 0) or 0) >= self.min_score
-        ]
+        if self._is_hybrid():
+            results = self.retriever.search_general(
+                question=question,
+                limit=limit or self.default_limit,
+                dashboard=dashboard,
+                min_score=self.min_score,
+            ) or []
+            filtered_results = [
+                result
+                for result in results
+                if result.get("relevant", True)
+            ]
+            # El resumen del tablero que detectó el IntentParser solo se
+            # antepone si pertenece al informe en que buscó el retriever
+            # («tiempos de urgencias» no es la página URGENCIAS del Briefing).
+            scope = (filtered_results[0].get("scope") if filtered_results else None) or None
+            if overview and scope:
+                groups = set(scope.get("source_groups") or [])
+                overview = [
+                    result for result in overview
+                    if (result.get("source_group") or "") in groups
+                ]
+        else:
+            retrieval_limit = limit or max(self.default_limit * 2, 6)
+            results = self.retriever.search_general(
+                question=question,
+                limit=retrieval_limit,
+                dashboard=dashboard,
+            ) or []
+            filtered_results = [
+                result
+                for result in results
+                if float(result.get("score", 0) or 0) >= self.min_score
+            ]
 
         # IMPORTANTE: si nada supera el umbral, no usamos resultados débiles
         # (el resumen del tablero nombrado sí es evidencia válida).

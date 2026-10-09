@@ -240,7 +240,8 @@ class FakeOllamaClient:
         if "CONTEXTO RECUPERADO" in user:
             ctx = user.split("CONTEXTO RECUPERADO:", 1)[1].split("TAREA:", 1)[0]
             lines = [l.strip() for l in ctx.splitlines()
-                     if l.strip() and not l.startswith(("[FUENTE", "Tipo:", "Contenido:"))]
+                     if l.strip() and not l.startswith(("[FUENTE", "Tipo:", "Contenido:",
+                                                        "Informe:", "Página del tablero:"))]
             content = "[FakeLLM] " + " ".join(lines)[:600]
         elif "OPCIONES A DESCRIBIR" in user:
             # OptionDescriber: una línea numerada por indicador.

@@ -186,6 +186,9 @@ class LexicalIndex:
     score = Σ idf(t)·tf_sat(t) / Σ idf(t)   (en [0, 1])
     más una bonificación cuando dos términos consecutivos de la pregunta
     aparecen juntos en el chunk («turno ok», «boton azul»).
+
+    Cada término de la consulta puede ser un token o una tupla de variantes
+    equivalentes (p. ej. filtro/segmentador); cuenta como un solo término.
     """
 
     K1 = 1.2
@@ -210,12 +213,29 @@ class LexicalIndex:
         for counter in self.counters:
             self.document_frequency.update(counter.keys())
 
-    def idf(self, token):
-        df = self.document_frequency.get(token, 0)
+    @staticmethod
+    def _variants(term):
+        return term if isinstance(term, tuple) else (term,)
+
+    def idf(self, term):
+        # Con variantes se usa la más frecuente (idf más conservador).
+        df = max(
+            self.document_frequency.get(token, 0)
+            for token in self._variants(term)
+        )
         return math.log(1.0 + (self.size - df + 0.5) / (df + 0.5))
 
-    def score(self, index, query_tokens):
-        unique = list(dict.fromkeys(query_tokens))
+    def matched_terms(self, index, query_terms):
+        """Términos de la consulta presentes en el chunk."""
+        counter = self.counters[index]
+        return {
+            term
+            for term in query_terms
+            if any(counter.get(token, 0) for token in self._variants(term))
+        }
+
+    def score(self, index, query_terms):
+        unique = list(dict.fromkeys(query_terms))
         if not unique:
             return 0.0
 
@@ -225,22 +245,58 @@ class LexicalIndex:
 
         weighted = 0.0
         total = 0.0
-        for token in unique:
-            idf = self.idf(token)
+        for term in unique:
+            idf = self.idf(term)
             total += idf
-            tf = counter.get(token, 0)
+            tf = sum(counter.get(token, 0) for token in self._variants(term))
             if tf:
-                weighted += idf * (tf * (self.K1 + 1) / (tf + norm)) / (self.K1 + 1)
+                # Saturación BM25 escalada para que una aparición en un chunk
+                # de longitud media valga 1 (cobertura); los chunks largos
+                # (volcados SQL) valen algo menos.
+                weighted += idf * min(1.0, tf * (1 + self.K1) / (tf + norm))
 
         score = weighted / total if total else 0.0
 
         bonus = 0.0
-        for pair in zip(query_tokens, query_tokens[1:]):
+        for first, second in zip(query_terms, query_terms[1:]):
+            pair = (self._variants(first)[0], self._variants(second)[0])
             if pair[0] != pair[1] and pair in self.bigrams[index]:
                 bonus += self.PHRASE_BONUS
         score += min(bonus, self.MAX_PHRASE_BONUS)
 
         return min(score, 1.0)
+
+
+# Variantes léxicas: la pregunta dice «filtros» y la documentación
+# «segmentador» o «permiten filtrar».
+TERM_VARIANTS = {
+    "filtro": ("filtro", "filtrar", "filtran", "filtrado", "segmentador",
+               "segmentar", "segmentan", "segmentacion"),
+    "segmentador": ("segmentador", "segmentar", "segmentan", "filtro", "filtrar"),
+    "color": ("color", "semaforo", "semaforizacion"),
+    "formula": ("formula", "calculo", "expresion"),
+}
+
+# Término implícito según la intención (se añade a la consulta léxica).
+INTENT_TERMS = {
+    # Formas ya normalizadas por stem(): «variables» -> «variabl».
+    "calculation": ("calculo", "formula", "variable", "variabl", "expresion"),
+}
+
+
+def query_terms(question, exclude=(), intent=None):
+    """Términos léxicos de la pregunta: sin palabras vacías, sin términos
+    genéricos («tablero») ni los que solo nombran el alcance detectado."""
+    exclude = set(exclude or ())
+    terms = []
+    for token in tokenize(question):
+        if token in GENERIC_STEMS or token in exclude:
+            continue
+        terms.append(TERM_VARIANTS.get(token, token))
+    extra = INTENT_TERMS.get(intent)
+    if extra and extra not in terms:
+        terms.append(extra)
+    return terms
 
 
 # ============================================================
@@ -333,8 +389,8 @@ class ScopeIndex:
 # SELECCIÓN CON DIVERSIDAD
 # ============================================================
 
-def select_diverse(candidates, limit, same_key_penalty=0.05, same_page_penalty=0.02,
-                   max_per_key=3, max_sql=1, technical=False):
+def select_diverse(candidates, limit, same_key_penalty=0.03, same_page_penalty=0.01,
+                   max_per_key=4, max_sql=1, technical=False):
     """Selección voraz tipo MMR sobre candidatos ya puntuados.
 
     candidates: dicts con "final_score", "text", "dashboard", "chunk_type",

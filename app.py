@@ -186,11 +186,11 @@ def build_system():
         warmup = getattr(medgemma_provider, "warmup", None)
         if callable(warmup):
             warmup()
-    answer_synthesizer = AnswerSynthesizer(llm_provider=medgemma_provider, max_sources=3, max_context_chars=5000)
+    answer_synthesizer = AnswerSynthesizer(llm_provider=medgemma_provider, max_sources=5, max_context_chars=7000)
     rag_answer_engine = RAGAnswerEngine(
         retriever=retriever,
         answer_synthesizer=answer_synthesizer,
-        default_limit=3,
+        default_limit=5,
         min_score=0.35,
     )
     engine = QueryEngine(
