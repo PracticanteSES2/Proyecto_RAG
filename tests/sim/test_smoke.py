@@ -373,6 +373,30 @@ def test_count_question_resolves_total_metric_with_filters():
     assert "DATE(2024, 1, 1)" in result["dax"]
 
 
+def test_request_word_typo_is_not_a_filter():
+    result, ui = last("typo_nesesito")
+    assert result["status"] == "success", (result["status"], ui)
+    assert result["query_plan"]["metric"]["metric_id"] == "a_total_atenciones"
+    assert not result.get("unapplied_terms") and "nesesito" not in ui, ui
+
+
+def test_qualifier_matches_dimension_value_by_stem():
+    result, ui = last("calificativo_aproximado")
+    assert result["status"] == "success", (result["status"], ui)
+    assert result["query_plan"]["metric"]["metric_id"] == "b_cx_programadas"
+    assert ("ESPECIALIDAD", "ORTOPEDIA Y TRAUMATOLOGIA") in categorical(result), categorical(result)
+    assert "aproximada" in reasoning_text(result)
+
+
+def test_unresolved_head_noun_is_not_offered_without_it():
+    result, ui = last("nucleo_sin_interpretar")
+    # Sin dato de Power BI (el RAG puede intentar responder con la documentación).
+    assert result.get("route") != "powerbi" or result["status"] != "success", (result["status"], ui)
+    labels = [o.get("label", "") for o in result.get("clarification_options") or []]
+    assert not any(" sin «" in label for label in labels), labels
+    assert "Consultar" not in ui, ui
+
+
 def test_metric_matched_only_by_grouping_is_not_answered():
     result, ui = last("metrica_sin_respaldo")
     assert result["status"] != "success", (result["status"], ui)

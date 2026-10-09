@@ -868,6 +868,98 @@ def test_e2e_dashboard_clarification_shows_real_question_and_button_reruns():
 
 
 # ---------------------------------------------------------------------------
+# Resolución del indicador: opciones distinguibles, «el de X», mensajes
+# ---------------------------------------------------------------------------
+
+def _hidden_metric(metric_id, label, model):
+    """Medida técnica sin visual (sin informe ni página), como en el modelo real."""
+    return {"metric_id": metric_id, "label": label, "measure": label, "semantic_model": model,
+            "report": None, "reports": [], "table": "Calendario", "appearances": []}
+
+
+class PickingBuilder(FakeBuilder):
+    """Construye el plan de cualquier métrica conocida por id."""
+
+    def __init__(self, metrics):
+        super().__init__(alternatives=[])
+        self.by_id = {m["metric_id"]: m for m in metrics}
+
+    def build(self, question, intent_result=None, selected_metric_id=None):
+        self.calls.append({"question": question, "selected": selected_metric_id})
+        chosen = self.by_id[selected_metric_id]
+        return {"status": "ready", "mode": "scalar", "question": question,
+                "semantic_model": chosen["semantic_model"], "report": chosen.get("report"),
+                "dashboard": None, "metric": chosen, "filters": [], "group_by": []}
+
+
+def test_labels_equal_without_accents_or_underscores_are_disambiguated():
+    total = metric("c_total", "Total cirugías", "CONSOLIDADO", "CONSOLIDADO", "Cirugías")
+    hidden = _hidden_metric("t_total", "TOTAL_CIRUGIAS", "TABLERO DE ATENCIONES INSTITUCIONALES")
+    engine, _ = make_engine()
+    plan = {"status": "ambiguous", "question": "cuantas cirugias hay",
+            "metric_resolution": {"candidates": [
+                {"metric": total, "score": 1.0}, {"metric": hidden, "score": 1.0}]}}
+    options = engine._query_plan_failure(plan)["clarification_options"]
+    labels = [o["label"] for o in options]
+    assert labels[0] != labels[1] and "TABLERO DE ATENCIONES INSTITUCIONALES" in labels[1], labels
+    # Sin página ni informe, la descripción muestra al menos el modelo.
+    lone = engine._query_plan_failure({**plan, "metric_resolution": {"candidates": [
+        {"metric": hidden, "score": 1.0}, {"metric": M_NOISE, "score": 1.0}]}})["clarification_options"]
+    assert "TABLERO DE ATENCIONES INSTITUCIONALES" in (lone[0]["summary"] + lone[0]["label"]), lone[0]
+
+
+def test_typed_board_name_selects_the_option():
+    referencia = metric("r_t", "TIEMPO PROMEDIO DE RESPUESTA", "REFERENCIA", "TABLERO REFERENCIA", "Inicio")
+    factura = metric("f_t", "TIEMPO GESTION FACTURACION", "Control Facturacion",
+                     "TABLERO CONTROL FACTURACION", "Escaneo")
+    for reply, expected in [("el de referencia", "r_t"), ("la del tablero de facturación", "f_t"),
+                            ("el de referencias", "r_t")]:
+        engine, builder = make_engine()
+        engine.query_plan_builder = PickingBuilder([referencia, factura])
+        plan = {"status": "ambiguous", "question": "tiempo promedio de respuesta",
+                "metric_resolution": {"candidates": [
+                    {"metric": factura, "score": 1.0}, {"metric": referencia, "score": 1.0}]}}
+        engine._query_plan_failure(plan)
+        result = engine._continue_query_plan(reply)
+        assert result["status"] == "success", (reply, result)
+        assert engine.query_plan_builder.calls[-1]["selected"] == expected, reply
+
+
+def test_resolution_reasons_have_their_own_prompt_and_reasoning():
+    engine, _ = make_engine()
+    engine._trace = None
+    same = {"status": "ambiguous", "reason": "same_name_in_several_boards", "question": "triages",
+            "resolution_notes": ["«TRIAGES» existe con el mismo nombre en varios tableros"],
+            "metric_resolution": {"candidates": [{"metric": M_QUIR, "score": 1}, {"metric": M_ATEN, "score": 1}]}}
+    result = engine._query_plan_failure(same)
+    assert result["prompt"] == "Ese indicador existe en varios tableros. ¿Cuál necesitas?", result["prompt"]
+    outweigh = {"status": "not_found", "reason": "unresolved_words_outweigh_metric", "question": "peso",
+                "unresolved_text": "peso", "metric_resolution": {"candidates": [], "suggestions": [
+                    {"metric": M_PROG, "score": 0.5}]}}
+    result = engine._query_plan_failure(outweigh)
+    assert "«peso»" in result["prompt"] and "sin" not in result["prompt"], result["prompt"]
+    assert [b["id"] for b in clarification_buttons(result)][-1] == NONE_OF_THE_ABOVE_ID
+    # Las decisiones del planificador quedan en el razonamiento del turno.
+    traced = engine._traced("question", "triages", lambda: engine._trace_plan(same) or {"status": "x"})
+    titles = [step["title"] for step in traced["reasoning"]["steps"]]
+    assert "Decisiones al resolver el indicador" in titles, titles
+
+
+def test_named_board_without_metric_is_not_out_of_scope():
+    engine, _ = make_engine()
+    engine.query_plan_builder = DescribingBuilder("out_of_scope")
+    plan = {"status": "not_found", "question": "cuanto peso hay en lavanderia",
+            "named_report": "TABLERO LAVANDERIA",
+            "metric_resolution": {"candidates": [], "suggestions": []}}
+    result = engine._query_plan_failure(plan)
+    assert result["route"] != "out_of_scope", result
+    assert result["answer"].startswith("En el tablero TABLERO LAVANDERIA no encontré"), result["answer"]
+    # Si el planificador ya decidió que es fuera de alcance, eso manda.
+    plan["unresolved_kind"] = "out_of_scope"
+    assert engine._query_plan_failure(plan)["route"] == "out_of_scope"
+
+
+# ---------------------------------------------------------------------------
 # Runner mínimo
 # ---------------------------------------------------------------------------
 
