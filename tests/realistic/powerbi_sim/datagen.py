@@ -249,7 +249,8 @@ class DataGenerator:
         if len(harvested) >= 3:
             return harvested
         merged = list(harvested)
-        for value in generic:
+        # Valores documentados sin tabla conocida + lista genérica.
+        for value in self.harvest.get_weak(column.name) + list(generic):
             if value not in merged:
                 merged.append(value)
         return merged

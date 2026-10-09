@@ -17,12 +17,19 @@ python -m tools.local_data.smoke_local_data              # comprobación rápida
 python -m tests.local_data.test_local_data               # pruebas offline
 ```
 
-Opciones: `--project-root`, `--data-root` (carpeta que debe llamarse `data`;
-por defecto `<raíz>/data`), `--docs-dir`, `--tableros-dir`, `--reference-zip`,
-`--history-commit` (por defecto `3bf7b9f`), `--keep-backup`.
+Opciones: `--project-root`, `--data-root` (por defecto `<raíz>/data`),
+`--docs-dir`, `--tableros-dir`, `--reference-zip`, `--history-commit` (por
+defecto `3bf7b9f`), `--keep-backup`.
 
-El `data/` anterior se renombra a `data.bak_<fecha>` antes de empezar; si algo
-falla se borra lo construido y se restaura. Si todo va bien el respaldo se
+Con un `--data-root` que no se llama `data` (p. ej. `data_v2`, para no tocar el
+`data/` que usa otro proceso) se construye en `<padre>/.<nombre>.build/data` y
+al terminar se renombra a la carpeta pedida: el pipeline del propietario
+resuelve rutas relativas como `data/catalog/...` y con otro nombre leería el
+`data/` real. Rutas absolutas informativas (`_metadata_sync.json`) apuntan a la
+carpeta de construcción.
+
+El destino anterior se renombra a `<nombre>.bak_<fecha>` antes de empezar; si
+algo falla se borra lo construido y se restaura. Si todo va bien el respaldo se
 elimina (salvo `--keep-backup`). Con `--skip-index` se copia el índice Qdrant
 del respaldo.
 
@@ -60,6 +67,46 @@ Prioridad: **TMDL > historial git > inferida**. El campo `source` de
   columnas calculadas con su DAX, columnas citadas como `Tabla[Columna]` y
   alias de las consultas SQL (si no hay tabla identificable, se sintetiza una
   con el nombre del tablero; quedan listadas en `_metadata_sync.json`).
+
+### Indicadores y visuales inferidos de la documentación (`infer_visuals.py`)
+
+Los modelos con solo documentación no tienen reporte: sin visuales, sus medidas
+quedan como auxiliares y sus columnas numéricas no generan métricas. Para esos
+modelos se reconstruyen, **solo con lo que el docx respalda**, los indicadores
+de las secciones «Descripción de los visuales»:
+
+| Regla | Ejemplo (docx → modelo) |
+| --- | --- |
+| Tarjeta cuyo indicador comparte el sustantivo principal con la descripción de una medida documentada | «el total de dosis de antibióticos suministradas» → tarjeta con `TOTAL ATB` («Número total de dosis...») |
+| Columna numérica citada por el visual → agregación implícita (SUM; AVERAGE si promedio/tiempo), sin título | «distribución de pesos registrados ... por cada área de servicios» → `Sum(LAVANDERIA.Peso)` por `SERVICIO` |
+| «total/cantidad/número de <entidad>» → conteo de la tabla de la entidad (DISTINCTCOUNT del OID o `COUNTROWS`) | «total de triages no atendidos» → `DistinctCount(TRIAGES.OID)` |
+| Calificador = valor literal documentado único → medida filtrada | «Total de compras con aumento» → `CALCULATE(COUNTROWS('COSTOS_PRODUCTOS'), 'COSTOS_PRODUCTOS'[ESTADO] = "AUMENTÓ")` |
+| «... por X» / «Filtros por A, B y C» → categoría del visual / segmentadores | «Pacientes activos por servicio» → `ANTIBIOTICOS[SERVICIO]` |
+
+No se crea nada para frases sin entidad contable («tendencia de costos»,
+«porcentaje de atenciones»), tablas de detalle ni promedios sin columna
+numérica. Las medidas nuevas llevan `DisplayFolder = inferred_from_documentation`
+y descripción «Inferida de la documentación: ...»; si el gráfico agrupa una
+tabla cuyo SQL no está documentado (`SELECT *`), la categoría se agrega como
+columna. Todo queda resumido en `_metadata_sync.json` (`inferred_report`).
+
+Las páginas se escriben como PBIR mínimo en `data/pbir/<Reporte>.Report`
+(`visual.json` con `"inferred"`), y `PowerBICatalogManager` (sin cambios) lo
+encuentra por nombre y genera catálogo visual, apariciones y
+`master_metrics.json` como con un reporte real.
+
+### Valores categóricos documentados (`documented_values.py`)
+
+Para todos los modelos se guardan en
+`data/model_metadata/<slug>/_documented_values.json` los valores categóricos
+citados en la documentación: `CASE ... THEN 'SURA' ... END AS ASEGURADORA`,
+`COL IN ('I','II')` (si COL es columna de salida del mismo SELECT) y literales
+DAX (`T[C] = "X"`, textos que devuelve una columna calculada). Se omiten
+columnas de personas, patrones `LIKE` y colores. El simulador de
+`tests/realistic` los usa como dominio de esas columnas; no los lee el chatbot.
+
+Además, las comparaciones numéricas del DAX documentado fijan el tipo de la
+columna (`LAVANDERIA[Turno]=1` → `Integer`).
 
 Los nombres y slugs de los modelos siguen `sync_powerbi_metadata.slugify`. Si
 existe `OneDrive_1_9-10-2026.zip`, solo se leen los **nombres** de

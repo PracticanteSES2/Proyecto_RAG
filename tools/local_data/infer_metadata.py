@@ -85,6 +85,30 @@ def dax_references(expression):
     return result
 
 
+DAX_COMPARISON_RE = re.compile(
+    r"(?<![\w\]'])('(?:[^']|'')+'|[A-Za-z_À-ÿ][\wÀ-ÿ]*)\s*\[([^\]\[]+)\]\s*"
+    r"(?:=|<>|==|>=|<=|>|<)\s*(\"|-?\d)"
+)
+
+
+def dax_comparison_hints(expression):
+    """
+    [(tabla, columna, tipo)] de comparaciones con literales en un DAX:
+    LAVANDERIA[Turno]=1 -> Integer (y no Text: el simulador, como Power BI,
+    fallaría al comparar texto con número); T[C] = "X" -> Text.
+    """
+    text = re.sub(r"(--|//)[^\n]*", " ", str(expression or ""))
+    hints = []
+    for table, column, first in DAX_COMPARISON_RE.findall(text):
+        table = table.strip()
+        if table.startswith("'"):
+            table = table[1:-1].replace("''", "'")
+        if table.lower() in DAX_FUNCTION_NAMES:
+            continue
+        hints.append((table, column.strip(), "Text" if first == '"' else "Integer"))
+    return hints
+
+
 def looks_like_measure(expression):
     return bool(MEASURE_FUNCTION_RE.search(str(expression or "")))
 
@@ -221,6 +245,9 @@ class InferredModelBuilder:
         self.synthesized_tables = []
         self.report_paths = []
         self.document_files = []
+        # Texto SQL -> tabla donde quedaron sus alias (para ubicar los
+        # valores CASE ... THEN 'X' documentados).
+        self.sql_tables = {}
 
     # ------------------------------------------------------------------
     # Altas
@@ -453,6 +480,10 @@ class InferredModelBuilder:
             if find_measure(self.model, column)[1] is not None:
                 continue
             self.add_column(table, column, origin="docs")
+        for table, column, hint in dax_comparison_hints(expression):
+            if find_measure(self.model, column)[1] is not None:
+                continue
+            self.add_column(table, column, hint=hint, origin="docs")
 
     def ingest_documents(self, documents):
         """documents: dicts de data/semantic_documents (schema_version 2)."""
@@ -529,6 +560,7 @@ class InferredModelBuilder:
                     continue
                 for alias in aliases:
                     self.add_column(table_name, alias, origin="sql")
+                self.sql_tables[sql] = table_name
                 self.stats["sql_queries_used"] += 1
 
     def _table_for_sql(self, aliases, referenced_tables, dashboard):
@@ -624,14 +656,39 @@ LIMITATIONS = [
 ]
 
 
-def build_inferred_metadata(model_name, model_dir, *, report_paths=(), documents=()):
+def build_inferred_metadata(model_name, model_dir, *, report_paths=(), documents=(),
+                            infer_report=None):
+    """
+    infer_report (por defecto: solo si no hay reporte PBIR) reconstruye de la
+    documentación los indicadores y visuales del tablero (ver infer_visuals):
+    agrega medidas/columnas respaldadas por el docx y devuelve las páginas en
+    result["inferred_report"] para escribir un PBIR mínimo.
+    """
+    from tools.local_data.documented_values import DocumentedValues
+    from tools.local_data.infer_visuals import infer_documented_report
+
+    documents = list(documents)
     builder = InferredModelBuilder(model_name)
 
     for report_path in report_paths:
         builder.ingest_report(report_path)
 
-    builder.ingest_documents(list(documents))
+    builder.ingest_documents(documents)
     model = builder.finalize()
+
+    values = DocumentedValues().ingest_documents(documents, builder.sql_tables).ingest_model(model)
+
+    if infer_report is None:
+        infer_report = not report_paths
+    inferred_report = None
+    if infer_report and documents:
+        inference = infer_documented_report(
+            model, documents,
+            origins=builder.origins,
+            documented_values=values.by_table_column(model),
+        )
+        if inference.pages:
+            inferred_report = {"pages": inference.pages, "summary": inference.summary()}
 
     if report_paths and documents:
         source = "inferred_from_report_and_documentation"
@@ -647,16 +704,21 @@ def build_inferred_metadata(model_name, model_dir, *, report_paths=(), documents
             "Tablas sintetizadas desde SQL documentado (nombre = tablero): "
             + ", ".join(summary["synthesized_tables"])
         )
+    extra = {"source_details": summary, "limitations": limitations}
+    if inferred_report:
+        report_summary = inferred_report["summary"]
+        extra["inferred_report"] = {
+            key: report_summary[key]
+            for key in ("origin", "pages", "visuals", "added_measures", "added_columns")
+        }
+        limitations.append(
+            "Indicadores y visuales reconstruidos de la documentación "
+            "(inferred_from_documentation): medidas en DisplayFolder "
+            "'inferred_from_documentation' y PBIR mínimo en data/pbir; no es el reporte real."
+        )
 
-    counts = write_model_metadata(
-        model,
-        model_dir,
-        source=source,
-        extra={
-            "source_details": summary,
-            "limitations": limitations,
-        },
-    )
+    counts = write_model_metadata(model, model_dir, source=source, extra=extra)
+    values.save(model_name, Path(model_dir))
     return {
         "semantic_model": model_name,
         "model_dir": Path(model_dir),
@@ -664,4 +726,5 @@ def build_inferred_metadata(model_name, model_dir, *, report_paths=(), documents
         "counts": counts,
         "summary": summary,
         "model": model,
+        "inferred_report": inferred_report,
     }

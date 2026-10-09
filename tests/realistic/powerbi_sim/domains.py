@@ -92,6 +92,15 @@ VIAS_INGRESO = ["URGENCIAS", "CONSULTA EXTERNA", "REMITIDO", "PROGRAMADO"]
 DESTINOS = ["CASA", "HOSPITALIZACION", "UCI", "REMITIDO OTRA IPS", "CIRUGIA", "OBSERVACION"]
 MOTIVOS = ["DOLOR ABDOMINAL", "FIEBRE", "TRAUMA", "DIFICULTAD RESPIRATORIA", "CONTROL PRENATAL", "CEFALEA"]
 SI_NO = ["SI", "NO"]
+# Segmentador de grupo etario (literales del SQL documentado: CASE ... 'MENORES DE EDAD').
+GRUPO_ETARIO = ["MENORES DE EDAD", "MAYORES DE EDAD"]
+# Áreas que envían ropa a lavandería (tabla Cp_Medicion); sin especialidades médicas.
+LAVANDERIA_SERVICIOS = [
+    "ANTIFLUIDOS", "URGENCIAS", "UCI ADULTOS", "UCI NEONATAL", "HOSPITALIZACION", "CIRUGIA",
+    "PEDIATRIA", "GINECOBSTETRICIA", "CONSULTA EXTERNA", "CENTRAL DE ESTERILIZACION",
+]
+# Identificadores internos (OID) de servicios, terceros...: códigos, no nombres.
+OID_CODES = [str(code) for code in range(101, 113)]
 
 # Columnas de personas: valores sintéticos, nunca cosechados.
 PERSON_RE = re.compile(
@@ -135,6 +144,13 @@ def text_domain(table_name, column_name):
     norm_col = normalize_text(col).replace(" ", "_")
     if is_person_column(tab, col):
         return None
+    compact = normalize_text(col).replace(" ", "")
+    if compact.startswith("oid") or compact.endswith("oid") or "oid" in normalize_text(norm_col).split():
+        return OID_CODES
+    if _has(col, "menores", "mayores", "etario", "grupo_edad"):
+        return GRUPO_ETARIO
+    if _has(tab, "lavander") and _has(col, "servicio", "area", "medicion"):
+        return LAVANDERIA_SERVICIOS
     if _has(col, "especialidad", "especiali"):
         return ESPECIALIDADES
     if _has(col, "sexo", "genero"):
@@ -253,6 +269,10 @@ class DomainHarvest:
     def get(self, table, column):
         return list(self.values.get((key(table), key(column)), []))
 
+    def get_weak(self, column):
+        """Valores por nombre de columna (sin tabla conocida): complementan, no reemplazan."""
+        return list(self.by_column.get(key(column), []))
+
     # ---------- desde expresiones DAX ----------
     def harvest_schema(self, schema):
         exprs = [m.expression for m in schema.measures.values()]
@@ -301,6 +321,37 @@ class DomainHarvest:
                     for arg in node.args[1::2]:
                         if isinstance(arg, Str):
                             self.add(column.table, column.name, arg.value)
+
+    # ---------- desde la documentación ----------
+    def harvest_documented(self, schema):
+        """Valores de <modelo>/_documented_values.json (tools/local_data: CASE/IN del SQL
+        documentado y literales DAX). Las entradas sin tabla (no se sabe a qué tabla del
+        modelo fue el SELECT) son débiles: se suman al dominio genérico de las columnas
+        con ese nombre en lugar de reemplazarlo."""
+        path = Path(schema.path) / "_documented_values.json" if getattr(schema, "path", None) else None
+        if not path or not path.exists():
+            return 0
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return 0
+        count = 0
+        for entry in payload.get("columns", []) or []:
+            column_name = entry.get("column")
+            if not column_name:
+                continue
+            if entry.get("table"):
+                targets = [schema.column(entry["table"], column_name)]
+            else:
+                targets = [table.columns.get(key(column_name)) for table in schema.tables.values()]
+            for column in targets:
+                if column is None or column.dtype != "text":
+                    continue
+                for value in entry.get("values", []) or []:
+                    if isinstance(value, str):
+                        self.add(column.table, column.name, value, weak=not entry.get("table"))
+                        count += 1
+        return count
 
     # ---------- desde visual.json (PBIR) ----------
     def harvest_pbir(self, tableros_root):
