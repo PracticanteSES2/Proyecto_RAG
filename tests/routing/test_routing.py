@@ -406,6 +406,18 @@ def test_implicit_filter_reason_in_plan_and_reasoning():
     assert any("por qué:" in line and "ANTIFLUIDOS" in line for line in lines), lines
 
 
+def test_rag_without_evidence_does_not_accept_a_fallback_clarification():
+    rag_no_evidence = {**_NOT_FOUND, "not_found_reason": "llm_no_evidence"}
+    engine, _, provider, rag = make_system(rag_no_evidence)
+    question = "que hago con los registros de un paciente con fiebre y dolor de cabeza"
+    result = engine.process(question)
+    assert rag.calls == [question]
+    assert result["status"] == "not_found" and result["route"] == "out_of_scope", result.get("status")
+    assert engine._pending_query_plan is None
+    titles = [step.get("title") for step in result["reasoning"]["steps"]]
+    assert "Respaldo del Query Plan descartado" in titles, titles
+
+
 # Pruebas de enrutamiento v2 (tablero nombrado, «por X» técnico, valores
 # implícitos estrictos): se ejecutan también con este módulo.
 from tests.routing.test_board_routing import *  # noqa: E402,F401,F403

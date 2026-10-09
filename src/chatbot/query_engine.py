@@ -2956,14 +2956,27 @@ class QueryEngine:
                     and intent == "general_question"
                     and not self.query_plan_builder.is_descriptive(original_question)
                 ):
+                    previous_pending = self._pending_query_plan
                     fallback_response, fallback_status = self._run_query_plan(
                         original_question, intent_result, "query_plan_fallback"
                     )
-                    if (
-                        fallback_status in ("ready", "composite", "ambiguous")
-                        or fallback_response.get("status") == "needs_clarification"
-                    ):
+                    if fallback_status in ("ready", "composite", "ambiguous"):
                         return fallback_response
+                    if fallback_response.get("status") == "needs_clarification":
+                        # La pregunta no parecía numérica y la documentación
+                        # no tiene evidencia («¿qué medicamento le doy a un
+                        # paciente con fiebre?»): una contrapregunta con
+                        # indicadores que solo comparten alguna palabra
+                        # («pacientes») no ayuda. Se responde fuera de alcance.
+                        self._pending_query_plan = previous_pending
+                        self._think(
+                            "Respaldo del Query Plan descartado",
+                            "la pregunta no pide un dato y la documentación no tiene evidencia "
+                            f"({rag_result.get('not_found_reason') or 'sin evidencia'}); el "
+                            f"Query Plan solo ofrecía una contrapregunta (plan {fallback_status}) "
+                            "con indicadores que comparten alguna palabra: se responde que está "
+                            "fuera de alcance",
+                        )
                 if unresolved_plan_response is not None:
                     self._pending_query_plan = unresolved_plan_pending
                     return unresolved_plan_response
