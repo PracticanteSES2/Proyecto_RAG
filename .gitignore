@@ -4,3 +4,5 @@ __pycache__/
 .env
 /data
 tableros
+# Salidas del evaluador (tests/eval)
+/tests/eval/out/

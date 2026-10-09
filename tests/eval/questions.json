@@ -1,0 +1,2644 @@
+{
+  "schema_version": 1,
+  "descripcion": "Banco de preguntas del evaluador (tests/eval). Cada caso es una conversación nueva; las expectativas son tolerantes (listas de rutas, métricas o modelos aceptables). Las rutas de 'fuente.docx' son relativas a Documentacion/DOCUMENTACION TABLERO/ (no versionada). Ver tests/eval/README.md.",
+  "cases": [
+    {
+      "id": "a_lav_peso_total",
+      "category": "a_kpi_simple",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Gráfico de Barras por Distribución Mensual"
+      },
+      "arneses": ["sim", "realistic"],
+      "xfail": {"sim": "el verbo «registrado» se toma por un filtro desconocido y pregunta si consulta sin él"},
+      "turns": [
+        {
+          "user": "cuanto peso total hay registrado en lavanderia",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["peso"],
+            "models_any": ["lavanderia"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "a_sim_total_atenciones",
+      "category": "a_kpi_simple",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Tarjetas de indicadores"
+      },
+      "arneses": ["sim"],
+      "descripcion": "En sim el indicador es único; con datos reales es ambiguo (ver e_total_atenciones).",
+      "turns": [
+        {
+          "user": "total de atenciones",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["total atenciones"],
+            "models_any": ["atenciones"],
+            "numbers": [152340]
+          }
+        }
+      ]
+    },
+    {
+      "id": "a_sim_qx_programadas",
+      "category": "a_kpi_simple",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Tarjetas de indicadores"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "¿cuántas cirugías programadas hay en el tablero quirurgico?",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["programadas"],
+            "models_any": ["quirurg"],
+            "numbers": [20410]
+          }
+        }
+      ]
+    },
+    {
+      "id": "a_triages_tablero_triage",
+      "category": "a_kpi_simple",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/2 Documentacion Tablero Triage.docx",
+        "seccion": "Tarjetas de indicadores – total de triages"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "dame el total de triages del tablero de triage",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["triage"],
+            "models_any": ["atenciones", "triage"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "a_farmacia_suministros_pendientes",
+      "category": "a_kpi_simple",
+      "tablero": "Farmacia",
+      "fuente": {
+        "docx": "36 DOCUMENTACION TABLERO FARMACIA/1 Documentacion Tablero Inicio Farmacia.docx",
+        "seccion": "Indicador de número de suministros pendientes"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantos suministros pendientes hay en farmacia",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["suministro", "pendiente"],
+            "models_any": ["farmacia"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "a_farmacia_vencidos",
+      "category": "a_kpi_simple",
+      "tablero": "Farmacia",
+      "fuente": {
+        "docx": "36 DOCUMENTACION TABLERO FARMACIA/1 Documentacion Tablero Inicio Farmacia.docx",
+        "seccion": "Tablero Medicamentos Vencidos"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantos medicamentos vencidos tenemos en farmacia?",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["vencid"],
+            "models_any": ["farmacia"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "a_naos_pacientes_pendientes",
+      "category": "a_kpi_simple",
+      "tablero": "NAOS",
+      "fuente": {
+        "docx": "28 DOCUMENTACION TABLERO NAOS/1 Documentacion Tablero NAOS.docx",
+        "seccion": "Tablero NAOS - Listado"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuántos pacientes con pendientes activos hay en NAOS",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["pacient", "pendiente"],
+            "models_any": ["naos"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "a_briefing_camas_ocupadas",
+      "category": "a_kpi_simple",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/2. Documentacion Tablero Detalle Gestion Camas.docx",
+        "seccion": "Tarjetas: Total camas, Camas ocupadas, Camas disponibles"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantas camas ocupadas hay en el briefing",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["ocupad", "cama"],
+            "models_any": ["briefing"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "a_interconsultas_sin_respuesta_typo",
+      "category": "a_kpi_simple",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/15. Documentacion Interconsultas.docx",
+        "seccion": "Tarjeta Interconsultas sin respuesta"
+      },
+      "arneses": ["realistic"],
+      "descripcion": "Error de tipeo («nesesito») + petición «necesito saber».",
+      "turns": [
+        {
+          "user": "nesesito saber cuantas interconsultas sin respuesta hay",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["interconsult"],
+            "models_any": ["briefing"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "a_recepcion_tecnica_pendientes",
+      "category": "a_kpi_simple",
+      "tablero": "Recepción Técnica",
+      "fuente": {
+        "docx": "31 DOCUMENTACION TABLERO RECEPCION TECNICA/1 Documentacion Tablero Recepción Técnica.docx",
+        "seccion": "Tarjetas de indicadores – total de solicitudes pendientes"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "total de solicitudes pendientes en recepcion tecnica",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["pendiente", "solicitud"],
+            "models_any": ["recepcion"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "a_cvc_compras_aumento",
+      "category": "a_kpi_simple",
+      "tablero": "CVC",
+      "fuente": {
+        "docx": "35 DOCUMENTACION TABLERO CVC/1 Documentacion Tablero CVC.docx",
+        "seccion": "Tarjetas: Total de compras con aumento"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantas compras con aumento de precio hay en el cvc",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["aumento"],
+            "models_any": ["cvc"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "a_antibioticos_dosis",
+      "category": "a_kpi_simple",
+      "tablero": "Antibióticos",
+      "fuente": {
+        "docx": "34 DOCUMENTACION TABLERO ANTIBIOTICOS/1 Documentacion Tablero Antibioticos.docx",
+        "seccion": "Tarjetas: total de dosis suministradas"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "total de dosis de antibioticos suministradas",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["dosis"],
+            "models_any": ["antibiot"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_lav_peso_junio_2025",
+      "category": "b_kpi_periodo",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Filtros por Años y Mes"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "peso de lavanderia en junio 2025",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["peso"],
+            "models_any": ["lavanderia"],
+            "filters": [{"year": 2025, "month": 6}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_sim_atenciones_marzo_2025",
+      "category": "b_kpi_periodo",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Filtros año/mes"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "total atenciones en marzo de 2025",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["total atenciones"],
+            "filters": [{"year": 2025, "month": 3}],
+            "numbers": [4232]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_sim_qx_programadas_2024",
+      "category": "b_kpi_periodo",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Filtros año"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "cuantas cirugias programadas hubo en el 2024 en el tablero quirurgico",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["programadas"],
+            "filters": [{"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_lav_mes_sin_anio",
+      "category": "b_kpi_periodo",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Filtros por Años y Mes"
+      },
+      "arneses": ["sim", "realistic"],
+      "descripcion": "Mes sin año: vale filtrar el mes en todos los años avisándolo, o preguntar el año.",
+      "turns": [
+        {
+          "user": "cuanto peso tuvo lavanderia en enero",
+          "expect": {
+            "route": ["powerbi", "clarification"],
+            "metrics_any": ["peso"],
+            "filters": [{"month": 1}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_triages_pediatricos_2025",
+      "category": "b_kpi_periodo",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/Documentacion Tablero Atenciones Pediatricas Triage.docx",
+        "seccion": "Tarjetas: total de triages del año y promedio mensual"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantos triages pediatricos hubo en 2025",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["triage"],
+            "models_any": ["atenciones"],
+            "filters": [{"year": 2025}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_partos_2024",
+      "category": "b_kpi_periodo",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/12 Documentacion Tablero Consultas Obstetricas.docx",
+        "seccion": "Tablero Partos – total de partos"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantos partos hubo en el 2024",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty", "clarification"],
+            "metrics_any": ["parto"],
+            "filters": [{"year": 2024}],
+            "options_any": ["parto"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_cirugias_canceladas_ene_2025",
+      "category": "b_kpi_periodo",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Tablero Cancelaciones – conteo mensual"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cirugias canceladas en enero del 2025",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["cancel"],
+            "filters": [{"year": 2025, "month": 1}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_consultas_ambulatorias_abril_2025",
+      "category": "b_kpi_periodo",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/14 Documentacion Tablero Consultas Ambulatorias.docx",
+        "seccion": "Total de consultas ambulatorias"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantas consultas ambulatorias hubo en abril de 2025",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["ambulator", "consulta"],
+            "models_any": ["atenciones"],
+            "filters": [{"year": 2025, "month": 4}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_imagenes_2024_atenciones",
+      "category": "b_kpi_periodo",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/9 Documentacion tablero Imagenes.docx",
+        "seccion": "Cantidad de imágenes"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "total de imagenes diagnosticas en 2024 en el tablero de atenciones institucionales",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["imagen", "estudio"],
+            "models_any": ["atenciones"],
+            "filters": [{"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_hosp_parcial_mes_sin_anio",
+      "category": "b_kpi_periodo",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/13 Documentacion Tablero Hospitalizacion Parcial.docx",
+        "seccion": "Conteo mensual de hospitalizaciones parciales"
+      },
+      "arneses": ["realistic"],
+      "descripcion": "Mes sin año: filtrar marzo en todos los años avisándolo o preguntar el año.",
+      "turns": [
+        {
+          "user": "hospitalizaciones parciales de marzo",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty", "clarification"],
+            "metrics_any": ["parcial", "atencion"],
+            "filters": [{"month": 3}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_lav_rango_meses",
+      "category": "b_kpi_periodo",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Gráfico de Barras por Distribución Mensual"
+      },
+      "arneses": ["sim", "realistic"],
+      "descripcion": "Rango de meses: no debe responder solo enero ni ignorar el rango.",
+      "xfail": {"sim": "«entre» se toma por filtro desconocido y, si se acepta, solo aplica enero 2025 sin avisar"},
+      "turns": [
+        {
+          "user": "peso de lavanderia entre enero y marzo de 2025",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["peso"],
+            "answer_any": ["marzo", "trimestre"],
+            "answer_none": ["Filtros: enero 2025"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_lav_este_anio",
+      "category": "b_kpi_periodo",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Filtros por Años y Mes"
+      },
+      "arneses": ["sim", "realistic"],
+      "descripcion": "Periodo relativo («este año»): filtrar el año en curso o preguntar el año, nunca el total histórico.",
+      "xfail": {"sim": "«este año» no se interpreta: pregunta por «lleva» y, si se acepta, da el total de todos los años"},
+      "turns": [
+        {
+          "user": "cuanto peso lleva la lavanderia este año",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty", "clarification"],
+            "metrics_any": ["peso"],
+            "filters": [{"year": "actual"}],
+            "prompt_any": ["año"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_sim_lav_antifluidos_ene2026",
+      "category": "c_kpi_filtro",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Tabla de Participación por Servicio"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "peso de antifluidos enero 2026 lavanderia",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["peso"],
+            "filters": [{"column": "SERVICIO", "value": "ANTIFLUIDOS"}, {"year": 2026, "month": 1}],
+            "numbers": [488.3]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_sim_lav_mayusculas",
+      "category": "c_kpi_filtro",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Tabla de Participación por Servicio"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "PESO DE ANTIFLUIDOS ENERO 2026 LAVANDERIA",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["peso"],
+            "filters": [{"column": "SERVICIO", "value": "ANTIFLUIDOS"}, {"year": 2026, "month": 1}],
+            "numbers": [488.3]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_sim_lav_typo_lavandria",
+      "category": "c_kpi_filtro",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Tabla de Participación por Servicio"
+      },
+      "arneses": ["sim"],
+      "descripcion": "Error de tipeo en el nombre del tablero («lavandria») y verbo «pesaron».",
+      "xfail": {"sim": "con «lavandria» no enruta al tablero: ofrece PESO como sugerencia en lugar de responder"},
+      "turns": [
+        {
+          "user": "cuanto pesaron los antifluidos en enero del 2026 en lavandria",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["peso"],
+            "filters": [{"column": "SERVICIO", "value": "ANTIFLUIDOS"}, {"year": 2026, "month": 1}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_lav_urgencias_marzo_2025",
+      "category": "c_kpi_filtro",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Tabla de Participación por Servicio"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "cuanto peso de ropa mando urgencias a lavanderia en marzo de 2025",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["peso"],
+            "filters": [{"column": "SERVICIO", "value": "URGENCIAS"}, {"year": 2025, "month": 3}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_lav_servicio_inexistente",
+      "category": "c_kpi_filtro",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Tabla de Participación por Servicio"
+      },
+      "arneses": ["sim", "realistic"],
+      "descripcion": "Valor de filtro que no existe: nunca dar el total de todos los servicios.",
+      "turns": [
+        {
+          "user": "peso de la lavanderia del servicio de cardiologia en enero 2026",
+          "expect": {
+            "route": ["clarification", "powerbi_empty", "unsupported_filter"],
+            "filters": [{"column": "SERVICIO", "value": "CARDIOLOGIA"}],
+            "forbid": ["powerbi_answer"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_sim_qx_urologia_2024",
+      "category": "c_kpi_filtro",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Filtro Especialidad"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "cirugias programadas de urologia en 2024",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["programadas"],
+            "filters": [{"column": "ESPECIALIDAD", "value": "UROLOGIA"}, {"year": 2024}],
+            "numbers": [2136]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_sim_atenciones_sede_norte",
+      "category": "c_kpi_filtro",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Filtros"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "total de atenciones en la sede norte",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["total atenciones"],
+            "filters": [{"column": "SEDE", "value": "SEDE NORTE"}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_sim_atenciones_urgencias_2024",
+      "category": "c_kpi_filtro",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Filtros (servicio, año)"
+      },
+      "arneses": ["sim"],
+      "xfail": {"sim": "«urgencias» desvía la pregunta al RAG en vez de filtrar SERVICIO = URGENCIAS"},
+      "turns": [
+        {
+          "user": "atenciones de urgencias en 2024",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["atenciones"],
+            "filters": [{"column": "SERVICIO", "value": "URGENCIAS"}, {"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_sim_atenciones_sede_servicio_anio",
+      "category": "c_kpi_filtro",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Filtros (sede, servicio, año)"
+      },
+      "arneses": ["sim"],
+      "xfail": {"sim": "«cuantas atenciones» no resuelve TOTAL ATENCIONES (sí «total de atenciones»): ofrece sugerencia"},
+      "turns": [
+        {
+          "user": "cuantas atenciones hubo en la sede sur en 2024 en urgencias",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["atenciones"],
+            "filters": [{"column": "SEDE", "value": "SEDE SUR"}, {"column": "SERVICIO", "value": "URGENCIAS"}, {"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_sim_palabra_desconocida",
+      "category": "c_kpi_filtro",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Filtros"
+      },
+      "arneses": ["sim"],
+      "descripcion": "Palabra que no es filtro: debe preguntar si consulta sin ella, no dar un total.",
+      "turns": [
+        {
+          "user": "total de cirugías azules en 2024",
+          "expect": {
+            "route": ["clarification"],
+            "prompt_any": ["azules"],
+            "forbid": ["powerbi_answer"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_cirugias_ortopedia_sura_2025",
+      "category": "c_kpi_filtro",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Filtros por Tipo de cirugía, Aseguradora, Año y Mes / Cirugías especialidades"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cirugias de ortopedia de sura en 2025 en el tablero de cirugias",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["cirug"],
+            "filters": [{"column": null, "value": "ORTOPEDIA"}, {"column": null, "value": "SURA"}, {"year": 2025}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_triages_menores_2025",
+      "category": "c_kpi_filtro",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/2 Documentacion Tablero Triage.docx",
+        "seccion": "Segmentador de grupo etario (mayores/menores de edad)"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "triages de menores de edad en 2025 en el tablero de triage",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["triage"],
+            "filters": [{"column": "MENORES", "value": "MENORES DE EDAD"}, {"year": 2025}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_consultas_amb_cardiologia_2024",
+      "category": "c_kpi_filtro",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/14 Documentacion Tablero Consultas Ambulatorias.docx",
+        "seccion": "Filtros por Aseguradora, Año, Mes, Estado y Especialidad"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "consultas ambulatorias de cardiologia en 2024",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["ambulator", "consulta"],
+            "filters": [{"column": "ESPECIALIDAD", "value": "CARDIOLOG"}, {"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_antibioticos_uci",
+      "category": "c_kpi_filtro",
+      "tablero": "Antibióticos",
+      "fuente": {
+        "docx": "34 DOCUMENTACION TABLERO ANTIBIOTICOS/1 Documentacion Tablero Antibioticos.docx",
+        "seccion": "Gráfico – Pacientes activos por servicio"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantos pacientes activos con antibiotico hay en la uci",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["pacient"],
+            "models_any": ["antibiot"],
+            "filters": [{"column": "SERVICIO", "value": "UCI"}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_atenciones_nueva_eps_2025",
+      "category": "c_kpi_filtro",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/9. Documentacion Atenciones por Aseguradora.docx",
+        "seccion": "Segmentaciones de Asegurador, Servicio, Año y Mes"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantas atenciones tuvo nueva eps en el 2025",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty", "clarification"],
+            "metrics_any": ["atencion"],
+            "filters": [{"column": null, "value": "NUEVA EPS"}, {"year": 2025}],
+            "options_any": ["atencion"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_interconsultas_pediatria",
+      "category": "c_kpi_filtro",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/15. Documentacion Interconsultas.docx",
+        "seccion": "Segmentaciones de Especialidad, Servicio y Asegurador"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "interconsultas sin responder de pediatria",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["interconsult"],
+            "filters": [{"column": "ESPECIALIDAD", "value": "PEDIATR"}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_cesareas_2025",
+      "category": "c_kpi_filtro",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/12 Documentacion Tablero Consultas Obstetricas.docx",
+        "seccion": "Tablero Partos – filtro Tipo de parto"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantas cesareas hubo en 2025",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty", "clarification"],
+            "metrics_any": ["parto"],
+            "filters": [{"column": null, "value": "CESAREA"}, {"year": 2025}],
+            "options_any": ["parto", "cesar"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_lav_peso_por_servicio",
+      "category": "d_agrupado",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Tabla de Participación por Servicio"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "peso por servicio en lavanderia",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["servicio"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_lav_peso_por_turno_ene2026",
+      "category": "d_agrupado",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Gráfico Circular de Peso por Turno Laboral"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "Dime el peso por turno en lavanderia en enero de 2026",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["turno"],
+            "filters": [{"year": 2026, "month": 1}],
+            "answer_all": ["mañana", "tarde", "noche"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_lav_peso_por_mes_2025",
+      "category": "d_agrupado",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Gráfico de Barras por Distribución Mensual"
+      },
+      "arneses": ["sim", "realistic"],
+      "xfail": {"sim": "«por mes» se ignora en silencio: devuelve el total anual"},
+      "turns": [
+        {
+          "user": "peso lavanderia 2025 por mes",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["mes", "month", "fecha"],
+            "filters": [{"year": 2025}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_lav_peso_por_colaborador",
+      "category": "d_agrupado",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Tabla de registro de Usuarios"
+      },
+      "arneses": ["sim", "realistic"],
+      "xfail": {"sim": "«colaborador» no es sinónimo de NOMBRE_COMPLETO: pregunta si consulta sin ese filtro"},
+      "turns": [
+        {
+          "user": "peso por colaborador en lavanderia en enero de 2026",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["nombre", "usuario", "colaborador"],
+            "filters": [{"year": 2026, "month": 1}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_sim_cx_por_especialidad",
+      "category": "d_agrupado",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Treemap – Cirugías realizadas por especialidad"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "cuantas cirugias realizadas por especialidad en el tablero de atenciones institucionales",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["especialidad"],
+            "answer_all": ["UROLOGIA"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_sim_atenciones_por_servicio_2024",
+      "category": "d_agrupado",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Filtros"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "total atenciones por servicio en 2024",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["servicio"],
+            "filters": [{"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_sim_atenciones_por_sede",
+      "category": "d_agrupado",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Filtros"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "¿Cuál fue el total de atenciones por sede?",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["sede"],
+            "answer_all": ["SEDE NORTE", "SEDE SUR", "SEDE PRINCIPAL"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_lav_top_servicio",
+      "category": "d_agrupado",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Tabla de Participación por Servicio"
+      },
+      "arneses": ["sim", "realistic"],
+      "descripcion": "Ranking / máximo: «el servicio con más peso».",
+      "xfail": {"sim": "no hay soporte de ranking (top-N): pregunta si consulta sin «servicio mas»"},
+      "turns": [
+        {
+          "user": "cual fue el servicio con mas peso en lavanderia en enero 2026",
+          "expect": {
+            "route": ["powerbi"],
+            "group_by_any": ["servicio"],
+            "answer_any": ["UCI ADULTOS", "servicio"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_triages_por_clasificacion_2025",
+      "category": "d_agrupado",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/2 Documentacion Tablero Triage.docx",
+        "seccion": "Gráfico circular – Triages por clasificación"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "triages por clasificacion en 2025 tablero de triage",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["clasific"],
+            "filters": [{"year": 2025}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_citas_asignadas_por_especialidad",
+      "category": "d_agrupado",
+      "tablero": "Asignación de Citas",
+      "fuente": {
+        "docx": "2 DOCUMENTACION TABLERO ASIGNACION DE CITAS/10 Documentacion Tablero Asignadas por Especialidad.docx",
+        "seccion": "Gráfico de citas asignadas por especialidad"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "citas asignadas por especialidad",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["especialidad"],
+            "models_any": ["cita", "asignacion"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_naos_por_servicio",
+      "category": "d_agrupado",
+      "tablero": "NAOS",
+      "fuente": {
+        "docx": "28 DOCUMENTACION TABLERO NAOS/1 Documentacion Tablero NAOS.docx",
+        "seccion": "Distribución de pacientes con pendientes por servicio"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "pacientes con pendientes en naos por servicio",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["servicio"],
+            "models_any": ["naos"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_remisiones_por_eps",
+      "category": "d_agrupado",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/4. Documentacion Seguimiento Remisión.docx",
+        "seccion": "Distribución de las remisiones según la EPS"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "remisiones por eps",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["eps", "asegur", "entidad"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_cirugias_canceladas_por_asegurador",
+      "category": "d_agrupado",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Tablero Cancelaciones – cirugías canceladas por asegurador"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cirugias canceladas por asegurador en 2025",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["asegur", "eps", "entidad"],
+            "filters": [{"year": 2025}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_cx_realizadas_2024",
+      "category": "e_ambiguo",
+      "tablero": "Atenciones Institucionales / Demanda Insatisfecha",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas (también en Demanda Insatisfecha › Cirugías)"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "¿Cuántas cirugías realizadas hubo en 2024?",
+          "expect": {
+            "options_any": ["realizad"],
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_cirugias_generico",
+      "category": "e_ambiguo",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas / pendientes / canceladas"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "¿Cuántas cirugías hay?",
+          "expect": {
+            "options_any": ["cirug"],
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_total_atenciones",
+      "category": "e_ambiguo",
+      "tablero": "Atenciones Institucionales / Briefing",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/9. Documentacion Atenciones por Aseguradora.docx",
+        "seccion": "TOTAL DE ATENCIONES (Briefing › Atenciones por asegurador) y atenciones institucionales"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "total de atenciones",
+          "expect": {
+            "options_any": ["atencion"],
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_consultas_prioritarias_2025",
+      "category": "e_ambiguo",
+      "tablero": "Atenciones Institucionales / EPS / Briefing / Tiempos de Urgencias",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/6 Documentacion Tablero Consultas Prioritarias.docx",
+        "seccion": "Consultas prioritarias (varios tableros)"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "¿cuántas consultas prioritarias hubo en 2025?",
+          "expect": {
+            "options_any": ["priorit"],
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_triages_2025",
+      "category": "e_ambiguo",
+      "tablero": "Atenciones Institucionales / EPS / Demanda Insatisfecha",
+      "fuente": {
+        "docx": "24 DOCUMENTACION TABLERO EPS/1 Documentacion Tablero Triages Atendidos.docx",
+        "seccion": "Triages atendidos / Total triages / Triages no atendidos"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantos triages hubo en 2025",
+          "expect": {
+            "options_any": ["triage"],
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_pacientes_observados",
+      "category": "e_ambiguo",
+      "tablero": "Atenciones Institucionales / Tiempos de Urgencias",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/5 Documentacion Tablero Pacientes Observados.docx",
+        "seccion": "Pacientes observados (urgencias, obstetricia, histórico)"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantos pacientes observados hay",
+          "expect": {
+            "options_any": ["observ"],
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_tiempo_promedio_respuesta",
+      "category": "e_ambiguo",
+      "tablero": "Referencia / Tiempos de Urgencias",
+      "fuente": {
+        "docx": "40 DOCUMENTACION TABLERO REFERENCIA/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Tiempo promedio de respuesta (Inicio, Aceptados, No aceptados, Seguimiento)"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cual es el tiempo promedio de respuesta",
+          "expect": {
+            "options_any": ["respuesta", "tiempo"],
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_tiempo_gestion_factura",
+      "category": "e_ambiguo",
+      "tablero": "Control Facturación",
+      "fuente": {
+        "docx": "16 DOCUMENTACION TABLERO CONTROL FACTURACION/2 Documentacion Tablero Resumen Facturacion.docx",
+        "seccion": "Tarjeta de indicador – Tiempo promedio gestión factura (repetida en cada área)"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "tiempo promedio gestion factura",
+          "expect": {
+            "options_any": ["gestion", "factur", "tiempo"],
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_egresos_feb_2026",
+      "category": "e_ambiguo",
+      "tablero": "Atenciones Institucionales / Briefing / Perfil de Morbilidad",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/8. Documentacion Tablero Ingresos y Egresos.docx",
+        "seccion": "Egresos (Inicio Atenciones, Ingresos y egresos, Perfil de morbilidad, Tiempos de urgencias)"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantos egresos hubo en febrero de 2026",
+          "expect": {
+            "options_any": ["egreso"],
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_solicitudes_camas",
+      "category": "e_ambiguo",
+      "tablero": "Briefing Hospitalario / Demanda Insatisfecha",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/3. Documentacion Tablero Detalle Solicitud Camas.docx",
+        "seccion": "Solicitudes de cama (Briefing) y solicitudes no asignadas (Demanda insatisfecha)"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantas solicitudes de camas hay",
+          "expect": {
+            "options_any": ["cama", "solicitud"],
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_interconsultas",
+      "category": "e_ambiguo",
+      "tablero": "Briefing Hospitalario / Tiempos de Urgencias",
+      "fuente": {
+        "docx": "32 DOCUMENTACION TABLERO TIEMPOS DE URGENCIAS/2 Documentacion Tablero Datos Historicos.docx",
+        "seccion": "Interconsultas sin respuesta (Briefing) / solicitadas y respondidas (Tiempos de urgencias)"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantas interconsultas hay",
+          "expect": {
+            "options_any": ["interconsult"],
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_imagenes_tomadas",
+      "category": "e_ambiguo",
+      "tablero": "Briefing / Atenciones Institucionales / Tiempos de Urgencias",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/18. Documentacion Tablero Detalle Imagenes tomadas.docx",
+        "seccion": "Imágenes tomadas (varios tableros)"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantas imagenes se tomaron",
+          "expect": {
+            "options_any": ["imagen"],
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_promedio_mensual",
+      "category": "e_ambiguo",
+      "tablero": "Varios",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/2 Documentacion Tablero Triage.docx",
+        "seccion": "«Promedio mensual» aparece en casi todos los tableros"
+      },
+      "arneses": ["realistic"],
+      "descripcion": "Pregunta casi vacía: debe pedir el indicador, no responder un número.",
+      "turns": [
+        {
+          "user": "cual es el promedio mensual",
+          "expect": {
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_pendientes",
+      "category": "e_ambiguo",
+      "tablero": "NAOS / Farmacia / Recepción Técnica / Citas",
+      "fuente": {
+        "docx": "28 DOCUMENTACION TABLERO NAOS/1 Documentacion Tablero NAOS.docx",
+        "seccion": "Pendientes (pacientes NAOS, suministros, solicitudes, citas, cirugías)"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantos pendientes hay",
+          "expect": {
+            "options_any": ["pendiente"],
+            "route": ["clarification"],
+            "min_options": 2,
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_lav_que_muestra",
+      "category": "f_documental",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Descripción del tablero"
+      },
+      "arneses": ["sim", "realistic"],
+      "xfail": {"sim": "pide «¿A qué tablero te refieres?» con una sola opción aunque el tablero se nombró"},
+      "turns": [
+        {
+          "user": "¿Qué muestra el tablero de lavandería?",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["peso", "ropa", "turno", "servicio"],
+            "forbid": ["numbers"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_lav_filtros",
+      "category": "f_documental",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Filtros por Años y Mes"
+      },
+      "arneses": ["sim", "realistic"],
+      "xfail": {"sim": "pide «¿A qué tablero te refieres?» con una sola opción aunque el tablero se nombró"},
+      "turns": [
+        {
+          "user": "que filtros tiene el tablero de lavanderia",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["aseguradora", "año", "mes"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_lav_turno_ok",
+      "category": "f_documental",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Medida TURNO_OK"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "como se calcula el turno ok en lavanderia",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["turno", "mañana", "tarde", "noche"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_sim_qx_programadas_definicion",
+      "category": "f_documental",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Medidas"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "¿Qué significa el indicador cirugías programadas?",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["programad", "solicitud"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_triage_que_muestra",
+      "category": "f_documental",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/2 Documentacion Tablero Triage.docx",
+        "seccion": "Descripción del tablero Triage"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "¿qué muestra el tablero de triage?",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["triages", "clasificación", "mes", "proyección"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_nedocs_calculo",
+      "category": "f_documental",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/11. Documentacion Detalle Nedocs.docx",
+        "seccion": "Medidas NEDOCS"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "como se calcula el NEDOCS",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["NEDOCS", "urgencias", "camas", "sobreocup"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_nedocs_rangos",
+      "category": "f_documental",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/11. Documentacion Detalle Nedocs.docx",
+        "seccion": "Clasificación del NEDOCS"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuales son los rangos del nedocs",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["Normal", "Ocupado", "Sobreocupado", "Severamente", "Críticamente"],
+            "min_keyword_coverage": 0.6
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_ocupacion_camas_calculo",
+      "category": "f_documental",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/2. Documentacion Tablero Detalle Gestion Camas.docx",
+        "seccion": "Medida % de ocupación"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "¿cómo se calcula el porcentaje de ocupación de camas?",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["ocupadas", "total de camas", "excluyen", "EXP"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_proyeccion_triages",
+      "category": "f_documental",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/2 Documentacion Tablero Triage.docx",
+        "seccion": "Medida Proyeccion_TRIAGES"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "como calculan la proyeccion de triages",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["año anterior", "crecimiento", "proyección"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_facturacion_pendiente_filtros",
+      "category": "f_documental",
+      "tablero": "Control Facturación",
+      "fuente": {
+        "docx": "16 DOCUMENTACION TABLERO CONTROL FACTURACION/3 Documentacion Tablero Facturacion Pendiente.docx",
+        "seccion": "Filtros"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "que filtros tiene el tablero de facturacion pendiente",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["documento", "ingreso", "ambulatorio", "hospitalario"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_farmacia_para_que_sirve",
+      "category": "f_documental",
+      "tablero": "Farmacia",
+      "fuente": {
+        "docx": "36 DOCUMENTACION TABLERO FARMACIA/1 Documentacion Tablero Inicio Farmacia.docx",
+        "seccion": "Descripción del tablero Farmacia – Inicio"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "para que sirve el tablero de farmacia",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["inventario", "suministros", "vencimiento", "dispensación"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_referencia_que_informacion",
+      "category": "f_documental",
+      "tablero": "Referencia",
+      "fuente": {
+        "docx": "40 DOCUMENTACION TABLERO REFERENCIA/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Descripción del tablero Referencia – Inicio"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "que informacion tiene el tablero de referencia",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["solicitudes", "tiempo", "EPS", "no aceptación"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_semaforo_auditoria_medicamentos",
+      "category": "f_documental",
+      "tablero": "Control Facturación",
+      "fuente": {
+        "docx": "16 DOCUMENTACION TABLERO CONTROL FACTURACION/Documentacion En Proceso Auditoria Medicamentos.docx",
+        "seccion": "Semáforo de rangos de días"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "que significan los colores del semaforo en auditoria de medicamentos",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["0 a 7", "8 a 30", "31"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_perfil_morbilidad",
+      "category": "f_documental",
+      "tablero": "Perfil de Morbilidad",
+      "fuente": {
+        "docx": "30 DOCUMENTACION TABLERO PERFIL DE MORBILIDAD/1 Documentacion Tablero Perfil de Morbilidad - Inicio.docx",
+        "seccion": "Descripción del tablero"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "que es el perfil de morbilidad",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["epidemiológico", "diagnóstico", "egresos", "GRD"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_cvc_sin_tildes",
+      "category": "f_documental",
+      "tablero": "CVC",
+      "fuente": {
+        "docx": "35 DOCUMENTACION TABLERO CVC/1 Documentacion Tablero CVC.docx",
+        "seccion": "Descripción del tablero CVC"
+      },
+      "arneses": ["realistic"],
+      "descripcion": "Abreviatura «q» y sigla.",
+      "turns": [
+        {
+          "user": "q es el tablero cvc",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["precios", "medicamentos", "aumento", "disminución"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_oportunidad_triage",
+      "category": "f_documental",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/2 Documentacion Tablero Triage.docx",
+        "seccion": "Tablero Oportunidad de Triage"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "que significa oportunidad de triage",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["tiempo", "clasificación", "triage"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_boton_azul",
+      "category": "f_documental",
+      "tablero": "Tiempos de Urgencias",
+      "fuente": {
+        "docx": "32 DOCUMENTACION TABLERO TIEMPOS DE URGENCIAS/2 Documentacion Tablero Datos Historicos.docx",
+        "seccion": "Área Botón Azul"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "que es el boton azul en tiempos de urgencias",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["prepagada", "botón azul", "10 días"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "f_reps_capacidad",
+      "category": "f_documental",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/13. Documentacion Reps.docx",
+        "seccion": "Tablero REPS"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "que muestra el tablero de reps",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["capacidad instalada", "camas", "consultorios"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "g_capital_francia",
+      "category": "g_fuera_alcance",
+      "tablero": null,
+      "fuente": null,
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "¿Cuál es la capital de Francia?",
+          "expect": {
+            "route": ["out_of_scope"],
+            "forbid": ["numbers", "powerbi_answer"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "g_receta",
+      "category": "g_fuera_alcance",
+      "tablero": null,
+      "fuente": null,
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "dame una receta de arepas",
+          "expect": {
+            "route": ["out_of_scope"],
+            "forbid": ["numbers", "powerbi_answer"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "g_clima",
+      "category": "g_fuera_alcance",
+      "tablero": null,
+      "fuente": null,
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "como va a estar el clima mañana en manizales",
+          "expect": {
+            "route": ["out_of_scope"],
+            "forbid": ["numbers", "powerbi_answer"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "g_consejo_clinico",
+      "category": "g_fuera_alcance",
+      "tablero": null,
+      "fuente": null,
+      "arneses": ["sim", "realistic"],
+      "descripcion": "Consejo clínico: no debe recetar ni dar dosis.",
+      "turns": [
+        {
+          "user": "que medicamento le doy a un paciente con fiebre y dolor de cabeza",
+          "expect": {
+            "route": ["out_of_scope"],
+            "forbid": ["numbers", "powerbi_answer"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "g_futbol",
+      "category": "g_fuera_alcance",
+      "tablero": null,
+      "fuente": null,
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "quien gano el partido del once caldas ayer",
+          "expect": {
+            "route": ["out_of_scope"],
+            "forbid": ["numbers", "powerbi_answer"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "g_codigo",
+      "category": "g_fuera_alcance",
+      "tablero": null,
+      "fuente": null,
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "escribeme un codigo en python para ordenar una lista",
+          "expect": {
+            "route": ["out_of_scope"],
+            "forbid": ["numbers", "powerbi_answer"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "g_saludo",
+      "category": "g_fuera_alcance",
+      "tablero": null,
+      "fuente": null,
+      "arneses": ["sim", "realistic"],
+      "descripcion": "Saludo: cualquier respuesta amable sin cifras.",
+      "turns": [
+        {
+          "user": "hola, buenos dias",
+          "expect": {
+            "route": ["out_of_scope", "rag", "clarification"],
+            "forbid": ["numbers", "powerbi_answer"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "g_salario_numerico",
+      "category": "g_fuera_alcance",
+      "tablero": null,
+      "fuente": null,
+      "arneses": ["sim", "realistic"],
+      "descripcion": "Pregunta numérica fuera de alcance: no debe sugerir que falta la página del tablero.",
+      "xfail": {"sim": "responde «No encontré un indicador suficientemente específico. Incluye la sección o página»"},
+      "turns": [
+        {
+          "user": "cuanto gana un medico general en colombia",
+          "expect": {
+            "route": ["out_of_scope", "not_found", "metric_not_resolved"],
+            "forbid": ["numbers", "powerbi_answer"],
+            "answer_none": ["Incluye la sección o página del tablero"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "g_pib_con_anio",
+      "category": "g_fuera_alcance",
+      "tablero": null,
+      "fuente": null,
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "cual fue el PIB de colombia en 2024",
+          "expect": {
+            "route": ["out_of_scope", "not_found", "metric_not_resolved"],
+            "forbid": ["numbers", "powerbi_answer"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "h_sim_lav_peso_y_participacion",
+      "category": "h_compuesta",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Tabla de Participación por Servicio"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "En el mes de enero de 2026 en el servicio de antifluidos de la lavanderia, cuanta participacion y peso tuvo?",
+          "expect": {
+            "route": ["powerbi"],
+            "filters": [{"column": "SERVICIO", "value": "ANTIFLUIDOS"}, {"year": 2026, "month": 1}],
+            "numbers": [488.3, 12.5],
+            "answer_any": ["particip"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "h_lav_participacion_urgencias",
+      "category": "h_compuesta",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Tabla de Participación por Servicio"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "participacion del servicio de urgencias en el peso de lavanderia en enero de 2026",
+          "expect": {
+            "route": ["powerbi"],
+            "filters": [{"column": "SERVICIO", "value": "URGENCIAS"}, {"year": 2026, "month": 1}],
+            "answer_any": ["particip"],
+            "answer_all": ["%"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "h_lav_peso_y_participacion_por_servicio",
+      "category": "h_compuesta",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Tabla de Participación por Servicio"
+      },
+      "arneses": ["sim", "realistic"],
+      "descripcion": "Se piden dos columnas (peso y participación) en la misma tabla.",
+      "xfail": {"sim": "la tabla agrupada solo trae la participación: se pierde la columna de peso"},
+      "turns": [
+        {
+          "user": "peso y participacion por servicio en lavanderia enero 2026",
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "group_by_any": ["servicio"],
+            "answer_all": ["particip", "peso"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "h_sim_qx_programadas_y_realizadas",
+      "category": "h_compuesta",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Tarjetas"
+      },
+      "arneses": ["sim"],
+      "xfail": {"sim": "dos medidas en una pregunta: toma «realizadas» como filtro desconocido"},
+      "turns": [
+        {
+          "user": "cirugias programadas y realizadas en el tablero quirurgico en 2024",
+          "expect": {
+            "route": ["powerbi"],
+            "answer_all": ["programad", "realizad"],
+            "filters": [{"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "h_triages_total_y_promedio_2025",
+      "category": "h_compuesta",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/2 Documentacion Tablero Triage.docx",
+        "seccion": "Tarjetas: total de triages del año y promedio mensual"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "total de triages y promedio mensual de triages en 2025 en el tablero de triage",
+          "expect": {
+            "route": ["powerbi"],
+            "answer_all": ["triage", "promedio"],
+            "filters": [{"year": 2025}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "h_interconsultas_solicitadas_respondidas",
+      "category": "h_compuesta",
+      "tablero": "Tiempos de Urgencias",
+      "fuente": {
+        "docx": "32 DOCUMENTACION TABLERO TIEMPOS DE URGENCIAS/2 Documentacion Tablero Datos Historicos.docx",
+        "seccion": "Tablero Interconsultas – solicitadas, respondidas y % de atención"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "interconsultas solicitadas y respondidas en urgencias en 2025",
+          "expect": {
+            "route": ["powerbi"],
+            "answer_all": ["solicitad", "respond"],
+            "filters": [{"year": 2025}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "h_partos_vaginales_cesareas",
+      "category": "h_compuesta",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/12 Documentacion Tablero Consultas Obstetricas.docx",
+        "seccion": "Tarjeta – Relación partos vaginales / cesáreas"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantos partos vaginales y cuantas cesareas hubo en 2025",
+          "expect": {
+            "route": ["powerbi"],
+            "answer_all": ["vaginal", "cesar"],
+            "filters": [{"year": 2025}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "h_participacion_nueva_eps",
+      "category": "h_compuesta",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/9. Documentacion Atenciones por Aseguradora.docx",
+        "seccion": "Total de atenciones agrupadas por asegurador"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "que porcentaje de las atenciones de 2025 fueron de nueva eps",
+          "expect": {
+            "route": ["powerbi"],
+            "answer_all": ["%"],
+            "filters": [{"column": null, "value": "NUEVA EPS"}, {"year": 2025}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "h_ingresos_y_egresos",
+      "category": "h_compuesta",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/8. Documentacion Tablero Ingresos y Egresos.docx",
+        "seccion": "Total de ingresos y egresos"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "ingresos y egresos del briefing hospitalario",
+          "expect": {
+            "route": ["powerbi"],
+            "answer_all": ["ingreso", "egreso"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_opcion_por_numero",
+      "category": "i_multiturno",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "¿Cuántas cirugías realizadas hubo en 2024?",
+          "expect": {
+            "route": ["clarification"],
+            "options_any": ["realizad"],
+            "has_none_option": true
+          }
+        },
+        {
+          "user": "1",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["realizad"],
+            "filters": [{"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_opcion_por_boton",
+      "category": "i_multiturno",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "¿Cuántas cirugías realizadas hubo en 2024?",
+          "expect": {
+            "route": ["clarification"],
+            "options_any": ["realizad"],
+            "has_none_option": true
+          }
+        },
+        {
+          "button": 2,
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["realizad"],
+            "filters": [{"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_sim_opcion_por_nombre",
+      "category": "i_multiturno",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "¿Cuántas cirugías realizadas hubo en 2024?",
+          "expect": {
+            "route": ["clarification"],
+            "options_any": ["realizad"],
+            "has_none_option": true
+          }
+        },
+        {
+          "user": "la del tablero quirurgico",
+          "expect": {
+            "route": ["powerbi"],
+            "models_any": ["quirurg"],
+            "filters": [{"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_opcion_por_nombre_atenciones",
+      "category": "i_multiturno",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "¿Cuántas cirugías realizadas hubo en 2024?",
+          "expect": {
+            "route": ["clarification"],
+            "options_any": ["realizad"],
+            "has_none_option": true
+          }
+        },
+        {
+          "user": "la de atenciones institucionales",
+          "expect": {
+            "route": ["powerbi"],
+            "models_any": ["atenciones"],
+            "filters": [{"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_opcion_ordinal",
+      "category": "i_multiturno",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas"
+      },
+      "arneses": ["sim", "realistic"],
+      "xfail": {"sim": "los ordinales («la primera») no se reconocen: vuelve a preguntar"},
+      "turns": [
+        {
+          "user": "¿Cuántas cirugías realizadas hubo en 2024?",
+          "expect": {
+            "route": ["clarification"],
+            "options_any": ["realizad"],
+            "has_none_option": true
+          }
+        },
+        {
+          "user": "la primera",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["realizad"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_ninguna_boton_y_elige",
+      "category": "i_multiturno",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas"
+      },
+      "arneses": ["sim", "realistic"],
+      "descripcion": "«Ninguna de las anteriores» ofrece otros indicadores; se elige el primero.",
+      "turns": [
+        {
+          "user": "¿Cuántas cirugías realizadas hubo en 2024?",
+          "expect": {
+            "route": ["clarification"],
+            "options_any": ["realizad"],
+            "has_none_option": true
+          }
+        },
+        {
+          "button": "none",
+          "expect": {
+            "route": ["clarification", "not_found"],
+            "answer_none": ["Encontré varios indicadores"]
+          }
+        },
+        {
+          "button": 1,
+          "expect": {
+            "route": ["powerbi"],
+            "filters": [{"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_ninguna_texto",
+      "category": "i_multiturno",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "¿Cuántas cirugías realizadas hubo en 2024?",
+          "expect": {
+            "route": ["clarification"],
+            "options_any": ["realizad"],
+            "has_none_option": true
+          }
+        },
+        {
+          "user": "ninguna de las anteriores",
+          "expect": {
+            "route": ["clarification", "not_found"],
+            "prompt_any": ["otros indicadores", "no encontré otros"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_ninguna_dos_veces",
+      "category": "i_multiturno",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "¿Cuántas cirugías realizadas hubo en 2024?",
+          "expect": {
+            "route": ["clarification"],
+            "options_any": ["realizad"],
+            "has_none_option": true
+          }
+        },
+        {
+          "button": "none",
+          "expect": {
+            "route": ["clarification", "not_found"]
+          }
+        },
+        {
+          "button": "none",
+          "expect": {
+            "route": ["clarification", "not_found"],
+            "prompt_any": ["reformula", "otros indicadores"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_cambio_tema_fuera_alcance",
+      "category": "i_multiturno",
+      "tablero": null,
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "cuantas cirugias hubo en 2024",
+          "expect": {
+            "route": ["clarification"]
+          }
+        },
+        {
+          "user": "¿Cuál es la capital de Francia?",
+          "expect": {
+            "route": ["out_of_scope"],
+            "forbid": ["numbers"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_sim_cambio_tema_otro_kpi",
+      "category": "i_multiturno",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Tabla de Participación por Servicio"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "¿Cuántas cirugías realizadas hubo en 2024?",
+          "expect": {
+            "route": ["clarification"],
+            "options_any": ["realizad"],
+            "has_none_option": true
+          }
+        },
+        {
+          "user": "peso de antifluidos enero 2026 lavanderia",
+          "expect": {
+            "route": ["powerbi"],
+            "metrics_any": ["peso"],
+            "filters": [{"column": "SERVICIO", "value": "ANTIFLUIDOS"}, {"year": 2026, "month": 1}],
+            "numbers": [488.3]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_sim_consultar_sin_palabra",
+      "category": "i_multiturno",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Filtros"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "total de cirugías azules en 2024",
+          "expect": {
+            "route": ["clarification"],
+            "prompt_any": ["azules"]
+          }
+        },
+        {
+          "user": "sí",
+          "expect": {
+            "route": ["powerbi"],
+            "filters": [{"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_sim_tablero_por_boton",
+      "category": "i_multiturno",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Descripción"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "¿Qué muestra el tablero de atenciones?",
+          "expect": {
+            "route": ["clarification", "rag"]
+          }
+        },
+        {
+          "button": 1,
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["atenciones"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_sim_tablero_por_texto",
+      "category": "i_multiturno",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Filtros"
+      },
+      "arneses": ["sim"],
+      "turns": [
+        {
+          "user": "¿Qué filtros tiene el tablero de cirugías?",
+          "expect": {
+            "route": ["clarification"]
+          }
+        },
+        {
+          "user": "Tablero Quirurgico",
+          "expect": {
+            "route": ["rag"],
+            "keywords": ["especialidad", "año", "mes"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_numero_fuera_de_rango",
+      "category": "i_multiturno",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas"
+      },
+      "arneses": ["sim", "realistic"],
+      "turns": [
+        {
+          "user": "¿Cuántas cirugías realizadas hubo en 2024?",
+          "expect": {
+            "route": ["clarification"],
+            "options_any": ["realizad"],
+            "has_none_option": true
+          }
+        },
+        {
+          "user": "7",
+          "expect": {
+            "route": ["clarification"],
+            "prompt_any": ["número", "opción"]
+          }
+        },
+        {
+          "user": "2",
+          "expect": {
+            "route": ["powerbi"],
+            "filters": [{"year": 2024}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_respuesta_vaga",
+      "category": "i_multiturno",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas"
+      },
+      "arneses": ["sim", "realistic"],
+      "descripcion": "Respuesta que no es opción ni pregunta nueva: debe volver a preguntar.",
+      "turns": [
+        {
+          "user": "¿Cuántas cirugías realizadas hubo en 2024?",
+          "expect": {
+            "route": ["clarification"],
+            "options_any": ["realizad"],
+            "has_none_option": true
+          }
+        },
+        {
+          "user": "mmm no se",
+          "expect": {
+            "route": ["clarification"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_seguimiento_y_en_2025",
+      "category": "i_multiturno",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Filtro Especialidad"
+      },
+      "arneses": ["sim"],
+      "descripcion": "Pregunta de seguimiento elíptica que hereda métrica y filtros.",
+      "xfail": {"sim": "el contexto se borra tras cada respuesta (reset_if_finished): «y en 2025?» queda fuera de alcance"},
+      "turns": [
+        {
+          "user": "cirugias programadas de urologia en 2024",
+          "expect": {
+            "route": ["powerbi"],
+            "filters": [{"column": "ESPECIALIDAD", "value": "UROLOGIA"}, {"year": 2024}]
+          }
+        },
+        {
+          "user": "y en 2025?",
+          "expect": {
+            "route": ["powerbi"],
+            "filters": [{"column": "ESPECIALIDAD", "value": "UROLOGIA"}, {"year": 2025}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_prioritarias_boton",
+      "category": "i_multiturno",
+      "tablero": "Atenciones Institucionales / EPS / Briefing",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/6 Documentacion Tablero Consultas Prioritarias.docx",
+        "seccion": "Consultas prioritarias"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "consultas prioritarias de 2025",
+          "expect": {
+            "route": ["clarification"],
+            "options_any": ["priorit"]
+          }
+        },
+        {
+          "button": 1,
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["priorit"],
+            "filters": [{"year": 2025}]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_tiempo_respuesta_por_nombre",
+      "category": "i_multiturno",
+      "tablero": "Referencia",
+      "fuente": {
+        "docx": "40 DOCUMENTACION TABLERO REFERENCIA/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Tiempo promedio de respuesta"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "tiempo promedio de respuesta",
+          "expect": {
+            "route": ["clarification"]
+          }
+        },
+        {
+          "user": "el de referencia",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "models_any": ["referencia"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_triages_ninguna_luego_kpi",
+      "category": "i_multiturno",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/2 Documentacion Tablero Triage.docx",
+        "seccion": "Triages"
+      },
+      "arneses": ["realistic"],
+      "turns": [
+        {
+          "user": "cuantos triages hubo en 2025",
+          "expect": {
+            "route": ["clarification"]
+          }
+        },
+        {
+          "user": "ninguna",
+          "expect": {
+            "route": ["clarification", "not_found"]
+          }
+        },
+        {
+          "user": "total de dosis de antibioticos suministradas",
+          "expect": {
+            "route": ["powerbi"],
+            "models_any": ["antibiot"]
+          }
+        }
+      ]
+    }
+  ]
+}
