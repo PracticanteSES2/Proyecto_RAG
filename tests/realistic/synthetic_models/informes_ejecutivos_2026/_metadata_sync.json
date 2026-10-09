@@ -1,0 +1,6 @@
+{
+  "semantic_model": "INFORMES EJECUTIVOS 2026",
+  "status": "success",
+  "origin": "synthetic",
+  "note": "Modelo sintético para pruebas (tests/realistic/build_synthetic_models.py)."
+}

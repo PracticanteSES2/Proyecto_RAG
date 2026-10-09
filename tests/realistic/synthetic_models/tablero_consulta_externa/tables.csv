@@ -1,0 +1,4 @@
+﻿[ID],[Name],[Model],[DataCategory],[Description],[IsHidden],[StorageMode],[TableStorage],[Expression],[ShowAsVariationOnly],[IsPrivate],[CalculationGroupPrecedence],[LineageTag]
+186989830,Calendario,481cfd8d-c87f-50b0-85f5-3f702eec9492,Regular,,False,Import,Calendario (186989830),"CALENDAR(""2023-01-01"", DATE(YEAR(TODAY()), 12, 31))",False,False,,5ca121bd-7643-5190-8c83-db1af2669342
+63804356,ASEGURADORAS,481cfd8d-c87f-50b0-85f5-3f702eec9492,Regular,,False,Import,ASEGURADORAS (63804356),,False,False,,27707f43-2d64-5453-b61b-46dd1996918c
+64297808,CONSULTAS_AMBULATORIAS,481cfd8d-c87f-50b0-85f5-3f702eec9492,Regular,,False,Import,CONSULTAS_AMBULATORIAS (64297808),,False,False,,59dd2139-c4b7-5356-9520-71036835679f

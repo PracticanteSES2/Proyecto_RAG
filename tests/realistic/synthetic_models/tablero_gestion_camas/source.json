@@ -1,0 +1,245 @@
+{
+  "source_group": "tablero_gestion_camas",
+  "report": "TABLERO GESTION CAMAS",
+  "semantic_model": "TABLERO GESTION CAMAS",
+  "semantic_model_key": "tablero_gestion_camas",
+  "aliases": [
+    "gestion de camas",
+    "tablero de camas",
+    "ocupacion de camas"
+  ],
+  "default_dashboard": "TABLERO GESTION CAMAS",
+  "document_type": "dashboard_documentation",
+  "workspace": "Gestion Clinica",
+  "pages": [
+    {
+      "name": "Ocupación",
+      "visuals": [
+        [
+          "card",
+          "% Ocupación",
+          [
+            [
+              "measure",
+              "OCUPACION_DIARIA",
+              "% Ocupación"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "Camas disponibles",
+          [
+            [
+              "measure",
+              "OCUPACION_DIARIA",
+              "Camas Disponibles"
+            ]
+          ]
+        ],
+        [
+          "clusteredBarChart",
+          "Ocupación por servicio",
+          [
+            [
+              "column",
+              "CAMAS",
+              "SERVICIO",
+              "Category"
+            ],
+            [
+              "measure",
+              "OCUPACION_DIARIA",
+              "% Ocupación",
+              "Y"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "CAMAS",
+              "SERVICIO"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "Calendario",
+              "AÑO"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "Calendario",
+              "NOMBRE_MES"
+            ]
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "Egresos y estancia",
+      "visuals": [
+        [
+          "card",
+          "Egresos",
+          [
+            [
+              "measure",
+              "EGRESOS",
+              "Egresos"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "Promedio estancia",
+          [
+            [
+              "measure",
+              "EGRESOS",
+              "Promedio Estancia"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "Giro cama",
+          [
+            [
+              "measure",
+              "EGRESOS",
+              "Giro Cama"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "Solicitudes de cama",
+          [
+            [
+              "measure",
+              "SOLICITUD_CAMAS",
+              "Solicitudes de cama"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "Calendario",
+              "AÑO"
+            ]
+          ]
+        ]
+      ]
+    }
+  ],
+  "documentation": {
+    "name": "TABLERO GESTION CAMAS",
+    "description": "Seguimiento diario de camas hospitalarias: ocupación, camas disponibles, egresos, giro cama, estancia promedio y solicitudes de cama por servicio.",
+    "aliases": [
+      "gestion de camas",
+      "tablero de camas",
+      "ocupacion de camas"
+    ],
+    "filters": [
+      "Filtro por AÑO (Calendario) en la página Egresos y estancia.",
+      "Filtro por AÑO (Calendario) en la página Ocupación.",
+      "Filtro por NOMBRE_MES (Calendario) en la página Ocupación.",
+      "Filtro por SERVICIO (CAMAS) en la página Ocupación."
+    ],
+    "visuals": [
+      "Ocupación: % Ocupación.",
+      "Ocupación: Camas disponibles.",
+      "Ocupación: Ocupación por servicio.",
+      "Egresos y estancia: Egresos.",
+      "Egresos y estancia: Promedio estancia.",
+      "Egresos y estancia: Giro cama.",
+      "Egresos y estancia: Solicitudes de cama."
+    ],
+    "indicators": [
+      "% Ocupación: Porcentaje de camas ocupadas.",
+      "Camas Disponibles: Camas en estado disponible.",
+      "Egresos: Egresos registrados en gestión de camas.",
+      "Total Egresos: Total de egresos.",
+      "Promedio Estancia: Días promedio de estancia.",
+      "Giro Cama: Egresos por cama en el periodo.",
+      "Solicitudes de cama: Solicitudes de cama recibidas."
+    ],
+    "measures": [
+      {
+        "table": "OCUPACION_DIARIA",
+        "name": "% Ocupación",
+        "expression": "DIVIDE(CALCULATE(COUNTROWS('OCUPACION_DIARIA'), OCUPACION_DIARIA[ESTADO_CAMA] = \"OCUPADA\"), COUNTROWS('OCUPACION_DIARIA'))",
+        "data_type": "Number",
+        "format_string": "0.0%",
+        "description": "Porcentaje de camas ocupadas."
+      },
+      {
+        "table": "OCUPACION_DIARIA",
+        "name": "Camas Disponibles",
+        "expression": "CALCULATE(DISTINCTCOUNT(OCUPACION_DIARIA[OID_CAMA]), OCUPACION_DIARIA[ESTADO_CAMA] = \"DISPONIBLE\")",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Camas en estado disponible."
+      },
+      {
+        "table": "EGRESOS",
+        "name": "Egresos",
+        "expression": "COUNTROWS('EGRESOS')",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Egresos registrados en gestión de camas."
+      },
+      {
+        "table": "EGRESOS",
+        "name": "Total Egresos",
+        "expression": "[Egresos]",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Total de egresos."
+      },
+      {
+        "table": "EGRESOS",
+        "name": "Promedio Estancia",
+        "expression": "AVERAGE(EGRESOS[DIAS_ESTANCIA])",
+        "data_type": "Number",
+        "format_string": "0.0",
+        "description": "Días promedio de estancia."
+      },
+      {
+        "table": "EGRESOS",
+        "name": "Giro Cama",
+        "expression": "DIVIDE([Egresos], DISTINCTCOUNT(CAMAS[OID]))",
+        "data_type": "Number",
+        "format_string": "0.00",
+        "description": "Egresos por cama en el periodo."
+      },
+      {
+        "table": "SOLICITUD_CAMAS",
+        "name": "Solicitudes de cama",
+        "expression": "COUNTROWS('SOLICITUD_CAMAS')",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Solicitudes de cama recibidas."
+      }
+    ]
+  }
+}

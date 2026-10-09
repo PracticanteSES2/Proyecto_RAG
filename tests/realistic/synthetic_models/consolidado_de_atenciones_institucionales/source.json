@@ -1,0 +1,328 @@
+{
+  "source_group": "consolidado_de_atenciones_institucionales",
+  "report": "CONSOLIDADO DE ATENCIONES INSTITUCIONALES",
+  "semantic_model": "CONSOLIDADO DE ATENCIONES INSTITUCIONALES",
+  "semantic_model_key": "consolidado_de_atenciones_institucionales",
+  "aliases": [
+    "consolidado de atenciones",
+    "consolidado institucional"
+  ],
+  "default_dashboard": "CONSOLIDADO DE ATENCIONES INSTITUCIONALES",
+  "document_type": "dashboard_documentation",
+  "workspace": "Gestion Clinica",
+  "pages": [
+    {
+      "name": "Resumen",
+      "visuals": [
+        [
+          "card",
+          "Total atenciones",
+          [
+            [
+              "measure",
+              "EGRESOS",
+              "Total Atenciones"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "Egresos",
+          [
+            [
+              "measure",
+              "EGRESOS",
+              "Total Egresos"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "Cirugías realizadas",
+          [
+            [
+              "measure",
+              "CIRUGIAS",
+              "Cirugías realizadas"
+            ]
+          ]
+        ],
+        [
+          "card",
+          "% Ocupación",
+          [
+            [
+              "measure",
+              "PORCENTAJE_OCUPACIONAL",
+              "% Ocupación"
+            ]
+          ]
+        ],
+        [
+          "clusteredBarChart",
+          "Egresos por servicio",
+          [
+            [
+              "column",
+              "DIM_SERVICIO",
+              "SERVICIO_HOMOLOGADO",
+              "Category"
+            ],
+            [
+              "measure",
+              "EGRESOS",
+              "Total Egresos",
+              "Y"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "Calendario",
+              "AÑO"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "Calendario",
+              "NOMBRE_MES"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "ASEGURADORAS",
+              "NOMBRE"
+            ]
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "Cirugías",
+      "visuals": [
+        [
+          "card",
+          "Total cirugías",
+          [
+            [
+              "measure",
+              "CIRUGIAS",
+              "TOTAL_CIRUGIAS"
+            ]
+          ]
+        ],
+        [
+          "clusteredColumnChart",
+          "Cirugías por especialidad",
+          [
+            [
+              "column",
+              "CIRUGIAS",
+              "ESPECIALIDAD",
+              "Category"
+            ],
+            [
+              "measure",
+              "CIRUGIAS",
+              "Cirugías realizadas",
+              "Y"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "CIRUGIAS",
+              "ESPECIALIDAD"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "Calendario",
+              "AÑO"
+            ]
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "Urgencias",
+      "visuals": [
+        [
+          "card",
+          "Consultas de urgencias",
+          [
+            [
+              "measure",
+              "CONSULTA_URGENCIAS",
+              "Total_consultas_urgencias"
+            ]
+          ]
+        ],
+        [
+          "clusteredBarChart",
+          "Consultas por triage",
+          [
+            [
+              "column",
+              "CONSULTA_URGENCIAS",
+              "CLASIFICACION_TRIAGE",
+              "Category"
+            ],
+            [
+              "measure",
+              "CONSULTA_URGENCIAS",
+              "Total_consultas_urgencias",
+              "Y"
+            ]
+          ]
+        ],
+        [
+          "slicer",
+          null,
+          [
+            [
+              "column",
+              "Calendario",
+              "AÑO"
+            ]
+          ]
+        ]
+      ]
+    }
+  ],
+  "documentation": {
+    "name": "CONSOLIDADO DE ATENCIONES INSTITUCIONALES",
+    "description": "Tablero consolidado con el total de atenciones institucionales: egresos hospitalarios, cirugías realizadas, consultas de urgencias y porcentaje de ocupación por servicio, aseguradora, año y mes.",
+    "aliases": [
+      "consolidado de atenciones",
+      "consolidado institucional"
+    ],
+    "filters": [
+      "Filtro por AÑO (Calendario) en la página Cirugías.",
+      "Filtro por AÑO (Calendario) en la página Resumen.",
+      "Filtro por AÑO (Calendario) en la página Urgencias.",
+      "Filtro por ESPECIALIDAD (CIRUGIAS) en la página Cirugías.",
+      "Filtro por NOMBRE (ASEGURADORAS) en la página Resumen.",
+      "Filtro por NOMBRE_MES (Calendario) en la página Resumen."
+    ],
+    "visuals": [
+      "Resumen: Total atenciones.",
+      "Resumen: Egresos.",
+      "Resumen: Cirugías realizadas.",
+      "Resumen: % Ocupación.",
+      "Resumen: Egresos por servicio.",
+      "Cirugías: Total cirugías.",
+      "Cirugías: Cirugías por especialidad.",
+      "Urgencias: Consultas de urgencias.",
+      "Urgencias: Consultas por triage."
+    ],
+    "indicators": [
+      "Total Egresos: Número de egresos hospitalarios.",
+      "Egresos: Egresos hospitalarios del periodo.",
+      "EGRESOS AÑO ANTERIOR: Egresos del mismo periodo del año anterior.",
+      "PROMEDIO_ESTANCIA: Días de estancia promedio por egreso.",
+      "TOTAL_CIRUGIAS: Total de cirugías registradas.",
+      "Cirugías realizadas: Cirugías con estado REALIZADA.",
+      "Total_consultas_urgencias: Consultas atendidas en urgencias.",
+      "% Ocupación: Porcentaje de ocupación de camas.",
+      "Total Atenciones: Suma de egresos, cirugías y consultas de urgencias."
+    ],
+    "measures": [
+      {
+        "table": "EGRESOS",
+        "name": "Total Egresos",
+        "expression": "COUNTROWS('EGRESOS')",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Número de egresos hospitalarios."
+      },
+      {
+        "table": "EGRESOS",
+        "name": "Egresos",
+        "expression": "[Total Egresos]",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Egresos hospitalarios del periodo."
+      },
+      {
+        "table": "EGRESOS",
+        "name": "EGRESOS AÑO ANTERIOR",
+        "expression": "CALCULATE([Total Egresos], SAMEPERIODLASTYEAR('Calendario'[Date]))",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Egresos del mismo periodo del año anterior."
+      },
+      {
+        "table": "EGRESOS",
+        "name": "PROMEDIO_ESTANCIA",
+        "expression": "DIVIDE(SUM(EGRESOS[DIAS_ESTANCIA]), [Total Egresos], BLANK())",
+        "data_type": "Number",
+        "format_string": "0.00",
+        "description": "Días de estancia promedio por egreso."
+      },
+      {
+        "table": "CIRUGIAS",
+        "name": "TOTAL_CIRUGIAS",
+        "expression": "COUNTROWS('CIRUGIAS')",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Total de cirugías registradas."
+      },
+      {
+        "table": "CIRUGIAS",
+        "name": "Cirugías realizadas",
+        "expression": "CALCULATE(COUNTROWS('CIRUGIAS'), CIRUGIAS[ESTADO_CIRUGIA] = \"REALIZADA\")",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Cirugías con estado REALIZADA."
+      },
+      {
+        "table": "CONSULTA_URGENCIAS",
+        "name": "Total_consultas_urgencias",
+        "expression": "COUNT(CONSULTA_URGENCIAS[DOCUMENTO])",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Consultas atendidas en urgencias."
+      },
+      {
+        "table": "PORCENTAJE_OCUPACIONAL",
+        "name": "% Ocupación",
+        "expression": "DIVIDE(SUM(PORCENTAJE_OCUPACIONAL[DIAS_CAMA_OCUPADA]), SUM(PORCENTAJE_OCUPACIONAL[CAMAS_HABILITADAS]))",
+        "data_type": "Number",
+        "format_string": "0.00%",
+        "description": "Porcentaje de ocupación de camas."
+      },
+      {
+        "table": "EGRESOS",
+        "name": "Total Atenciones",
+        "expression": "[Total Egresos] + [TOTAL_CIRUGIAS] + [Total_consultas_urgencias]",
+        "data_type": "Integer",
+        "format_string": "#,0",
+        "description": "Suma de egresos, cirugías y consultas de urgencias."
+      }
+    ]
+  }
+}

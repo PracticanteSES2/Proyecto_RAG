@@ -8,7 +8,7 @@ paquetes extra.
 
 | Real | Simulado en `fakes.py` |
 | --- | --- |
-| Power BI (XMLA / pyadomd / `clr`) | `FakeDaxEngine` detrás de un cliente ADOMD falso: valida tablas/columnas/medidas y evalúa `ROW`, `CALCULATE`, `SUMMARIZECOLUMNS`, `TREATAS` (también pares `TREATAS({(2024, 11), ...}, AÑO, MES)`), `KEEPFILTERS`, `FILTER(ALL(col), col >= DATE(..))`, `MONTH(col) = n` / `MONTH(col) IN {..}`, `UNION(ROW(...), ...) ORDER BY` (agrupación por mes/trimestre) y `VALUES`. Registra cada DAX y marca los **type mismatch** (p. ej. columna entera `AÑO` comparada con `DATE()`). |
+| Power BI (XMLA / pyadomd / `clr`) | `FakeDaxEngine` detrás del cliente ADOMD falso compartido con `tests/realistic` (`tests/common/adomd.py`): valida tablas/columnas/medidas y evalúa `ROW`, `CALCULATE`, `SUMMARIZECOLUMNS`, `TREATAS` (también pares `TREATAS({(2024, 11), ...}, AÑO, MES)`), `KEEPFILTERS`, `FILTER(ALL(col), col >= DATE(..))`, `MONTH(col) = n` / `MONTH(col) IN {..}`, `UNION(ROW(...), ...) ORDER BY` (agrupación por mes/trimestre) y `VALUES`. Registra cada DAX y marca los **type mismatch** (p. ej. columna entera `AÑO` comparada con `DATE()`). |
 | Qdrant + sentence-transformers | Qdrant en memoria con embeddings hash deterministas, cargado de `fixtures/data/vector_db/qdrant/points.json` |
 | Ollama | Cliente falso (`ollama_up=False` lo simula caído) |
 | `dotenv` | No-op: **el `.env` nunca se abre ni se lee** |

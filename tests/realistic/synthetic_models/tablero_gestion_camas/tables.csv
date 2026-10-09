@@ -1,0 +1,6 @@
+﻿[ID],[Name],[Model],[DataCategory],[Description],[IsHidden],[StorageMode],[TableStorage],[Expression],[ShowAsVariationOnly],[IsPrivate],[CalculationGroupPrecedence],[LineageTag]
+151518747,Calendario,2374b6a0-2dc2-5c6d-a737-3a1237b94621,Regular,,False,Import,Calendario (151518747),"CALENDAR(""2023-01-01"", DATE(YEAR(TODAY()), 12, 31))",False,False,,59e78cbe-943e-5459-814f-b6617528fe67
+247296060,CAMAS,2374b6a0-2dc2-5c6d-a737-3a1237b94621,Regular,,False,Import,CAMAS (247296060),,False,False,,470d6f34-7b12-5c8d-b84e-bfc178350643
+169388856,OCUPACION_DIARIA,2374b6a0-2dc2-5c6d-a737-3a1237b94621,Regular,,False,Import,OCUPACION_DIARIA (169388856),,False,False,,5fc84747-718f-5c6f-b969-5e8c77b91a71
+108222269,EGRESOS,2374b6a0-2dc2-5c6d-a737-3a1237b94621,Regular,,False,Import,EGRESOS (108222269),,False,False,,4558c6d2-dbaa-5088-9303-6b766884632b
+28886921,SOLICITUD_CAMAS,2374b6a0-2dc2-5c6d-a737-3a1237b94621,Regular,,False,Import,SOLICITUD_CAMAS (28886921),,False,False,,37a3093c-547d-575a-bc89-31ba6fc85c8f

@@ -1,0 +1,26 @@
+﻿[ID],[Name],[Table],[DataType],[DataCategory],[Description],[IsHidden],[IsUnique],[IsKey],[IsNullable],[Alignment],[SummarizeBy],[ColumnStorage],[Type],[SourceColumn],[Expression],[FormatString],[IsAvailableInMDX],[SortByColumn],[GroupingBehavior],[SourceProviderType],[DisplayFolder],[AlternateOf],[LineageTag]
+150254885,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,Calendario,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+225681644,Date,Calendario,Date,Regular,,False,False,False,True,Default,None,,CalculatedTableColumn,,,Short Date,True,,GroupOnValue,,,,11a43b76-99f5-536e-933d-3f51b0d0f88a
+24676946,AÑO,Calendario,Integer,Regular,,False,False,False,True,Default,Sum,,Calculated,,YEAR('Calendario'[Date]),0,True,,GroupOnValue,,,,d3873500-3d98-5228-a0d7-383547170c51
+174049563,MES,Calendario,Integer,Regular,,False,False,False,True,Default,Sum,,Calculated,,MONTH('Calendario'[Date]),0,True,,GroupOnValue,,,,8751ae76-174c-5f3f-a33a-5583703b0103
+218233456,NOMBRE_MES,Calendario,Text,Regular,,False,False,False,True,Default,None,,Calculated,,"FORMAT('Calendario'[Date], ""MMMM"")",,True,,GroupOnValue,,,,e5758e72-62bf-5312-8b54-854c329609ce
+265229214,TRIMESTRE,Calendario,Text,Regular,,False,False,False,True,Default,None,,Calculated,,"""Trim. "" & INT((MONTH('Calendario'[Date]) + 2) / 3)",,True,,GroupOnValue,,,,15b01cb8-5411-5264-bee8-aef8c69471a9
+260826767,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,CAMAS,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+70685711,OID,CAMAS,Integer,Regular,,False,True,False,True,Default,Sum,,Data,OID,,0,True,,GroupOnValue,,,,2e77f29f-a212-5cf4-898f-e4af3f87b35d
+257868008,CODIGO_CAMA,CAMAS,Text,Regular,,False,False,False,True,Default,None,,Data,CODIGO_CAMA,,,True,,GroupOnValue,,,,fbeac671-f5f9-596f-a137-734c1ea665e1
+244951365,SERVICIO,CAMAS,Text,Regular,,False,False,False,True,Default,None,,Data,SERVICIO,,,True,,GroupOnValue,,,,18cb8090-209c-5a6c-97d8-ce0f094cb364
+71192388,TIPO_CAMA,CAMAS,Text,Regular,,False,False,False,True,Default,None,,Data,TIPO_CAMA,,,True,,GroupOnValue,,,,401f7e5c-6e56-5380-b403-7a74b15a9100
+177100555,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,OCUPACION_DIARIA,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+228156564,FECHA,OCUPACION_DIARIA,Date,Regular,,False,False,False,True,Default,None,,Data,FECHA,,,True,,GroupOnValue,,,,214ca868-2708-5172-89df-daef987a7a71
+104908461,OID_CAMA,OCUPACION_DIARIA,Integer,Regular,,False,False,False,True,Default,Sum,,Data,OID_CAMA,,0,True,,GroupOnValue,,,,47e564c8-e89a-5816-aaa0-11c824b04fdc
+70327148,ESTADO_CAMA,OCUPACION_DIARIA,Text,Regular,,False,False,False,True,Default,None,,Data,ESTADO_CAMA,,,True,,GroupOnValue,,,,30a40632-7653-5949-950a-8c43c394e639
+227235356,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,EGRESOS,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+241977222,OID_EGRESO,EGRESOS,Integer,Regular,,False,True,False,True,Default,Sum,,Data,OID_EGRESO,,0,True,,GroupOnValue,,,,fd026f61-a740-5243-8d85-a3dee2c53564
+43992104,FECHA_EGRESO,EGRESOS,Date,Regular,,False,False,False,True,Default,None,,Data,FECHA_EGRESO,,,True,,GroupOnValue,,,,c152607f-961d-552e-9da8-a5081d00ec9c
+184293221,OID_CAMA,EGRESOS,Integer,Regular,,False,False,False,True,Default,Sum,,Data,OID_CAMA,,0,True,,GroupOnValue,,,,10a5bfd9-2fda-5b95-a644-9a3f07e452a5
+95147110,DIAS_ESTANCIA,EGRESOS,Integer,Regular,,False,False,False,True,Default,Sum,,Data,DIAS_ESTANCIA,,0,True,,GroupOnValue,,,,d64e3dc7-c2d1-5aa1-9192-d51a8925c94e
+261553426,TIPO_EGRESO,EGRESOS,Text,Regular,,False,False,False,True,Default,None,,Data,TIPO_EGRESO,,,True,,GroupOnValue,,,,c5638eaf-d994-5dc3-b06b-66f400b20b0e
+264538989,RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61,SOLICITUD_CAMAS,Integer,RowNumber,,True,True,True,False,,,,RowNumber,,,,True,,,,,,
+58754674,FECHA_SOLICITUD,SOLICITUD_CAMAS,Date,Regular,,False,False,False,True,Default,None,,Data,FECHA_SOLICITUD,,,True,,GroupOnValue,,,,7f645790-5991-5681-ba8f-1eabe1231c6f
+26934008,SERVICIO,SOLICITUD_CAMAS,Text,Regular,,False,False,False,True,Default,None,,Data,SERVICIO,,,True,,GroupOnValue,,,,a3759086-86da-5c4b-92da-7d95383a6c46
+266054298,ESTADO_SOLICITUD,SOLICITUD_CAMAS,Text,Regular,,False,False,False,True,Default,None,,Data,ESTADO_SOLICITUD,,,True,,GroupOnValue,,,,dcdba85d-8bcd-5eed-8dd4-4272b8950ec5

@@ -1,0 +1,10 @@
+﻿[ID],[Name],[Table],[Description],[DataType],[Expression],[FormatString],[IsHidden],[State],[KPIID],[IsSimpleMeasure],[DisplayFolder],[DetailRowsDefinition],[DataCategory],[FormatStringDefinition],[LineageTag]
+48086467,Total Egresos,EGRESOS,Número de egresos hospitalarios.,Integer,COUNTROWS('EGRESOS'),"#,0",False,Ready,,False,,,,,b484e558-aa7c-57c4-b8d9-7c14d5fbeb1d
+45191872,Egresos,EGRESOS,Egresos hospitalarios del periodo.,Integer,[Total Egresos],"#,0",False,Ready,,False,,,,,cc191658-1046-510f-9fb7-c8ce27c50d8e
+108246338,EGRESOS AÑO ANTERIOR,EGRESOS,Egresos del mismo periodo del año anterior.,Integer,"CALCULATE([Total Egresos], SAMEPERIODLASTYEAR('Calendario'[Date]))","#,0",False,Ready,,False,,,,,ac743739-6e4d-5496-bdbe-b6b71cf40663
+38848012,PROMEDIO_ESTANCIA,EGRESOS,Días de estancia promedio por egreso.,Number,"DIVIDE(SUM(EGRESOS[DIAS_ESTANCIA]), [Total Egresos], BLANK())",0.00,False,Ready,,False,,,,,26968c5d-dfd2-57cc-b446-d2b6207eef23
+258693313,TOTAL_CIRUGIAS,CIRUGIAS,Total de cirugías registradas.,Integer,COUNTROWS('CIRUGIAS'),"#,0",False,Ready,,False,,,,,f3415e19-60ad-50bf-ac92-c6e5ca9a1399
+18444572,Cirugías realizadas,CIRUGIAS,Cirugías con estado REALIZADA.,Integer,"CALCULATE(COUNTROWS('CIRUGIAS'), CIRUGIAS[ESTADO_CIRUGIA] = ""REALIZADA"")","#,0",False,Ready,,False,,,,,6b9b2aaa-b9a1-54dd-b6fa-74cffe1450a3
+153038904,Total_consultas_urgencias,CONSULTA_URGENCIAS,Consultas atendidas en urgencias.,Integer,COUNT(CONSULTA_URGENCIAS[DOCUMENTO]),"#,0",False,Ready,,False,,,,,1d4ae635-11bd-5862-a2f8-5fe465ea3060
+158475864,% Ocupación,PORCENTAJE_OCUPACIONAL,Porcentaje de ocupación de camas.,Number,"DIVIDE(SUM(PORCENTAJE_OCUPACIONAL[DIAS_CAMA_OCUPADA]), SUM(PORCENTAJE_OCUPACIONAL[CAMAS_HABILITADAS]))",0.00%,False,Ready,,False,,,,,c7d900b0-a41e-5abb-a421-a150930d6a11
+30107220,Total Atenciones,EGRESOS,"Suma de egresos, cirugías y consultas de urgencias.",Integer,[Total Egresos] + [TOTAL_CIRUGIAS] + [Total_consultas_urgencias],"#,0",False,Ready,,False,,,,,d76e03ca-5006-5e32-9a9a-0a46cf982f8e

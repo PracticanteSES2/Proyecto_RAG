@@ -1,0 +1,8 @@
+﻿[ID],[Name],[Model],[DataCategory],[Description],[IsHidden],[StorageMode],[TableStorage],[Expression],[ShowAsVariationOnly],[IsPrivate],[CalculationGroupPrecedence],[LineageTag]
+176921023,Calendario,671aab22-c482-58c3-978d-e66603dce752,Regular,,False,Import,Calendario (176921023),"CALENDAR(""2023-01-01"", DATE(YEAR(TODAY()), 12, 31))",False,False,,25724f1c-25b8-5586-b2a3-5e24127f4956
+202691261,ASEGURADORAS,671aab22-c482-58c3-978d-e66603dce752,Regular,,False,Import,ASEGURADORAS (202691261),,False,False,,7e5c589e-61ba-5f57-aaa2-d372ae234b70
+96713095,DIM_SERVICIO,671aab22-c482-58c3-978d-e66603dce752,Regular,,False,Import,DIM_SERVICIO (96713095),,False,False,,e3a3735e-9259-5a8f-a941-eb4917d40052
+22899768,EGRESOS,671aab22-c482-58c3-978d-e66603dce752,Regular,,False,Import,EGRESOS (22899768),,False,False,,99c8a086-2242-559c-9577-bd83859000bf
+26032171,CIRUGIAS,671aab22-c482-58c3-978d-e66603dce752,Regular,,False,Import,CIRUGIAS (26032171),,False,False,,5c9c0112-cd4c-5582-9391-e68d6b7c7df1
+96825217,CONSULTA_URGENCIAS,671aab22-c482-58c3-978d-e66603dce752,Regular,,False,Import,CONSULTA_URGENCIAS (96825217),,False,False,,3d9a539f-2140-58d2-a018-4d29a81348f6
+142972481,PORCENTAJE_OCUPACIONAL,671aab22-c482-58c3-978d-e66603dce752,Regular,,False,Import,PORCENTAJE_OCUPACIONAL (142972481),,False,False,,1a90a334-d765-54d6-a4b3-d0d145ed460e

@@ -1,6 +1,7 @@
 import os
 import sys
 import threading
+from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -8,6 +9,40 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
+
+
+def _net_to_python(value):
+    """Valor de ADOMD (pythonnet) a Python sin depender de la cultura de Windows.
+
+    pythonnet 3 entrega System.DateTime y System.Decimal como objetos .NET y su
+    str() usa la cultura del equipo (es-CO: «1/01/2023 12:00:00 a. m.»,
+    «3906,4»), que luego no se puede convertir a número ni ordenar. Fechas ->
+    ISO («2023-01-01» o «2023-01-01 08:30:00»); decimales -> float.
+    """
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if all(hasattr(value, name) for name in ("Year", "Month", "Day", "Hour", "Minute", "Second")):
+        try:
+            moment = datetime(
+                int(value.Year), int(value.Month), int(value.Day),
+                int(value.Hour), int(value.Minute), int(value.Second),
+            )
+            if moment.time() == datetime.min.time():
+                return moment.strftime("%Y-%m-%d")
+            return moment.isoformat(sep=" ")
+        except (TypeError, ValueError):
+            pass
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        pass
+    try:
+        from System import Decimal as NetDecimal
+
+        return float(NetDecimal.ToDouble(value))
+    except Exception:
+        pass
+    return str(value)
 
 
 class PowerBIProvider:
@@ -496,23 +531,9 @@ class PowerBIProvider:
                             )
                         )
 
-                        if (
-                            value is not None
-                            and not isinstance(
-                                value,
-                                (
-                                    str,
-                                    int,
-                                    float,
-                                    bool,
-                                ),
-                            )
-                        ):
-                            value = str(
-                                value
-                            )
-
-                        row[column] = value
+                        row[column] = _net_to_python(
+                            value
+                        )
 
                     rows.append(
                         row
