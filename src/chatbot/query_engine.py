@@ -1724,6 +1724,37 @@ class QueryEngine:
             choice["summary_source"] = "modelo" if model_text else "catálogo"
         return choices
 
+    # Nombre técnico: guion bajo (total_triage, Pac_act) o cifra pegada a la
+    # palabra (PENDIENTES1).
+    _TECHNICAL_LABEL_RE = re.compile(r"_|[^\W\d_]\d{1,2}$")
+
+    def _readable_label(self, metric):
+        """Etiqueta visible de una opción. Si la medida tiene un nombre técnico
+        («PENDIENTES1», «total_triage», «Pac_act») se muestra el título de su
+        visual (si el tablero lo trae) o el nombre sin guiones bajos ni la
+        cifra pegada («PENDIENTES», «Total triage»). El id no cambia."""
+        label = str(metric.get("label") or "").strip()
+        titles = []
+        for appearance in metric.get("appearances") or []:
+            title = str(appearance.get("visual_title") or "").strip()
+            if title and title not in titles:
+                titles.append(title)
+        same = next(
+            (title for title in titles if self._normalize_text(title) == self._normalize_text(label)),
+            None,
+        )
+        if same:
+            return same
+        if not self._TECHNICAL_LABEL_RE.search(label):
+            return label
+        if titles:
+            return titles[0]
+        readable = re.sub(r"([^\W\d_])\d{1,2}$", r"\1", label)
+        readable = re.sub(r"\s+", " ", readable.replace("_", " ")).strip()
+        if readable and readable == readable.lower():
+            readable = readable[0].upper() + readable[1:]
+        return readable or label
+
     def _build_clarification_choices(self, raw_candidates, margin=_CLARIFICATION_MARGIN,
                                      question=None):
         scored = []
@@ -1748,16 +1779,7 @@ class QueryEngine:
         metrics = {metric.get("metric_id"): metric for _, metric in scored}
         for _, metric in scored:
             report, page, model = self._clarification_context(metric)
-            title = next(
-                (
-                    str(a.get("visual_title")).strip()
-                    for a in metric.get("appearances", []) or []
-                    if a.get("visual_title")
-                    and self._normalize_text(a.get("visual_title"))
-                    == self._normalize_text(metric.get("label"))
-                ),
-                str(metric.get("label")).strip(),
-            )
+            title = self._readable_label(metric)
             where = " › ".join(part for part in (report, page) if part)
             detail = " · ".join(part for part in (where, model) if part)
             choices.append({
@@ -1807,12 +1829,31 @@ class QueryEngine:
     _NONE_LABEL = "Ninguna de las anteriores"
     _NONE_CAPTION = "Buscar otros indicadores parecidos a la pregunta"
 
+    def _single_option_prompt(self, prompt, choice):
+        """Con una sola opción real no se dice «varios indicadores» ni «¿es
+        alguno de estos?»: se pregunta «¿Te refieres a X?»."""
+        ask = f"¿Te refieres a {choice['label']}?"
+        text = str(prompt or "").strip()
+        if not text or text.startswith("Encontré varios indicadores"):
+            return ask
+        text = text.replace(
+            "Estos son los más parecidos de ese tablero. ", "Encontré uno parecido en ese tablero. ",
+        ).replace(
+            "Estos son los más parecidos de otros tableros. ", "",
+        )
+        for plural in ("¿Es alguno de estos?", "¿Es alguna de estas?", "¿Cuál necesitas?"):
+            if text.endswith(plural):
+                return text[: -len(plural)] + ask
+        return text
+
     def _clarification_response(self, choices, question=None, none_label=_NONE_LABEL):
         # `prompt` es solo la pregunta: la interfaz muestra las opciones como
         # botones con su descripción corta. `question` conserva además la
         # lista numerada para quien responde escribiendo. La última opción
         # («Ninguna de las anteriores») busca otros indicadores.
         prompt = question or "Encontré varios indicadores. ¿Cuál necesitas?"
+        if len(choices) == 1:
+            prompt = self._single_option_prompt(prompt, choices[0])
         lines = []
         for index, choice in enumerate(choices, 1):
             line = f"{index}. {choice['label']}"
@@ -1952,6 +1993,7 @@ class QueryEngine:
         )
         self._trace_plan(plan, "Query Plan con el indicador elegido")
         if plan.get("status") == "ready":
+            self._note_same_measure_pages(plan)
             return self._execute_query_plan(plan)
         return self._query_plan_failure(plan)
 
@@ -2125,6 +2167,87 @@ class QueryEngine:
             return hits[0]
         return None
 
+    def _board_named_in_reply(self, message, choices):
+        """«el de referencia» cuando ninguna opción es de Referencia: devuelve
+        el tablero/página conocido que nombra la respuesta (entrada del
+        enrutador: semantic_model, report, name...) o None si la respuesta no
+        nombra un tablero o si alguna opción ya es de ese tablero."""
+        router = getattr(self.query_plan_builder, "source_router", None)
+        mentions_of = getattr(router, "board_mentions", None)
+        norm = self._normalize_text(message)
+        match = self._LOCATION_REPLY.match(norm)
+        rest = (match.group("rest") if match else norm).strip()
+        if not callable(mentions_of) or not rest or len(rest.split()) > 5:
+            return None
+        try:
+            mentions = mentions_of(f"tablero {rest}") or []
+        except Exception:
+            return None
+        contexts = [
+            context for mention in mentions
+            # El nombre debe cubrir toda la respuesta («el de referencia»), no
+            # una palabra suelta de una frase más larga.
+            if len(mention.get("tokens") or []) == len(rest.split())
+            for context in mention.get("contexts") or []
+        ]
+        if not contexts:
+            return None
+        models = {self._normalize_text(context.get("semantic_model")) for context in contexts}
+        for choice in choices:
+            detail = self._normalize_text(choice.get("detail"))
+            if any(model and model in detail for model in models):
+                return None
+        return contexts[0]
+
+    def _search_in_named_board(self, pending, board):
+        """La respuesta a la contrapregunta nombra un tablero que no es de
+        ninguna opción: se dice y se busca la pregunta original en ese tablero.
+        Si allí tampoco hay un indicador, se vuelven a ofrecer las opciones."""
+        name = board.get("report") or board.get("semantic_model") or board.get("name")
+        notice = f"Ninguna de las opciones es {self._board_phrase(name, 'del')}."
+        model = self._normalize_text(board.get("semantic_model"))
+        self._think(
+            "La respuesta nombra un tablero que no es de ninguna opción",
+            f"tablero: {name}; se busca «{pending['question']}» en ese tablero",
+        )
+        question = f"{pending['question']} en el tablero {board.get('name') or name}"
+        self._pending_query_plan = None
+        response, _ = self._run_query_plan(question, pending.get("intent") or {}, "board_from_reply")
+        status = response.get("status")
+        if status in ("success", "empty_result"):
+            plan = response.get("query_plan")
+            if isinstance(plan, dict):
+                plan["notes"] = [f"{notice} Lo busqué en ese tablero.", *(plan.get("notes") or [])]
+            return response
+        options = response.get("clarification_options") or []
+        if status == "needs_clarification" and any(
+            model and model in self._normalize_text(option.get("detail")) for option in options
+        ):
+            response["prompt"] = f"{notice} {response.get('prompt') or ''}".strip()
+            response["question"] = f"{notice} {response.get('question') or ''}".strip()
+            return response
+        # Tampoco está en ese tablero (o solo se ofrecerían indicadores de
+        # otros tableros): se dice y se vuelven a ofrecer las opciones.
+        self._think(
+            "Tampoco hay un indicador parecido en ese tablero",
+            "se vuelven a ofrecer las opciones anteriores",
+        )
+        self._pending_query_plan = pending
+        return self._clarification_response(
+            pending["choices"],
+            f"{notice} En ese tablero tampoco encontré un indicador para "
+            f"«{str(pending['question']).strip(' ¿?')}». ¿Es alguna de estas?",
+            none_label=pending.get("none_label") or self._NONE_LABEL,
+        )
+
+    @staticmethod
+    def _board_phrase(name, article="el"):
+        """«el tablero NAOS» / «el TABLERO NAOS» (sin repetir «tablero»)."""
+        name = str(name or "").strip()
+        if name.lower().startswith("tablero"):
+            return f"{article} {name}"
+        return f"{article} tablero {name}"
+
     _NONE_REPLY = re.compile(
         r"(?:no\s+(?:es\s+)?)?(?:ningun|ninguna|ninguno)"
         r"(?:\s+de)?(?:\s+(?:las|los|esas|esos|estas|estos))?"
@@ -2165,6 +2288,9 @@ class QueryEngine:
         # ser una opción y no una pregunta nueva.
         selected = self._match_query_plan_choice(message, choices)
         if selected is None:
+            board = self._board_named_in_reply(message, choices)
+            if board is not None:
+                return self._search_in_named_board(pending, board)
             if self._looks_like_new_question(message):
                 self._think(
                     "La respuesta no coincide con ninguna opción",
@@ -2189,6 +2315,14 @@ class QueryEngine:
         words = str(plan.get("unresolved_text") or "").strip()
         if reason == "same_name_in_several_boards":
             return "Ese indicador existe en varios tableros. ¿Cuál necesitas?"
+        if reason == "similar_name_in_several_boards":
+            return (
+                "Hay varios indicadores con un nombre casi igual y la pregunta no indica "
+                "cuál. ¿Cuál necesitas?"
+            )
+        if reason == "options_from_named_board":
+            board = plan.get("named_report") or "ese tablero"
+            return f"Estos son los indicadores del tablero {board} más parecidos a tu pregunta. ¿Cuál necesitas?"
         if reason == "qualifier_matches_other_metrics" and words:
             return f"«{words}» aparece en varios indicadores. ¿Cuál necesitas?"
         if reason == "metric_not_in_named_report":
@@ -2203,6 +2337,12 @@ class QueryEngine:
                 return (
                     f"En el tablero {board} no encontré ese indicador. Estos son los más "
                     "parecidos de ese tablero. ¿Es alguno de estos?"
+                )
+            offered = (plan.get("metric_resolution") or {}).get("candidates") or suggestions
+            if len(offered) > 1:
+                return (
+                    f"En el tablero {board} no encontré ese indicador. Estos son los más "
+                    "parecidos de otros tableros. ¿Es alguno de estos?"
                 )
             return (
                 f"En el tablero {board} no encontré ese indicador. Lo encontré en otro "
@@ -2568,8 +2708,55 @@ class QueryEngine:
                 "error": f"{type(error).__name__}: {error}",
             }, "error"
         if plan.get("status") == "ready":
+            self._note_same_measure_pages(plan)
             return self._execute_query_plan(plan), "ready"
         return self._query_plan_failure(plan), plan.get("status")
+
+    _PAGES_IN_NOTE = 8
+
+    def _note_same_measure_pages(self, plan):
+        """La MISMA medida (mismo modelo, tabla y expresión) publicada en varias
+        páginas (p. ej. TIEMPO PROMEDIO GESTION FACTURA en cada área de Control
+        Facturación): no se contrapregunta entre páginas; se responde una vez
+        y la respuesta dice dónde aparece, porque cada página puede aplicar sus
+        propios filtros de visual."""
+        builder = self.query_plan_builder
+        key_of = getattr(builder, "_logical_key", None)
+        metric = plan.get("metric") or {}
+        if not callable(key_of) or not metric.get("metric_id"):
+            return
+        key = key_of(metric)
+        if not key[-1]:
+            return  # sin expresión no se puede saber si es la misma medida
+        places = []
+        for other in getattr(builder, "metrics", None) or []:
+            if other.get("validation_status") not in (None, "approved") or key_of(other) != key:
+                continue
+            for appearance in other.get("appearances") or []:
+                page = str(appearance.get("page_display_name") or "").strip()
+                report = str(appearance.get("report") or other.get("report") or "").strip()
+                if page and (report, page) not in places:
+                    places.append((report, page))
+        if len(places) < 2:
+            return
+        reports = list(dict.fromkeys(report for report, _ in places if report))
+        pages = ", ".join(page for _, page in places[: self._PAGES_IN_NOTE])
+        if len(places) > self._PAGES_IN_NOTE:
+            pages += f" y {len(places) - self._PAGES_IN_NOTE} más"
+        where = self._board_phrase(reports[0], "del") if len(reports) == 1 else "de varios tableros"
+        note = (
+            f"Este indicador aparece en {len(places)} páginas {where} ({pages}); cada "
+            "página puede aplicar sus propios filtros. Este es el valor general, sin "
+            "los filtros propios de cada página."
+        )
+        notes = list(plan.get("notes") or [])
+        if note not in notes:
+            plan["notes"] = [*notes, note]
+        self._think(
+            "La misma medida aparece en varias páginas",
+            f"{metric.get('label')}: misma medida (modelo, tabla y expresión) en {len(places)} páginas; "
+            "se responde una vez con el valor general en lugar de contrapreguntar por página",
+        )
 
     # ========================================================
     # PROCESS

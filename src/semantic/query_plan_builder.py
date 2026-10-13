@@ -3362,6 +3362,342 @@ class QueryPlanBuilder:
             plan["unresolved_kind"] = "out_of_scope"
         return plan
 
+    # ---------------- opciones de una contrapregunta ----------------
+    # Palabras que nombran la unidad contada («pacientes», «casos»): «cuántos
+    # pacientes observados» y OBSERVADOS cuentan lo mismo aunque el nombre no
+    # diga «pacientes». No distinguen un indicador de otro.
+    _OPTION_UNIT_WORDS = {
+        "paciente", "pacientes", "persona", "personas", "usuario", "usuarios",
+        "registro", "registros", "caso", "casos",
+    }
+    # Palabras genéricas en un NOMBRE de medida, pero que en la pregunta son el
+    # tema («pacientes con PENDIENTES»): cuentan para decidir si una opción
+    # tiene que ver con la pregunta.
+    _OPTION_TOPIC_WORDS = {"pendiente", "pendientes"}
+    # «por servicio», «según la EPS»: la agrupación no dice de qué indicador se trata.
+    _OPTION_GROUP_RE = re.compile(
+        r"(?<![a-z0-9])(?:por|segun|agrupad[oa]s?\s+por|desglosad[oa]s?\s+por)\s+"
+        r"(?:(?:el|la|los|las|cada)\s+)?[a-z0-9%]+"
+    )
+
+    def _option_words(self, question, source_context):
+        """Palabras distintivas de la pregunta con las que se juzga si una
+        opción tiene que ver con ella: sin relleno, petición, periodo, palabras
+        de agregación («total», «promedio»), la agrupación («por servicio») ni
+        el nombre del tablero nombrado («en naos», «tablero de triage»)."""
+        text = self._metric_business_question(question, source_context)
+        text, board_tokens = self._strip_board_mentions(text, source_context)
+        text = self._OPTION_GROUP_RE.sub(" ", text)
+        content_free, _ = self._weak_token_sets()
+        aggregation = {
+            canonical_token(word)
+            for word in (self._GENERIC_MEASURE_WORDS | self._TECHNICAL_NAME_WORDS) - self._OPTION_TOPIC_WORDS
+        }
+        ignored = set(content_free) | aggregation | set(self._period_words(text)) | set(board_tokens)
+        if (
+            source_context.get("status") == "resolved"
+            and source_context.get("routing_strength") == "strong"
+        ):
+            for name in (source_context.get("report"), source_context.get("semantic_model"),
+                         source_context.get("source_group")):
+                ignored.update(token for token in canonical_tokens(name) if len(token) >= 4)
+        words = []
+        for token in canonical_tokens(text):
+            if (
+                len(token) < 3 or token.isdigit() or token in ignored
+                or _is_request_word(token) or token in words
+            ):
+                continue
+            words.append(token)
+        return words
+
+    def _reflexive_verbs(self, question):
+        """Verbos en pasiva refleja («se tomaron», «se realizaron»): describen
+        la acción contada, no un calificativo que distinga un indicador."""
+        return {
+            canonical_token(match.group(1))
+            for match in re.finditer(r"(?<![a-z0-9])se\s+([a-z]{4,})", normalize_text(question))
+        }
+
+    def _option_coverage(self, metric, words):
+        """Palabras de `words` que explica el indicador (nombres, tabla o página)."""
+        vocabulary = self._metric_vocabulary_tokens(metric or {})
+        return {word for word in words if self._explains(word, vocabulary)}
+
+    def _prune_unrelated_options(self, question, source_context, metric_result):
+        """Depura las opciones de una contrapregunta:
+        - fuera las que no comparten ninguna palabra distintiva de la pregunta
+          («% Ocupación» para «pacientes con pendientes por servicio»);
+        - si algunas explican TODAS las palabras distintivas, solo esas
+          («consultas prioritarias»: las de consultas prioritarias, no
+          cualquier «Consultas»). Las palabras de unidad («pacientes») no
+          obligan. Esas opciones quedan con el mismo puntaje: la pregunta no
+          decide entre ellas y la contrapregunta las muestra todas."""
+        words = self._option_words(question, source_context)
+        if not words:
+            return metric_result
+        units = {canonical_token(word) for word in self._OPTION_UNIT_WORDS}
+        core = [word for word in words if word not in units] or words
+        result = dict(metric_result)
+        for key in ("candidates", "suggestions"):
+            items = list(result.get(key) or [])
+            if len(items) < 2:
+                continue
+            covered = [self._option_coverage(item.get("metric"), core) for item in items]
+            related = [index for index, words_covered in enumerate(covered) if words_covered]
+            if not related:
+                continue  # nada comparte palabras: lo decide otra regla
+            full = [index for index in related if len(covered[index]) == len(core)]
+            keep = full or related
+            if len(keep) == len(items):
+                continue
+            dropped = [
+                str((items[index].get("metric") or {}).get("label"))
+                for index in range(len(items)) if index not in keep
+            ]
+            kept = [dict(items[index]) for index in keep]
+            if full and len(kept) > 1:
+                best = max(float(item.get("score") or 0.0) for item in kept)
+                for item in kept:
+                    item["score"] = best
+            result[key] = kept
+            self._note(
+                "opciones depuradas: "
+                + (f"solo las que explican «{' '.join(core)}»" if full
+                   else f"solo las que comparten alguna palabra de «{' '.join(core)}»")
+                + f"; fuera: {', '.join(dropped[:6])}" + (" ..." if len(dropped) > 6 else "")
+            )
+        return result
+
+    def _named_board_options(self, question, source_context, metric_result):
+        """Tablero nombrado (routing fuerte) y ninguna opción es de él
+        («pacientes con pendientes EN NAOS por servicio» ofrecía %PENDIENTE de
+        ASIGNACION DE CITAS): se buscan opciones en ese tablero. Devuelve
+        ("resolved", item) si una sola explica todas las palabras de la
+        pregunta, ("options", items) si hay varias, o (None, []) si el
+        tablero no tiene ninguna parecida (se mantienen las de otros tableros)."""
+        board_model = normalize_text(source_context.get("semantic_model"))
+        business_question = self._metric_business_question(question, source_context)
+        found = [
+            item for item in self._metric_suggestions(
+                business_question, model_hint=board_model, strong=True, ratio=0.0, limit=None,
+            )
+            if normalize_text(item["metric"].get("semantic_model")) == board_model
+        ]
+        found = self._collapse_year_variants(found, question)
+        words = self._option_words(question, source_context)
+        if not found or not words:
+            return None, []
+        coverage = [len(self._option_coverage(item["metric"], words)) for item in found]
+        best = max(coverage)
+        if best == 0:
+            return None, []
+        top = [item for item, count in zip(found, coverage) if count == best]
+        clean = [{key: value for key, value in item.items() if not key.startswith("_")} for item in top]
+        if len(top) == 1 and best == len(words):
+            return "resolved", clean[0]
+        return "options", clean[: self._SUGGESTION_LIMIT]
+
+    def _similar_name_ambiguity(self, question, source_context, plan):
+        """Regla: el indicador elegido tiene un nombre CASI igual a otro
+        indicador distinto (otra tabla o expresión, a menudo de otro tablero)
+        y la pregunta no los distingue: IMAGENES TOMADAS (BRIEFING) e
+        IMAGENES (ATENCIONES) para «cuántas imágenes se tomaron»; PACIENTES
+        OBSERVADOS POR MES y OBSERVADOS_2025 para «cuántos pacientes
+        observados hay». Ni la unidad («pacientes») ni el verbo en pasiva
+        refleja («se tomaron») distinguen; el rival no puede añadir palabras
+        que la pregunta no dice (PROM_IMAGENES, «Total de triages no
+        atendidos» no compiten). Dentro del mismo modelo solo compite una
+        medida auxiliar sobre la tabla del tema (ver abajo). La MISMA medida
+        (mismo modelo, tabla y expresión) en varias páginas no es ambigua: se
+        responde una vez."""
+        best = plan.get("metric") or {}
+        if not best.get("metric_id"):
+            return None
+        strong = (
+            source_context.get("status") == "resolved"
+            and source_context.get("routing_strength") == "strong"
+        )
+        if strong and normalize_text(source_context.get("semantic_model")) == normalize_text(best.get("semantic_model")):
+            return None
+        units = {canonical_token(word) for word in self._OPTION_UNIT_WORDS}
+        neutral = units | self._reflexive_verbs(question)
+        words = self._option_words(question, source_context)
+        core = [word for word in words if word not in neutral]
+        if not core or len(self._option_coverage(best, core)) < len(core):
+            return None
+        matched_name = (plan.get("metric_match") or {}).get("matched_name")
+        best_keys = {self._name_key(best.get("label")), self._name_key(matched_name)}
+        best_keys.discard(())
+        best_tokens = {token for key in best_keys for token in key}
+        if not best_tokens:
+            return None
+        question_tokens = set(canonical_tokens(self._metric_business_question(question, source_context)))
+
+        def said(token):
+            return any(_tokens_match_loosely(token, other) for other in question_tokens)
+
+        def table_explains(metric, word):
+            return self._explains(word, set(canonical_tokens(metric.get("table"))))
+
+        best_model = normalize_text(best.get("semantic_model"))
+        best_table_explains = any(table_explains(best, word) for word in core)
+        rivals, seen = [], {self._logical_key(best)}
+        for metric in self._dedupe_metrics(self.metrics):
+            if metric.get("validation_status") != "approved":
+                continue
+            logical = self._logical_key(metric)
+            if logical in seen:
+                continue
+            key = self._name_key(metric.get("label"))
+            if not key or key in best_keys or not set(key) & best_tokens:
+                continue
+            if not all(said(token) for token in key):
+                continue  # el rival nombra algo que la pregunta no dice
+            if len(self._option_coverage(metric, core)) < len(core):
+                continue
+            # En el MISMO modelo, las tarjetas de nombre parecido suelen ser
+            # variantes del propio tablero (CITAS ASIGNADAS / ASIGNADAS): no se
+            # pregunta. Solo compite una medida auxiliar (sin visual) sobre la
+            # tabla del tema (OBSERVADOS_2025 sobre OBSERVADOS) cuando la
+            # elegida se calcula sobre otra tabla que no lo nombra.
+            if normalize_text(metric.get("semantic_model")) == best_model and (
+                metric.get("appearances") or best_table_explains
+                or not all(table_explains(metric, word) for word in core)
+            ):
+                continue
+            seen.add(logical)
+            rivals.append(metric)
+        if not rivals:
+            return None
+        rivals.sort(key=lambda metric: 0 if metric.get("appearances") else 1)
+        score = (plan.get("metric_match") or {}).get("score")
+        items = [
+            {"metric": metric, "score": score, "business_score": score,
+             "matched_name": matched_name if metric is best else metric.get("label")}
+            for metric in [best, *rivals]
+        ]
+        items = self._collapse_year_variants(items, question)[: self._SUGGESTION_LIMIT]
+        if len(items) < 2:
+            return None
+        self._note(
+            f"«{best.get('label')}» tiene un nombre casi igual a otros indicadores distintos ("
+            + ", ".join(f"{i['metric'].get('label')} de {i['metric'].get('semantic_model')}" for i in items[1:])
+            + ") y la pregunta no indica cuál: se contrapregunta"
+        )
+        return {
+            "status": "ambiguous", "stage": "metric",
+            "reason": "similar_name_in_several_boards",
+            "question": question, "source_context": source_context,
+            "metric_resolution": {"status": "ambiguous", "candidates": items},
+        }
+
+    def _forced_plan(self, question, intent_result, item, why):
+        """Plan con un indicador ya decidido (única opción razonable)."""
+        metric = item["metric"]
+        interpretation = f"{metric.get('label')}: {why}"
+        self._note(interpretation)
+        forced = {
+            "status": "resolved", "metric": metric,
+            "matched_name": item.get("matched_name") or metric.get("label"),
+            "score": item.get("score"),
+            "candidates": [{key: value for key, value in item.items() if not key.startswith("_")}],
+            "interpretation": interpretation,
+            "final": True,
+        }
+        return self._build_plan(question, intent_result, forced_resolution=forced)
+
+    def _refine_options(self, question, intent_result, plan):
+        """Revisión final de un plan explorado (sin opción elegida):
+        1. tablero nombrado sin opciones de él -> opciones de ese tablero (o
+           respuesta directa si una sola explica la pregunta);
+        2. opciones sin relación con la pregunta -> fuera;
+        3. una sola opción tras agrupar/depurar -> se responde con ella;
+        4. respuesta lista pero con un indicador de nombre casi igual en otra
+           tabla/tablero -> se contrapregunta."""
+        if not isinstance(plan, dict):
+            return plan
+        source_context = plan.get("source_context") or {}
+        status = plan.get("status")
+        if status == "ready":
+            similar = self._similar_name_ambiguity(question, source_context, plan)
+            return similar if similar is not None else plan
+        if status not in ("ambiguous", "not_found") or plan.get("reason") not in (None, "metric_not_in_named_report"):
+            if status == "not_found" and (plan.get("metric_resolution") or {}).get("suggestions"):
+                plan["metric_resolution"] = self._prune_unrelated_options(
+                    question, source_context, plan["metric_resolution"],
+                )
+            return plan
+
+        resolution = plan.get("metric_resolution") or {}
+        strong = (
+            source_context.get("status") == "resolved"
+            and source_context.get("routing_strength") == "strong"
+        )
+        board_model = normalize_text(source_context.get("semantic_model"))
+        if strong and plan.get("reason") == "metric_not_in_named_report":
+            # El indicador elegido era de otro tablero y se ofrecen los del
+            # tablero nombrado: si uno solo explica la pregunta, se responde.
+            board_items = [
+                item for item in resolution.get("suggestions") or []
+                if normalize_text((item.get("metric") or {}).get("semantic_model")) == board_model
+            ]
+            words = self._option_words(question, source_context)
+            full = [
+                item for item in board_items
+                if words and len(self._option_coverage(item.get("metric"), words)) == len(words)
+            ]
+            if len(full) == 1:
+                board = source_context.get("report") or source_context.get("semantic_model")
+                return self._forced_plan(
+                    question, intent_result, full[0],
+                    f"único indicador del tablero nombrado ({board}) que explica la pregunta",
+                )
+        if strong and plan.get("reason") is None and self._board_named_explicitly(question, source_context):
+            offered =[*(resolution.get("candidates") or []), *(resolution.get("suggestions") or [])]
+            if offered and not any(
+                normalize_text((item.get("metric") or {}).get("semantic_model")) == board_model
+                for item in offered
+            ):
+                kind, found = self._named_board_options(question, source_context, resolution)
+                board = source_context.get("report") or source_context.get("semantic_model")
+                if kind == "resolved":
+                    return self._forced_plan(
+                        question, intent_result, found,
+                        f"único indicador del tablero nombrado ({board}) que explica la pregunta; "
+                        "las opciones de otros tableros se descartaron",
+                    )
+                if kind == "options":
+                    self._note(
+                        f"la pregunta nombra el tablero {board}: se ofrecen sus indicadores "
+                        f"({', '.join(str(i['metric'].get('label')) for i in found)}) y no los de otros tableros"
+                    )
+                    best = max(float(item.get("score") or 0.0) for item in found)
+                    plan = {**plan, "status": "ambiguous", "reason": "options_from_named_board",
+                            "named_report": board,
+                            "metric_resolution": {"status": "ambiguous",
+                                                  "candidates": [{**i, "score": best} for i in found]}}
+                    return plan
+                plan = {**plan, "reason": "metric_not_in_named_report", "named_report": board}
+                self._note(
+                    f"la pregunta nombra el tablero {board}, pero no tiene indicadores parecidos: "
+                    "se ofrecen los de otros tableros"
+                )
+
+        resolution = self._prune_unrelated_options(question, source_context, resolution)
+        plan = {**plan, "metric_resolution": resolution}
+        candidates = resolution.get("candidates") or []
+        if (
+            status == "ambiguous" and plan.get("reason") is None and len(candidates) == 1
+            and float(candidates[0].get("business_score") or 0.0) >= self.min_metric_score
+        ):
+            return self._forced_plan(
+                question, intent_result, candidates[0],
+                "única opción tras agrupar variantes y depurar las que no tienen que ver "
+                "con la pregunta: se responde sin contrapreguntar",
+            )
+        return plan
+
     # ---------------- calificativos sin interpretar ----------------
     def _resolve_qualifiers(self, question, intent_result, metric, metric_result, source_context,
                             candidates, group_by, used_fields, consumed_tokens, allow_switch=True):
@@ -3768,6 +4104,8 @@ class QueryPlanBuilder:
                 )
                 if same_name is not None:
                     plan = same_name
+            if selected_metric_id is None:
+                plan = self._refine_options(question, intent_result, plan)
         finally:
             self._resolution_notes = previous
         if notes and isinstance(plan, dict):
@@ -3830,7 +4168,10 @@ class QueryPlanBuilder:
 
         group_detection = self._detect_group_or_dimension_filter(dimension_question, metric, candidates)
         group_by = group_detection["group_by"]
-        switched = None if selected_metric_id is not None else self._metric_without_group_phrase(
+        # Un indicador ya decidido al depurar las opciones (`final`) no se
+        # vuelve a cambiar por resolver la pregunta sin la agrupación.
+        final = selected_metric_id is not None or bool((forced_resolution or {}).get("final"))
+        switched = None if final else self._metric_without_group_phrase(
             question, metric_result, group_by, source_context,
         )
         if switched is not None:

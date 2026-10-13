@@ -255,4 +255,9 @@ CASES = {
         "label": "el sustantivo principal no es el indicador: no se ofrece «sin X»",
         "turns": ["escribeme un codigo en python para ordenar las cirugias programadas"],
     },
+    # ---- opciones de la contrapregunta ----
+    "opc_tablero_sin_opcion": {
+        "label": "«el de lavandería» nombra un tablero que no es de ninguna opción",
+        "turns": ["¿Cuántas cirugías realizadas hubo en 2024?", "el de lavanderia"],
+    },
 }

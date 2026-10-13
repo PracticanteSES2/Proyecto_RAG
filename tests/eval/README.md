@@ -85,13 +85,13 @@ Categorías: `a_kpi_simple`, `b_kpi_periodo`, `c_kpi_filtro`, `d_agrupado`, `e_a
 | --- | --- |
 | `route` | Tipos aceptables del turno: `powerbi`, `powerbi_empty`, `rag`, `clarification`, `out_of_scope`, `not_found`, `metric_not_resolved`, `unsupported_filter`, `powerbi_error`, `error` |
 | `status` | Estados crudos aceptables (`result["status"]`) |
-| `metrics_any` / `models_any` | Alguna etiqueta/id/medida (o modelo/informe/página) contiene alguno de los textos (sin tildes ni mayúsculas) |
-| `filters` | Lista de `{"column": "SERVICIO", "value": "ANTIFLUIDOS"}` (columna opcional) o `{"year": 2026, "month": 1}` (`"year": "actual"`/`"anterior"` = año en curso/pasado). Acepta `AÑO`/`MES` enteros, `date_range` o el DAX. Un filtro no aplicado pero declarado en la respuesta («No pude aplicar: ...») cuenta como válido salvo `"allow_declared_filters": false` |
+| `metrics_any` / `models_any` | Alguna etiqueta/id/medida, título de su visual, nombre con que coincidió o tabla de la medida (o modelo/informe/página) contiene alguno de los textos (sin tildes ni mayúsculas) |
+| `filters` | Lista de `{"column": "SERVICIO", "value": "ANTIFLUIDOS"}` (columna opcional) o `{"year": 2026, "month": 1}` (`"year": "actual"`/`"anterior"` = año en curso/pasado). Acepta `AÑO`/`MES` enteros, el mes en texto (`NOMBRE_MES = 'abril'`, `MES = 'ABRIL'`), `date_range` o el DAX. Un filtro no aplicado pero declarado en la respuesta («No pude aplicar: ...») cuenta como válido salvo `"allow_declared_filters": false` |
 | `group_by_any`, `result_type` | Agrupación (`servicio`, `turno`...) y `table`/`scalar` |
 | `numbers` | Cifras que deben aparecer en la respuesta (acepta 488,3 / 3.906,4 / 12,5 %) |
 | `answer_any` / `answer_all` / `answer_none` | Textos en la respuesta mostrada |
 | `keywords`, `min_keyword_coverage` | Palabras clave del docx que debe cubrir una respuesta documental (por defecto 50 %) |
-| `options_any`, `min_options`, `has_none_option`, `prompt_any` | Contrapreguntas: botones, nº de opciones, «Ninguna de las anteriores», texto de la pregunta |
+| `options_any`, `options_all`, `min_options`, `has_none_option`, `prompt_any` | Contrapreguntas: algún botón contiene alguno de los textos / cada texto está en algún botón (p. ej. ofrece ambos tableros), nº de opciones, «Ninguna de las anteriores», texto de la pregunta |
 | `forbid` / `allow` | Agregar o quitar prohibiciones |
 
 Las comprobaciones que no aplican (p. ej. la métrica de un turno que terminó en contrapregunta) se marcan «no aplica»
