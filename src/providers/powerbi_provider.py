@@ -89,6 +89,10 @@ class PowerBIProvider:
             threading.RLock()
         )
 
+        # Función (modelo, dax) que se avisa ANTES de cada consulta, para
+        # mostrar en vivo qué está consultando (la engancha QueryEngine).
+        self.query_listener = None
+
         self._load_dotnet_dependencies()
 
     # ========================================================
@@ -477,6 +481,13 @@ class PowerBIProvider:
                 semantic_model
             )
         )
+
+        listener = getattr(self, "query_listener", None)
+        if callable(listener):
+            try:
+                listener(model, dax)
+            except Exception:
+                pass
 
         reader = None
         command = None

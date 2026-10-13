@@ -98,6 +98,7 @@ class QueryEngine:
 
         # Razonamiento del turno en curso y del último turno terminado.
         self._trace = None
+        self.progress_listener = None
         self.last_reasoning = None
 
         # Estado de conversación para una ambigüedad
@@ -134,11 +135,29 @@ class QueryEngine:
         if self._trace is not None:
             self._trace.add(title, *lines)
 
+    def _activity(self, title, *lines):
+        """Operación que empieza y puede tardar: solo para la vista en vivo."""
+        if self._trace is not None:
+            self._trace.activity(title, *lines)
+
+    def set_progress_listener(self, listener):
+        """Función que recibe en vivo los pasos del turno (o None). También
+        engancha las consultas DAX del proveedor de Power BI, incluidas las de
+        exploración de valores que hace el Query Plan."""
+        self.progress_listener = listener
+        provider = self.powerbi_provider
+        if provider is not None and hasattr(provider, "query_listener"):
+            provider.query_listener = self._on_powerbi_query if listener else None
+
+    def _on_powerbi_query(self, semantic_model, dax):
+        self._activity(f"Consultando Power BI ({semantic_model or 'modelo por defecto'})",
+                       short(" ".join(str(dax or "").split()), 160))
+
     def _traced(self, kind, text, runner):
         """Ejecuta un turno registrando su razonamiento en result["reasoning"]."""
         if self._trace is not None:
             return runner()  # turno anidado (p. ej. tablero elegido -> process)
-        self._trace = ReasoningTrace(kind, text)
+        self._trace = ReasoningTrace(kind, text, listener=getattr(self, "progress_listener", None))
         try:
             result = runner()
             if isinstance(result, dict):
@@ -152,7 +171,10 @@ class QueryEngine:
             self.last_reasoning = self._trace.to_dict()
             return result
         except Exception as error:
-            self._think("Error inesperado", f"{type(error).__name__}: {error}")
+            self._think(
+                "Error inesperado", f"{type(error).__name__}: {error}",
+                f"estaba en: {self._trace.current_activity}" if self._trace.current_activity else None,
+            )
             self.last_reasoning = self._trace.to_dict()
             raise
         finally:
@@ -1692,6 +1714,7 @@ class QueryEngine:
                 "visuals": ", ".join(visuals[:4]),
                 "semantic_model": metric.get("semantic_model"),
             })
+        self._activity(f"MedGemma está describiendo {len(options)} opciones")
         try:
             outcome = self.option_describer.describe(question, options)
         except Exception as error:
@@ -1993,6 +2016,7 @@ class QueryEngine:
             f"{choice['label']} [{choice['id']}]",
             f"pregunta original: {pending['question']}",
         )
+        self._activity("Armando la consulta con el indicador elegido")
         plan = self.query_plan_builder.build(
             pending["question"], selected_metric_id=choice["id"]
         )
@@ -3136,6 +3160,7 @@ class QueryEngine:
 
     def _run_query_plan(self, question, intent_result, stage):
         """Query Plan completo (compuesto o simple). Devuelve (respuesta, estado_del_plan)."""
+        self._activity("Buscando el indicador, los filtros y el periodo (Query Plan)")
         try:
             composite = self.query_plan_builder.build_composite(
                 question, intent_result=intent_result
@@ -3589,6 +3614,7 @@ class QueryEngine:
         return message
 
     def _process_turn(self, message):
+        self._activity("Interpretando la pregunta")
         # Mensaje tal como lo escribió el usuario (la contrapregunta pendiente
         # decide con él si es una pregunta nueva aunque se haya reescrito).
         previous = getattr(self, "_turn_message", None)
@@ -4002,6 +4028,7 @@ class QueryEngine:
             "general_question",
         ]:
 
+            self._activity("Buscando en la documentación y redactando la respuesta con MedGemma")
             rag_result = (
                 self.rag_answer_engine
                 .answer(

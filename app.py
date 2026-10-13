@@ -1,4 +1,7 @@
 from pathlib import Path
+import html
+import json
+import time
 import traceback
 
 # Variables de entorno (OLLAMA_*, Power BI...) antes de importar src.*.
@@ -397,6 +400,85 @@ def render_reasoning(text):
             st.code(text, language="text")
 
 
+# Segundos sin ningún paso nuevo tras los que el reloj avisa de posible bloqueo.
+STALL_WARNING_SECONDS = 45
+
+
+def render_live_clock(placeholder, started_at, step_started_at, step_title):
+    """Reloj que corre en el NAVEGADOR: sigue avanzando aunque Python esté
+    bloqueado esperando a Power BI o a MedGemma, para distinguir lentitud de
+    un proceso pegado."""
+    # Texto del paso como literal JS seguro (sin «</script>» posible).
+    title = json.dumps(step_title or "").replace("<", chr(92) + "u003c")
+    page = f"""
+<div id="clock" style="font-family: sans-serif; font-size: 13px; color: #555;"></div>
+<script>
+const start = {started_at * 1000:.0f}, stepStart = {step_started_at * 1000:.0f};
+const step = {title}, stall = {STALL_WARNING_SECONDS};
+const el = document.getElementById("clock");
+function tick() {{
+  const now = Date.now();
+  const total = ((now - start) / 1000).toFixed(0);
+  const inStep = ((now - stepStart) / 1000).toFixed(0);
+  let text = "⏱ " + total + " s en total · paso actual: " + step + " (" + inStep + " s)";
+  if (inStep > stall) {{
+    text += " · ⚠ sin avances hace " + inStep + " s: puede estar lento o bloqueado en este paso";
+    el.style.color = "#b45309";
+  }}
+  el.textContent = text;
+}}
+tick(); setInterval(tick, 500);
+</script>
+"""
+    with placeholder.container():
+        if hasattr(st, "iframe"):
+            st.iframe(page, height=28)
+        else:  # Streamlit anterior
+            import streamlit.components.v1 as components
+
+            components.html(page, height=28)
+
+
+class LiveProgress:
+    """Muestra en vivo los pasos del turno dentro de un st.status."""
+
+    def __init__(self):
+        self.started_at = time.time()
+        self.status = st.status("Pensando… interpretando la pregunta", expanded=True)
+        self.clock = st.empty()
+        self.steps = 0
+        self.queries = 0
+        render_live_clock(self.clock, self.started_at, self.started_at, "inicio")
+
+    def on_event(self, event):
+        title = str(event.get("title") or "")
+        seconds = float(event.get("t") or 0.0)
+        if event.get("kind") == "activity":
+            if title.startswith("Consultando Power BI"):
+                self.queries += 1
+            detail = (event.get("lines") or [""])[0]
+            line = f"`{seconds:5.1f} s` ⏳ {html.escape(title)}"
+            if detail:
+                line += f" — <small>{html.escape(detail)}</small>"
+            self.status.markdown(line, unsafe_allow_html=True)
+            self.status.update(label=f"Pensando… {title}")
+            render_live_clock(self.clock, self.started_at, time.time(), title)
+            return
+        self.steps += 1
+        self.status.markdown(f"`{seconds:5.1f} s` ✔ {html.escape(title)}", unsafe_allow_html=True)
+
+    def finish(self, error=False):
+        elapsed = time.time() - self.started_at
+        self.clock.empty()
+        summary = f"{elapsed:.1f} s · {self.steps} pasos"
+        if self.queries:
+            summary += f" · {self.queries} consulta{'s' if self.queries != 1 else ''} a Power BI"
+        if error:
+            self.status.update(label=f"Error tras {summary}", state="error", expanded=True)
+        else:
+            self.status.update(label=f"Listo en {summary}", state="complete", expanded=False)
+
+
 def execute_turn(user_text, runner, via="texto"):
     st.session_state.pending_clarification = None
     st.session_state.queued_option = None
@@ -406,18 +488,28 @@ def execute_turn(user_text, runner, via="texto"):
 
     with st.chat_message("assistant"):
         error_text = None
-        with st.spinner("Consultando información..."):
-            try:
-                result = runner()
-                answer = get_display_answer(result, formatter)
-            except Exception as exc:
-                traceback.print_exc()
-                error_text = f"{type(exc).__name__}: {exc}"
-                result = {
-                    "status": "error", "route": None, "error": error_text,
-                    "reasoning": getattr(engine, "last_reasoning", None),
-                }
-                answer = "Ocurrió un error al procesar la consulta. Intenta nuevamente."
+        # Pasos en vivo (qué está haciendo y desde hace cuánto) en lugar de
+        # un spinner mudo: así se distingue lentitud de un proceso pegado.
+        live = LiveProgress()
+        set_listener = getattr(engine, "set_progress_listener", None)
+        if callable(set_listener):
+            set_listener(live.on_event)
+        try:
+            result = runner()
+            answer = get_display_answer(result, formatter)
+            live.finish()
+        except Exception as exc:
+            traceback.print_exc()
+            error_text = f"{type(exc).__name__}: {exc}"
+            result = {
+                "status": "error", "route": None, "error": error_text,
+                "reasoning": getattr(engine, "last_reasoning", None),
+            }
+            answer = "Ocurrió un error al procesar la consulta. Intenta nuevamente."
+            live.finish(error=True)
+        finally:
+            if callable(set_listener):
+                set_listener(None)
 
         st.markdown(answer)
 
