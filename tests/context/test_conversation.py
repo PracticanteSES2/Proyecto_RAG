@@ -236,8 +236,23 @@ def period(result):
     return format_filters_line(result.get("filters") or (result.get("query_plan") or {}).get("filters"))
 
 
+_MESES = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
+          "octubre", "noviembre", "diciembre")
+
+
+def _relative_months():
+    """(«octubre 2026», «septiembre 2026», año del mes pasado) según hoy."""
+    from datetime import date
+
+    today = date.today()
+    previous = today.year * 12 + today.month - 2
+    return (f"{_MESES[today.month - 1]} {today.year}",
+            f"{_MESES[previous % 12]} {previous // 12}", previous // 12)
+
+
 def test_sim_owner_case_text_button_then_previous_month():
     ctx = _ctx()
+    this_month, last_month, last_year = _relative_months()
     engine, cm, ask, choose = ctx.conversation()
     first, _ = ask(
         "Se me ha solicitado saber la cantidad de cirugias realizadas que tiene cada una de las "
@@ -246,21 +261,21 @@ def test_sim_owner_case_text_button_then_previous_month():
     assert first["status"] == "needs_clarification", first.get("status")
     second, _ = choose(clarification_buttons(first)[0]["id"])
     assert second["status"] == "success" and ctx.groups(second) == ["ESPECIALIDAD"], second.get("status")
-    assert "octubre 2026" in period(second), period(second)
+    assert this_month in period(second), period(second)
     third, ui = ask("Y en el mes pasado?")
     assert third["status"] == "success" and third["route"] == "powerbi", (third.get("status"), ui)
     assert third["metric"] == second["metric"] and ctx.groups(third) == ["ESPECIALIDAD"], third["metric"]
-    assert "septiembre 2026" in period(third) and "octubre" not in period(third), period(third)
+    assert last_month in period(third) and this_month.split()[0] not in period(third), period(third)
     assert "Interpreté tu mensaje como" in (interpretation(third) or ""), ctx.steps(third)
     assert "nombra un indicador" not in ctx.reasoning(third)
     # Sin forma de pregunta: «eso mismo pero de agosto» toma el año de la consulta anterior.
     fourth, _ = ask("necesito eso mismo pero de agosto")
     assert fourth["metric"] == second["metric"] and ctx.groups(fourth) == ["ESPECIALIDAD"]
-    assert "agosto 2026" in period(fourth), period(fourth)
+    assert f"agosto {last_year}" in period(fourth), period(fourth)
     # «ok, y el total?»: misma consulta sin desglose.
     total, _ = ask("ok, y el total?")
     assert total["status"] in ("success", "empty_result") and not total.get("group_by"), total.get("status")
-    assert "agosto 2026" in period(total)
+    assert f"agosto {last_year}" in period(total)
     # La memoria lo registró todo (el botón y la interpretación).
     history = engine.conversation_history(10)
     assert history[2]["meta"]["via"] == "botón" and history[1]["meta"].get("chosen")
