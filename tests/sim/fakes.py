@@ -585,10 +585,12 @@ class FakeDaxEngine:
             limit = int(top_args[0])
             descending = not (len(top_args) > 3 and top_args[3].strip().upper() == "ASC")
             columns, rows = self.execute(semantic_model, "EVALUATE\n" + top_args[1])
-            rows = sorted(rows, key=lambda r: r[-1], reverse=descending)[:limit]
-            order = re.search(r"ORDER\s+BY\s+\[__value\]\s+(ASC|DESC)", up)
+            ref = top_args[2].strip() if len(top_args) > 2 else "[__value]"
+            idx = columns.index(ref) if ref in columns else -1
+            rows = sorted(rows, key=lambda r: r[idx], reverse=descending)[:limit]
+            order = re.search(r"ORDER\s+BY\s+\[__(?:value|m1)\]\s+(ASC|DESC)", up)
             if order:
-                rows.sort(key=lambda r: r[-1], reverse=order.group(1) == "DESC")
+                rows.sort(key=lambda r: r[idx], reverse=order.group(1) == "DESC")
             return columns, rows
 
         if "SUMMARIZECOLUMNS(" in up:
@@ -607,6 +609,10 @@ class FakeDaxEngine:
                 raise FakeDaxError("[sim] SUMMARIZECOLUMNS sin columna de valor")
             colname = args[name_idx].strip('"')
             expr = args[name_idx + 1]
+            if len(args) > name_idx + 2:
+                # Varias medidas: "__m1", expr1, "__m2", expr2...
+                pairs = [(args[i].strip('"'), args[i + 1]) for i in range(name_idx, len(args) - 1, 2)]
+                return self._multi_summarize(model, rowlevel, groups, filters, pairs)
             if rowlevel:
                 rows = self._apply_filters(self._row_source(model, expr, filters, groups), filters)
                 buckets = {}
@@ -657,6 +663,55 @@ class FakeDaxEngine:
             return cols, self._order_rows(dax, cols, [row])
 
         raise FakeDaxError(f"[sim] patrón DAX no soportado: {dax[:120]}")
+
+    def _multi_value(self, model, rowlevel, expr, filters, bucket_rows=None, all_rows=None,
+                     group_filter=None):
+        """Valor de una columna de SUMMARIZECOLUMNS multi-medida en un grupo:
+        medida, CALCULATE(medida, filtros) o DIVIDE(parte, CALCULATE(..., REMOVEFILTERS))."""
+        text = expr.strip()
+        if text.upper().startswith("DIVIDE("):
+            num, den = self._split_args(self._inside(text, "DIVIDE"))[:2]
+            part = self._multi_value(model, rowlevel, num, filters, bucket_rows, all_rows, group_filter)
+            # El denominador quita el filtro del grupo (REMOVEFILTERS).
+            total = self._multi_value(model, rowlevel, den, filters, all_rows, all_rows, None)
+            return None if not total or part is None else part / total
+        extra = []
+        if text.upper().startswith("CALCULATE("):
+            cargs = self._split_args(self._inside(text, "CALCULATE"))
+            text = cargs[0]
+            extra = [self._parse_filter(model, a) for a in cargs[1:]
+                     if not a.upper().startswith("REMOVEFILTERS(")]
+        if rowlevel:
+            return self._row_aggregate(model, text, self._apply_filters(bucket_rows, extra))
+        group = [group_filter] if group_filter else []
+        return self._eval_measure_expr(model, text, filters + extra + group)
+
+    def _multi_summarize(self, model, rowlevel, groups, filters, pairs):
+        columns = [f"{t}[{c}]" for t, c, _ in groups] + [f"[{name}]" for name, _ in pairs]
+        out = []
+        if rowlevel:
+            exprs = " ".join(e for _, e in pairs)
+            rows = self._apply_filters(self._row_source(model, exprs, filters, groups), filters)
+            buckets = {}
+            for r in rows:
+                buckets.setdefault(tuple(r.get(g[1]) for g in groups), []).append(r)
+            for key, brs in buckets.items():
+                values = [self._multi_value(model, True, e, filters, brs, rows) for _, e in pairs]
+                if any(v is not None for v in values):
+                    out.append([*key, *values])
+        else:
+            if len(groups) != 1:
+                raise FakeDaxError("[sim] el fake canned solo soporta 1 columna de agrupación")
+            t, c, meta = groups[0]
+            for v in meta.get("values", []):
+                group_filter = {"kind": "eq", "table": t, "column": c, "meta": meta, "values": [v]}
+                values = [self._multi_value(model, False, e, filters, group_filter=group_filter)
+                          for _, e in pairs]
+                if any(x is not None for x in values):
+                    out.append([v, *values])
+        first = len(groups)
+        out.sort(key=lambda r: (r[first] is not None, r[first] or 0), reverse=True)
+        return columns, out
 
     @staticmethod
     def _order_rows(dax, columns, rows):

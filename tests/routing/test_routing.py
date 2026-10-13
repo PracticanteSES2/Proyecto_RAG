@@ -263,6 +263,128 @@ def test_unresolved_part_is_reported():
     assert "zzqx" in result["answer"]
 
 
+# ---------------------------------------------------------------- compuestas coordinadas
+def _sub_questions(builder, question):
+    return [
+        [option["sub_question"] for option in options]
+        for split in builder._coordination_splits(question)
+        for options in [*builder._coordination_variants(split)]
+    ]
+
+
+def test_coordination_splits_elliptical_parts_share_the_noun():
+    _, builder, _, _ = make_system()
+    # «realizadas» comparte «cirugias»: primero la parte elíptica, luego tal cual.
+    assert _sub_questions(builder, "cirugias programadas y realizadas en 2024") == [
+        ["cirugias programadas en 2024"], ["cirugias realizadas en 2024", "realizadas en 2024"],
+    ]
+    assert _sub_questions(builder, "pacientes atendidos y no atendidos en urgencias en 2025")[1][0] \
+        == "pacientes no atendidos en urgencias en 2025"
+    assert _sub_questions(builder, "cuantas cirugias programadas y cuantas realizadas hubo en 2024")[1][0] \
+        == "cuantas cirugias realizadas hubo en 2024"
+    # Listas con comas: una parte por elemento.
+    assert [opts[0] for opts in _sub_questions(
+        builder, "cirugias programadas, realizadas y canceladas por especialidad en 2024"
+    )] == [
+        "cirugias programadas por especialidad en 2024",
+        "cirugias realizadas por especialidad en 2024",
+        "cirugias canceladas por especialidad en 2024",
+    ]
+
+
+def test_coordination_splits_full_parts_and_shared_complement():
+    _, builder, _, _ = make_system()
+    assert _sub_questions(
+        builder, "total de triages y promedio mensual de triages en 2025 en el tablero de triage"
+    ) == [
+        ["total de triages en 2025 en el tablero de triage"],
+        ["promedio mensual de triages en 2025 en el tablero de triage"],
+    ]
+    # «total y promedio de triages»: el complemento se reparte a las dos partes.
+    assert _sub_questions(builder, "total y promedio de triages en 2025") == [
+        ["total de triages en 2025"], ["promedio de triages en 2025"],
+    ]
+    # Sustantivos distintos («cesareas» no es un participio): parte completa.
+    assert _sub_questions(builder, "cuantos partos vaginales y cuantas cesareas hubo en 2025")[1] == [
+        "cuantos cesareas hubo en 2025",
+    ]
+    assert _sub_questions(builder, "ingresos y egresos del briefing hospitalario") == [
+        ["ingresos del briefing hospitalario"], ["egresos del briefing hospitalario"],
+    ]
+
+
+def test_coordinated_filter_values_are_not_a_composite():
+    _, builder, _, _ = make_system()
+    # «urgencias» es un valor de SERVICIO del mismo indicador: flujo normal.
+    assert builder.build_composite("peso de antifluidos y urgencias en enero de 2026 en lavanderia") is None
+
+
+def test_grouped_measures_in_one_summarizecolumns():
+    _, builder, _, _ = make_system()
+    composite = builder.build_composite("peso y registros por servicio en lavanderia en enero de 2026")
+    assert composite["status"] == "composite" and composite["grouped"]
+    assert [i["label"] for i in composite["items"]] == ["PESO", "REGISTROS"]
+    result = QueryPlanDAXGenerator().generate_multi(
+        [{"kind": i["kind"], "plan": i["plan"]} for i in composite["items"]]
+    )
+    dax = result["dax"]
+    assert result["status"] == "generated" and result["columns"] == ["__m1", "__m2"]
+    assert dax.startswith("EVALUATE\nSUMMARIZECOLUMNS(") and "'LAVANDERIA'[SERVICIO]" in dax
+    assert '"__m1",\n    SUM(\'LAVANDERIA\'[Peso])' in dax and '"__m2",\n    COUNTROWS(\'LAVANDERIA\')' in dax
+    # El periodo, común a las dos medidas, va una sola vez como filtro de la tabla.
+    assert dax.count("DATE(2026, 1, 1)") == 1 and dax.rstrip().endswith("ORDER BY [__m1] DESC")
+
+
+def test_grouped_measure_and_share_columns():
+    _, builder, _, _ = make_system()
+    composite = builder.build_composite("peso y participacion por servicio en lavanderia en enero de 2026")
+    assert [(i["kind"], i["label"]) for i in composite["items"]] == [("metric", "PESO"), ("share", "Participación")]
+    dax = QueryPlanDAXGenerator().generate_multi(
+        [{"kind": i["kind"], "plan": i["plan"]} for i in composite["items"]]
+    )["dax"]
+    assert '"__m2",\n    DIVIDE(SUM(\'LAVANDERIA\'[Peso]), CALCULATE(SUM(\'LAVANDERIA\'[Peso]), ' \
+           "REMOVEFILTERS('LAVANDERIA'[SERVICIO])))" in dax
+    # «participación por servicio» (sin pedir el peso) sigue siendo solo participación.
+    only = builder.build_composite("Cuanta participacion por servicio en lavanderia en enero de 2026")
+    assert [i["kind"] for i in only["items"]] == ["share"]
+
+
+def test_grouped_measures_by_month_use_union_of_rows():
+    _, builder, _, _ = make_system()
+    composite = builder.build_composite("peso y registros por mes en lavanderia en 2026")
+    assert composite and composite["grouped"]
+    dax = QueryPlanDAXGenerator().generate_multi(
+        [{"kind": i["kind"], "plan": i["plan"]} for i in composite["items"]]
+    )["dax"]
+    assert dax.startswith("EVALUATE\nUNION(") and dax.rstrip().endswith("ORDER BY [__orden] ASC")
+    assert dax.count("ROW(") == 12 and '"__m1", CALCULATE(SUM(' in dax and '"__m2", CALCULATE(COUNTROWS(' in dax
+
+
+def test_share_question_form_answers_only_the_share():
+    engine, builder, _, _ = make_system()
+    question = "que porcentaje del peso de enero de 2026 en lavanderia fue de antifluidos"
+    composite = builder.build_composite(question)
+    assert [i["kind"] for i in composite["items"]] == ["share"]
+    result = engine.process(question)
+    assert result["status"] == "success" and [m["label"] for m in result["measures"]] == ["Participación"]
+    assert abs(result["value"] - 0.125) < 1e-9
+    # Un indicador que ya es un porcentaje no es una participación.
+    assert builder._share_question_match("que porcentaje de ocupacion hubo en 2025") is None
+
+
+def test_composite_answer_declares_period_and_filters():
+    from src.chatbot.response_formatter import format_query_plan_answer
+    engine, _, _, _ = make_system()
+    result = engine.process("Cuantos registros y cuanto peso hubo en enero de 2026 en lavanderia")
+    text = format_query_plan_answer(result)
+    assert "**REGISTROS**: 12" in text and "**PESO**: 3.906,4" in text, text
+    assert "Filtros: enero 2026" in text, text
+    titles = [step.get("title") for step in result["reasoning"]["steps"]] if result.get("reasoning") else []
+    assert not titles or any(t.startswith("Plan de «") for t in titles), titles
+    result = engine.process(Q1)
+    assert "Filtros: SERVICIO = ANTIFLUIDOS · enero 2026" in format_query_plan_answer(result)
+
+
 # ---------------------------------------------------------------- fallback
 def test_definitional_questions_stay_in_rag():
     for texto in ("¿Qué muestra el tablero de lavandería?", "¿Cómo se calcula el peso por turno?"):

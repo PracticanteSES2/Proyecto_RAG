@@ -308,3 +308,109 @@ class QueryPlanDAXGenerator:
             ")"
         )
         return {"status": "generated", "mode": "scalar", "dax": dax}
+
+    # ---------------- varias medidas en una tabla ----------------
+    def _multi_value(self, kind, plan, extra_filters, temporal_filters=()):
+        """Expresión de una columna de la tabla multi-medida (o None)."""
+        metric = plan.get("metric", {})
+        expression = metric.get("dax_expression")
+        if plan.get("status") != "ready" or not expression:
+            return None
+        if metric.get("validation_status") != "approved":
+            return None
+        filters = [*extra_filters, *temporal_filters]
+        value = f"CALCULATE({', '.join([expression, *filters])})" if filters else expression
+        if kind != "share":
+            return value
+        dimension = plan.get("share_dimension") or {}
+        if not dimension.get("column") or dimension.get("temporal") or temporal_filters:
+            return None
+        column = self._column_expression(dimension["table"], dimension["column"])
+        total = f"CALCULATE({', '.join([expression, *filters, f'REMOVEFILTERS({column})'])})"
+        return f"DIVIDE({value}, {total})"
+
+    def generate_multi(self, entries):
+        """Una tabla con una columna por medida, agrupada igual para todas.
+
+        entries: [{"kind": "metric" | "share", "plan": plan}] del MISMO modelo y
+        con la misma agrupación (columnas o subperiodos). Columnas: "__m1",
+        "__m2"... en el orden de entries.
+
+        - Agrupación por columnas: SUMMARIZECOLUMNS(grupos, filtros comunes,
+          "__m1", medida1, "__m2", medida2...). Los filtros que no comparten
+          todas las medidas van dentro de su CALCULATE; la participación es
+          DIVIDE(medida, CALCULATE(medida, REMOVEFILTERS(grupo))).
+        - Agrupación temporal («por mes»): UNION de ROW por subperiodo con una
+          columna por medida.
+        """
+        if not entries:
+            return {"status": "rejected", "reason": "multi_without_measures"}
+        plans = [entry["plan"] for entry in entries]
+        base = plans[0]
+        if any(plan.get("status") != "ready" for plan in plans):
+            return {"status": "rejected", "reason": "query_plan_not_ready"}
+        names = [f"__m{index}" for index in range(1, len(entries) + 1)]
+
+        if base.get("temporal_buckets"):
+            buckets = base.get("temporal_buckets") or []
+            group = (base.get("group_by") or [{}])[0]
+            label_name = group.get("column") or "Periodo"
+            others = [
+                self._filter_expressions({"filters": [
+                    item for item in plan.get("filters", []) or []
+                    if item.get("source") != "query_plan_temporal"
+                ]})
+                for plan in plans
+            ]
+            rows = []
+            for bucket in buckets:
+                bucket_filters = self._filter_expressions({"filters": bucket.get("filters") or []})
+                if not bucket_filters:
+                    return {"status": "rejected", "reason": "temporal_bucket_without_filter"}
+                values = []
+                for entry, name, extra in zip(entries, names, others):
+                    value = self._multi_value(entry["kind"], entry["plan"], extra, bucket_filters)
+                    if value is None:
+                        return {"status": "rejected", "reason": "multi_measure_not_supported"}
+                    values.append(f'"{name}", {value}')
+                rows.append(
+                    f'ROW("__orden", {int(bucket.get("order") or len(rows) + 1)}, '
+                    f'{self._string_literal(label_name)}, {self._string_literal(bucket.get("label"))}, '
+                    + ", ".join(values) + ")"
+                )
+            if not rows:
+                return {"status": "rejected", "reason": "grouped_without_dimensions"}
+            body = rows[0] if len(rows) == 1 else "UNION(\n    " + ",\n    ".join(rows) + "\n)"
+            return {
+                "status": "generated", "mode": "grouped_multi", "columns": names,
+                "dax": "EVALUATE\n" + body + "\nORDER BY [__orden] ASC",
+            }
+
+        groups = [
+            self._column_expression(item["table"], item["column"])
+            for item in base.get("group_by", []) or []
+        ]
+        if not groups:
+            return {"status": "rejected", "reason": "grouped_without_dimensions"}
+        per_plan = [self._filter_expressions(plan) for plan in plans]
+        common = [f for f in per_plan[0] if all(f in other for other in per_plan[1:])]
+        arguments = [*groups, *common]
+        for entry, name, filters in zip(entries, names, per_plan):
+            extra = [f for f in filters if f not in common]
+            value = self._multi_value(entry["kind"], entry["plan"], extra)
+            if value is None:
+                return {"status": "rejected", "reason": "multi_measure_not_supported"}
+            arguments.extend([f'"{name}"', value])
+        table = "SUMMARIZECOLUMNS(\n    " + ",\n    ".join(arguments) + "\n)"
+        ranking = base.get("ranking") or {}
+        direction = "ASC" if ranking.get("direction") == "asc" else "DESC"
+        if ranking.get("limit"):
+            table = (
+                f"TOPN(\n    {int(ranking['limit'])},\n    "
+                + table.replace("\n", "\n    ")
+                + f",\n    [{names[0]}], {direction}\n)"
+            )
+        return {
+            "status": "generated", "mode": "grouped_multi", "columns": names,
+            "dax": f"EVALUATE\n{table}\nORDER BY [{names[0]}] {direction}",
+        }
