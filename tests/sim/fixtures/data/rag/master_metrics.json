@@ -66,6 +66,60 @@
       ]
     },
     {
+      "metric_id": "a_total_pd",
+      "label": "TOTAL_PD",
+      "measure": "TOTAL_PD",
+      "aliases": [
+        "TOTAL_PD"
+      ],
+      "source_type": "explicit_measure",
+      "semantic_model": "Atenciones Institucionales",
+      "report": "Tablero de Atenciones Institucionales",
+      "reports": [
+        "Tablero de Atenciones Institucionales"
+      ],
+      "table": "PARTOS_DRIVE",
+      "aggregation": null,
+      "dax_expression": "[TOTAL_PD]",
+      "validation_status": "approved",
+      "appearances": [
+        {
+          "report": "Tablero de Atenciones Institucionales",
+          "page_display_name": "Partos",
+          "visual_id": "a_card_pd_total",
+          "visual_title": "Total"
+        }
+      ],
+      "description": "Total de partos registrados en el periodo."
+    },
+    {
+      "metric_id": "a_prom_pd",
+      "label": "PROM_PD",
+      "measure": "PROM_PD",
+      "aliases": [
+        "PROM_PD"
+      ],
+      "source_type": "explicit_measure",
+      "semantic_model": "Atenciones Institucionales",
+      "report": "Tablero de Atenciones Institucionales",
+      "reports": [
+        "Tablero de Atenciones Institucionales"
+      ],
+      "table": "PARTOS_DRIVE",
+      "aggregation": null,
+      "dax_expression": "[PROM_PD]",
+      "validation_status": "approved",
+      "appearances": [
+        {
+          "report": "Tablero de Atenciones Institucionales",
+          "page_display_name": "Partos",
+          "visual_id": "a_card_pd_prom",
+          "visual_title": null
+        }
+      ],
+      "description": "Promedio mensual de partos del periodo."
+    },
+    {
       "metric_id": "b_total_cx",
       "label": "TOTAL CIRUGÍAS",
       "measure": "Total Cirugías",

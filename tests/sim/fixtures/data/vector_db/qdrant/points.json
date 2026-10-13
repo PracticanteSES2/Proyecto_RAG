@@ -150,6 +150,23 @@
       }
     },
     {
+      "id": 17,
+      "payload": {
+        "text": "Tablero: Abortos\nDescripción: Representa el conteo de abortos registrados en la institución, ya sea por interrupción\nvoluntaria del embarazo o aborto no seguro, y su comportamiento mensual por aseguradora.\nVisualizaciones: tarjetas con el total de abortos y su promedio mensual, gráfico de abortos por mes y\ntabla de conteo de abortos por aseguradora.",
+        "chunk_type": "dashboard_overview",
+        "dashboard": "Abortos",
+        "dashboard_aliases": [],
+        "semantic_model": "Atenciones Institucionales",
+        "semantic_model_key": "atenciones_institucionales",
+        "source_group": "tablero_de_atenciones_institucionales",
+        "source_file": "Abortos.docx",
+        "relative_path": "raw/tablero_de_atenciones_institucionales/Abortos.docx",
+        "document_type": "docx",
+        "technical_catalog": "data/catalog/atenciones_institucionales_rag.json",
+        "section": "overview"
+      }
+    },
+    {
       "id": 8,
       "payload": {
         "text": "Tablero: Tablero Lavanderia\nAlias: lavanderia, tablero lavanderia, tablero de lavanderia\nDescripción: Este tablero monitorea la gestión y distribución del peso de ropa hospitalaria que ingresa al\nárea de lavandería, teniendo en cuenta las personas que registran, las distribuciones de peso por turno\nlaboral y los pesos totales por mes.\nFiltros disponibles: Año, Mes.\nVisualizaciones: Tabla de Participación por Servicio, Tabla de registro de Usuarios, Gráfico Circular de\nPeso por Turno Laboral, Gráfico de Barras por Distribución Mensual.\nIndicadores: Peso (suma de Peso en kg).",

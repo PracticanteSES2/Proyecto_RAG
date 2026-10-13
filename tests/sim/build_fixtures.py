@@ -81,6 +81,14 @@ POWERBI_MODEL = {
                     "EPS": {"type": "String", "values": ASEGURADORES},
                     "FECHA": {"type": "DateTime", "values": FECHAS},
                 },
+                # Página «Partos»: sus indicadores no nombran el tema
+                # (TOTAL_PD / PROM_PD, tarjetas «Total» y «Promedio mensual»).
+                "PARTOS_DRIVE": {
+                    "ID_PARTO": {"type": "Int64", "values": []},
+                    "TIPO_PARTO": {"type": "String", "values": ["VAGINAL", "CESAREA"]},
+                    "ASEGURADOR": {"type": "String", "values": ASEGURADORES},
+                    "FECHA": {"type": "DateTime", "values": FECHAS},
+                },
                 "Calendario": {
                     "Date": {"type": "DateTime", "values": FECHAS},
                     "Año": {"type": "Int64", "values": [2023, 2024, 2025]},
@@ -91,6 +99,8 @@ POWERBI_MODEL = {
             "measures": {
                 "Total Atenciones": {"table": "ATENCIONES", "base": 152340},
                 "Cirugías Realizadas": {"table": "CIRUGIAS_DWSES", "base": 18240},
+                "TOTAL_PD": {"table": "PARTOS_DRIVE", "base": 4380},
+                "PROM_PD": {"table": "PARTOS_DRIVE", "base": 365},
             },
         },
         MODEL_B: {
@@ -224,6 +234,20 @@ VISUAL_CATALOG = {
                         {"visual_id": "a_slicer_cx_anio", "visual_type": "slicer", "fields": [hier("Calendario", "Año")]},
                     ],
                 },
+                {
+                    "page_name": "ReportSection3", "page_display_name": "Partos",
+                    "filters": {},
+                    "visuals": [
+                        {"visual_id": "a_card_pd_total", "visual_type": "card", "title": "Total",
+                         "fields": [meas("PARTOS_DRIVE", "TOTAL_PD")]},
+                        {"visual_id": "a_card_pd_prom", "visual_type": "card", "title": None,
+                         "fields": [meas("PARTOS_DRIVE", "PROM_PD")]},
+                        {"visual_id": "a_slicer_pd_tipo", "visual_type": "slicer",
+                         "fields": [col("PARTOS_DRIVE", "TIPO_PARTO")]},
+                        {"visual_id": "a_slicer_pd_anio", "visual_type": "slicer", "fields": [hier("Calendario", "Año")]},
+                        {"visual_id": "a_slicer_pd_mes", "visual_type": "slicer", "fields": [hier("Calendario", "Mes")]},
+                    ],
+                },
             ],
             "metrics": [],
         },
@@ -307,6 +331,12 @@ MASTER_METRICS = {
                [("Inicio", "a_card_atenciones", "Total atenciones"), ("Inicio", "a_bar_sede", "Atenciones por sede")]),
         metric("a_cx_realizadas", "CIRUGÍAS REALIZADAS", "Cirugías Realizadas", "CIRUGIAS_DWSES", MODEL_A, REPORT_A,
                [("Cirugias", "a_card_cx", "Cirugías realizadas"), ("Cirugias", "a_bar_esp", "Cirugías por especialidad")]),
+        {**metric("a_total_pd", "TOTAL_PD", "TOTAL_PD", "PARTOS_DRIVE", MODEL_A, REPORT_A,
+                  [("Partos", "a_card_pd_total", "Total")], aliases=["TOTAL_PD"]),
+         "description": "Total de partos registrados en el periodo."},
+        {**metric("a_prom_pd", "PROM_PD", "PROM_PD", "PARTOS_DRIVE", MODEL_A, REPORT_A,
+                  [("Partos", "a_card_pd_prom", None)], aliases=["PROM_PD"]),
+         "description": "Promedio mensual de partos del periodo."},
         metric("b_total_cx", "TOTAL CIRUGÍAS", "Total Cirugías", "QX_SOLICITUDES", MODEL_B, REPORT_B,
                [("Programacion Quirurgica", "b_card_total", "Total cirugías")]),
         metric("b_cx_programadas", "CIRUGÍAS PROGRAMADAS", "Cirugías Programadas", "QX_SOLICITUDES", MODEL_B, REPORT_B,
@@ -399,6 +429,16 @@ Descripción: total de solicitudes quirúrgicas registradas, sin importar su est
 Tablero: Tablero Quirurgico
 Consulta técnica documentada: SELECT ESPECIALIDAD, SEDE, ESTADO_ACTUAL, FECHA_PLANEADA FROM Qx_SolicitudProgramacion
 """, section="sql_queries"),
+    # Página documentada SIN indicadores en el modelo (como ABORTOS en el
+    # catálogo real reconstruido): se responde con la documentación y se dice
+    # que el indicador no está en los modelos.
+    chunk(17, "dashboard_overview", "Abortos", [], MODEL_A, KEY_A, GA, """
+Tablero: Abortos
+Descripción: Representa el conteo de abortos registrados en la institución, ya sea por interrupción
+voluntaria del embarazo o aborto no seguro, y su comportamiento mensual por aseguradora.
+Visualizaciones: tarjetas con el total de abortos y su promedio mensual, gráfico de abortos por mes y
+tabla de conteo de abortos por aseguradora.
+""", section="overview"),
 ]
 
 

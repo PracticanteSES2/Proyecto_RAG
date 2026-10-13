@@ -545,6 +545,8 @@ def test_rag_without_evidence_does_not_accept_a_fallback_clarification():
 # Pruebas de enrutamiento v2 (tablero nombrado, «por X» técnico, valores
 # implícitos estrictos): se ejecutan también con este módulo.
 from tests.routing.test_board_routing import *  # noqa: E402,F401,F403
+# Páginas nombradas (por su tema o con «tablero/página de X»).
+from tests.routing.test_named_pages import *  # noqa: E402,F401,F403
 
 
 def _run_all():

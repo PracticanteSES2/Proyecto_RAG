@@ -191,6 +191,90 @@
               ]
             }
           ]
+        },
+        {
+          "page_name": "ReportSection3",
+          "page_display_name": "Partos",
+          "filters": {},
+          "visuals": [
+            {
+              "visual_id": "a_card_pd_total",
+              "visual_type": "card",
+              "title": "Total",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "measure",
+                  "table": "PARTOS_DRIVE",
+                  "measure": "TOTAL_PD",
+                  "display_name": "TOTAL_PD",
+                  "native_query_ref": "TOTAL_PD",
+                  "query_ref": "PARTOS_DRIVE.TOTAL_PD"
+                }
+              ]
+            },
+            {
+              "visual_id": "a_card_pd_prom",
+              "visual_type": "card",
+              "title": null,
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "measure",
+                  "table": "PARTOS_DRIVE",
+                  "measure": "PROM_PD",
+                  "display_name": "PROM_PD",
+                  "native_query_ref": "PROM_PD",
+                  "query_ref": "PARTOS_DRIVE.PROM_PD"
+                }
+              ]
+            },
+            {
+              "visual_id": "a_slicer_pd_tipo",
+              "visual_type": "slicer",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "column",
+                  "table": "PARTOS_DRIVE",
+                  "column": "TIPO_PARTO",
+                  "display_name": "TIPO_PARTO",
+                  "native_query_ref": "TIPO_PARTO",
+                  "query_ref": "PARTOS_DRIVE.TIPO_PARTO"
+                }
+              ]
+            },
+            {
+              "visual_id": "a_slicer_pd_anio",
+              "visual_type": "slicer",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "hierarchy_level",
+                  "table": "Calendario",
+                  "level": "Año",
+                  "query_ref": "Calendario.Date.Variación.Jerarquía de fechas.Año",
+                  "native_query_ref": "Date Año",
+                  "display_name": "Año"
+                }
+              ]
+            },
+            {
+              "visual_id": "a_slicer_pd_mes",
+              "visual_type": "slicer",
+              "fields": [
+                {
+                  "role": "Values",
+                  "kind": "hierarchy_level",
+                  "table": "Calendario",
+                  "level": "Mes",
+                  "query_ref": "Calendario.Date.Variación.Jerarquía de fechas.Mes",
+                  "native_query_ref": "Date Mes",
+                  "display_name": "Mes"
+                }
+              ]
+            }
+          ]
         }
       ],
       "metrics": []
