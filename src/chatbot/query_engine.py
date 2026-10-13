@@ -4069,11 +4069,31 @@ class QueryEngine:
         board = ((turn or {}).get("meta") or {}).get("dashboard")
         return subject, board
 
+    _BOARD_STOPWORDS = {"tablero", "de", "del", "la", "el", "los", "las", "y"}
+
+    def _board_tokens(self, text):
+        return set(self._normalize_text(text).split()) - self._BOARD_STOPWORDS
+
+    @staticmethod
+    def _same_tokens(left, right):
+        """Conjuntos de palabras equivalentes (uno contiene al otro), tolerando
+        erratas de la documentación («LAVADERIA» / «LAVANDERIA»)."""
+        from difflib import SequenceMatcher
+
+        if not left or not right:
+            return False
+        small, big = (left, right) if len(left) <= len(right) else (right, left)
+        return all(
+            any(word == other or SequenceMatcher(None, word, other).ratio() >= 0.85 for other in big)
+            for word in small
+        )
+
     def _board_main_metric(self, board):
-        """Indicador principal de un tablero: el que más aparece en sus
-        visuales (las tarjetas cuentan doble). None si no hay uno claro."""
+        """Indicador principal de un tablero (por informe o página): el que más
+        aparece en sus visuales (las tarjetas cuentan doble). None si no hay
+        uno claro."""
         builder = self.query_plan_builder
-        target = set(self._normalize_text(board).split()) - {"tablero", "de", "del", "la", "el"}
+        target = self._board_tokens(board)
         if not target or builder is None:
             return None
         scores = {}
@@ -4082,11 +4102,13 @@ class QueryEngine:
                 continue
             score = 0
             for appearance in metric.get("appearances") or []:
-                report = set(self._normalize_text(appearance.get("report")).split()) - {"tablero", "de", "del", "la", "el"}
-                if report and (target <= report or report <= target):
+                names = (appearance.get("report"), appearance.get("page_display_name"))
+                if any(self._same_tokens(target, self._board_tokens(name)) for name in names):
                     score += 2 if "card" in str(appearance.get("visual_type") or "").lower() else 1
             if score:
-                scores[metric["metric_id"]] = (score, metric)
+                key = (self._normalize_text(metric.get("label")), self._normalize_text(metric.get("semantic_model")))
+                if key not in scores or scores[key][0] < score:
+                    scores[key] = (score, metric)
         if not scores:
             return None
         ranked = sorted(scores.values(), key=lambda item: -item[0])
@@ -4210,7 +4232,7 @@ class QueryEngine:
 
         # 6. Dato numérico después de una respuesta documental: «¿y cuántos
         #    hubo en 2025?» tras «¿qué muestra el tablero de cancelaciones?».
-        if previous_route == "rag" and last is None and not named and (
+        if previous_route == "rag" and last is None and not named and not self._resolves_to_metric(complement) and (
             "conector" in cues or "referencia" in cues or "lo mismo" in cues
             or len(self._normalize_text(message).split()) <= self._CONTEXT_SHORT_WORDS
         ):
@@ -4289,6 +4311,9 @@ class QueryEngine:
         builder = self.query_plan_builder
         if self._named_metric_words(text):
             return True
+        text = self._without_period_phrases(text)
+        if not text:
+            return False
         try:
             context = builder._source_context(text)
             result = builder._resolve_metric_flexible(text, context)
@@ -4592,7 +4617,12 @@ class QueryEngine:
         short = len(words) <= self._CONTEXT_SHORT_WORDS and not self._is_new_full_question(message)
         if named and not strong:
             return None  # nombra su propio indicador: pregunta nueva
-        if not cues and not (short and not named):
+        if not cues and not short:
+            return None
+        # metric_words no ve todos los nombres («cantidad de pacientes»: ambas
+        # palabras son genéricas o de dimensión); sin referencia explícita, si el
+        # texto solo ya resuelve a un indicador es una pregunta completa.
+        if not strong and self._resolves_to_metric(complement):
             return None
         if last is not None and complement.strip() and not analysis.get("correction"):
             target = complement

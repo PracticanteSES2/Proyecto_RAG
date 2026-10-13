@@ -3227,6 +3227,150 @@
           "expect": {"route": ["rag"], "answer_any": ["lavanderia"]}
         }
       ]
+    },
+    {
+      "id": "i_ctx_propietario_mes_pasado",
+      "category": "i_multiturno",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {"docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/Documentacion Tablero Detalle Ocupación.docx", "seccion": "Cantidad de pacientes"},
+      "arneses": ["realistic"],
+      "descripcion": "Caso real del propietario (tests/eval/out/transcripts/conversacion_20261013_133012.md): tras la tabla de pacientes por especialidad, «Y en el mes pasado?» es la misma consulta con septiembre 2026 (antes: «nombra un indicador (pasado)» y respondía con la documentación de cancelaciones). Luego «eso mismo pero de agosto» y «ok, y el total?».",
+      "turns": [
+        {
+          "user": "De urgencias se me ha solicitado saber la cantidad de pacientes que tiene cada una de las especialidades en hospitalizacion en este mes",
+          "expect": {"route": ["powerbi", "clarification"]}
+        },
+        {
+          "user": "Y en el mes pasado?",
+          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "table", "group_by_any": ["especialidad"], "filters": [{"year": 2026, "month": 9}], "answer_none": ["cancelacion"]}
+        },
+        {
+          "user": "necesito eso mismo pero de agosto",
+          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "table", "filters": [{"year": 2026, "month": 8}]}
+        },
+        {
+          "user": "ok, y el total?",
+          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "scalar", "filters": [{"year": 2026, "month": 8}]}
+        }
+      ]
+    },
+    {
+      "id": "i_sim_ctx_propietario_boton_mes_pasado",
+      "category": "i_multiturno",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {"docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx", "seccion": "Filtro Especialidad"},
+      "arneses": ["sim"],
+      "descripcion": "Flujo exacto del propietario en sim: pregunta con relleno y «cada una de las especialidades» -> contrapregunta -> botón -> «Y en el mes pasado?» (misma tabla, septiembre 2026).",
+      "turns": [
+        {
+          "user": "Se me ha solicitado saber la cantidad de cirugias realizadas que tiene cada una de las especialidades en este mes",
+          "expect": {"route": ["clarification"], "options_any": ["realizad"]}
+        },
+        {"button": 1, "expect": {"route": ["powerbi"], "metrics_any": ["realizad"], "group_by_any": ["especialidad"], "filters": [{"year": 2026, "month": 10}]}},
+        {
+          "user": "Y en el mes pasado?",
+          "expect": {"route": ["powerbi"], "metrics_any": ["realizad"], "group_by_any": ["especialidad"], "filters": [{"year": 2026, "month": 9}]}
+        }
+      ]
+    },
+    {
+      "id": "i_ctx_numerica_a_documental_y_vuelta",
+      "category": "i_multiturno",
+      "tablero": "Lavandería",
+      "fuente": {"docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx", "seccion": "Peso"},
+      "arneses": ["sim", "realistic"],
+      "descripcion": "«¿cómo se calcula ese indicador?» tras un dato es documental de ESE indicador; después «y en febrero de 2026?» vuelve al dato del mismo indicador.",
+      "turns": [
+        {"user": "cuanto peso hubo en lavanderia en enero de 2026", "expect": {"route": ["powerbi"], "metrics_any": ["peso"], "filters": [{"year": 2026, "month": 1}]}},
+        {"user": "¿cómo se calcula ese indicador?", "expect": {"route": ["rag"], "answer_any": ["peso"]}},
+        {"user": "y en febrero de 2026?", "expect": {"route": ["powerbi"], "metrics_any": ["peso"], "filters": [{"year": 2026, "month": 2}]}}
+      ]
+    },
+    {
+      "id": "i_ctx_documental_a_numerica",
+      "category": "i_multiturno",
+      "tablero": "Lavandería",
+      "fuente": {"docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx", "seccion": "Descripción del tablero"},
+      "arneses": ["sim", "realistic"],
+      "descripcion": "Tras la descripción del tablero, «¿y cuánto hubo en enero de 2026?» pide el dato de su indicador principal (peso).",
+      "turns": [
+        {"user": "¿qué muestra el tablero de lavandería?", "expect": {"route": ["rag"], "answer_any": ["lavanderia"]}},
+        {"user": "¿y cuánto hubo en enero de 2026?", "expect": {"route": ["powerbi"], "metrics_any": ["peso"], "filters": [{"year": 2026, "month": 1}]}}
+      ]
+    },
+    {
+      "id": "i_ctx_por_que_tan_alto",
+      "category": "i_multiturno",
+      "tablero": "Lavandería",
+      "fuente": {"docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx", "seccion": "Peso"},
+      "arneses": ["sim", "realistic"],
+      "descripcion": "«¿por qué tan alto?» no es una pregunta nueva sin sujeto: se responde con la documentación del indicador anterior (qué mide y cómo se calcula).",
+      "turns": [
+        {"user": "cuanto peso hubo en lavanderia en enero de 2026", "expect": {"route": ["powerbi"], "metrics_any": ["peso"]}},
+        {"user": "¿por qué tan alto?", "expect": {"route": ["rag"], "answer_any": ["peso"]}}
+      ]
+    },
+    {
+      "id": "i_ctx_regreso_tema",
+      "category": "i_multiturno",
+      "tablero": "Lavandería / Farmacia",
+      "fuente": {"docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx", "seccion": "Peso"},
+      "arneses": ["realistic"],
+      "descripcion": "Cambio de tema (documental de otro tablero) y regreso: «volviendo al peso, ¿y en marzo de 2026?» retoma la consulta de peso.",
+      "turns": [
+        {"user": "cuanto peso hubo en lavanderia en enero de 2026", "expect": {"route": ["powerbi"], "metrics_any": ["peso"]}},
+        {"user": "¿qué filtros tiene el tablero de farmacia?", "expect": {"route": ["rag"]}},
+        {"user": "volviendo al peso, ¿y en marzo de 2026?", "expect": {"route": ["powerbi"], "metrics_any": ["peso"], "filters": [{"year": 2026, "month": 3}]}}
+      ]
+    },
+    {
+      "id": "i_sim_ctx_regreso_tema",
+      "category": "i_multiturno",
+      "tablero": "Lavandería / Tablero Quirúrgico (fixture sim)",
+      "fuente": {"docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx", "seccion": "Peso"},
+      "arneses": ["sim"],
+      "turns": [
+        {"user": "cuanto peso hubo en lavanderia en enero de 2026", "expect": {"route": ["powerbi"], "metrics_any": ["peso"]}},
+        {"user": "¿Qué filtros tiene el tablero quirurgico?", "expect": {"route": ["rag"]}},
+        {"user": "volviendo al peso, ¿y en febrero de 2026?", "expect": {"route": ["powerbi"], "metrics_any": ["peso"], "filters": [{"year": 2026, "month": 2}]}}
+      ]
+    },
+    {
+      "id": "i_sim_ctx_correccion_filtro",
+      "category": "i_multiturno",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {"docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx", "seccion": "Filtro Especialidad"},
+      "arneses": ["sim"],
+      "descripcion": "«no, me refería a ortopedia» corrige el filtro y conserva indicador y año.",
+      "turns": [
+        {"user": "cirugias programadas de urologia en 2024", "expect": {"route": ["powerbi"], "filters": [{"column": "ESPECIALIDAD", "value": "UROLOGIA"}, {"year": 2024}]}},
+        {"user": "no, me refería a ortopedia", "expect": {"route": ["powerbi"], "metrics_any": ["programad"], "filters": [{"column": "ESPECIALIDAD", "value": "ORTOPEDIA Y TRAUMATOLOGIA"}, {"year": 2024}], "answer_none": ["UROLOGIA"]}}
+      ]
+    },
+    {
+      "id": "i_sim_ctx_sin_forma_de_pregunta",
+      "category": "i_multiturno",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {"docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx", "seccion": "Filtro Especialidad"},
+      "arneses": ["sim"],
+      "descripcion": "Mensajes que no parecen preguntas: «para el comité, los de urologia» filtra la consulta anterior y «compáralo con el año pasado» la compara con 2023.",
+      "turns": [
+        {"user": "cirugias programadas por especialidad en 2024", "expect": {"route": ["powerbi"], "group_by_any": ["especialidad"]}},
+        {"user": "para el comité, los de urologia", "expect": {"route": ["powerbi"], "metrics_any": ["programad"], "filters": [{"column": "ESPECIALIDAD", "value": "UROLOGIA"}, {"year": 2024}]}},
+        {"user": "compáralo con el año pasado", "expect": {"route": ["powerbi"], "answer_all": ["2024", "2023"]}}
+      ]
+    },
+    {
+      "id": "i_ctx_pregunta_nueva_no_hereda",
+      "category": "i_multiturno",
+      "tablero": "Lavandería / Cirugías",
+      "fuente": {"docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx", "seccion": "Cirugías programadas"},
+      "arneses": ["sim", "realistic"],
+      "descripcion": "Con memoria de conversación, una pregunta nueva completa no se reescribe ni hereda el periodo ni el indicador anteriores.",
+      "turns": [
+        {"user": "cuanto peso hubo en lavanderia en enero de 2026", "expect": {"route": ["powerbi"], "metrics_any": ["peso"]}},
+        {"user": "total atenciones por servicio en 2024", "expect": {"route": ["powerbi", "clarification"], "metrics_any": ["atenciones"], "options_any": ["atenciones"], "filters": [{"year": 2024}], "answer_none": ["enero 2026", "Peso"]}}
+      ]
     }
   ]
 }
