@@ -87,6 +87,45 @@ class ConversationManager:
         ]
 
     # ========================================================
+    # ¿RESPUESTA A LA CONTRAPREGUNTA O PREGUNTA NUEVA?
+    # ========================================================
+
+    # Empieza como una pregunta completa («¿qué muestra...?», «cuántas...»)
+    # o como una petición («me piden...», «necesito saber...»).
+    _QUESTION_START = re.compile(
+        r"^(?:y\s+)?(?:cuant[oa]s?|que|cual(?:es)?|como|donde|cuando|quien(?:es)?|"
+        r"por\s+que|para\s+que|de\s+que|(?:se\s+)?(?:me|nos)\s+(?:piden|pidieron|han|ha)|"
+        r"necesito|necesitamos|quisiera|quiero\s+saber|explica|explicame|describe)(?![a-z0-9])"
+    )
+
+    def is_reply_to_clarification(self, message):
+        """¿El mensaje responde a la contrapregunta de tablero pendiente?
+
+        Una pregunta nueva completa («¿qué muestra el tablero de farmacia?»)
+        no es una respuesta aunque nombre un tablero: se resuelve desde cero.
+        La pregunta original (reejecución tras el botón) sí es respuesta."""
+        if not self.state.awaiting_clarification:
+            return False
+        text = _normalize(message)
+        if not text:
+            return False
+        if text == _normalize(self.state.original_question):
+            return True
+        if self._match_candidate_dashboard(message) and len(text.split()) <= 6:
+            return True
+        if self._QUESTION_START.match(text) and len(text.split()) >= 3:
+            return False
+        if len(text.split()) >= 6 and not self.intent_parser.detect_dashboard(message):
+            return False
+        return True
+
+    def discard_clarification(self):
+        """Olvida la contrapregunta pendiente y todo lo que se dedujo de la
+        pregunta anterior (tablero, intención, periodo)."""
+        self.state.clear()
+        self.candidate_dashboards = []
+
+    # ========================================================
     # INTENTAR COMPLETAR UNA ACLARACIÓN
     # ========================================================
 
@@ -187,6 +226,13 @@ class ConversationManager:
         # estamos esperando que el usuario aclare algo
         # ----------------------------------------------------
 
+        if (
+            self.state.awaiting_clarification
+            and not self.is_reply_to_clarification(message)
+        ):
+            # Pregunta nueva completa: la contrapregunta anterior no la captura.
+            self.discard_clarification()
+
         if self.state.awaiting_clarification:
 
             self._apply_clarification(
@@ -257,6 +303,13 @@ class ConversationManager:
                 message
             )
         )
+
+        # Pregunta nueva: se resuelve desde cero. Sin esto, el tablero, la
+        # intención o el periodo de la pregunta anterior (si terminó en una
+        # contrapregunta y no hubo reset) se heredaban cuando la nueva no los
+        # nombraba, y el RAG o el Query Plan quedaban fijados en ese tablero.
+        self.state.clear()
+        self.candidate_dashboards = []
 
         self.state.update_from_intent(
             parsed
