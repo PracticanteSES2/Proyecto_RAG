@@ -509,14 +509,15 @@ def test_answer_formatting_scalar_percent_filters_and_unapplied():
                     {"type": "date_range", "month": 1, "year": 2026}],
         "unapplied_terms": ["turno noche"],
     })
-    assert text.startswith("**PESO**: 3.906,4")
+    # Frase inicial con el alcance (periodo y filtro) antes del valor.
+    assert text.startswith("**PESO** en enero de 2026, con servicio ANTIFLUIDOS: **3.906,4**"), text
     assert "Filtros: SERVICIO = ANTIFLUIDOS · enero 2026" in text
     assert "No pude aplicar: turno noche" in text
     pct = format_query_plan_answer({"value": 12.5, "metric": "% de participación"})
     assert "12,5 %" in pct
     pct2 = format_query_plan_answer({"value": 0.125, "metric": "Participación", "metric_format": "0.0%"})
     assert "12,5 %" in pct2
-    assert format_query_plan_answer({"value": 42, "metric": "Cirugías"}).endswith("42")
+    assert format_query_plan_answer({"value": 42, "metric": "Cirugías"}) == "**Cirugías**: **42**"
 
 
 def test_answer_formatting_measures_and_empty_and_never_none():
