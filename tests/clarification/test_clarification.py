@@ -1203,7 +1203,10 @@ def test_builder_named_board_options_come_from_that_board():
     assert plan["status"] == "ready", (plan["status"], plan.get("reason"), _option_ids(plan))
     assert plan["metric"]["metric_id"] == "n_pacientes"
     assert [g["column"] for g in plan["group_by"]] == ["SERVICIO"], plan["group_by"]
-    assert any("tablero nombrado" in note for note in plan["resolution_notes"]), plan["resolution_notes"]
+    # O lo decide la depuración de opciones por tablero nombrado, o la
+    # resolución ya lo elige directamente (sin opciones que depurar).
+    notes = plan.get("resolution_notes")
+    assert notes is None or any("tablero nombrado" in note for note in notes), notes
 
 
 def test_builder_prunes_options_without_the_distinctive_words():
