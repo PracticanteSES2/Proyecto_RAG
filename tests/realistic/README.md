@@ -36,6 +36,11 @@ python -m tests.eval.run --harness realistic --llm fake
 python -m tests.eval.run --harness realistic --llm real --case e_total_atenciones,i_opcion_por_boton
 ```
 
+Latencia de Power BI real: `SIM_DAX_LATENCY_MS=500` (o `adomd.install(..., latency_ms=500)`) hace que el
+simulador espere ese tiempo en cada consulta DAX (`dax_log[i]["latency_ms"]`). Para contar consultas por turno
+en todo el banco sin esperar: `python -m tests.perf.medir_consultas --out antes.json [--frio]` y
+`--comparar antes.json despues.json` (respuestas por caso, consultas/turno y tiempo estimado).
+
 Opciones del chat: `--then` (repetible: número de botón, `__none__`/`ninguna` o texto), `--dax`,
 `--no-reasoning`, `--no-synthetic`, `--powerbi-down`, `--data-root RUTA`, `--culture es-CO|en-US|invariant`.
 

@@ -1,0 +1,297 @@
+"""
+Mide cuántas consultas DAX lanza el chatbot por turno (arnés realista) y cuánto
+tardarían contra Power BI real con una latencia fija por consulta.
+
+    python -m tests.perf.medir_consultas --out C:/tmp/antes.json
+    python -m tests.perf.medir_consultas --out C:/tmp/despues.json --latencia-ms 500
+    python -m tests.perf.medir_consultas --comparar C:/tmp/antes.json C:/tmp/despues.json
+
+Recorre el banco tests/eval/questions.json (los casos aplicables al arnés
+realista) y además la conversación del propietario (2026-10-13). Por cada turno
+guarda: entrada, respuesta de la UI, botones, resumen del resultado, la lista de
+consultas DAX del turno clasificadas (`dominio` = VALUES de una columna,
+`dominio_lote` = varias columnas en una consulta, `medida` = el resto) y el
+tiempo estimado = consultas × latencia (sin dormir de verdad; para dormir de
+verdad usa SIM_DAX_LATENCY_MS en el simulador).
+
+`--comparar` compara dos corridas caso por caso (respuesta, botones, estado,
+filtros y DAX final) y resume consultas/turno y tiempo estimado antes/después.
+"""
+import argparse
+import json
+import statistics
+import sys
+import time
+from pathlib import Path
+
+sys.dont_write_bytecode = True
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+# Conversación del propietario con Power BI real (tests/eval/out/transcripts/propietario_2026-10-13.md).
+PROPIETARIO = {
+    "id": "propietario_2026_10_13",
+    "category": "i_multiturno",
+    "turns": [
+        {"user": "De urgencias se me ha solicitado saber la cantidad de pacientes que tiene cada una de "
+                 "las especialidades en hospitalizacion en este mes"},
+        {"button": {"label_any": ["CANTIDAD DE PACIENTES"]}},
+        {"user": "Cuantos de esos 33 tiene cada especialidad?"},
+        {"button": {"label_any": ["CANTIDAD ATENCIONES POR ESPECIALIDAD"]}},
+    ],
+    "fuente": {"docx": "transcripción del propietario"},
+}
+
+
+# Turno 4 de esa conversación (el de 14,94 s): elegir el indicador de atenciones
+# de UNIDAD_CARDIOVASCULAR para «Cuantos de esos 33 tiene cada especialidad?».
+# En los datos locales el indicador SUM('UNIDAD_CARDIOVASCULAR'[CANTIDAD]) es
+# ATENCIONES [cf9ee1762dc092fc]; se inyecta la contrapregunta pendiente y se
+# pulsa el botón (mismo camino que _run_selected_metric).
+ELECCION_PROPIETARIO = {
+    "id": "propietario_eleccion_turno4",
+    "question": "Cuantos de esos 33 tiene cada especialidad?",
+    "metric_id": "cf9ee1762dc092fc",
+    "label": "CANTIDAD ATENCIONES POR ESPECIALIDAD",
+}
+
+
+def clasificar(dax):
+    """Tipo de consulta DAX: dominio de valores (VALUES), lote de dominios o medida."""
+    text = " ".join(str(dax or "").split())
+    if "__dominio_lote" in text or "\"__columna\"" in text:
+        return "dominio_lote"
+    if "VALUES(" in text and "\"Value\"" in text and "TOPN(" in text:
+        return "dominio"
+    return "medida"
+
+
+def _turn_signature(turn):
+    result = turn.get("result") or {}
+    return {
+        "ui": turn.get("ui"),
+        "buttons": [(b.get("id"), b.get("label")) for b in turn.get("buttons") or []],
+        "status": result.get("status"),
+        "route": result.get("route"),
+        "metric": result.get("metric"),
+        "semantic_model": result.get("semantic_model"),
+        "filters": result.get("filters"),
+        "unapplied_terms": result.get("unapplied_terms"),
+        "dax": result.get("dax"),
+        "passed": turn.get("passed"),
+    }
+
+
+def vaciar_cachés(engine):
+    """Olvida los dominios de valores ya consultados (como una app recién
+    arrancada): sirve para medir el peor caso, con la caché fría en cada caso."""
+    builder = getattr(engine, "query_plan_builder", None)
+    for holder in (builder, getattr(engine, "query_semantic_planner", None)):
+        if holder is None:
+            continue
+        for name in ("value_cache", "domain_errors", "_value_token_cache"):
+            store = getattr(holder, name, None) if name in vars(holder) else None
+            if hasattr(store, "clear"):
+                store.clear()
+    business = getattr(engine, "business_filter_resolver", None)
+    for resolver in (getattr(business, "_cache", None) or {}).values():
+        for name in ("value_cache", "domain_cache_loaded"):
+            store = getattr(resolver, name, None)
+            if hasattr(store, "clear"):
+                store.clear()
+    provider = getattr(engine, "powerbi_provider", None)
+    cache = getattr(provider, "domain_cache", None)
+    if cache is not None and hasattr(cache, "clear"):
+        cache.clear()
+
+
+def correr(case_ids=None, latencia_ms=500, incluir_propietario=True, frio=False, solo_propietario=False):
+    from tests.eval import run as runner
+    from tests.realistic import harness
+
+    data = runner.load_questions()
+    cases = runner.select_cases(data, (), tuple(case_ids or ()), "realistic", only_applicable=True)
+    if incluir_propietario and not case_ids:
+        cases = [PROPIETARIO] if solo_propietario else list(cases) + [PROPIETARIO]
+
+    captured = []
+    original_ask, original_choose = harness.ask, harness.ask_option
+
+    def _capture(result):
+        entries = list(((result or {}).get("_sim") or {}).get("dax_log") or [])
+        captured.append([
+            {"tipo": clasificar(e.get("dax")), "modelo": e.get("semantic_model"),
+             "filas": e.get("rows"), "error": bool(e.get("error")),
+             "dax": " ".join(str(e.get("dax") or "").split())[:400]}
+            for e in entries
+        ])
+
+    def ask(*args, **kwargs):
+        result, ui = original_ask(*args, **kwargs)
+        _capture(result)
+        return result, ui
+
+    def ask_option(*args, **kwargs):
+        result, ui = original_choose(*args, **kwargs)
+        _capture(result)
+        return result, ui
+
+    harness.ask, harness.ask_option = ask, ask_option
+    started = time.perf_counter()
+    system = runner.build_system(harness, "realistic", "fake")
+    turnos = []
+    casos = []
+    for number, case in enumerate(cases, 1):
+        captured.clear()
+        if frio:
+            vaciar_cachés(system[0])
+        outcome =runner.run_case(case, system, harness, harness_name="realistic")
+        queries = list(captured)
+        casos.append({"id": case["id"], "passed": outcome.get("passed"), "outcome": outcome.get("outcome")})
+        q_index = 0
+        for turn in outcome.get("turns") or []:
+            if turn.get("skipped"):
+                consultas = []
+            else:
+                consultas = queries[q_index] if q_index < len(queries) else []
+                q_index += 1
+            por_tipo = {}
+            for q in consultas:
+                por_tipo[q["tipo"]] = por_tipo.get(q["tipo"], 0) + 1
+            turnos.append({
+                "case": case["id"], "turn": turn.get("index"), "input": turn.get("input"),
+                "signature": _turn_signature(turn),
+                "consultas": len(consultas), "por_tipo": por_tipo,
+                "estimado_s": round(len(consultas) * latencia_ms / 1000.0, 2),
+                "latency_s": turn.get("latency_s"),
+                "dax_log": consultas,
+                "reasoning_head": "\n".join((turn.get("reasoning") or "").splitlines()[:6]),
+            })
+        print(f"[{number:3d}/{len(cases)}] {'OK  ' if outcome.get('passed') else 'FAIL'} {case['id']}"
+              f" · consultas {sum(len(q) for q in queries)}", flush=True)
+    if incluir_propietario and not case_ids:
+        turnos.append(_eleccion_propietario(system, harness, ask_option, captured, latencia_ms, frio))
+    harness.ask, harness.ask_option = original_ask, original_choose
+    return {"latencia_ms": latencia_ms, "frio": frio, "elapsed_s": round(time.perf_counter() - started, 1),
+            "casos": casos, "turnos": turnos}
+
+
+def _eleccion_propietario(system, harness, ask_option, captured, latencia_ms, frio):
+    from src.chatbot.response_formatter import clarification_buttons
+
+    engine, cm, formatter = system[0], system[1], system[2]
+    spec = ELECCION_PROPIETARIO
+    harness.new_conversation(engine, cm)
+    if frio:
+        vaciar_cachés(engine)
+    engine._pending_query_plan = {
+        "type": "query_plan_metric", "question": spec["question"],
+        "choices": [{"id": spec["metric_id"], "label": spec["label"]}], "excluded": [],
+    }
+    captured.clear()
+    result, ui = ask_option(engine, cm, formatter, spec["metric_id"], spec["label"])
+    harness.new_conversation(engine, cm)
+    consultas = captured[0] if captured else []
+    por_tipo = {}
+    for q in consultas:
+        por_tipo[q["tipo"]] = por_tipo.get(q["tipo"], 0) + 1
+    buttons = clarification_buttons(result) if result.get("status") == "needs_clarification" else []
+    from tests.eval import run as runner
+    summary = runner._summary_of_result(result)
+    print(f"[ +  ] {spec['id']} · consultas {len(consultas)}", flush=True)
+    return {
+        "case": spec["id"], "turn": 1, "input": f"[botón inyectado] {spec['label']}",
+        "signature": _turn_signature({"ui": ui, "buttons": buttons, "result": summary, "passed": None}),
+        "consultas": len(consultas), "por_tipo": por_tipo,
+        "estimado_s": round(len(consultas) * latencia_ms / 1000.0, 2),
+        "dax_log": consultas,
+    }
+
+
+def _p95(values):
+    if not values:
+        return 0
+    ordered = sorted(values)
+    return ordered[min(len(ordered) - 1, int(round(0.95 * (len(ordered) - 1))))]
+
+
+def resumen(data, top=12):
+    turnos = data["turnos"]
+    counts = [t["consultas"] for t in turnos]
+    lat = data.get("latencia_ms", 500)
+    dominios = [t["por_tipo"].get("dominio", 0) + t["por_tipo"].get("dominio_lote", 0) for t in turnos]
+    lines = [
+        f"turnos: {len(turnos)} · consultas totales: {sum(counts)} "
+        f"(dominio {sum(dominios)}, medida {sum(t['por_tipo'].get('medida', 0) for t in turnos)})",
+        f"consultas/turno: media {statistics.mean(counts):.2f} · p95 {_p95(counts)} · máx {max(counts)}",
+        f"tiempo estimado a {lat} ms/consulta: media {statistics.mean(counts) * lat / 1000:.2f} s · "
+        f"p95 {_p95(counts) * lat / 1000:.2f} s · máx {max(counts) * lat / 1000:.2f} s",
+        f"casos que pasan: {sum(1 for c in data['casos'] if c['passed'])}/{len(data['casos'])}",
+        "peores turnos:",
+    ]
+    for t in sorted(turnos, key=lambda t: -t["consultas"])[:top]:
+        lines.append(f"  {t['consultas']:3d} ({t['por_tipo']}) {t['case']}#{t['turn']}: {str(t['input'])[:90]}")
+    prop = [t for t in turnos if t["case"] == PROPIETARIO["id"]]
+    if prop:
+        lines.append("propietario:")
+        for t in prop:
+            lines.append(f"  #{t['turn']} {t['consultas']:3d} ({t['por_tipo']}) {str(t['input'])[:90]}")
+    return "\n".join(lines)
+
+
+def _medidas(turno):
+    return [q["dax"] for q in turno.get("dax_log") or [] if q.get("tipo") == "medida"]
+
+
+def comparar(antes, despues):
+    a = {(t["case"], t["turn"]): t for t in antes["turnos"]}
+    d = {(t["case"], t["turn"]): t for t in despues["turnos"]}
+    diffs = []
+    for key in sorted(set(a) | set(d), key=lambda k: (k[0], k[1] or 0)):
+        ta, td = a.get(key), d.get(key)
+        if ta is None or td is None:
+            diffs.append((key, "turno ausente en una corrida"))
+            continue
+        # La DAX del resumen incluye las consultas de dominio (cambian con el
+        # lote); se comparan solo las consultas de medidas (las que responden).
+        changed = [k for k in ta["signature"] if k != "dax" and ta["signature"][k] != td["signature"].get(k)]
+        if _medidas(ta) != _medidas(td):
+            changed.append("dax_medidas")
+        if changed:
+            diffs.append((key, changed))
+    lines = ["== ANTES ==", resumen(antes), "", "== DESPUÉS ==", resumen(despues), "",
+             f"turnos con diferencias: {len(diffs)}"]
+    for key, what in diffs:
+        lines.append(f"  {key[0]}#{key[1]}: {what}")
+    return "\n".join(lines), diffs
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--out", help="JSON de salida con las consultas por turno")
+    parser.add_argument("--case", action="append", help="id(s) de caso (por defecto todo el banco aplicable)")
+    parser.add_argument("--latencia-ms", type=int, default=500)
+    parser.add_argument("--sin-propietario", action="store_true")
+    parser.add_argument("--solo-propietario", action="store_true",
+                        help="solo la conversación del propietario (y la elección inyectada)")
+    parser.add_argument("--frio", action="store_true",
+                        help="vacía las cachés de dominios antes de cada caso (peor caso: app recién arrancada)")
+    parser.add_argument("--comparar", nargs=2, metavar=("ANTES", "DESPUES"))
+    args = parser.parse_args(argv)
+    if args.comparar:
+        antes, despues = (json.loads(Path(p).read_text(encoding="utf-8")) for p in args.comparar)
+        text, diffs = comparar(antes, despues)
+        print(text)
+        return 1 if diffs else 0
+    ids = [c.strip() for v in args.case or [] for c in v.split(",") if c.strip()]
+    data = correr(ids, args.latencia_ms, not args.sin_propietario, frio=args.frio,
+                  solo_propietario=args.solo_propietario)
+    if args.out:
+        Path(args.out).write_text(json.dumps(data, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+    print(resumen(data))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

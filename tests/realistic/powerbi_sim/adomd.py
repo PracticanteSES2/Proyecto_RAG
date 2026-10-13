@@ -11,7 +11,12 @@ Configuración (backend.config):
   culture     "es-CO" (por defecto, cultura del Windows del proyecto), "en-US" o "invariant":
               cómo pythonnet convierte System.DateTime / System.Decimal a texto.
   net_types   False => entrega datetime/Decimal de Python (sin emular .NET).
+  latency_ms  espera artificial por consulta DAX (por defecto SIM_DAX_LATENCY_MS o 0) para
+              reproducir el coste de Power BI real (~300-1500 ms por consulta XMLA).
 """
+import os
+import time
+
 from tests.common.adomd import (
     AdomdConnectionException,
     AdomdErrorResponseException,
@@ -24,9 +29,15 @@ from .engine import SimulatedPowerBIError
 
 class SimulatorBackend:
 
-    def __init__(self, simulator, culture="es-CO", net_types=True, powerbi_up=True):
+    def __init__(self, simulator, culture="es-CO", net_types=True, powerbi_up=True, latency_ms=None):
         self.sim = simulator
-        self.config = {"culture": culture, "net_types": net_types, "powerbi_up": powerbi_up}
+        if latency_ms is None:
+            try:
+                latency_ms = float(os.getenv("SIM_DAX_LATENCY_MS") or 0)
+            except ValueError:
+                latency_ms = 0.0
+        self.config = {"culture": culture, "net_types": net_types, "powerbi_up": powerbi_up,
+                       "latency_ms": float(latency_ms)}
         self.log = {"dax": []}
 
     def reset_log(self):
@@ -48,6 +59,9 @@ class SimulatorBackend:
     def execute(self, catalog, dax):
         entry = {"semantic_model": catalog, "dax": dax}
         self.log["dax"].append(entry)
+        if self.config.get("latency_ms"):
+            time.sleep(self.config["latency_ms"] / 1000.0)   # latencia simulada de XMLA
+            entry["latency_ms"] = self.config["latency_ms"]
         try:
             out = self.sim.execute(catalog, dax)
         except SimulatedPowerBIError as exc:
@@ -67,8 +81,9 @@ class SimulatorBackend:
         return out["columns"], rows
 
 
-def install(simulator, culture="es-CO", net_types=True, powerbi_up=True):
+def install(simulator, culture="es-CO", net_types=True, powerbi_up=True, latency_ms=None):
     """Registra los módulos falsos de ADOMD sobre el simulador y devuelve el backend."""
-    backend = SimulatorBackend(simulator, culture=culture, net_types=net_types, powerbi_up=powerbi_up)
+    backend = SimulatorBackend(simulator, culture=culture, net_types=net_types, powerbi_up=powerbi_up,
+                               latency_ms=latency_ms)
     install_adomd_modules(backend)
     return backend
