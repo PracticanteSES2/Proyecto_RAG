@@ -151,7 +151,8 @@ def text_domain(table_name, column_name):
         return GRUPO_ETARIO
     if _has(tab, "lavander") and _has(col, "servicio", "area", "medicion"):
         return LAVANDERIA_SERVICIOS
-    if _has(col, "especialidad", "especiali"):
+    # GEEDESCRI/GEECODIGO: descripción de la especialidad en el HIS (Servinte).
+    if _has(col, "especialidad", "especiali", "geedescri"):
         return ESPECIALIDADES
     if _has(col, "sexo", "genero"):
         return SEXOS

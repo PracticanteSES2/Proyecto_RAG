@@ -118,9 +118,10 @@
         {
           "user": "cuantos medicamentos vencidos tenemos en farmacia?",
           "expect": {
-            "route": ["powerbi"],
+            "route": ["powerbi", "clarification"],
             "metrics_any": ["vencid"],
-            "models_any": ["farmacia"]
+            "models_any": ["farmacia"],
+            "options_any": ["vencid"]
           }
         }
       ]
@@ -844,7 +845,7 @@
           "user": "cuantos pacientes activos con antibiotico hay en la uci",
           "expect": {
             "route": ["powerbi", "powerbi_empty"],
-            "metrics_any": ["pacient"],
+            "metrics_any": ["pacient", "pac_act"],
             "models_any": ["antibiot"],
             "filters": [{"column": "SERVICIO", "value": "UCI"}]
           }

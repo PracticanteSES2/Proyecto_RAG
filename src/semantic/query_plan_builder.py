@@ -288,6 +288,175 @@ def _tokens_match_loosely(left, right):
     return min(len(left), len(right)) >= 5 and _stem_token(left) == _stem_token(right)
 
 
+# Frases equivalentes con la MISMA polaridad («sin responder» = «sin
+# respuesta»): se reescriben antes de resolver el indicador. Una palabra
+# suelta no se reescribe: «respondidas» no es «sin respuesta».
+PHRASE_SYNONYMS = (
+    (re.compile(r"(?<![a-z0-9])(?:sin responder|no respondidas?|no respondidos?|"
+                r"pendientes? (?:de|por) (?:respuesta|responder))(?![a-z0-9])"), "sin respuesta"),
+)
+
+
+def canonical_phrases(text):
+    """(texto, [(frase original, reemplazo)]) con las frases equivalentes unificadas."""
+    original = str(text or "")
+    normalized = normalize_text(original)
+    changes = []
+    for pattern, replacement in PHRASE_SYNONYMS:
+        for match in pattern.finditer(normalized):
+            if match.group(0) != replacement:
+                changes.append((match.group(0), replacement))
+        normalized = pattern.sub(replacement, normalized)
+    if not changes:
+        return original, []
+    return normalized, changes
+
+
+# ---------------- valores opuestos dentro de un dominio ----------------
+# Conectores que nunca distinguen un valor de otro («MENORES DE EDAD»).
+_VALUE_CONNECTORS = {"de", "del", "la", "el", "los", "las", "y", "e", "en", "a", "al", "por", "para", "o", "u"}
+# Palabras de polaridad: distinguen ACEPTADO de NO ACEPTADO o CON/SIN
+# ANTIBIÓTICO aunque sean palabras vacías en el resto del planificador.
+_POLARITY_WORDS = {"no", "sin", "con"}
+_ROMAN_DIGITS = {"i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5", "vi": "6"}
+
+
+def _value_word_forms(word):
+    """Formas comparables de una palabra de un valor: normalizada, canónica
+    (sinónimos de negocio, plural) y raíz («menores» -> menor)."""
+    word = normalize_text(word)
+    forms = {word, canonical_token(word)}
+    if len(word) >= 5:
+        forms.add(_stem_token(word))
+    if word in _ROMAN_DIGITS:
+        forms.add(_ROMAN_DIGITS[word])
+    return {form for form in forms if form}
+
+
+def _value_words(value):
+    """Palabras de un valor de dimensión que pueden distinguirlo de otro."""
+    return [
+        word for word in normalize_text(value).split()
+        if word not in _VALUE_CONNECTORS
+    ]
+
+
+def _word_in_text(word, value_words, text_words):
+    """¿La palabra `word` del valor aparece en el texto pedido?
+
+    - Palabras cortas (≤ 3 letras, números romanos): idénticas.
+    - Polaridad (no/sin/con): solo si precede (a ≤ 2 palabras) a otra
+      palabra del mismo valor: «no aceptadas» sí niega; «¿no hay aceptadas?» no.
+    - Resto: misma forma canónica, misma raíz o error de tipeo leve.
+    """
+    word = normalize_text(word)
+    if word in _POLARITY_WORDS:
+        others = [other for other in value_words if normalize_text(other) != word]
+        for index, text_word in enumerate(text_words):
+            if text_word != word:
+                continue
+            window = text_words[index + 1:index + 3]
+            if not others or any(_word_in_text(other, others, window) for other in others):
+                return True
+        return False
+    forms = _value_word_forms(word)
+    for text_word in text_words:
+        text_forms = _value_word_forms(text_word)
+        if forms & text_forms:
+            if len(word) <= 3 or len(text_word) <= 3:
+                if word == text_word or _ROMAN_DIGITS.get(word) == text_word or _ROMAN_DIGITS.get(text_word) == word:
+                    return True
+                continue
+            return True
+        if min(len(word), len(text_word)) >= 6 and _token_similarity(word, text_word) >= 0.88:
+            return True
+    return False
+
+
+def value_contradiction(text, value, domain):
+    """Motivo (texto) por el que `value` contradice lo pedido en `text`, o None.
+
+    Un filtro nunca elige un valor opuesto a la palabra distintiva de la
+    pregunta: «menores de edad» no es MAYORES DE EDAD, «no aceptadas» no es
+    ACEPTADO, «triage» no es TRIAGE III. La distintividad se mide DENTRO del
+    dominio de la columna (frecuencia de la palabra entre sus valores): las
+    palabras que comparten todos los valores («de edad», «triage») no
+    cuentan como coincidencia.
+    - Regla A: si el valor tiene palabras distintivas, al menos una debe
+      aparecer en el texto.
+    - Regla B: si el texto nombra una palabra que distingue a OTRO valor
+      del elegido (y ninguna que distinga al elegido de ese otro), el
+      elegido contradice la pregunta (o el otro es más preciso).
+    """
+    domain = [item for item in dict.fromkeys(str(v) for v in (domain or []) if v is not None)]
+    if str(value) not in domain:
+        domain.append(str(value))
+    if len(domain) < 2:
+        return None
+    text_words = normalize_text(text).split()
+    if not text_words:
+        return None
+    words_by_value = {item: _value_words(item) for item in domain}
+    cache = {}
+    # Frecuencia de cada palabra (por su forma canónica) en el dominio.
+    def key(word):
+        return _stem_token(word) if len(word) >= 5 else normalize_text(word)
+
+    keys_by_value = {item: {key(word) for word in words} for item, words in words_by_value.items()}
+    frequency = {}
+    for keys in keys_by_value.values():
+        for item in keys:
+            frequency[item] = frequency.get(item, 0) + 1
+    total = len(domain)
+    own_words = words_by_value[str(value)]
+    own_keys = keys_by_value[str(value)]
+
+    def present(word, words):
+        # La polaridad depende de las demás palabras del valor; el resto no.
+        memo = (word, tuple(words)) if normalize_text(word) in _POLARITY_WORDS else word
+        if memo not in cache:
+            cache[memo] = _word_in_text(word, words, text_words)
+        return cache[memo]
+
+    distinctive = [word for word in own_words if frequency.get(key(word), 0) < total]
+    shared = [word for word in own_words if frequency.get(key(word), 0) >= total]
+    hits = [word for word in distinctive if present(word, own_words)]
+
+    def rival_hits(other):
+        words = words_by_value[other]
+        return [
+            word for word in words
+            if key(word) not in own_keys and frequency.get(key(word), 0) < total and present(word, words)
+        ]
+
+    if distinctive and not hits:
+        rivals = [(other, rival_hits(other)) for other in domain if other != str(value)]
+        rivals = [(other, found) for other, found in rivals if found]
+        if rivals:
+            other, found = rivals[0]
+            return (
+                f"la pregunta dice «{' '.join(found)}» (valor {other}), no "
+                f"«{' '.join(distinctive)}»"
+            )
+        return (
+            f"ninguna palabra distintiva de {value} («{' '.join(distinctive)}») aparece en la pregunta"
+            + (f"; «{' '.join(shared)}» la comparten todos los valores de la columna" if shared else "")
+        )
+    for other in domain:
+        if other == str(value):
+            continue
+        found = rival_hits(other)
+        if not found:
+            continue
+        other_keys = keys_by_value[other]
+        own_only = [word for word in own_words if key(word) not in other_keys]
+        if not any(present(word, own_words) for word in own_only):
+            return (
+                f"la pregunta dice «{' '.join(found)}», que distingue a {other} de {value}"
+            )
+    return None
+
+
 def _exact_phrase(question, candidate):
     return bool(
         question and candidate
@@ -663,6 +832,109 @@ class QueryPlanBuilder:
         best = result[0]["score"]
         return [item for item in result if item["score"] >= best * ratio][:limit]
 
+    # Palabras de conteo al inicio de un nombre que la pregunta no repite:
+    # «cuántos suministros pendientes» = NÚMERO DE SUMINISTROS PENDIENTES.
+    _COUNT_NAME_PREFIX_RE = re.compile(
+        r"^(?:numero|nro|total|cantidad|conteo|recuento)\s+(?:(?:de|del)\s+(?:(?:la|las|los|el)\s+)?)?"
+    )
+
+    def _core_name_score(self, business_question, label, weights):
+        """Puntaje del nombre sin «número de / total de / cantidad de» al
+        inicio, solo si lo que queda tiene al menos dos palabras con contenido
+        («suministros pendientes»; «Total cirugías» no se recorta)."""
+        norm = normalize_text(label)
+        core = self._COUNT_NAME_PREFIX_RE.sub("", norm).strip()
+        if not core or core == norm:
+            return 0.0
+        content = [
+            token for token in canonical_tokens(core)
+            if token not in {canonical_token(word) for word in STOPWORDS} and not token.isdigit()
+        ]
+        if len(content) < 2 or self._weak_name_kind(core):
+            return 0.0
+        return _phrase_score(business_question, core, weights)
+
+    def _focus_suggestions(self, business_question, source_context, suggestions):
+        """Opciones de una contrapregunta sin indicadores irrelevantes.
+
+        - Las palabras del tablero al que se enrutó («farmacia» en «... en
+          farmacia») no hacen pariente a un indicador: NÚMERO DE SUMINISTROS
+          PENDIENTES no se ofrece para «medicamentos vencidos en farmacia».
+        - Si alguna opción comparte la palabra MÁS distintiva de la pregunta
+          (peso IDF; «vencidos» frente a «medicamentos») o está en la página
+          nombrada (MEDICAMENTOS VENCIDOS), se descartan las que no, y esas van
+          primero."""
+        if not suggestions:
+            return suggestions
+        ignored = {
+            canonical_token(word)
+            for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS | set(MONTHS)
+        }
+        question_tokens = [
+            token for token in dict.fromkeys(canonical_tokens(business_question))
+            if len(token) >= 4 and not token.isdigit() and token not in ignored and not _is_request_word(token)
+        ]
+        strong = (
+            (source_context or {}).get("status") == "resolved"
+            and (source_context or {}).get("routing_strength") == "strong"
+        )
+        board_tokens = set()
+        if strong:
+            for phrase in self._board_name_phrases(source_context):
+                board_tokens.update(canonical_tokens(phrase))
+        content = [token for token in question_tokens if token not in board_tokens] or question_tokens
+        if not content:
+            return suggestions
+        named_page = normalize_text((source_context or {}).get("dashboard"))
+
+        def name_hits(metric):
+            # Nombres visibles, no referencias técnicas («Sum(PENDIENTES_FARMACIA.HCNFOLIO)»).
+            names = [
+                token for name in [*self._metric_names(metric), metric.get("table")]
+                if name and not re.search(r"[().]", str(name))
+                for token in canonical_tokens(name)
+            ]
+            return {token for token in content if any(_token_similarity(token, other) >= 0.88 for other in names)}
+
+        def page_hit(metric):
+            for page in self._metric_pages(metric):
+                page_norm = normalize_text(page)
+                if named_page and page_norm == named_page:
+                    return True
+                tokens = [t for t in canonical_tokens(page) if t not in ignored and len(t) >= 3]
+                if tokens and all(self._explains(t, content) for t in tokens):
+                    return True
+            return False
+
+        scored = [(item, name_hits(item["metric"]), page_hit(item["metric"])) for item in suggestions]
+        related = [entry for entry in scored if entry[1] or entry[2]]
+        if not related:
+            return suggestions
+        matched_tokens = {token for _, hits, _ in related for token in hits}
+        # Más distintiva: mayor peso IDF; a igual peso, la que comparten menos opciones.
+        top = max(
+            sorted(matched_tokens),
+            key=lambda token: (
+                round(self._token_weight(token), 6),
+                -sum(1 for _, hits, _ in related if token in hits),
+            ),
+        ) if matched_tokens else None
+        focused = [
+            entry for entry in related
+            if (top is not None and top in entry[1]) or entry[2]
+        ] or related
+        # Orden estable: primero las que comparten la palabra distintiva; dentro
+        # de cada grupo se respeta el orden del resolutor.
+        focused.sort(key=lambda entry: 0 if top is not None and top in entry[1] else 1)
+        dropped = [entry[0]["metric"].get("label") for entry in scored if entry not in focused]
+        if dropped:
+            self._note(
+                "opciones descartadas por no compartir la palabra distintiva "
+                + (f"«{top}» " if top else "")
+                + "ni estar en la página nombrada: " + ", ".join(str(label) for label in dropped[:6])
+            )
+        return [entry[0] for entry in focused]
+
     def _resolve_metric(self, question, source_context, selected_metric_id=None,
                         with_suggestions=False, candidate_limit=8):
         # Una selección realizada durante una aclaración manda por ID,
@@ -695,8 +967,9 @@ class QueryPlanBuilder:
         def not_found(weak_candidates):
             result = {"status": "not_found", "candidates": weak_candidates}
             if with_suggestions:
-                result["suggestions"] = self._metric_suggestions(
-                    business_question, model_hint=model_hint, strong=strong,
+                result["suggestions"] = self._focus_suggestions(
+                    business_question, source_context,
+                    self._metric_suggestions(business_question, model_hint=model_hint, strong=strong),
                 )
             return result
 
@@ -710,6 +983,10 @@ class QueryPlanBuilder:
             primary_norm = normalize_text(primary_label)
             primary_score = _phrase_score(business_question, primary_label, weights)
             label_is_exact = _exact_phrase(normalized_business, primary_norm)
+            if primary_score < self.min_metric_score:
+                # «cuántos suministros pendientes» nombra NÚMERO DE SUMINISTROS
+                # PENDIENTES: «número de» / «total de» no se exige.
+                primary_score = max(primary_score, self._core_name_score(business_question, primary_label, weights))
 
             titles = _unique_strings(
                 appearance.get("visual_title")
@@ -1352,7 +1629,21 @@ class QueryPlanBuilder:
             return 0.72 + 0.22 * q_coverage
         return 0.0
 
-    def _resolve_value(self, question, field, semantic_model, value_hint=None):
+    def _value_contradiction(self, text, value, values, field, origin):
+        """Motivo por el que `value` contradice el texto pedido (ver
+        `value_contradiction`), anotado en el razonamiento; None si no."""
+        reason = value_contradiction(text, value, values)
+        if reason:
+            self._note(
+                f"{origin}: no se eligió {field.get('table')}[{field.get('column')}] = {value}: {reason}"
+            )
+        return reason
+
+    def _resolve_value(self, question, field, semantic_model, value_hint=None, context=None):
+        """Valor explícito pedido. `context` es la mención completa
+        («menores de edad» cuando la columna se llama MENORES y la pista es
+        «edad»): con ella se descartan los valores que contradicen la palabra
+        distintiva de la pregunta (MAYORES DE EDAD) aunque puntúen igual."""
         values = self._get_values(semantic_model, field["table"], field["column"])
         if values is None:
             return None
@@ -1364,12 +1655,17 @@ class QueryPlanBuilder:
             if score > 0:
                 scored.append((score, value))
         scored.sort(key=lambda item: (item[0], len(normalize_text(item[1]))), reverse=True)
-        if not scored or scored[0][0] < 0.84:
-            return None
-        return {
-            "value": scored[0][1], "score": round(scored[0][0], 4),
-            "tokens": set(canonical_tokens(scored[0][1])),
-        }
+        text = " ".join(part for part in (context, value_hint) if part) or question
+        for score, value in scored:
+            if score < 0.84:
+                break
+            if self._value_contradiction(text, value, values, field, "filtro explícito"):
+                continue
+            return {
+                "value": value, "score": round(score, 4),
+                "tokens": set(canonical_tokens(value)),
+            }
+        return None
 
     # ---------------- group / filter parsing ----------------
     def _clean_tail(self, value, metric):
@@ -1384,7 +1680,59 @@ class QueryPlanBuilder:
             text = re.sub(r"\ben\s+" + re.escape(month) + r"(?:\s+de\s+20\d{2})?\b", "", text)
         return re.sub(r"\s+", " ", text).strip()
 
-    def _detect_group_or_dimension_filter(self, question, metric, candidates):
+    def _board_name_phrases(self, source_context, metric=None):
+        """Nombres normalizados con los que la pregunta puede nombrar el
+        tablero/informe del contexto (o del indicador): informe, modelo,
+        grupo, alias del registro y tableros nombrados, también sin la
+        palabra «tablero/informe» delante («TABLERO LAVANDERIA» -> «lavanderia»).
+        No incluye páginas: «servicio de urgencias» sigue siendo un valor
+        aunque exista una página URGENCIAS."""
+        context = source_context or {}
+        names = [
+            context.get("report"), context.get("semantic_model"),
+            str(context.get("source_group") or "").replace("_", " ").replace("-", " "),
+        ]
+        for mention in context.get("board_mentions") or []:
+            names.extend([mention.get("phrase"), mention.get("name")])
+        models = {normalize_text(context.get("semantic_model"))}
+        if metric:
+            names.extend(self._metric_reports(metric))
+            names.append(metric.get("semantic_model"))
+            models.add(normalize_text(metric.get("semantic_model")))
+        sources_for_model = getattr(self.source_router, "sources_for_model", None)
+        if callable(sources_for_model):
+            for model in models:
+                if not model:
+                    continue
+                try:
+                    sources = sources_for_model(model) or []
+                except Exception:
+                    sources = []
+                for source in sources:
+                    names.extend([source.get("report"), *(source.get("aliases") or [])])
+                    names.append(str(source.get("source_group") or "").replace("_", " ").replace("-", " "))
+        phrases = set()
+        for name in names:
+            norm = normalize_text(name)
+            if not norm:
+                continue
+            phrases.add(norm)
+            short = re.sub(r"^(?:tablero|informe|reporte)\s+(?:(?:de|del|de la|de los)\s+)?", "", norm).strip()
+            if short and short not in GENERIC_QUERY_WORDS and len(short) >= 3:
+                phrases.add(short)
+        return phrases
+
+    def _names_board(self, text, source_context, metric=None):
+        """¿`text` («lavanderia», «el tablero de lavanderia») es solo el
+        nombre del tablero/informe del contexto?"""
+        norm = normalize_text(text)
+        norm = re.sub(r"^(?:(?:en|de|del)\s+)?(?:(?:el|la|los|las)\s+)?", "", norm)
+        norm = re.sub(r"^(?:tablero|informe|reporte)\s+(?:(?:de|del)\s+)?", "", norm).strip()
+        if not norm:
+            return False
+        return norm in self._board_name_phrases(source_context, metric)
+
+    def _detect_group_or_dimension_filter(self, question, metric, candidates, source_context=None):
         normalized = normalize_text(question)
         match = re.search(
             r"\b(?:por|segun|agrupado por|agrupada por|desglosado por|desglosada por)\s+(?:el|la|los|las)?\s*(.+)$",
@@ -1412,10 +1760,18 @@ class QueryPlanBuilder:
             return {"group_by": [], "explicit_filters": []}
 
         remainder = tail[len(matched_alias):].strip()
+        # «peso por servicio en lavanderia»: lo que sigue a la dimensión con
+        # «en» es el tablero/informe nombrado, no un valor de SERVICIO.
+        if re.match(r"^en\s+", remainder) and self._names_board(remainder, source_context, metric):
+            self._note(
+                f"«{matched_alias} {remainder}»: «{remainder}» nombra el tablero; "
+                f"se agrupa por {best.get('table')}[{best.get('column')}] (no es un valor del filtro)"
+            )
+            return {"group_by": [best], "explicit_filters": []}
         remainder = re.sub(r"^(?:de|del|en|igual a|=)\s+", "", remainder).strip()
         if not remainder:
             return {"group_by": [best], "explicit_filters": []}
-        return {"group_by": [], "explicit_filters": [{"field": best, "value_hint": remainder}]}
+        return {"group_by": [], "explicit_filters": [{"field": best, "value_hint": remainder, "from_group": True}]}
 
     def _remove_metric_and_report_phrases(self, question, metric, source_context):
         """Descarta los nombres de métrica/informe ANTES de buscar filtros.
@@ -1556,8 +1912,64 @@ class QueryPlanBuilder:
             result.append(word)
         return " ".join(result).strip()
 
+    _FAMILY_MAX_VALUES = 6
+
+    def _value_family(self, leftover, tied, values):
+        """Valores que comparten la palabra pedida como cabeza («uci» ->
+        UCI ADULTOS, UCI NEONATAL): {"values", "words", "tokens"} o None.
+
+        Solo si la palabra pedida es el INICIO de todos los valores
+        empatados, la familia está completa (todos los valores del dominio
+        que empiezan así), tiene entre 2 y _FAMILY_MAX_VALUES miembros y no
+        es todo el dominio (filtrar por todo no filtra nada)."""
+        leftover_tokens = set(canonical_tokens(leftover))
+        heads = set()
+        for value in tied:
+            tokens = canonical_tokens(value)
+            prefix = []
+            for token in tokens:
+                if token in leftover_tokens:
+                    prefix.append(token)
+                else:
+                    break
+            if not prefix:
+                return None
+            heads.add(tuple(prefix))
+        if len(heads) != 1:
+            return None
+        head = next(iter(heads))
+        if not any(len(token) >= 3 for token in head):
+            return None
+        family = [
+            value for value in values
+            if tuple(canonical_tokens(value)[:len(head)]) == head and len(canonical_tokens(value)) > len(head)
+        ]
+        if not (2 <= len(family) <= self._FAMILY_MAX_VALUES) or len(family) >= len(values):
+            return None
+        if set(family) != set(tied) and not set(tied) <= set(family):
+            return None
+        return {
+            "values": sorted(family, key=normalize_text),
+            "words": [word for word in normalize_text(leftover).split() if canonical_token(word) in head],
+            "tokens": head,
+        }
+
     def _categorical_filter(self, field, resolved, source, semantic_model):
         data_type = self._column_type(semantic_model, field["table"], field["column"])
+        if resolved.get("values") and resolved.get("value") is None:
+            # Familia de valores («uci» -> UCI ADULTOS, UCI NEONATAL): IN {...}.
+            return {
+                "type": "categorical",
+                "concept": (field.get("aliases") or [field["column"]])[0],
+                "table": field["table"],
+                "column": field["column"],
+                "operator": "in",
+                "value": None,
+                "values": list(resolved["values"]),
+                "data_type": data_type,
+                "match_score": resolved["score"],
+                "source": source,
+            }
         return {
             "type": "categorical",
             "concept": (field.get("aliases") or [field["column"]])[0],
@@ -1607,21 +2019,43 @@ class QueryPlanBuilder:
 
         semantic_model = metric.get("semantic_model")
         eligible = []
+        unrelated = []
         for field in candidates:
             key = (normalize_text(field.get("table")), normalize_text(field.get("column")))
             if key in used_fields or not self._implicit_eligible(field, semantic_model):
                 continue
+            if not self._field_filters_metric(metric, field):
+                if field.get("table") not in unrelated:
+                    unrelated.append(field.get("table"))
+                continue
             eligible.append(field)
-        plausible = [field for field in eligible if self._plausible_value_column(field)]
-        others = [field for field in eligible if not self._plausible_value_column(field)]
+        if unrelated and decisions is not None:
+            decisions.append(
+                "no revisadas (sus tablas no filtran " + str(metric.get("table")) + "): "
+                + ", ".join(str(table) for table in unrelated[:5]) + ("…" if len(unrelated) > 5 else "")
+            )
+        # Primero las columnas del propio indicador (su tabla o los visuales
+        # de su página): «interconsultas de pediatría» filtra la especialidad
+        # de INTERCONSULTAS antes que el SERVICIO de otra página del informe.
+        own = self._own_dimension_fields(metric, eligible)
+        own_keys = {(normalize_text(f.get("table")), normalize_text(f.get("column"))) for f in own}
+        rest = [
+            field for field in eligible
+            if (normalize_text(field.get("table")), normalize_text(field.get("column"))) not in own_keys
+        ]
+        plausible = [field for field in rest if self._plausible_value_column(field)]
+        others = [field for field in rest if not self._plausible_value_column(field)]
         # Todas las plausibles (hasta un tope) y luego las demás dentro del
         # presupuesto original de columnas revisadas.
         ordered = plausible[:max(self.max_implicit_dimensions, 10)]
         ordered += others[:max(0, self.max_implicit_dimensions - len(ordered))]
+        ordered = own + ordered
 
         best = None
         for field in ordered:
-            resolved = self._resolve_implicit_value(leftover, field, semantic_model, decisions)
+            resolved = self._resolve_implicit_value(
+                leftover, field, semantic_model, decisions, question=question,
+            )
             if not resolved:
                 continue
             candidate = {"field": field, **resolved}
@@ -1632,6 +2066,47 @@ class QueryPlanBuilder:
         if best is not None and decisions is not None:
             decisions.append(f"aplicado: {best['reason']}")
         return best
+
+    def _field_filters_metric(self, metric, field):
+        """¿Un filtro sobre la tabla de `field` puede cambiar el indicador?
+
+        No, si el indicador se calcula sobre su tabla, el catálogo técnico
+        trae las relaciones del modelo y la tabla del campo no es esa tabla ni
+        una de las que la filtran (p. ej. BRIEFING: tablas independientes, un
+        SERVICIO de la página SEGUIMIENTO RECEPCIÓN no filtra INTERCONSULTAS).
+        Con información incompleta se asume que sí (no se descarta)."""
+        table = metric.get("table")
+        model = metric.get("semantic_model")
+        if not table or self._CALENDAR_TABLE_RE.match(normalize_text(table)):
+            return True
+        catalog = self._technical_catalog(model)
+        if not catalog.get("tables") or "relationships" not in catalog:
+            return True
+        if not self._expression_uses_table(self._measure_expression(model, metric), table):
+            return True
+        return normalize_text(field.get("table")) in self._related_tables(model, table)
+
+    _OWN_FIELD_LIMIT = 8
+
+    def _own_dimension_fields(self, metric, fields):
+        """Campos de la tabla del indicador o de los visuales de sus páginas
+        (sin columnas de personas/identificadores), en su orden, hasta un tope."""
+        table = normalize_text(metric.get("table"))
+        pages = {normalize_text(page) for page in self._metric_pages(metric)}
+        own, seen = [], set()
+        for field in fields:
+            key = (normalize_text(field.get("table")), normalize_text(field.get("column")))
+            if key in seen:
+                continue
+            column = normalize_text(field.get("column")).replace(" ", "")
+            if any(part in column for part in self._PRIVATE_COLUMN_PARTS):
+                continue
+            if (table and key[0] == table) or (pages and normalize_text(field.get("page")) in pages):
+                own.append(field)
+                seen.add(key)
+            if len(own) >= self._OWN_FIELD_LIMIT:
+                break
+        return own
 
     # ---------------- valores implícitos: reglas estrictas ----------------
     # Palabras de columna en las que un valor suele nombrarse suelto en la
@@ -1692,7 +2167,7 @@ class QueryPlanBuilder:
         self._concept_tokens = tokens
         return tokens
 
-    def _resolve_implicit_value(self, leftover, field, semantic_model, decisions=None):
+    def _resolve_implicit_value(self, leftover, field, semantic_model, decisions=None, question=None):
         """Valor de `field` nombrado en `leftover` con las reglas estrictas, o None."""
         values = self._get_values(semantic_model, field["table"], field["column"])
         if not values:
@@ -1705,8 +2180,35 @@ class QueryPlanBuilder:
         if not scored:
             return None
         scored.sort(key=lambda item: (item[0], len(normalize_text(item[1]))), reverse=True)
-        top_score, top_value = scored[0]
         column = f"{field['table']}[{field['column']}]"
+        # Nunca un valor opuesto a la palabra distintiva («menores» no es
+        # MAYORES DE EDAD; «aceptadas» no es NO ACEPTADO).
+        consistent, contradicted = [], []
+        for score, value in scored:
+            # La pregunta completa conserva la polaridad («no aceptadas»),
+            # que el texto sobrante pierde al quitar palabras vacías.
+            reason = (
+                value_contradiction(f"{leftover} {question or ''}", value, values)
+                if score >= 0.84 else None
+            )
+            if reason:
+                contradicted.append((value, reason))
+                continue
+            consistent.append((score, value))
+        if decisions is not None and contradicted:
+            if not consistent and len(contradicted) > 1:
+                names = [value for value, _ in contradicted]
+                decisions.append(
+                    f"descartado: {column} = {names[0]} (la palabra coincide con varios valores de la columna: "
+                    + ", ".join(names[:4]) + ("…" if len(names) > 4 else "")
+                    + " y la pregunta no nombra lo que los distingue)"
+                )
+            else:
+                decisions.extend(f"descartado: {column} = {value} ({reason})" for value, reason in contradicted)
+        scored = consistent
+        if not scored:
+            return None
+        top_score, top_value = scored[0]
         plausible = self._plausible_value_column(field)
 
         def reject(reason):
@@ -1724,6 +2226,19 @@ class QueryPlanBuilder:
                 )
             return None
         ties = [value for score, value in scored[1:] if score >= top_score - 1e-9]
+        if ties and top_score < 1.10 and plausible:
+            family = self._value_family(leftover, [top_value, *ties], values)
+            if family:
+                words = " ".join(family["words"])
+                return {
+                    "value": None, "values": family["values"], "score": round(top_score, 4),
+                    "tokens": set(family["tokens"]),
+                    "reason": (
+                        f"«{words}» nombra a varios valores de {column} que empiezan igual "
+                        f"({', '.join(family['values'])}) y la pregunta no dice cuál: se suman todos "
+                        "(pregunta por uno si lo quieres por separado)"
+                    ),
+                }
         if ties and top_score < 1.10:
             return reject(
                 "la palabra coincide con varios valores de la columna: "
@@ -2246,6 +2761,8 @@ class QueryPlanBuilder:
         normalized = normalize_text(question)
         if not normalized or self._is_descriptive(normalized):
             return False
+        question = canonical_phrases(question)[0]
+        normalized = normalize_text(question)
 
         if any(
             re.search(r"(?<![a-z0-9])" + term + r"(?![a-z0-9])", normalized)
@@ -2263,11 +2780,51 @@ class QueryPlanBuilder:
         if self._mentions_ranking(normalized):
             return True
         if not (has_verb or has_period or has_group):
-            return False
+            return self._nominal_metric_with_filter(question, dashboard)
 
         source_context = self._source_context(question, dashboard=dashboard)
         metric_result = self._resolve_metric_flexible(question, source_context)
         return metric_result.get("status") in ("resolved", "ambiguous")
+
+    _NOMINAL_MAX_WORDS = 8
+
+    def _nominal_metric_with_filter(self, question, dashboard=None):
+        """Frase nominal sin verbo, periodo ni «por ...» que nombra TAL CUAL un
+        indicador más un valor de filtro («interconsultas sin responder de
+        pediatría»): pide el dato filtrado -> Power BI. El nombre del indicador
+        solo («interconsultas sin respuesta») o un tablero («tablero de
+        interconsultas») siguen siendo preguntas para la documentación."""
+        text, _ = canonical_phrases(question)
+        normalized = normalize_text(text)
+        words = normalized.split()
+        if not words or len(words) > self._NOMINAL_MAX_WORDS:
+            return False
+        if re.match(r"^(?:el |la |los |las )?(?:tablero|informe|reporte|pagina|dashboard)\b", normalized):
+            return False
+        source_context = self._source_context(text, dashboard=dashboard)
+        metric_result = self._resolve_metric_flexible(text, source_context)
+        if metric_result.get("status") != "resolved":
+            return False
+        matched = normalize_text(metric_result.get("matched_name"))
+        label = normalize_text((metric_result.get("metric") or {}).get("label"))
+        business = normalize_text(self._metric_business_question(text, source_context))
+        if not any(name and _exact_phrase(business, name) for name in (matched, label)):
+            return False
+        notes = self.__dict__.get("_resolution_notes")
+        try:
+            self._resolution_notes = []
+            plan = self._build_plan(text, {"dashboard": dashboard} if dashboard else None)
+        except Exception:
+            return False
+        finally:
+            self._resolution_notes = notes
+        if not isinstance(plan, dict) or plan.get("status") != "ready" or plan.get("unapplied_terms"):
+            return False
+        return any(
+            item.get("type") == "categorical" and not item.get("temporal")
+            and item.get("source") != "query_plan_temporal"
+            for item in plan.get("filters") or []
+        )
 
     # ---------------- participación / multi-métrica ----------------
     def _share_match(self, normalized):
@@ -3415,13 +3972,161 @@ class QueryPlanBuilder:
             word for word in words
             if not self._explains(canonical_token(word), siblings)
         ]
-        for field, resolved in self._fuzzy_qualifier_filters(metric, candidates, used_fields, candidates_words):
+        for field, resolved in self._fuzzy_qualifier_filters(
+            metric, candidates, used_fields, candidates_words, question=question,
+        ):
             result["filters"].append((field, resolved))
             self._note(
                 f"«{resolved['phrase']}» se interpretó como {field['table']}[{field['column']}] = "
                 f"{resolved['value']} (coincidencia aproximada por raíz/plural)"
             )
+        # c) Lo que sigue sin interpretar y la documentación del propio
+        # indicador usa para describirlo («aumento de PRECIO», «imágenes
+        # DIAGNÓSTICAS»): es parte del indicador, no un filtro.
+        filtered = {
+            canonical_token(word)
+            for _, resolved in result["filters"] for word in str(resolved.get("phrase") or "").split()
+        }
+        # Sin las palabras de indicadores hermanos («realizadas» junto a
+        # CIRUGÍAS PROGRAMADAS es otra medida aunque la documentación la nombre).
+        remaining = [word for word in candidates_words if canonical_token(word) not in filtered]
+        for word, evidence in self._documented_qualifiers(question, metric, remaining):
+            result["consumed"].add(canonical_token(word))
+            self._note(
+                f"«{word}» describe al propio indicador {metric.get('label')} según su documentación "
+                f"(«{evidence}»): no es un filtro"
+            )
         return result
+
+    # ---------------- documentación del indicador ----------------
+    _DOC_TEXT_FIELDS = (
+        "description", "visuals", "indicators", "documented_measures", "definitions",
+        "business_rules", "notes",
+    )
+
+    def _semantic_documents_index(self):
+        """{modelo normalizado: [tableros documentados]} de data/semantic_documents."""
+        cached = self.__dict__.get("_semantic_documents_cache")
+        if cached is not None:
+            return cached
+        index = {}
+        root = self.project_root / "data" / "semantic_documents"
+        try:
+            paths = sorted(root.rglob("*.json")) if root.exists() else []
+        except OSError:
+            paths = []
+        for path in paths:
+            try:
+                document = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(document, dict):
+                continue
+            model = normalize_text(document.get("semantic_model"))
+            for dashboard in document.get("dashboards") or []:
+                if isinstance(dashboard, dict):
+                    index.setdefault(model, []).append(dashboard)
+        self._semantic_documents_cache = index
+        return index
+
+    @staticmethod
+    def _flatten_texts(value):
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, dict):
+            return [text for item in value.values() for text in QueryPlanBuilder._flatten_texts(item)]
+        if isinstance(value, (list, tuple)):
+            return [text for item in value for text in QueryPlanBuilder._flatten_texts(item)]
+        return []
+
+    def _metric_documentation(self, metric):
+        """Textos que describen el indicador: su descripción, su DAX y la
+        documentación del tablero donde está (tablero con el nombre de su
+        página o de su nombre/tabla, o cuyas visualizaciones lo nombran)."""
+        cache = self.__dict__.setdefault("_metric_documentation_cache", {})
+        key = (self._logical_key(metric), normalize_text(metric.get("label")))
+        if key in cache:
+            return cache[key]
+        texts = [str(metric.get(field)) for field in ("description", "model_expression") if metric.get(field)]
+        vocabulary = self._metric_vocabulary_tokens(metric, with_pages=False)
+        pages = {normalize_text(page) for page in self._metric_pages(metric)}
+        stop = {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS}
+        label = normalize_text(metric.get("label"))
+        label_specific = len([t for t in canonical_tokens(label) if t not in stop and not t.isdigit()]) >= 2
+        for dashboard in self._semantic_documents_index().get(normalize_text(metric.get("semantic_model")), []):
+            name = normalize_text(dashboard.get("name"))
+            name_tokens = [t for t in canonical_tokens(name) if t not in stop and len(t) >= 3]
+            dashboard_texts = [
+                text for field in self._DOC_TEXT_FIELDS for text in self._flatten_texts(dashboard.get(field))
+            ]
+            linked = name in pages or (name_tokens and all(self._explains(t, vocabulary) for t in name_tokens))
+            if linked:
+                texts.extend(dashboard_texts)
+                continue
+            mentions = [text for text in dashboard_texts if label_specific and _exact_phrase(normalize_text(text), label)]
+            if mentions:
+                texts.extend(mentions)
+                texts.extend(self._flatten_texts(dashboard.get("description")))
+        cache[key] = texts
+        return texts
+
+    def _documented_qualifiers(self, question, metric, words):
+        """[(palabra, evidencia)] de las palabras que la documentación del
+        indicador usa y que en la pregunta califican a una palabra del propio
+        indicador (vecina inmediata, saltando conectores): «compras con
+        aumento de PRECIO» (aumento ∈ nombre; «precios» en la documentación).
+        Nunca palabras de dimensión (servicio, especialidad...)."""
+        if not words:
+            return []
+        texts = self._metric_documentation(metric)
+        if not texts:
+            return []
+        forms = {}
+        for text in texts:
+            normalized = normalize_text(text)
+            for doc_word in normalized.split():
+                if len(doc_word) < 4:
+                    continue
+                for form in (canonical_token(doc_word), _stem_token(doc_word)):
+                    forms.setdefault(form, normalized)
+        dimension_words = {
+            canonical_token(word) for synonyms in DIMENSION_SYNONYMS.values() for word in synonyms
+        } | {canonical_token(word) for word in self.PLAUSIBLE_VALUE_COLUMN_WORDS}
+        vocabulary = self._metric_vocabulary_tokens(metric)
+        connectors = {"de", "del", "la", "el", "los", "las", "con", "en", "y", "a", "al", "por"}
+        question_words = normalize_text(question).split()
+        found = []
+        for word in words:
+            token = canonical_token(word)
+            if len(token) < 4 or token in dimension_words:
+                continue
+            evidence = forms.get(token) or forms.get(_stem_token(word))
+            if not evidence:
+                continue
+            adjacent = False
+            for index, other in enumerate(question_words):
+                if other != word:
+                    continue
+                for step in (-1, 1):
+                    position = index + step
+                    while 0 <= position < len(question_words) and question_words[position] in connectors:
+                        position += step
+                    if 0 <= position < len(question_words) and self._explains(
+                        canonical_token(question_words[position]), vocabulary,
+                    ):
+                        adjacent = True
+            if not adjacent:
+                continue
+            # Fragmento de la documentación alrededor de la palabra (para el razonamiento).
+            doc_words = evidence.split()
+            spot = next(
+                (i for i, doc_word in enumerate(doc_words)
+                 if canonical_token(doc_word) == token or _stem_token(doc_word) == _stem_token(word)),
+                0,
+            )
+            snippet = " ".join(doc_words[max(0, spot - 4):spot + 4])
+            found.append((word, snippet))
+        return found
 
     def _periods_for_metric(self, question, metric, matched_name):
         """_analyze_periods, salvo una medida atada al MISMO año que pide la
@@ -3690,7 +4395,7 @@ class QueryPlanBuilder:
             return 0.0
         return round(0.90 + 0.10 * coverage, 4)
 
-    def _fuzzy_qualifier_filters(self, metric, candidates, used_fields, words):
+    def _fuzzy_qualifier_filters(self, metric, candidates, used_fields, words, question=None):
         """Regla 3b: valores de dimensión aproximados del modelo del indicador.
         Prueba primero la frase completa y luego frases más cortas (cada una
         puede ser un filtro distinto: «ortopedia» -> ESPECIALIDAD, «sura» ->
@@ -3705,6 +4410,8 @@ class QueryPlanBuilder:
                 continue
             if any(key == (normalize_text(f.get("table")), normalize_text(f.get("column"))) for f in fields):
                 continue
+            if not self._field_filters_metric(metric, field):
+                continue  # un filtro en una tabla que no filtra al indicador no cambia nada
             fields.append(field)
             if len(fields) >= self._QUALIFIER_FIELD_LIMIT:
                 break
@@ -3726,10 +4433,23 @@ class QueryPlanBuilder:
                         if key in used:
                             continue
                         index = self._value_token_index(semantic_model, field) or []
+                        domain = (
+                            self._get_values(semantic_model, field["table"], field["column"])
+                            if index else []
+                        ) or [value for value, _ in index]
                         for value, value_tokens in index:
                             score = self._fuzzy_value_score(tokens, value_tokens)
-                            if score and (best is None or score > best[0]):
-                                best = (score, field, value, value_tokens)
+                            if not score or (best is not None and score <= best[0]):
+                                continue
+                            # La coincidencia por raíz no puede elegir el
+                            # valor opuesto («de edad» de MAYORES DE EDAD
+                            # cuando se pidió «menores de edad»).
+                            if self._value_contradiction(
+                                f"{' '.join(span)} {question or ''}", value, domain, field,
+                                "calificativo aproximado",
+                            ):
+                                continue
+                            best = (score, field, value, value_tokens)
                     if best is None:
                         continue
                     score, field, value, value_tokens = best
@@ -3752,8 +4472,14 @@ class QueryPlanBuilder:
         notes = []
         previous = self.__dict__.get("_resolution_notes")
         self._resolution_notes = notes
+        original_question = question
+        question, rewrites = canonical_phrases(question)
+        for phrase, replacement in rewrites:
+            notes.append(f"«{phrase}» se interpretó como «{replacement}»")
         try:
             plan = self._build_plan(question, intent_result, selected_metric_id)
+            if rewrites and isinstance(plan, dict) and plan.get("question") == question:
+                plan["question"] = original_question
             # Si el indicador elegido no admite el filtro/periodo/agrupación
             # pedido pero existe con el mismo nombre en otro tablero, se
             # pregunta cuál antes de decir que no se pudo.
@@ -3828,7 +4554,9 @@ class QueryPlanBuilder:
             dimension_question, source_context,
         )
 
-        group_detection = self._detect_group_or_dimension_filter(dimension_question, metric, candidates)
+        group_detection = self._detect_group_or_dimension_filter(
+            dimension_question, metric, candidates, source_context=source_context,
+        )
         group_by = group_detection["group_by"]
         switched = None if selected_metric_id is not None else self._metric_without_group_phrase(
             question, metric_result, group_by, source_context,
@@ -3845,7 +4573,7 @@ class QueryPlanBuilder:
                 temporal["clean_question"], source_context,
             )
             group_detection = self._detect_group_or_dimension_filter(
-                dimension_question, metric, candidates,
+                dimension_question, metric, candidates, source_context=source_context,
             )
             group_by = group_detection["group_by"]
         # Ranking («el servicio con más peso», «top 5 especialidades»): la
@@ -3919,11 +4647,29 @@ class QueryPlanBuilder:
             for option in [field, *spec.get("alternatives", [])]:
                 resolved = self._resolve_value(
                     question=question, field=option, semantic_model=semantic_model,
-                    value_hint=spec.get("value_hint"),
+                    value_hint=spec.get("value_hint"), context=spec.get("alias"),
                 )
                 if resolved:
                     field = option
                     break
+            if not resolved and self._names_board(spec.get("value_hint"), source_context, metric):
+                # El «valor» no existe en la columna pero es el nombre del
+                # tablero/informe («... por servicio del tablero lavanderia»):
+                # se consume como tablero; con «por <dimensión>» se agrupa.
+                key = (normalize_text(field["table"]), normalize_text(field["column"]))
+                if spec.get("from_group") and key not in {
+                    (normalize_text(f.get("table")), normalize_text(f.get("column"))) for f in group_by
+                }:
+                    group_by = [*group_by, field]
+                self._note(
+                    f"«{spec.get('value_hint')}» no es un valor de {field['table']}[{field['column']}] "
+                    "sino el nombre del tablero: se toma como tablero"
+                    + (f" y se agrupa por {field['column']}" if spec.get("from_group") else "")
+                )
+                consumed_tokens.update(canonical_tokens(spec.get("value_hint")))
+                if not spec.get("from_group"):
+                    used_fields.discard(key)
+                continue
             if not resolved:
                 return {
                     "status": "unsupported_filter", "stage": "dimension_value",

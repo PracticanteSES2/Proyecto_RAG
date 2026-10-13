@@ -241,6 +241,9 @@ def _filter_ok(spec, filters, dax):
             continue
         if value is None or contains(item.get("value"), value) or contains(value, item.get("value") or "\x00"):
             return True
+        # Filtro de varios valores («uci» -> SERVICIO IN {UCI ADULTOS, UCI NEONATAL}).
+        if item.get("value") is None and any(contains(member, value) for member in item.get("values") or []):
+            return True
     return False
 
 
