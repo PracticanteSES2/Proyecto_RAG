@@ -192,23 +192,11 @@ class QueryEngine:
         turno y su tiempo: contra Power BI real es donde suele irse el tiempo."""
         if domains is None:
             return
-        stats = domains.turn_stats()
-        if not (stats["queries"] or stats["skipped"]):
-            return
-        line = (
-            f"{stats['queries']} consulta(s) de valores de columnas"
-            + (f" ({stats['batch_queries']} en lote)" if stats["batch_queries"] else "")
-            + f" · {stats['columns']} columna(s) · {stats['seconds']:.2f} s"
-            + f" · {stats['hits']} lectura(s) desde caché"
-        )
-        extra = []
-        if stats["errors"]:
-            extra.append(f"{stats['errors']} con error")
-        if stats["skipped"]:
-            extra.append(
-                f"{stats['skipped']} omitida(s) por el límite de {domains.turn_budget} consultas de exploración"
-            )
-        self._think("Consultas de exploración a Power BI", line, " · ".join(extra) or None)
+        # Totales y, por cada consulta lenta (> POWERBI_DOMAIN_SLOW_S) o
+        # cancelada por tiempo, sus columnas y su tiempo (src/providers/domain_cache.py).
+        lines = domains.describe_turn()
+        if lines:
+            self._think("Consultas de exploración a Power BI", *lines)
 
     @staticmethod
     def _metric_where(metric):
