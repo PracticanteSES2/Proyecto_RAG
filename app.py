@@ -533,11 +533,16 @@ def execute_turn(user_text, runner, via="texto"):
                 finally:
                     if callable(set_listener):
                         set_listener(None)
+            if not error_text:
+                try:
+                    answer = get_display_answer(result, formatter)
+                except Exception as exc:
+                    traceback.print_exc()
+                    error_text = f"{type(exc).__name__}: {exc}"
             if error_text:
                 answer = "Ocurrió un error al procesar la consulta. Intenta nuevamente."
                 live.finish(error=True)
             else:
-                answer = get_display_answer(result, formatter)
                 live.finish()
         except TurnBusy as busy:
             holder = busy.holder or {}
@@ -677,7 +682,7 @@ with st.sidebar:
     if st.button("Nueva conversación", use_container_width=True):
         try:
             # El motor no se reinicia en medio de otro turno.
-            with turn_slot("Nueva conversación", max_wait=15):
+            with turn_slot("Nueva conversación", max_wait=5):
                 conversation_manager.reset()
 
                 reset_method = getattr(
