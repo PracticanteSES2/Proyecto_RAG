@@ -404,6 +404,83 @@ def test_sim_llm_rewrite_is_used_only_when_rules_fail():
         engine.context_llm = None
 
 
+def test_llm_rewrite_keeps_the_message_and_metrics_come_from_the_user():
+    """Caso con MedGemma real: tras «egresos 2025» y una respuesta documental que
+    nombraba ingresos, «ok, ahora los de hospitalizacion» se reescribió como
+    «¿Cuántos ingresos hubo en 2025?» (otro indicador y sin hospitalización)."""
+    history = "Usuario: cuantos egresos hubo en 2025 Asistente: el tablero muestra ingresos y egresos"
+    users = "cuantos egresos hubo en 2025 Egresos"
+    rewriter = LLMContextRewriter(FakeLLM("¿Cuántos ingresos hubo en 2025?"))
+    outcome = rewriter.rewrite(
+        "ok, ahora los de hospitalizacion", "", history,
+        metric_words=lambda t: [w for w in norm_words(t) if w in ("ingresos", "egresos")],
+        metric_text=users, required_text="de hospitalizacion",
+    )
+    assert outcome["status"] == "rejected" and "omite" in outcome["reason"], outcome
+    rewriter = LLMContextRewriter(FakeLLM("¿Cuántos ingresos de hospitalizacion hubo en 2025?"))
+    outcome = rewriter.rewrite(
+        "ok, ahora los de hospitalizacion", "", history,
+        metric_words=lambda t: [w for w in norm_words(t) if w in ("ingresos", "egresos")],
+        metric_text=users, required_text="de hospitalizacion",
+    )
+    assert outcome["status"] == "rejected" and "indicadores" in outcome["reason"], outcome
+    rewriter = LLMContextRewriter(FakeLLM("¿Cuántos egresos de hospitalización hubo en 2025?"))
+    outcome = rewriter.rewrite(
+        "ok, ahora los de hospitalizacion", "", history,
+        metric_words=lambda t: [w for w in norm_words(t) if w in ("ingresos", "egresos")],
+        metric_text=users, required_text="de hospitalizacion",
+    )
+    assert outcome["status"] == "success", outcome
+
+
+def norm_words(text):
+    from src.chatbot.contextual_rewriter import norm
+    return norm(text).split()
+
+
+def test_sim_context_message_while_clarification_is_pending():
+    """«Y en el mes pasado?» ANTES de elegir el indicador: no es una pregunta
+    nueva; se vuelve a preguntar y, con el botón, se responde el mes pasado."""
+    ctx = _ctx()
+    this_month, last_month, _ = _relative_months()
+    engine, cm, ask, choose = ctx.conversation()
+    first, _ = ask(
+        "Se me ha solicitado saber la cantidad de cirugias realizadas que tiene cada una de las "
+        "especialidades en este mes"
+    )
+    assert first["status"] == "needs_clarification"
+    again, ui = ask("Y en el mes pasado?")
+    assert again["status"] == "needs_clarification", (again.get("status"), ui)
+    assert "Y en el mes pasado?" in str(again.get("prompt") or again.get("question")), again.get("prompt")
+    assert "Mensaje que depende de la contrapregunta pendiente" in ctx.steps(again)
+    result, ui = choose(clarification_buttons(again)[0]["id"])
+    assert result["route"] == "powerbi" and result["status"] in ("success", "empty_result"), ui
+    assert ctx.groups(result) == ["ESPECIALIDAD"] and last_month in period(result), period(result)
+    assert "Mensaje pendiente aplicado a la opción elegida" in ctx.steps(result)
+    # Una pregunta nueva escrita en lugar del botón sigue descartando la contrapregunta.
+    first, _ = ask(
+        "Se me ha solicitado saber la cantidad de cirugias realizadas que tiene cada una de las "
+        "especialidades en este mes"
+    )
+    result, _ = ask("cuanto peso hubo en lavanderia en enero de 2026")
+    assert "PESO" in str(result.get("metric")).upper(), result.get("status")
+
+
+def test_sim_where_is_the_previous_indicator():
+    ctx = _ctx()
+    engine, cm, ask, _ = ctx.conversation()
+    ask("cirugias programadas de urologia en 2024")
+    result, ui = ask("y eso en que tablero lo veo?")
+    assert result["route"] == "rag" and "Tablero Quirurgico" in ui and "CIRUGÍAS PROGRAMADAS" in ui, ui
+    assert "Programacion Quirurgica" in ui, ui
+    # El tema sigue: «y en 2025?» vuelve al dato con el mismo filtro.
+    result, ui = ask("y en 2025?")
+    assert ctx.categorical(result) == [("ESPECIALIDAD", "UROLOGIA")] and ctx.years(result) == [2025], ui
+    # Nombrar otro indicador es una pregunta nueva (documental).
+    result, ui = ask("¿en qué tablero está el peso de lavandería?")
+    assert "CIRUGÍAS PROGRAMADAS" not in ui, ui
+
+
 # ---------------------------------------------------------------------------
 # Runner mínimo
 # ---------------------------------------------------------------------------

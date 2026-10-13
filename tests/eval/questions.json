@@ -3274,6 +3274,35 @@
       ]
     },
     {
+      "id": "i_sim_ctx_mes_pasado_antes_del_boton",
+      "category": "i_multiturno",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {"docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx", "seccion": "Filtro Especialidad"},
+      "arneses": ["sim"],
+      "descripcion": "«Y en el mes pasado?» escrito ANTES de elegir el indicador: se vuelve a preguntar (no se descarta la contrapregunta) y el botón responde el mes pasado.",
+      "turns": [
+        {
+          "user": "Se me ha solicitado saber la cantidad de cirugias realizadas que tiene cada una de las especialidades en este mes",
+          "expect": {"route": ["clarification"], "options_any": ["realizad"]}
+        },
+        {"user": "Y en el mes pasado?", "expect": {"route": ["clarification"], "options_any": ["realizad"], "answer_any": ["mes pasado"]}},
+        {"button": 1, "expect": {"route": ["powerbi", "powerbi_empty"], "metrics_any": ["realizad"], "group_by_any": ["especialidad"], "filters": [{"month": "anterior"}]}}
+      ]
+    },
+    {
+      "id": "i_ctx_donde_lo_veo",
+      "category": "i_multiturno",
+      "tablero": "Lavandería",
+      "fuente": {"docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx", "seccion": "Peso"},
+      "arneses": ["sim", "realistic"],
+      "descripcion": "«y eso en qué tablero lo veo?» tras un dato: el tablero y la página del indicador anterior (del catálogo), y el tema sigue.",
+      "turns": [
+        {"user": "cuanto peso hubo en lavanderia en enero de 2026", "expect": {"route": ["powerbi"], "metrics_any": ["peso"]}},
+        {"user": "y eso en que tablero lo veo?", "expect": {"route": ["rag"], "answer_all": ["peso", "lavanderia"]}},
+        {"user": "y en febrero de 2026?", "expect": {"route": ["powerbi"], "metrics_any": ["peso"], "filters": [{"year": 2026, "month": 2}]}}
+      ]
+    },
+    {
       "id": "i_ctx_numerica_a_documental_y_vuelta",
       "category": "i_multiturno",
       "tablero": "Lavandería",

@@ -326,9 +326,15 @@ Asistente: CIRUGÍAS PROGRAMADAS: 6.803. Filtros: 2024
                 return line
         return ""
 
-    def validate(self, question, message, allowed_text, metric_words=None):
+    def validate(self, question, message, allowed_text, metric_words=None, metric_text=None,
+                 required_text=None):
         """(válida, motivo). `allowed_text`: historial + mensaje; `metric_words(texto)`
-        devuelve las palabras de un texto que nombran indicadores del catálogo."""
+        devuelve las palabras de un texto que nombran indicadores del catálogo;
+        `metric_text`: de dónde pueden salir los indicadores (lo que dijo el
+        usuario y los indicadores consultados, no la prosa del asistente: una
+        respuesta documental puede nombrar otros indicadores); `required_text`:
+        lo que agrega el mensaje («de hospitalización»), que la reescritura no
+        puede perder."""
         words = norm(question).split()
         if len(words) < 3:
             return False, "respuesta demasiado corta"
@@ -348,12 +354,35 @@ Asistente: CIRUGÍAS PROGRAMADAS: 6.803. Filtros: 2024
         invented_numbers = [w for w in numbers if w not in allowed_words]
         if invented_numbers:
             return False, f"introduce cifras que no estaban en la conversación ({', '.join(invented_numbers)})"
+        # Lo que agrega el mensaje no puede desaparecer: al menos una de sus
+        # palabras de contenido sigue en la reescritura («los de hospitalización»
+        # no puede volverse «¿cuántos ingresos hubo en 2025?»). Basta una: el
+        # usuario dice «lo que operaron los colegas de urología» y la
+        # reescritura correcta conserva solo «urología».
+        question_words = set(words)
+        content = [
+            w for w in norm(required_text).split()
+            if len(w) >= 4 and w not in _STOP and not w.isdigit()
+        ] if required_text else []
+        if content and not any(
+            w in question_words or w.rstrip("s") in question_words or f"{w}s" in question_words
+            or f"{w}es" in question_words for w in content
+        ):
+            return False, f"omite lo que agrega el mensaje ({', '.join(content[:5])})"
+        metric_allowed = set(norm(metric_text).split()) if metric_text is not None else allowed_words
+
+        def known_metric(word):
+            return (
+                word in metric_allowed or word.rstrip("s") in metric_allowed
+                or f"{word}s" in metric_allowed or f"{word}es" in metric_allowed
+            )
+
         if callable(metric_words):
             try:
                 named = metric_words(question) or []
             except Exception:
                 named = []
-            invented = [w for w in named if not known(w)]
+            invented = [w for w in named if not known_metric(w)]
             if invented:
                 return False, f"introduce indicadores que no estaban en la conversación ({', '.join(invented)})"
         new_words = [
@@ -364,7 +393,8 @@ Asistente: CIRUGÍAS PROGRAMADAS: 6.803. Filtros: 2024
             return False, f"agrega palabras que no estaban en la conversación ({', '.join(new_words[:5])})"
         return True, None
 
-    def rewrite(self, message, transcript, allowed_text, metric_words=None):
+    def rewrite(self, message, transcript, allowed_text, metric_words=None, metric_text=None,
+                required_text=None):
         started = time.perf_counter()
         response = self._chat(self.build_messages(message, transcript))
         elapsed = round(time.perf_counter() - started, 2)
@@ -372,7 +402,11 @@ Asistente: CIRUGÍAS PROGRAMADAS: 6.803. Filtros: 2024
             return {"status": response.get("status") or "error", "question": None,
                     "reason": response.get("error") or response.get("status"), "elapsed": elapsed}
         question = self.clean(response.get("answer"))
-        ok, reason = self.validate(question, message, f"{allowed_text} {message}", metric_words)
+        ok, reason = self.validate(
+            question, message, f"{allowed_text} {message}", metric_words,
+            metric_text=None if metric_text is None else f"{metric_text} {message}",
+            required_text=required_text,
+        )
         if not ok:
             return {"status": "rejected", "question": question or None, "reason": reason, "elapsed": elapsed}
         return {"status": "success", "question": question, "reason": None, "elapsed": elapsed}

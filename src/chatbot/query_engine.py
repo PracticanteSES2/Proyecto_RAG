@@ -131,6 +131,10 @@ class QueryEngine:
         # que app.py solo crea si el servidor está disponible).
         self.context_llm = context_llm
         self._turn_interpretation = None
+        # Mensaje que depende de una contrapregunta pendiente («y en el mes
+        # pasado?» antes de elegir el indicador): se responde tras el botón.
+        self._deferred_context_message = None
+        self._applying_deferred = None
 
     # ========================================================
     # ESTADO
@@ -143,6 +147,7 @@ class QueryEngine:
         self._pending_master_metric = None
         self._pending_query_plan = None
         self._pending_dashboard_clarification = None
+        self._deferred_context_message = None
         if full:
             self._last_success = None
             memory = getattr(self, "conversation_memory", None)
@@ -266,6 +271,15 @@ class QueryEngine:
         lines = domains.describe_turn()
         if lines:
             self._think("Consultas de exploración a Power BI", *lines)
+
+    @staticmethod
+    def _metric_pages(metric):
+        pages = []
+        for appearance in metric.get("appearances") or []:
+            page = appearance.get("page_display_name") or appearance.get("page")
+            if page and page not in pages:
+                pages.append(str(page))
+        return pages[:3]
 
     @staticmethod
     def _metric_where(metric):
@@ -2122,13 +2136,30 @@ class QueryEngine:
             return result
 
         top_level = self._trace is None
+        deferred = None
         if top_level:
             self._turn_interpretation = None
+            deferred = getattr(self, "_deferred_context_message", None)
+            self._deferred_context_message = None
         result = self._traced(
             "option", f"{label} [{option_id}]" if label else option_id, run,
         )
         if top_level:
             self._record_turn(label or option_id, result, via="botón")
+            if (
+                deferred and isinstance(result, dict) and result.get("status") == "success"
+                and result.get("route") == "powerbi"
+            ):
+                # «y en el mes pasado?» llegó con la contrapregunta pendiente:
+                # con el indicador ya elegido se responde ese mensaje.
+                self._applying_deferred = (deferred, label or option_id)
+                try:
+                    followed = self.process(deferred)
+                finally:
+                    self._applying_deferred = None
+                if isinstance(followed, dict) and followed.get("status") in ("success", "empty_result"):
+                    followed["applied_after_choice"] = label or option_id
+                    return followed
         return result
 
     def _select_clarification_option(self, option_id):
@@ -2449,6 +2480,39 @@ class QueryEngine:
             return extra
         return []
 
+    def _defer_context_message(self, message, pending):
+        """«y en el mes pasado?», «compáralo con el año anterior», «los de
+        hospitalización» mientras la contrapregunta sigue pendiente: el mensaje
+        depende de la pregunta pendiente (aún sin indicador), no es una pregunta
+        nueva. Se vuelve a preguntar y, al elegir la opción, se responde la
+        consulta con ese cambio (antes se descartaba la contrapregunta y el
+        mensaje se respondía solo, sin contexto)."""
+        try:
+            analysis = contextual_rewriter.analyze(message)
+        except Exception:
+            return None
+        cues = analysis.get("cues") or []
+        if analysis.get("courtesy") or not cues or analysis.get("correction"):
+            return None
+        complement = analysis.get("complement") or ""
+        if self._named_metric_words(complement):
+            return None
+        if complement.strip() and self._resolves_to_metric(complement):
+            return None
+        self._deferred_context_message = str(message).strip()
+        self._think(
+            "Mensaje que depende de la contrapregunta pendiente",
+            f"«{message.strip()}» se refiere a «{pending['question']}» ({', '.join(cues)}), pero aún "
+            "falta elegir el indicador",
+            "se vuelve a preguntar; al elegir la opción se responde la consulta con ese cambio",
+        )
+        return self._clarification_response(
+            pending["choices"],
+            f"Para responder «{message.strip()}» primero necesito saber cuál indicador de "
+            f"«{pending['question']}» necesitas:",
+            none_label=pending.get("none_label") or self._NONE_LABEL,
+        )
+
     _MONTH_WORDS = {
         "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
         "setiembre", "octubre", "noviembre", "diciembre", "hoy", "ayer", "semana", "mes", "ano",
@@ -2500,6 +2564,9 @@ class QueryEngine:
             board = self._board_named_in_reply(message, choices)
             if board is not None:
                 return self._search_in_named_board(pending, board)
+            deferred = self._defer_context_message(message, pending)
+            if deferred is not None:
+                return deferred
             if self._looks_like_new_question(message):
                 self._think(
                     "La respuesta no coincide con ninguna opción",
@@ -3413,6 +3480,8 @@ class QueryEngine:
                 # Valor mostrado (para «de esos 33» y el desglose del total).
                 "value": result.get("value") if result.get("result_type") == "scalar" else None,
                 "metric_format": result.get("metric_format"),
+                # Dónde está el indicador («¿y en qué tablero lo veo?»).
+                "pages": self._metric_pages(metric),
             }
             return
         if status in ("needs_clarification", "empty_result", "error") or followup:
@@ -4162,6 +4231,12 @@ class QueryEngine:
         named = self._named_metric_words(complement, own_label=own_label)
         cues = analysis.get("cues") or []
 
+        # 0. Dónde se ve: «¿y eso en qué tablero lo veo?», «¿dónde está?».
+        if last is not None and not named and self._WHERE_RE.search(self._normalize_text(message)) and (
+            cues or len(self._normalize_text(message).split()) <= self._CONTEXT_SHORT_WORDS
+        ) and not self._mentions_board(complement):
+            return self._where_is_topic(message, last)
+
         # 1. Documentación del tema anterior: «¿cómo se calcula ese indicador?»,
         #    «¿y eso qué significa?», «¿por qué tan alto?», «¿y qué filtros tiene?».
         descriptive = self._descriptive_reason(message)
@@ -4339,6 +4414,45 @@ class QueryEngine:
         for item in topic.get("group_by") or []:
             parts.append(f"por {str(item.get('label') or item.get('column')).lower()}")
         return " ".join(parts)
+
+    _WHERE_RE = re.compile(
+        r"(?<![a-z0-9])(?:en\s+(?:que|cual|cuales)\s+(?:tableros?|informes?|reportes?|paginas?|hojas?)"
+        r"|donde\s+(?:(?:lo|la|los|las|se|puedo|podria|lo\s+puedo)\s+)*(?:veo|ver|ve|encuentro|encontrar|"
+        r"encuentra|consulto|consultar|esta|estan|aparece|aparecen|miro|mirar|busco|buscar|sale|salen|"
+        r"reviso|revisar))(?![a-z0-9])"
+    )
+
+    def _where_is_topic(self, message, last):
+        """Respuesta directa con el informe y las páginas del indicador anterior
+        (se conocen del catálogo: no hace falta buscar en la documentación)."""
+        label = last.get("metric_label") or "el indicador"
+        report = last.get("report")
+        pages = last.get("pages") or []
+        if not report and not pages:
+            return None
+        text = f"**{label}** (la consulta anterior) está en " + (
+            self._board_phrase(report) if report else "el informe de Power BI"
+        )
+        if pages:
+            text += (", página " if len(pages) == 1 else ", páginas ") + ", ".join(f"«{p}»" for p in pages)
+        text += "."
+        if last.get("semantic_model") and last.get("semantic_model") != report:
+            text += f" Modelo semántico: {last['semantic_model']}."
+        self._note_interpretation(
+            f"¿En qué tablero está {self._topic_subject(last)}?",
+            f"pregunta dónde se ve el indicador de la respuesta anterior ({label})",
+        )
+        self._think(
+            "Ubicación del indicador",
+            "se responde con el informe y las páginas del catálogo de Power BI",
+        )
+        result = {
+            "status": "success", "route": "rag", "question": message, "answer": text,
+            "sources": [], "synthesis_mode": "catalogo",
+        }
+        # El tema sigue siendo el mismo indicador.
+        self._remember_success(result, followup=True)
+        return result
 
     def _documentation_about_topic(self, message, analysis, descriptive, last, previous):
         """Pregunta documental sin sujeto propio: se completa con el tema
@@ -4659,16 +4773,27 @@ class QueryEngine:
         if not (analysis.get("cues") or analysis.get("complement")):
             return None
         transcript = memory.transcript(limit=3)
+        history = memory.history(3)
         allowed = " ".join(
             f"{m['text']} {(m.get('meta') or {}).get('interpreted') or ''} "
             f"{(m.get('meta') or {}).get('metric') or ''} {(m.get('meta') or {}).get('dashboard') or ''}"
-            for m in memory.history(3)
+            for m in history
+        )
+        # Indicadores: solo los que nombró el usuario o se consultaron (la
+        # prosa de una respuesta documental puede nombrar otros: «egresos» no
+        # puede volverse «ingresos»).
+        metric_text = " ".join(
+            f"{m['text'] if m['role'] == 'user' else ''} {(m.get('meta') or {}).get('interpreted') or ''} "
+            f"{(m.get('meta') or {}).get('metric') or ''} {(m.get('meta') or {}).get('dashboard') or ''}"
+            for m in history
         )
         self._activity("Interpretando el mensaje con el contexto de la conversación (MedGemma)")
         metric_words = getattr(self.query_plan_builder, "metric_words", None)
         try:
             outcome = LLMContextRewriter(llm).rewrite(
                 message, transcript, allowed, metric_words=metric_words if callable(metric_words) else None,
+                metric_text=metric_text,
+                required_text=self._without_period_phrases(analysis.get("complement") or ""),
             )
         except Exception as error:
             outcome = {"status": "error", "reason": f"{type(error).__name__}: {error}", "elapsed": None}
@@ -4697,6 +4822,13 @@ class QueryEngine:
 
     def _process_turn(self, message):
         self._activity("Interpretando la pregunta")
+        applying = getattr(self, "_applying_deferred", None)
+        if applying:
+            self._think(
+                "Mensaje pendiente aplicado a la opción elegida",
+                f"«{applying[0]}» llegó mientras esperaba la elección del indicador; con "
+                f"«{applying[1]}» elegido se responde ese mensaje sobre la consulta",
+            )
         # Mensaje tal como lo escribió el usuario (la contrapregunta pendiente
         # decide con él si es una pregunta nueva aunque se haya reescrito).
         previous = getattr(self, "_turn_message", None)
@@ -4806,6 +4938,8 @@ class QueryEngine:
         top_level = getattr(self, "_trace", None) is None
         if top_level:
             self._turn_interpretation = None
+            # Un mensaje aplazado vale solo hasta el botón siguiente.
+            self._deferred_context_message = None
         result = self._traced("question", message, lambda: self._process_turn(message))
         if top_level:
             self._record_turn(message, result, via="texto")
