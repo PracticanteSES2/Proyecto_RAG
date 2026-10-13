@@ -13,6 +13,7 @@ install_adomd_modules(backend) registra en sys.modules los módulos `clr` y
 
     backend.open(catalog)            -> None o lanza (catálogo inexistente, servicio caído)
     backend.execute(catalog, dax)    -> (columnas, filas)   o lanza
+    (opcional) backend.supports_timeout = True: recibe `timeout_s` (AdomdCommand.CommandTimeout)
     backend.catalogs()               -> [nombres de modelos]
 
 Opcionalmente reproduce cómo pythonnet entrega los tipos .NET: System.DateTime y
@@ -146,11 +147,17 @@ class AdomdCommand:
     def __init__(self, conn):
         self.conn = conn
         self.CommandText = ""
+        self.CommandTimeout = 0   # segundos; 0 = sin límite (como ADOMD.NET)
 
     def ExecuteReader(self):
         if self.conn.State.ToString() != "Open":
             raise AdomdConnectionException("The connection is not open.")
-        columns, rows = self.conn.backend.execute(self.conn.catalog, self.CommandText)
+        backend = self.conn.backend
+        if self.CommandTimeout and getattr(backend, "supports_timeout", False):
+            columns, rows = backend.execute(self.conn.catalog, self.CommandText,
+                                            timeout_s=float(self.CommandTimeout))
+        else:
+            columns, rows = backend.execute(self.conn.catalog, self.CommandText)
         return AdomdDataReader(columns, rows)
 
     def Dispose(self):
