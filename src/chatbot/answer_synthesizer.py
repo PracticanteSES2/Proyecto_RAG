@@ -1,7 +1,8 @@
 import os
 import re
-import threading
 import unicodedata
+
+from src.llm.llm_gate import call_llm
 
 from src.rag.ranking import detect_question_intent
 
@@ -502,48 +503,22 @@ responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
         text = str(answer or "").strip().lower().rstrip(".")
         return text == NO_EVIDENCE_ANSWER.lower().rstrip(".")
 
-    def _chat_with_timeout(self, **kwargs):
-        """Llama al LLM con un límite de tiempo propio de la síntesis RAG.
+    def _chat_with_timeout(self, purpose="síntesis RAG", **kwargs):
+        """Llama al LLM con el tiempo límite propio de la síntesis RAG.
 
-        El cliente de Ollama tiene su propio timeout (minutos); aquí se corta
-        antes y se devuelve llm_timeout para usar el resumen extractivo. El
-        hilo queda como daemon: si el servidor responde tarde, se descarta.
-        """
+        Pasa por src/llm/llm_gate.py: con MedGemmaProvider el límite se aplica
+        a nivel HTTP (al vencer se cierra la conexión y el servidor deja de
+        generar; antes un hilo daemon dejaba la petición abierta y el servidor
+        seguía ocupado). Si MedGemma está saturado (sin hueco en
+        MEDGEMMA_QUEUE_WAIT s) no se espera: status="llm_saturated" y quien
+        llama usa el resumen extractivo."""
         timeout = self.timeout_seconds
-        if not timeout or timeout <= 0:
-            return self.llm_provider.chat(**kwargs)
-
-        holder = {}
-
-        def run():
-            try:
-                holder["result"] = self.llm_provider.chat(**kwargs)
-            except Exception as exc:  # el proveedor normalmente no lanza
-                holder["result"] = {
-                    "status": "llm_error",
-                    "answer": None,
-                    "error": str(exc),
-                }
-
-        worker = threading.Thread(
-            target=run,
-            name="rag-synthesis",
-            daemon=True,
+        return call_llm(
+            self.llm_provider,
+            purpose=purpose,
+            timeout=timeout if timeout and timeout > 0 else None,
+            **kwargs,
         )
-        worker.start()
-        worker.join(timeout)
-
-        if worker.is_alive():
-            return {
-                "status": "llm_timeout",
-                "answer": None,
-                "timeout_seconds": timeout,
-            }
-
-        return holder.get("result") or {
-            "status": "llm_error",
-            "answer": None,
-        }
 
     # Muletillas que no aportan: «Claro, …», «según el CONTEXTO», «Espero que
     # esto te ayude». Se quitan de forma determinista (el resto no se toca).
@@ -723,7 +698,8 @@ El valor de Power BI es la fuente de verdad numérica.
 No inventes causas ni tendencias no demostradas.
 """.strip()
 
-        return self.llm_provider.chat(
+        return self._chat_with_timeout(
+            purpose="síntesis Power BI",
             messages=[
                 {
                     "role": "system",

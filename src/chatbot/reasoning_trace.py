@@ -24,6 +24,8 @@ class ReasoningTrace:
         self.steps = []
         self.listener = listener
         self.current_activity = None
+        # Estado del servidor al empezar el turno (runtime_stats.status_line).
+        self.server_state = None
 
     def _elapsed(self):
         return round(time.perf_counter() - self.started, 2)
@@ -56,13 +58,16 @@ class ReasoningTrace:
         })
 
     def to_dict(self):
-        return {
+        data = {
             "created_at": self.created_at,
             "kind": self.kind,
             "text": self.text,
             "elapsed_s": round(time.perf_counter() - self.started, 2),
             "steps": [dict(step, lines=list(step["lines"])) for step in self.steps],
         }
+        if self.server_state:
+            data["server_state"] = self.server_state
+        return data
 
 
 def short(value, limit=160):
@@ -87,6 +92,10 @@ def format_reasoning_text(reasoning, answer=None):
         f"Fecha: {reasoning.get('created_at')}",
         f"{head}: {reasoning.get('text')}",
         f"Duración: {reasoning.get('elapsed_s')} s",
+    ]
+    if reasoning.get("server_state"):
+        lines.append(f"Estado al empezar: {reasoning['server_state']}")
+    lines += [
         "",
     ]
     for number, step in enumerate(reasoning.get("steps") or [], 1):

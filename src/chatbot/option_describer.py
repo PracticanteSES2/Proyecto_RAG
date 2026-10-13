@@ -3,6 +3,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from difflib import SequenceMatcher
 
+from src.chatbot.runtime_stats import env_float
+from src.llm.llm_gate import call_llm
+
 
 class OptionDescriber:
     """
@@ -34,10 +37,14 @@ Indicador: CIRUGÍAS PROGRAMADAS · DAX: COUNTROWS(PROGRAMACION)
 Cuenta las cirugías agendadas en la programación quirúrgica.
 """.strip()
 
-    def __init__(self, llm_provider, max_words=15, max_chars=140, max_workers=3):
+    def __init__(self, llm_provider, max_words=15, max_chars=140, max_workers=3, timeout=None):
         self.llm_provider = llm_provider
         self.max_words = max_words
         self.max_chars = max_chars
+        # Tiempo límite por descripción (OPTION_DESCRIBER_TIMEOUT, 15 s): al
+        # vencer se cierra la conexión y la opción usa la descripción del
+        # catálogo. Antes no tenía límite propio (180 s del cliente).
+        self.timeout = timeout if timeout is not None else env_float("OPTION_DESCRIBER_TIMEOUT", 15.0)
         # El servidor atiende ~3 peticiones a la vez; más hilos no aceleran.
         self.max_workers = max_workers
 
@@ -98,20 +105,19 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
         return ""
 
     def _describe_one(self, option):
-        try:
-            response = self.llm_provider.chat(
-                messages=[
-                    {"role": "system",
-                     "content": self.SYSTEM_PROMPT.format(max_words=self.max_words)},
-                    {"role": "user", "content": self.build_prompt(option)},
-                ],
-                temperature=0.1,
-                max_tokens=60,
-                think=False,
-            )
-        except Exception as error:
-            response = {"status": "error", "error": f"{type(error).__name__}: {error}"}
-        return response
+        return call_llm(
+            self.llm_provider,
+            [
+                {"role": "system",
+                 "content": self.SYSTEM_PROMPT.format(max_words=self.max_words)},
+                {"role": "user", "content": self.build_prompt(option)},
+            ],
+            purpose="descripción de opciones",
+            timeout=self.timeout if self.timeout and self.timeout > 0 else None,
+            temperature=0.1,
+            max_tokens=60,
+            think=False,
+        )
 
     @staticmethod
     def _dax_hint(option):

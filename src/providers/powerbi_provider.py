@@ -8,6 +8,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from src.chatbot.runtime_stats import STATS
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
@@ -94,6 +96,15 @@ class PowerBIProvider:
         # Función (modelo, dax) que se avisa ANTES de cada consulta, para
         # mostrar en vivo qué está consultando (la engancha QueryEngine).
         self.query_listener = None
+
+        # Función (título, *líneas) para avisos en vivo que no son consultas
+        # (p. ej. «Abriendo conexión con Power BI»). La engancha QueryEngine.
+        self.activity_listener = None
+
+        # Modelos con los que ya se abrió alguna conexión (para distinguir
+        # apertura de reconexión) y últimos eventos de conexión (diagnóstico).
+        self._opened_models = set()
+        self.connection_events = []
 
         self._load_dotnet_dependencies()
 
@@ -264,10 +275,32 @@ class PowerBIProvider:
         except Exception:
             return False
 
+    def _notify_activity(self, title, *lines):
+        listener = getattr(self, "activity_listener", None)
+        if callable(listener):
+            try:
+                listener(title, *lines)
+            except Exception:
+                pass
+
     def _create_connection(
         self,
         semantic_model=None,
+        reason=None,
     ):
+        """Abre una conexión ADOMD. Con Interactive Login=Enabled, si no hay
+        un token válido en caché, Open() muestra una ventana de inicio de
+        sesión EN EL SERVIDOR y se queda esperando: por eso se avisa en vivo
+        y se cuenta en el diagnóstico (aperturas y reconexiones)."""
+        key = self._connection_key(semantic_model)
+        reopened = key in getattr(self, "_opened_models", set())
+        label = semantic_model or "espacio de trabajo"
+        self._notify_activity(
+            f"{'Reabriendo' if reopened else 'Abriendo'} conexión con Power BI (modelo {label}). "
+            "Si en el servidor aparece una ventana de inicio de sesión, complétala.",
+            f"motivo: {reason}" if reason else None,
+        )
+        started = time.perf_counter()
 
         connection = (
             self.AdomdConnection(
@@ -277,7 +310,26 @@ class PowerBIProvider:
             )
         )
 
-        connection.Open()
+        try:
+            connection.Open()
+        finally:
+            elapsed = round(time.perf_counter() - started, 2)
+            event = {
+                "at": datetime.now().strftime("%H:%M:%S"),
+                "model": label,
+                "kind": "reconexión" if reopened else "apertura",
+                "reason": reason,
+                "elapsed_s": elapsed,
+                "ok": self._is_connection_open(connection),
+            }
+            events = getattr(self, "connection_events", None)
+            if events is not None:
+                events.append(event)
+                del events[:-20]
+
+        STATS.powerbi_connection_opened(label, reopened=reopened)
+        if hasattr(self, "_opened_models"):
+            self._opened_models.add(key)
 
         return connection
 
@@ -336,14 +388,22 @@ class PowerBIProvider:
             ):
                 return connection
 
+            reason = None
             if connection is not None:
+                try:
+                    reason = f"la conexión anterior quedó en estado {connection.State.ToString()}"
+                except Exception:
+                    reason = "la conexión anterior ya no está abierta"
                 self._invalidate_connection(
                     semantic_model
                 )
+            elif key in getattr(self, "_opened_models", set()):
+                reason = "la conexión anterior se cerró"
 
             connection = (
                 self._create_connection(
-                    semantic_model
+                    semantic_model,
+                    reason=reason,
                 )
             )
 
@@ -503,6 +563,8 @@ class PowerBIProvider:
         command = None
         connection = None
         started = None
+        outcome = {"status": None, "timed_out": False}
+        STATS.powerbi_query_begin(model)
 
         try:
 
@@ -569,6 +631,7 @@ class PowerBIProvider:
                         row
                     )
 
+                outcome["status"] = "success"
                 return {
                     "status":
                         "success",
@@ -625,6 +688,17 @@ class PowerBIProvider:
                 )
             )
 
+            kept = (
+                connection is not None
+                and self._is_connection_open(connection)
+            )
+            outcome.update(status="error", timed_out=timed_out)
+            if timed_out:
+                # ¿ADOMD conserva la conexión tras cancelar por CommandTimeout?
+                # No se pudo comprobar con Power BI real: se registra para el
+                # diagnóstico (si se pierde, la siguiente consulta la reabre
+                # y podría pedir inicio de sesión interactivo).
+                STATS.powerbi_timeout_connection(model, kept)
             return {
                 "status":
                     "error",
@@ -637,15 +711,14 @@ class PowerBIProvider:
                 "timed_out":
                     timed_out,
                 "connection_kept":
-                    (
-                        connection is not None
-                        and self._is_connection_open(
-                            connection
-                        )
-                    ),
+                    kept,
             }
 
         finally:
+
+            STATS.powerbi_query_end(
+                model, outcome["status"], outcome["timed_out"]
+            )
 
             if reader is not None:
 
