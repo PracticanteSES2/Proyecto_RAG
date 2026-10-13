@@ -22,6 +22,13 @@ from src.chatbot.rag_answer_engine import RAGAnswerEngine
 from src.chatbot.answer_synthesizer import AnswerSynthesizer
 from src.chatbot.option_describer import OptionDescriber
 from src.chatbot.reasoning_trace import format_reasoning_text
+from src.chatbot.runtime_stats import (
+    STATS,
+    TurnBusy,
+    diagnostics_lines,
+    status_line,
+    turn_slot,
+)
 from src.chatbot.conversation_export import (
     export_conversation_markdown,
     export_file_name,
@@ -448,7 +455,19 @@ class LiveProgress:
         self.clock = st.empty()
         self.steps = 0
         self.queries = 0
+        self.waiting_shown = False
         render_live_clock(self.clock, self.started_at, self.started_at, "inicio")
+
+    def waiting(self, waited, holder_for=None):
+        """Otro turno (otra pestaña o una ejecución anterior aún bloqueada)
+        tiene el motor: se avisa en vivo mientras se espera."""
+        since = holder_for if holder_for is not None else waited
+        label = f"Esperando a que termine otra consulta en curso (desde hace {since:.0f} s)"
+        self.status.update(label=f"Pensando… {label}")
+        if not self.waiting_shown:
+            self.waiting_shown = True
+            self.status.markdown(f"⏳ {html.escape(label)}", unsafe_allow_html=True)
+            render_live_clock(self.clock, self.started_at, time.time(), "esperando turno")
 
     def on_event(self, event):
         title = str(event.get("title") or "")
@@ -492,24 +511,45 @@ def execute_turn(user_text, runner, via="texto"):
         # un spinner mudo: así se distingue lentitud de un proceso pegado.
         live = LiveProgress()
         set_listener = getattr(engine, "set_progress_listener", None)
-        if callable(set_listener):
-            set_listener(live.on_event)
         try:
-            result = runner()
-            answer = get_display_answer(result, formatter)
-            live.finish()
-        except Exception as exc:
-            traceback.print_exc()
-            error_text = f"{type(exc).__name__}: {exc}"
-            result = {
-                "status": "error", "route": None, "error": error_text,
-                "reasoning": getattr(engine, "last_reasoning", None),
-            }
-            answer = "Ocurrió un error al procesar la consulta. Intenta nuevamente."
+            # Un turno a la vez: el motor es un único objeto con estado por
+            # turno. El candado se libera siempre, también si Streamlit aborta
+            # esta ejecución (StopException/RerunException son BaseException).
+            with turn_slot(user_text, on_wait=live.waiting):
+                if callable(set_listener):
+                    set_listener(live.on_event)
+                try:
+                    try:
+                        result = runner()
+                    except Exception as exc:
+                        traceback.print_exc()
+                        error_text = f"{type(exc).__name__}: {exc}"
+                        result = {
+                            "status": "error", "route": None, "error": error_text,
+                            "reasoning": getattr(engine, "last_reasoning", None),
+                        }
+                    # Dentro del candado: también modifica el estado del motor.
+                    reset_if_finished(result, engine, conversation_manager)
+                finally:
+                    if callable(set_listener):
+                        set_listener(None)
+            if error_text:
+                answer = "Ocurrió un error al procesar la consulta. Intenta nuevamente."
+                live.finish(error=True)
+            else:
+                answer = get_display_answer(result, formatter)
+                live.finish()
+        except TurnBusy as busy:
+            holder = busy.holder or {}
+            since = time.time() - holder["since"] if holder.get("since") else busy.waited_s
+            error_text = str(busy)
+            result = {"status": "busy", "route": None, "error": error_text, "reasoning": None}
+            answer = (
+                f"Hay otra consulta en curso desde hace {since:.0f} s (puede ser de otra pestaña "
+                "o de una pregunta anterior) y no terminó a tiempo. Espera a que termine y vuelve "
+                "a intentarlo."
+            )
             live.finish(error=True)
-        finally:
-            if callable(set_listener):
-                set_listener(None)
 
         st.markdown(answer)
 
@@ -608,7 +648,6 @@ def execute_turn(user_text, runner, via="texto"):
         "reasoning": reasoning_text,
         "status": result.get("status"), "route": result.get("route"),
     })
-    reset_if_finished(result, engine, conversation_manager)
 
 
 with st.sidebar:
@@ -636,17 +675,25 @@ with st.sidebar:
     debug_mode = st.checkbox("Modo diagnóstico", value=False)
     st.info("El asistente responde únicamente con información respaldada por los tableros y documentos disponibles.")
     if st.button("Nueva conversación", use_container_width=True):
-        conversation_manager.reset()
+        try:
+            # El motor no se reinicia en medio de otro turno.
+            with turn_slot("Nueva conversación", max_wait=15):
+                conversation_manager.reset()
 
-        reset_method = getattr(
-            engine,
-            "reset",
-            None,
-        )
+                reset_method = getattr(
+                    engine,
+                    "reset",
+                    None,
+                )
 
-        if callable(reset_method):
-            # full=True: también olvida el contexto de seguimiento.
-            reset_method(full=True)
+                if callable(reset_method):
+                    # full=True: también olvida el contexto de seguimiento.
+                    reset_method(full=True)
+        except TurnBusy:
+            st.session_state.notice = (
+                "Había otra consulta en curso: el historial se borró, pero el contexto "
+                "del asistente no. Pulsa «Nueva conversación» otra vez cuando termine."
+            )
 
         st.session_state.messages = []
         clear_pending_clarification()
@@ -705,8 +752,16 @@ def code_version():
         return None
 
 
-# Al final del script: así el archivo incluye también el turno recién respondido.
+# Al final del script: así el diagnóstico y el archivo incluyen también el
+# turno recién respondido.
+server_snapshot = STATS.snapshot(getattr(engine, "powerbi_provider", None))
 with st.sidebar:
+    if st.session_state.get("notice"):
+        st.warning(st.session_state.pop("notice"))
+    with st.expander("Diagnóstico del servidor", expanded=False):
+        st.markdown("\n".join(
+            diagnostics_lines(server_snapshot, getattr(engine, "powerbi_provider", None))
+        ))
     st.divider()
     st.subheader("Exportar conversación")
     include_reasoning = st.checkbox("Incluir el razonamiento", value=True)
@@ -716,6 +771,7 @@ with st.sidebar:
             "MedGemma": f"{medgemma_status.get('status')} ({medgemma_status.get('model')})",
             "Power BI": powerbi_connection.get("status"),
             "Versión del código": code_version(),
+            "Estado del servidor": status_line(server_snapshot),
         },
         include_reasoning=include_reasoning,
     )

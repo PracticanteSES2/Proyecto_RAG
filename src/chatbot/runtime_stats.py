@@ -238,19 +238,73 @@ def status_line(snapshot):
     open_models = snapshot.get("powerbi_open") or []
     parts = [
         f"encendido hace {_duration(snapshot['uptime_s'])}",
-        f"turnos atendidos {snapshot['turns']['finished'] + snapshot['turns']['errors']}",
-        "MedGemma: "
-        f"{llm['in_flight']} en curso, {llm['waiting']} en cola, "
-        f"{llm['timeouts']} con tiempo agotado, {llm['saturated']} descartadas por saturación, "
-        f"{llm['errors']} con error"
-        + (f", latencia media reciente {latency:.1f} s" if latency is not None else ""),
-        f"Power BI: {len(open_models)} conexión(es) abierta(s)"
+        f"turnos {snapshot['turns']['finished'] + snapshot['turns']['errors']}",
+        f"MedGemma {llm['in_flight']} en curso/{llm['waiting']} en cola/"
+        f"{llm['timeouts']} agotadas/{llm['saturated']} saturadas/{llm['errors']} errores"
+        + (f", latencia media {latency:.1f} s" if latency is not None else ""),
+        f"Power BI {len(open_models)} conexiones"
         + (f" ({', '.join(open_models)})" if open_models else "")
-        + f", {in_flight} consulta(s) en curso, {pbi['opened']} apertura(s), {pbi['reopened']} reconexión(es)",
+        + f", {in_flight} consultas en curso, {pbi['reopened']} reconexiones",
         f"caché de dominios {snapshot.get('domain_cache_size')}",
-        f"hilos vivos {snapshot['threads']}",
+        f"hilos {snapshot['threads']}",
     ]
     return " · ".join(parts)
+
+
+def diagnostics_lines(snapshot, powerbi_provider=None):
+    """Líneas Markdown del desplegable «Diagnóstico del servidor»."""
+    llm = snapshot["llm"]
+    turns = snapshot["turns"]
+    pbi = snapshot["powerbi"]
+    latency = snapshot.get("llm_recent_latency_s")
+    holder = snapshot.get("turn_holder")
+    lines = [
+        f"- **Encendido:** hace {_duration(snapshot['uptime_s'])} (desde {snapshot['started_at']})",
+        f"- **Turnos atendidos:** {turns['finished']} · con error {turns['errors']}"
+        f" · tuvieron que esperar a otro {turns['waited']} · rechazados por ocupado {turns['busy']}",
+        "- **Turno en curso:** "
+        + (f"«{holder['text']}» desde hace {holder.get('for_s', 0):.0f} s" if holder else "ninguno"),
+        f"- **MedGemma:** {llm['in_flight']} en curso · {llm['waiting']} en cola · "
+        f"{llm['completed']} completadas · {llm['timeouts']} con tiempo agotado"
+        f" (abandonadas {llm['abandoned']}) · {llm['saturated']} descartadas por saturación · "
+        f"{llm['errors']} con error",
+        "- **Latencia reciente de MedGemma:** "
+        + (f"media {latency:.1f} s · máxima {snapshot['llm_recent_max_s']:.1f} s"
+           if latency is not None else "sin llamadas aún"),
+    ]
+    by_purpose = snapshot.get("llm_by_purpose") or {}
+    if by_purpose:
+        lines.append("- **MedGemma por uso:** " + " · ".join(
+            f"{name}: {data.get('calls', 0)} llamadas, {data.get('timeouts', 0)} agotadas"
+            + (f", {data['saturated']} saturadas" if data.get("saturated") else "")
+            for name, data in sorted(by_purpose.items())
+        ))
+    open_models = snapshot.get("powerbi_open") or []
+    in_flight = snapshot.get("powerbi_in_flight") or {}
+    lines += [
+        f"- **Power BI, conexiones abiertas:** {len(open_models)}"
+        + (f" ({', '.join(open_models)})" if open_models else ""),
+        "- **Power BI, consultas en curso:** "
+        + (", ".join(f"{model}: {count}" for model, count in in_flight.items()) if in_flight else "0"),
+        f"- **Power BI, aperturas:** {pbi['opened']} · reconexiones {pbi['reopened']}"
+        f" · consultas {pbi['queries']} · cortadas por tiempo límite {pbi['query_timeouts']}"
+        f" (conexión conservada {pbi['timeout_kept']}, perdida {pbi['timeout_lost']})"
+        f" · con error {pbi['query_errors']}",
+    ]
+    events = list(getattr(powerbi_provider, "connection_events", None) or [])[-5:]
+    for event in events:
+        lines.append(
+            f"  - {event.get('at')} {event.get('kind')} ({event.get('model')}) en "
+            f"{event.get('elapsed_s')} s" + (f" · {event['reason']}" if event.get("reason") else "")
+            + ("" if event.get("ok", True) else " · NO quedó abierta")
+        )
+    lines += [
+        f"- **Caché de dominios:** {snapshot.get('domain_cache_size')} columnas",
+        f"- **Hilos vivos:** {snapshot['threads']} ("
+        + ", ".join(f"{name} ×{count}" for name, count in list(snapshot.get("thread_names", {}).items())[:6])
+        + ")",
+    ]
+    return lines
 
 
 def degradation_lines(before, after):
