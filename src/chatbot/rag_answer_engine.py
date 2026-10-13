@@ -134,15 +134,17 @@ class RAGAnswerEngine:
         contexts = [r.get("text", "") for r in results if r.get("text")]
         return "\n\n".join(contexts)
 
-    def _synthesize_answer(self, question, results):
+    def _synthesize_answer(self, question, results, history=None):
         """(respuesta, modo, sin_evidencia)."""
         if self.answer_synthesizer is None:
             return self._fallback_answer(results), "extractive", False
 
-        synthesis = self.answer_synthesizer.synthesize_rag(
-            question=question,
-            sources=results,
-        )
+        # El historial solo se pasa si existe: los sintetizadores que no lo
+        # aceptan (dobles de prueba antiguos) siguen funcionando.
+        kwargs = {"question": question, "sources": results}
+        if history:
+            kwargs["history"] = history
+        synthesis = self.answer_synthesizer.synthesize_rag(**kwargs)
 
         if synthesis.get("status") == "success":
             return synthesis.get("answer"), "llm", bool(synthesis.get("no_evidence"))
@@ -164,11 +166,11 @@ class RAGAnswerEngine:
             "synthesis_mode": synthesis_mode,
         }
 
-    def _build_context_response(self, question, results):
+    def _build_context_response(self, question, results, history=None):
         if not results:
             return self._not_found_response()
 
-        answer, synthesis_mode, no_evidence = self._synthesize_answer(question, results)
+        answer, synthesis_mode, no_evidence = self._synthesize_answer(question, results, history)
 
         # El LLM leyó las fuentes y no halló respuesta: es «no encontrado»
         # (QueryEngine lo trata como fuera de alcance / sin evidencia).
@@ -184,10 +186,14 @@ class RAGAnswerEngine:
             "synthesis_mode": synthesis_mode,
         }
 
-    def _answer_general(self, intent_data):
+    def _answer_general(self, intent_data, history=None):
         question = intent_data.get("original_question") or ""
         results = self._retrieve_general_context(intent_data)
-        return self._build_context_response(question, results)
+        return self._build_context_response(question, results, history)
 
-    def answer(self, intent_data):
-        return self._answer_general(intent_data)
+    def answer(self, intent_data, history=None):
+        """Respuesta documental. `history` (opcional): últimos turnos de la
+        conversación [{"role": "user"|"assistant", "text": str, "meta": {}}];
+        solo orienta la redacción (referencias, no repetir), nunca es
+        evidencia: la respuesta se respalda únicamente en lo recuperado."""
+        return self._answer_general(intent_data, history)

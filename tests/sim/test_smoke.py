@@ -238,7 +238,8 @@ def test_lav_q3_peso_servicio_mes():
     result, ui = last("lav_q3")
     assert result["status"] == "success" and result["route"] == "powerbi", result.get("route")
     assert result["metric"] == "PESO" and result["semantic_model"] == "Lavanderia"
-    assert ui.startswith("**PESO**: 488,3"), ui
+    # Frase inicial con el alcance (periodo y filtro) antes del valor.
+    assert ui.startswith("**PESO** en enero de 2026, con servicio ANTIFLUIDOS: **488,3**"), ui
     assert "SERVICIO = ANTIFLUIDOS" in ui and "enero 2026" in ui, ui
     dax = dax_of(result)
     assert "SUM('LAVANDERIA'[Peso])" in dax

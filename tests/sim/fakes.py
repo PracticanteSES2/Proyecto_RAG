@@ -239,6 +239,10 @@ class FakeOllamaClient:
             raise ConnectionError("[sim] Ollama no disponible")
         SIM_LOG["llm_calls"] += 1
         user = next((m["content"] for m in reversed(messages or []) if m.get("role") == "user"), "")
+        if user.startswith("CONVERSACIÓN PREVIA") and "PREGUNTA DEL USUARIO:" in user:
+            # Síntesis RAG con historial: el bloque de conversación previa va
+            # antes de la pregunta y nunca es evidencia; se ignora.
+            user = "PREGUNTA DEL USUARIO:" + user.split("PREGUNTA DEL USUARIO:", 1)[1]
         if "CONTEXTO RECUPERADO" in user:
             ctx = user.split("CONTEXTO RECUPERADO:", 1)[1].split("TAREA:", 1)[0]
             lines = [l.strip() for l in ctx.splitlines()

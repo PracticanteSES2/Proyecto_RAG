@@ -161,7 +161,7 @@ def readable_fallback(sources, max_items=5):
             prefix = f"{title} ({page})"
 
         lines.append(
-            f"- {prefix}: {description}" if description else f"- {prefix}"
+            f"{prefix}: {description}" if description else prefix
         )
         if len(lines) >= max_items:
             break
@@ -169,7 +169,11 @@ def readable_fallback(sources, max_items=5):
     if not lines:
         return None
 
+    # Un solo elemento se dice tal cual; varios, como lista breve.
+    if len(lines) == 1:
+        return lines[0] + ("" if lines[0].endswith((".", "…")) else ".")
+
     return (
-        "Esto es lo que indica la documentación de los tableros:\n"
-        + "\n".join(lines)
+        "Según la documentación de los tableros:\n"
+        + "\n".join(f"- {line}" for line in lines)
     )
