@@ -97,6 +97,51 @@
       ]
     },
     {
+      "name": "PARTOS_DRIVE",
+      "columns": [
+        {
+          "name": "ID_PARTO",
+          "description": null,
+          "data_type": "Int64",
+          "expression": null,
+          "is_hidden": true
+        },
+        {
+          "name": "TIPO_PARTO",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "ASEGURADOR",
+          "description": null,
+          "data_type": "String",
+          "expression": null,
+          "is_hidden": false
+        },
+        {
+          "name": "FECHA",
+          "description": null,
+          "data_type": "DateTime",
+          "expression": null,
+          "is_hidden": false
+        }
+      ],
+      "measures": [
+        {
+          "name": "TOTAL_PD",
+          "expression": "COUNTROWS('PARTOS_DRIVE')",
+          "table": "PARTOS_DRIVE"
+        },
+        {
+          "name": "PROM_PD",
+          "expression": "COUNTROWS('PARTOS_DRIVE')",
+          "table": "PARTOS_DRIVE"
+        }
+      ]
+    },
+    {
       "name": "Calendario",
       "columns": [
         {

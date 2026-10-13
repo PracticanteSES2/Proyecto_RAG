@@ -2831,6 +2831,188 @@
           }
         }
       ]
+    },
+    {
+      "id": "a_sim_pagina_partos_principal",
+      "category": "a_kpi_simple",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/12 Documentacion Tablero Consultas Obstetricas.docx",
+        "seccion": "Partos: tarjeta total y promedio de partos"
+      },
+      "arneses": [
+        "sim"
+      ],
+      "descripcion": "La pregunta nombra la página Partos por su tema y ningún indicador se llama así: se responde con su indicador principal (tarjeta «Total») y se dice.",
+      "turns": [
+        {
+          "user": "partos de 2024",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "metrics_any": [
+              "total_pd"
+            ],
+            "filters": [
+              {
+                "year": 2024
+              }
+            ],
+            "answer_all": [
+              "indicador principal de la página Partos"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "b_sim_pagina_sin_indicadores",
+      "category": "b_kpi_periodo",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/12 Documentacion Tablero Consultas Obstetricas.docx",
+        "seccion": "Abortos"
+      },
+      "arneses": [
+        "sim"
+      ],
+      "descripcion": "Página que solo existe en la documentación: respuesta documental que dice que el indicador no está en los modelos.",
+      "turns": [
+        {
+          "user": "abortos por aseguradora en 2024",
+          "expect": {
+            "route": [
+              "rag"
+            ],
+            "answer_all": [
+              "No encontré el indicador de la página Abortos"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_sim_pagina_sin_ese_indicador",
+      "category": "e_ambiguo",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Página nombrada sin el indicador pedido"
+      },
+      "arneses": [
+        "sim"
+      ],
+      "descripcion": "«tablero de partos» nombra la página Partos; Total atenciones está en otra página: se dice y se ofrece como opción, no se responde con él.",
+      "turns": [
+        {
+          "user": "cuantas atenciones hubo en 2024 en el tablero de partos",
+          "expect": {
+            "route": [
+              "clarification"
+            ],
+            "prompt_any": [
+              "página Partos"
+            ],
+            "options_any": [
+              "atenciones"
+            ],
+            "has_none_option": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_cirugias_pagina_varios_tableros",
+      "category": "e_ambiguo",
+      "tablero": "Atenciones Institucionales / Demanda Insatisfecha",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Filtros por Tipo de cirugía, Aseguradora, Año y Mes"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "descripcion": "La página «Cirugías» existe en varios tableros: solo se ofrecen sus indicadores principales (no los de otras páginas) y la opción elegida conserva ortopedia, SURA y 2025.",
+      "turns": [
+        {
+          "user": "cirugias de ortopedia de sura en 2025 en el tablero de cirugias",
+          "expect": {
+            "route": [
+              "clarification"
+            ],
+            "prompt_any": [
+              "existe en varios tableros"
+            ],
+            "options_all": [
+              "DEMANDA INSATISFECHA",
+              "TABLERO DE ATENCIONES"
+            ],
+            "has_none_option": true
+          }
+        },
+        {
+          "button": {
+            "label_any": [
+              "TABLERO DE ATENCIONES"
+            ]
+          },
+          "expect": {
+            "route": [
+              "powerbi",
+              "powerbi_empty"
+            ],
+            "metrics_any": [
+              "cirug"
+            ],
+            "filters": [
+              {
+                "column": null,
+                "value": "ORTOPEDIA"
+              },
+              {
+                "column": null,
+                "value": "SURA"
+              },
+              {
+                "year": 2025
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "a_triages_no_atendidos_2025",
+      "category": "a_kpi_simple",
+      "tablero": "Demanda Insatisfecha",
+      "fuente": {
+        "docx": "DOCUMENTACION TABLERO DEMANDA INSATISFECHA/2 Docuemntacion Tablero Triages.docx",
+        "seccion": "Total de triages no atendidos"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "descripcion": "«no atendidos» no es ambiguo con «Total de triages atendidos» (polaridad opuesta).",
+      "turns": [
+        {
+          "user": "cuantos triages no atendidos hubo en 2025",
+          "expect": {
+            "route": [
+              "powerbi",
+              "powerbi_empty"
+            ],
+            "metrics_any": [
+              "no atendidos"
+            ],
+            "filters": [
+              {
+                "year": 2025
+              }
+            ]
+          }
+        }
+      ]
     }
   ]
 }
