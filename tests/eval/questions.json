@@ -3242,15 +3242,15 @@
         },
         {
           "user": "Y en el mes pasado?",
-          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "table", "group_by_any": ["especialidad"], "filters": [{"year": 2026, "month": 9}], "answer_none": ["cancelacion"]}
+          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "table", "group_by_any": ["especialidad"], "filters": [{"month": "anterior"}], "answer_none": ["cancelacion"]}
         },
         {
           "user": "necesito eso mismo pero de agosto",
-          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "table", "filters": [{"year": 2026, "month": 8}]}
+          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "table", "filters": [{"month": 8}]}
         },
         {
           "user": "ok, y el total?",
-          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "scalar", "filters": [{"year": 2026, "month": 8}]}
+          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "scalar", "filters": [{"month": 8}]}
         }
       ]
     },
@@ -3266,10 +3266,10 @@
           "user": "Se me ha solicitado saber la cantidad de cirugias realizadas que tiene cada una de las especialidades en este mes",
           "expect": {"route": ["clarification"], "options_any": ["realizad"]}
         },
-        {"button": 1, "expect": {"route": ["powerbi"], "metrics_any": ["realizad"], "group_by_any": ["especialidad"], "filters": [{"year": 2026, "month": 10}]}},
+        {"button": 1, "expect": {"route": ["powerbi"], "metrics_any": ["realizad"], "group_by_any": ["especialidad"], "filters": [{"month": "actual"}]}},
         {
           "user": "Y en el mes pasado?",
-          "expect": {"route": ["powerbi"], "metrics_any": ["realizad"], "group_by_any": ["especialidad"], "filters": [{"year": 2026, "month": 9}]}
+          "expect": {"route": ["powerbi"], "metrics_any": ["realizad"], "group_by_any": ["especialidad"], "filters": [{"month": "anterior"}]}
         }
       ]
     },
