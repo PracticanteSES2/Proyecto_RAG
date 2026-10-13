@@ -8,7 +8,7 @@ from src.chatbot.conversation_memory import ConversationMemory
 from src.chatbot.intent_parser import ordinal_choice_index
 from src.chatbot.reasoning_trace import ReasoningTrace, format_score, short
 from src.chatbot.response_formatter import (
-    NONE_OF_THE_ABOVE_ID, format_filters_line, format_value_es,
+    NONE_OF_THE_ABOVE_ID, format_filters_line, format_value_es, group_header,
 )
 from src.providers.domain_cache import domain_cache_for
 from src.semantic.request_phrases import requester, rewrite_request, without_requester
@@ -3973,7 +3973,7 @@ class QueryEngine:
     def _plan_interpretation(self, plan):
         """«CANTIDAD DE PACIENTES por ESPECIALIDAD (SERVICIO = URGENCIAS · septiembre 2026)»."""
         text = str((plan.get("metric") or {}).get("label") or "el indicador anterior")
-        groups = ", ".join(str(g.get("label") or g.get("column")) for g in plan.get("group_by") or [])
+        groups = ", ".join(str(group_header(g)) for g in plan.get("group_by") or [])
         if groups:
             text += f" por {groups}"
         filters = self._own_filters_text(plan.get("filters"))
@@ -4019,11 +4019,16 @@ class QueryEngine:
     # ---------------- temas de la conversación ----------------
 
     def _topic_subject(self, topic):
-        """«el indicador CANTIDAD DE PACIENTES del tablero BRIEFING HOSPITALARIO»."""
-        text = f"el indicador {topic.get('metric_label')}"
+        """«el indicador cantidad de pacientes del tablero briefing hospitalario».
+
+        En minúsculas: la pregunta reescrita va a la búsqueda documental y los
+        nombres en mayúsculas («PESO», «TABLERO LAVANDERIA») recuperan peor
+        (con MedGemma real, «¿cómo se calcula ese indicador?» tras el peso de
+        lavandería respondía con la medida TURNO_OK)."""
+        text = f"el indicador {str(topic.get('metric_label') or '').lower()}"
         report = topic.get("report")
         if report:
-            text += " " + self._board_phrase(report, "del")
+            text += " " + self._board_phrase(str(report).lower(), "del")
         return text
 
     _LEAD_QUESTION_RE = re.compile(

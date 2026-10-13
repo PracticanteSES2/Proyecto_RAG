@@ -329,7 +329,7 @@ def test_sim_numeric_to_documentation_and_back():
     finally:
         engine.rag_answer_engine.answer = original
     assert result["route"] == "rag", result.get("route")
-    assert "¿Cómo se calcula el indicador PESO" in (interpretation(result) or ""), interpretation(result)
+    assert "¿cómo se calcula el indicador peso" in (interpretation(result) or "").lower(), interpretation(result)
     # El RAG recibe el historial (interfaz acordada answer(intent_data, history=None)).
     assert captured and captured[-1][0]["role"] == "user" and "peso" in captured[-1][0]["text"].lower()
     assert captured[-1][1]["meta"]["metric"].upper() == "PESO"
@@ -338,7 +338,7 @@ def test_sim_numeric_to_documentation_and_back():
     assert "PESO" in str(result["metric"]).upper() and "febrero 2026" in period(result), ui
     # «¿por qué tan alto?»: documentación del indicador (no una búsqueda suelta).
     result, _ = ask("¿por qué tan alto?")
-    assert result["route"] in ("rag", "out_of_scope") and "PESO" in (interpretation(result) or "")
+    assert result["route"] in ("rag", "out_of_scope") and "PESO" in (interpretation(result) or "").upper()
 
 
 def test_sim_documentation_to_numeric_uses_board_main_indicator():

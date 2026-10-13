@@ -20,7 +20,7 @@ import copy
 import re
 
 from src.chatbot.response_formatter import (
-    format_filters_line, format_period_es, format_value_es, is_blank_value,
+    format_filters_line, format_period_es, format_value_es, group_header, is_blank_value,
 )
 
 DEFAULT_MAX_TURNS = 12
@@ -82,7 +82,7 @@ def summarize_result(result):
         unapplied = [str(t) for t in result.get("unapplied_terms") or [] if t]
         if result.get("result_type") == "table":
             groups = ", ".join(
-                str(g.get("label") or g.get("column")) for g in result.get("group_by") or []
+                str(group_header(g)) for g in result.get("group_by") or []
             )
             rows = result.get("rows") or []
             shown = []
@@ -128,7 +128,7 @@ def result_meta(result):
                 [item for item in filters if not (item.get("type") == "date_range" or item.get("temporal"))]
             ) or None,
             "period": _period_text(filters),
-            "group_by": [str(g.get("label") or g.get("column")) for g in result.get("group_by") or []],
+            "group_by": [str(group_header(g)) for g in result.get("group_by") or []],
             "result_type": result.get("result_type"),
             "value": result.get("value") if result.get("result_type") == "scalar" else None,
             "rows": result.get("total_rows") if result.get("result_type") == "table" else None,
