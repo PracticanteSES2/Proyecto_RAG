@@ -2047,7 +2047,6 @@
       },
       "arneses": ["sim", "realistic"],
       "descripcion": "Se piden dos columnas (peso y participación) en la misma tabla.",
-      "xfail": {"sim": "la tabla agrupada solo trae la participación: se pierde la columna de peso"},
       "turns": [
         {
           "user": "peso y participacion por servicio en lavanderia enero 2026",
@@ -2069,7 +2068,6 @@
         "seccion": "Tarjetas"
       },
       "arneses": ["sim"],
-      "xfail": {"sim": "dos medidas en una pregunta: toma «realizadas» como filtro desconocido"},
       "turns": [
         {
           "user": "cirugias programadas y realizadas en el tablero quirurgico en 2024",
