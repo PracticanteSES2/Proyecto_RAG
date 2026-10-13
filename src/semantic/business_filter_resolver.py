@@ -2,8 +2,13 @@ import json
 import re
 import unicodedata
 
+from src.providers.domain_cache import domain_cache_for
+
 
 class BusinessFilterResolver:
+
+    # Tope histórico de valores por columna (TOPN 2000).
+    VALUE_LIMIT = 2000
 
     CONCEPTS = {
 
@@ -72,8 +77,10 @@ class BusinessFilterResolver:
         dashboard
     ):
         """
-        Precarga los valores de los filtros de negocio
-        una sola vez por modelo/dashboard.
+        Precarga los valores de los filtros de negocio (una consulta en
+        lote para todas las columnas de los conceptos). Los dominios viven
+        en la caché compartida del proveedor (con vencimiento), así que
+        repetir la precarga no vuelve a consultar Power BI.
         """
 
         cache_key = (
@@ -81,12 +88,7 @@ class BusinessFilterResolver:
             dashboard
         )
 
-        if (
-            cache_key
-            in self.domain_cache_loaded
-        ):
-            return
-
+        columns = []
 
         for concept in self.CONCEPTS:
 
@@ -95,25 +97,36 @@ class BusinessFilterResolver:
                 dashboard
             )
 
-            if not column:
-                continue
+            if column:
+                columns.append(column)
 
+        shared = domain_cache_for(
+            self.powerbi_provider
+        )
 
-            values = self._get_values(
+        if shared is not None and columns:
+            try:
+                shared.prefetch(
+                    semantic_model,
+                    [
+                        (
+                            column["table"],
+                            column["column"],
+                            column.get("data_type"),
+                        )
+                        for column in columns
+                    ],
+                )
+            except Exception:
+                pass  # solo optimización: _get_values consulta por columna
+
+        for column in columns:
+
+            self._get_values(
                 semantic_model,
                 column["table"],
                 column["column"]
             )
-
-
-            self.value_cache[
-                (
-                    semantic_model,
-                    column["table"],
-                    column["column"]
-                )
-            ] = values
-
 
         self.domain_cache_loaded.add(
             cache_key
@@ -377,6 +390,28 @@ class BusinessFilterResolver:
             table,
             column
         )
+
+        # Caché compartida de dominios (src/providers/domain_cache.py): la
+        # misma consulta VALUES (TOPN 2500) que usa el planificador. Con
+        # hasta 2000 valores es exactamente lo que devolvía TOPN 2000; un
+        # dominio mayor se consulta aparte con el tope histórico de 2000.
+        shared = domain_cache_for(
+            self.powerbi_provider
+        )
+
+        if shared is not None:
+
+            domain = shared.get(
+                semantic_model,
+                table,
+                column
+            )
+
+            if domain is None:
+                return []
+
+            if len(domain) <= self.VALUE_LIMIT:
+                return list(domain)
 
 
         if (

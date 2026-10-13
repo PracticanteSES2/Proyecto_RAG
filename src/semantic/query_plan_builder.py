@@ -1,11 +1,14 @@
 import json
 import math
+import os
 import re
+import threading
 import unicodedata
 from datetime import date, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from src.providers.domain_cache import domain_cache_for
 from src.semantic.question_kind import descriptive_phrase
 from src.semantic.period_parser import (
     GRANULARITY_LABELS,
@@ -581,6 +584,9 @@ class QueryPlanBuilder:
         self.reports = self._normalize_reports(self.visual_catalog)
         self.dimension_fields = self._build_dimension_index()
         self.static_values = self._build_static_value_index()
+        # Opcional (POWERBI_DOMAIN_PREWARM=1): precalienta en segundo plano los
+        # dominios de las columnas más usadas para nombrar valores.
+        self.prewarm_thread = self._maybe_prewarm_domains()
 
     def _load_json(self, path, default):
         if not Path(path).exists():
@@ -1627,24 +1633,24 @@ class QueryPlanBuilder:
     def _column_ref(self, column):
         return "[" + str(column).replace("]", "]]" ) + "]"
 
-    def _get_values(self, semantic_model, table, column):
+    def _domain_cache(self):
+        """Caché de dominios compartida del proveedor (TTL, lote y presupuesto
+        por turno; ver src/providers/domain_cache.py)."""
+        return domain_cache_for(self.powerbi_provider)
+
+    def _get_values(self, semantic_model, table, column, essential=False):
+        """Valores de la columna: los estáticos del PBIR y luego los de Power BI
+        (VALUES, desde la caché de dominios). None si Power BI no respondió.
+        `essential`: filtro pedido con su columna o periodo (sin límite de
+        consultas de exploración del turno)."""
         key = (semantic_model, table, column)
-        if key in self.value_cache:
-            return self.value_cache[key]
-
-        static_key = (normalize_text(semantic_model), normalize_text(table), normalize_text(column))
-        values = list(self.static_values.get(static_key, []) or [])
-        dax = f'''EVALUATE\nTOPN(\n    2500,\n    FILTER(\n        SELECTCOLUMNS(\n            VALUES({self._table_ref(table)}{self._column_ref(column)}),\n            "Value", {self._table_ref(table)}{self._column_ref(column)}\n        ),\n        NOT ISBLANK([Value])\n    ),\n    [Value], ASC\n)'''
-        try:
-            result = self.powerbi_provider.execute_dax(dax=dax, semantic_model=semantic_model)
-        except Exception as exc:
-            result = {"status": "error", "error": str(exc)}
-
-        if result.get("status") != "success":
-            self.domain_errors[key] = {
-                "status": result.get("status"),
-                "error_type": result.get("error_type"),
-                "message": str(result.get("error") or result.get("message") or "Sin detalle")[:300],
+        cache = self._domain_cache()
+        domain = cache.get(semantic_model, table, column, essential=essential)
+        if domain is None:
+            error = cache.errors.get(cache.key(semantic_model, table, column))
+            self.domain_errors[key] = error or {
+                "status": "skipped", "error_type": None,
+                "message": "consulta de valores omitida (límite de consultas de exploración del turno)",
             }
             # No afirmar que un filtro fue verificado si XMLA falló,
             # aunque el PBIR tenga valores estáticos potencialmente antiguos.
@@ -1652,14 +1658,76 @@ class QueryPlanBuilder:
             return None
 
         self.domain_errors.pop(key, None)
-        for row in result.get("rows", []) or []:
-            if not row:
-                continue
-            value = next(iter(row.values()), None)
-            if value is not None and str(value) not in values:
-                values.append(str(value))
-        self.value_cache[key] = values
+        memo = self.value_cache.get(key)
+        if memo is not None and memo[0] is domain:
+            return memo[1]
+        static_key = (normalize_text(semantic_model), normalize_text(table), normalize_text(column))
+        values = list(self.static_values.get(static_key, []) or [])
+        seen = set(values)
+        for value in domain:
+            if value not in seen:
+                values.append(value)
+                seen.add(value)
+        # Se guarda junto al dominio del que salió: si la caché lo renueva
+        # (TTL), se recompone.
+        self.value_cache[key] = (domain, values)
         return values
+
+    _PREWARM_COLUMNS_PER_MODEL = 12
+
+    def prewarm_domains(self, max_columns_per_model=None):
+        """Trae (en lote, una consulta por modelo) los dominios de las columnas
+        de los visuales donde suele nombrarse un valor suelto (servicio,
+        especialidad, aseguradora, sede...). Devuelve {modelo: columnas}."""
+        limit = int(max_columns_per_model or self._PREWARM_COLUMNS_PER_MODEL)
+        by_model = {}
+        for field in self.dimension_fields:
+            model = field.get("semantic_model")
+            if not model or not self._plausible_value_column(field) or not self._implicit_eligible(field, model):
+                continue
+            column = normalize_text(field.get("column")).replace(" ", "")
+            if any(part in column for part in self._PRIVATE_COLUMN_PARTS):
+                continue
+            bucket = by_model.setdefault(model, [])
+            key = (normalize_text(field.get("table")), normalize_text(field.get("column")))
+            if len(bucket) < limit and all(
+                key != (normalize_text(f.get("table")), normalize_text(f.get("column"))) for f in bucket
+            ):
+                bucket.append(field)
+        for model, fields in by_model.items():
+            self._prefetch_values(model, fields)
+        return {model: len(fields) for model, fields in by_model.items()}
+
+    def _maybe_prewarm_domains(self):
+        flag = str(os.getenv("POWERBI_DOMAIN_PREWARM") or "").strip().lower()
+        if flag not in ("1", "true", "si", "sí", "yes") or self.powerbi_provider is None:
+            return None
+
+        def run():
+            try:
+                self.prewarm_domains()
+            except Exception:
+                pass  # solo optimización: los dominios se consultan al necesitarlos
+
+        thread = threading.Thread(target=run, name="precalentar-dominios", daemon=True)
+        thread.start()
+        return thread
+
+    def _prefetch_values(self, semantic_model, fields):
+        """Trae en una sola consulta (lote) los dominios de texto de `fields`
+        que aún no están en caché, en el orden dado (prioridad). Solo adelanta
+        consultas que se harían igual: los valores no cambian."""
+        if not semantic_model or not fields:
+            return
+        columns = [
+            (field.get("table"), field.get("column"),
+             self._raw_column_type(semantic_model, field.get("table"), field.get("column")))
+            for field in fields if field.get("table") and field.get("column")
+        ]
+        try:
+            self._domain_cache().prefetch(semantic_model, columns)
+        except Exception:
+            pass  # el lote es solo una optimización: get() consulta columna por columna
 
     def _value_match_score(self, question, value, value_hint=None, allow_short=False):
         q = normalize_text(value_hint or question)
@@ -1707,7 +1775,7 @@ class QueryPlanBuilder:
         («menores de edad» cuando la columna se llama MENORES y la pista es
         «edad»): con ella se descartan los valores que contradicen la palabra
         distintiva de la pregunta (MAYORES DE EDAD) aunque puntúen igual."""
-        values = self._get_values(semantic_model, field["table"], field["column"])
+        values = self._get_values(semantic_model, field["table"], field["column"], essential=True)
         if values is None:
             return None
         scored = []
@@ -2120,6 +2188,9 @@ class QueryPlanBuilder:
         ordered = plausible[:max(self.max_implicit_dimensions, 10)]
         ordered += others[:max(0, self.max_implicit_dimensions - len(ordered))]
         ordered = own + ordered
+        # Dominios de las columnas a revisar en una sola consulta (en su orden
+        # de prioridad); el bucle los lee de la caché.
+        self._prefetch_values(semantic_model, ordered)
 
         best = None
         for field in ordered:
@@ -2372,6 +2443,26 @@ class QueryPlanBuilder:
         types = self._technical_column_types(semantic_model)
         return types.get((normalize_text(table), normalize_text(column)))
 
+    def _raw_column_type(self, semantic_model, table, column):
+        """Tipo de dato tal cual lo trae el catálogo técnico («String», «Int64»...)
+        o None. Solo columnas del mismo tipo exacto se consultan en lote."""
+        key = normalize_text(semantic_model)
+        cache = self.__dict__.setdefault("_raw_column_type_cache", {})
+        if key not in cache:
+            types = {}
+            try:
+                path = self.source_router.catalog_path_for_model(semantic_model, required=False)
+                catalog = self._load_json(path, {}) if path else {}
+            except Exception:
+                catalog = {}
+            for table_item in catalog.get("tables", []) or []:
+                for column_item in table_item.get("columns", []) or []:
+                    types[(normalize_text(table_item.get("name")), normalize_text(column_item.get("name")))] = (
+                        column_item.get("data_type")
+                    )
+            cache[key] = types
+        return cache[key].get((normalize_text(table), normalize_text(column)))
+
     # ---------------- time ----------------
     def _is_temporal_field(self, field):
         words = set()
@@ -2540,7 +2631,7 @@ class QueryPlanBuilder:
         month_type = self._column_type(semantic_model, field["table"], field["column"])
         if month_type != "text":
             return list(months), "number"
-        domain = self._get_values(semantic_model, field["table"], field["column"]) or []
+        domain = self._get_values(semantic_model, field["table"], field["column"], essential=True) or []
         names = {normalize_text(item): item for item in domain}
         values = [names.get(PERIOD_MONTH_NAMES[month]) for month in months]
         if any(value is None for value in values):
@@ -2706,7 +2797,7 @@ class QueryPlanBuilder:
         year_field = self._best_temporal_field(candidates, semantic_model, "year")
         if not year_field or self._best_date_field(candidates, semantic_model):
             return None
-        values = self._get_values(semantic_model, year_field["table"], year_field["column"]) or []
+        values = self._get_values(semantic_model, year_field["table"], year_field["column"], essential=True) or []
         years = sorted({int(v) for v in values if str(v).isdigit()})[-10:]
         if not years:
             return None
@@ -5860,11 +5951,12 @@ class QueryPlanBuilder:
         """Valores del campo con sus palabras canónicas (caché por campo)."""
         cache = self.__dict__.setdefault("_value_token_cache", {})
         key = (normalize_text(semantic_model), normalize_text(field.get("table")), normalize_text(field.get("column")))
-        if key in cache:
-            return cache[key]
         values = self._get_values(semantic_model, field["table"], field["column"])
         if values is None:
             return None  # fallo temporal: no se cachea
+        cached = cache.get(key)
+        if cached is not None and cached[0] is values:
+            return cached[1]  # mismo dominio (la caché lo renueva al vencer)
         ignored = {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS}
         index = []
         if len(values) <= self._QUALIFIER_MAX_DOMAIN:
@@ -5872,7 +5964,7 @@ class QueryPlanBuilder:
                 tokens = [t for t in canonical_tokens(value) if t not in ignored and t != "%"]
                 if tokens and not all(t.isdigit() for t in tokens):
                     index.append((value, tokens))
-        cache[key] = index
+        cache[key] = (values, index)
         return index
 
     @staticmethod
@@ -5915,6 +6007,11 @@ class QueryPlanBuilder:
             fields.append(field)
             if len(fields) >= self._QUALIFIER_FIELD_LIMIT:
                 break
+
+        # La primera frase (todas las palabras) revisa todos los campos: sus
+        # dominios se traen juntos en una consulta en lugar de uno por campo.
+        if any(canonical_token(word) not in ignored for word in words):
+            self._prefetch_values(semantic_model, fields)
 
         remaining = list(words)
         found = []
