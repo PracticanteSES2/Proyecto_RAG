@@ -222,6 +222,22 @@ def resolve_year(value):
 
 _MONTH_ABBREVIATIONS = {name[:3]: number for name, number in MONTHS.items()}
 
+# Mes relativo a hoy («este mes», «el mes pasado»): {"month": "actual"} o
+# {"month": "anterior"}; el año se deduce del mes si no se da.
+_RELATIVE_MONTHS = {"actual": 0, "anterior": -1}
+
+
+def resolve_period(spec):
+    """(año, mes) esperados de un filtro de periodo; admite año y mes relativos."""
+    year, month = spec.get("year"), spec.get("month")
+    if isinstance(month, str) and norm(month) in _RELATIVE_MONTHS:
+        today = date.today()
+        index = today.year * 12 + today.month - 1 + _RELATIVE_MONTHS[norm(month)]
+        month = index % 12 + 1
+        if year is None:
+            year = index // 12
+    return resolve_year(year), month
+
 
 def month_number(value):
     """Mes como número: 4, "4", "04", "abril", "ABRIL", "Abr", "4 - abril"; None si no es un mes."""
@@ -247,7 +263,7 @@ def _is_month_column(column):
 def _filter_ok(spec, filters, dax):
     """¿El filtro esperado está aplicado? spec: {column?, value?} o {year?, month?}."""
     if "year" in spec or "month" in spec:
-        year, month = resolve_year(spec.get("year")), spec.get("month")
+        year, month = resolve_period(spec)
         year_ok = year is None
         month_ok = month is None
         for item in filters:
@@ -287,15 +303,15 @@ def _filter_ok(spec, filters, dax):
 
 def _filter_label(spec):
     if "year" in spec or "month" in spec:
-        return "periodo " + "-".join(str(spec[k]) for k in ("year", "month") if spec.get(k) is not None)
+        return "periodo " + "-".join(str(v) for v in resolve_period(spec) if v is not None)
     return f"{spec.get('column') or '*'}={spec.get('value')}"
 
 
 def _filter_declared(spec, ui, result):
     """El filtro no se aplicó pero la respuesta lo dice (no lo esconde)."""
     if "year" in spec or "month" in spec:
-        words = [str(resolve_year(spec.get("year")) or "")]
-        month = spec.get("month")
+        year, month = resolve_period(spec)
+        words = [str(year or "")]
         words += [name for name, number in MONTHS.items() if number == month]
     else:
         words = [str(spec.get("value") or "")]
