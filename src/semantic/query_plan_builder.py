@@ -80,6 +80,13 @@ COMMON_VERB_WORDS = {
 }
 STOPWORDS |= COMMON_VERB_WORDS
 
+# Demostrativos y pronombres que remiten a la respuesta anterior («de esos»,
+# «de ellas»): nunca son el indicador, un filtro ni el sustantivo principal.
+STOPWORDS |= {
+    "esos", "esas", "eso", "esto", "ellos", "ellas", "aquel", "aquella",
+    "aquellos", "aquellas",
+}
+
 # Sinónimos de negocio por palabra (genéricos, no de un tablero concreto):
 # «kilos de ropa» o «cuánto pesaron» preguntan por el PESO.
 BUSINESS_TOKEN_SYNONYMS = {
@@ -3981,6 +3988,43 @@ class QueryPlanBuilder:
             if current is None or len(label) < len(current["label"]):
                 by_model[model] = {"label": label, "report": reports[0] if reports else None}
         return [by_model[key] for key in sorted(by_model)][:limit]
+
+    _GROUPING_TIME_WORDS = {"mes", "ano", "anio", "trimestre", "semestre", "semana", "dia"}
+
+    def grouping_dimension_name(self, text):
+        """Nombre (singular) de la dimensión que nombra `text` («especialidades»
+        -> «especialidad», «grupo etario») si es un alias de alguna dimensión del
+        catálogo, un sinónimo conocido o una granularidad de tiempo; si no, None.
+        Lo usa la reescritura de «cada una de las X» / «desglose por X»."""
+        from src.semantic.request_phrases import singular
+
+        aliases = self.__dict__.get("_grouping_aliases")
+        if aliases is None:
+            aliases = set(self._GROUPING_TIME_WORDS)
+            for field in self.dimension_fields or []:
+                if self._is_temporal_field(field):
+                    continue
+                for alias in field.get("aliases", []) or []:
+                    norm = normalize_text(alias)
+                    if norm and len(norm) >= 3 and len(norm.split()) <= 3:
+                        aliases.add(norm)
+            for canonical, synonyms in DIMENSION_SYNONYMS.items():
+                aliases.add(canonical)
+                aliases.update(normalize_text(item) for item in synonyms)
+            self._grouping_aliases = aliases
+        norm = normalize_text(text)
+        if not norm:
+            return None
+        words = norm.split()
+        # Primero el singular («especialidades» -> «especialidad»): es la forma
+        # con la que se nombra la agrupación («por especialidad»).
+        candidates = [" ".join(singular(word) for word in words), norm]
+        for candidate in candidates:
+            if candidate in self._GROUPING_TIME_WORDS:
+                return candidate
+            if candidate in aliases and candidate not in GENERIC_QUERY_WORDS and candidate not in STOPWORDS:
+                return candidate
+        return None
 
     def metric_words(self, question):
         """Palabras de la pregunta que nombran un indicador del catálogo (sin
