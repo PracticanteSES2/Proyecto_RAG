@@ -650,6 +650,89 @@ def test_reply_naming_a_board_without_options_says_so_and_keeps_options():
 
 
 # ----------------------------------------------------------------------------
+# Preguntas compuestas (varias medidas en una pregunta)
+# ----------------------------------------------------------------------------
+
+def _table(ui):
+    """Filas de la tabla markdown de la respuesta -> [[celdas]] (sin cabecera)."""
+    rows = [line for line in ui.splitlines() if line.startswith("| ")]
+    return [[c.strip() for c in row.strip("|").split("|")] for row in rows[2:]]
+
+
+def test_composite_elliptical_measures_match_single_questions():
+    result, ui = last("comp_qx_programadas_y_realizadas")
+    assert result["route"] == "powerbi" and result["status"] == "success", result.get("status")
+    medidas = {m["label"]: m["value"] for m in result["measures"]}
+    programadas, _ = last("comp_qx_programadas_sola")
+    realizadas, _ = last("comp_qx_realizadas_sola")
+    assert medidas == {"CIRUGÍAS PROGRAMADAS": programadas["value"],
+                       "CIRUGÍAS REALIZADAS": realizadas["value"]}, medidas
+    assert "Filtros: 2024" in ui and "realizad" in ui.lower(), ui
+    lines = _reasoning_lines(result)
+    assert any("«cirugias realizadas en el tablero quirurgico en 2024»" in line for line in lines), lines
+    assert any(line.startswith("Plan de «CIRUGÍAS REALIZADAS»") for line in lines), lines
+
+
+def test_composite_grouped_measures_in_one_table():
+    result, ui = last("comp_qx_por_especialidad")
+    assert result["result_type"] == "table" and result["status"] == "success", result.get("status")
+    log = result["_sim"]["dax_log"]
+    multi = [q for q in log if '"__m2"' in q["dax"]]
+    assert len(multi) == 1 and "SUMMARIZECOLUMNS(" in multi[0]["dax"], [q["dax"] for q in log]
+    header = next(line for line in ui.splitlines() if line.startswith("| "))
+    assert "CIRUGÍAS PROGRAMADAS" in header and "CIRUGÍAS REALIZADAS" in header, header
+    assert "Filtros: 2024" in ui, ui
+    # Cada columna coincide con la consulta de una sola medida.
+    programadas, ui_p = last("enr_por_x_tablero_nombrado")
+    realizadas, ui_r = last("comp_qx_realizadas_por_especialidad")
+    simple = {row[0]: row[1] for row in _table(ui_p)}
+    simple_r = {row[0]: row[1] for row in _table(ui_r)}
+    for especialidad, prog, real in _table(ui):
+        assert simple[especialidad] == prog and simple_r[especialidad] == real, (especialidad, prog, real)
+
+
+def test_composite_grouped_by_month():
+    result, ui = last("comp_qx_por_mes")
+    assert result["result_type"] == "table" and result["status"] == "success", result.get("status")
+    dax = dax_of(result)
+    assert dax.startswith("EVALUATE\nUNION(") and '"__m1"' in dax and '"__m2"' in dax, dax
+    rows = _table(ui)
+    assert len(rows) == 12 and rows[0][0] == "enero 2024" and rows[-1][0] == "diciembre 2024", rows
+    assert "Filtros: 2024" in ui, ui
+
+
+def test_composite_peso_and_share_by_servicio():
+    result, ui = last("comp_lav_peso_y_participacion_por_servicio")
+    assert result["result_type"] == "table" and result["status"] == "success"
+    header = next(line for line in ui.splitlines() if line.startswith("| "))
+    assert "PESO" in header and "Participación" in header, header
+    rows = {row[0]: row[1:] for row in _table(ui)}
+    assert rows["ANTIFLUIDOS"] == ["488,3", "12,5 %"], rows
+    total = sum(float(share.replace(" %", "").replace(",", ".")) for _, share in rows.values())
+    assert abs(total - 100) < 0.5, total
+    assert "Filtros: enero 2026" in ui, ui
+
+
+def test_composite_ambiguous_part_asks_then_answers_everything():
+    turns = run("comp_parte_ambigua")
+    _, first, ui_first = turns[0]
+    assert first["status"] == "needs_clarification", first.get("status")
+    assert "«cirugias realizadas»" in ui_first and "CIRUGÍAS PROGRAMADAS" in ui_first, ui_first
+    _, second, ui_second = turns[1]
+    assert second["status"] == "success" and second["route"] == "powerbi", second.get("status")
+    labels = [m["label"] for m in second["measures"]]
+    assert labels == ["CIRUGÍAS PROGRAMADAS", "CIRUGÍAS REALIZADAS"], labels
+    assert "Filtros: 2024" in ui_second, ui_second
+
+
+def test_composite_share_question_form():
+    result, ui = last("comp_porcentaje_fue_de")
+    assert result["route"] == "powerbi" and result["status"] == "success", result.get("status")
+    assert [m["label"] for m in result["measures"]] == ["Participación"]
+    assert "12,5 %" in ui and "SERVICIO = ANTIFLUIDOS" in ui and "enero 2026" in ui, ui
+
+
+# ----------------------------------------------------------------------------
 # Runner propio
 # ----------------------------------------------------------------------------
 

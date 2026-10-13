@@ -260,4 +260,41 @@ CASES = {
         "label": "«el de lavandería» nombra un tablero que no es de ninguna opción",
         "turns": ["¿Cuántas cirugías realizadas hubo en 2024?", "el de lavanderia"],
     },
+    # ---- preguntas compuestas (varias medidas) ----
+    "comp_qx_programadas_y_realizadas": {
+        "label": "coordinación elíptica: «programadas y realizadas» comparten «cirugías»",
+        "turns": ["cirugias programadas y realizadas en el tablero quirurgico en 2024"],
+    },
+    "comp_qx_programadas_sola": {
+        "label": "control: solo programadas (mismo periodo y tablero)",
+        "turns": ["cirugias programadas en el tablero quirurgico en 2024"],
+    },
+    "comp_qx_realizadas_sola": {
+        "label": "control: solo realizadas (mismo periodo y tablero)",
+        "turns": ["cirugias realizadas en el tablero quirurgico en 2024"],
+    },
+    "comp_qx_por_especialidad": {
+        "label": "dos medidas agrupadas: una columna por medida",
+        "turns": ["cirugias programadas y realizadas por especialidad en 2024 en el tablero quirurgico"],
+    },
+    "comp_qx_realizadas_por_especialidad": {
+        "label": "control: realizadas por especialidad",
+        "turns": ["cirugias realizadas por especialidad en 2024 en el tablero quirurgico"],
+    },
+    "comp_qx_por_mes": {
+        "label": "dos medidas por mes: UNION de filas con una columna por medida",
+        "turns": ["cuantas cirugias programadas y cuantas realizadas hubo por mes en 2024 en el tablero quirurgico"],
+    },
+    "comp_lav_peso_y_participacion_por_servicio": {
+        "label": "peso y participación por servicio: tabla con las dos columnas",
+        "turns": ["peso y participacion por servicio en lavanderia enero 2026"],
+    },
+    "comp_parte_ambigua": {
+        "label": "una parte ambigua: se contrapregunta y luego se responden las dos",
+        "turns": ["cirugias programadas y realizadas en 2024", "1"],
+    },
+    "comp_porcentaje_fue_de": {
+        "label": "«qué porcentaje del peso … fue de antifluidos»: solo la participación",
+        "turns": ["que porcentaje del peso de enero de 2026 en lavanderia fue de antifluidos"],
+    },
 }
