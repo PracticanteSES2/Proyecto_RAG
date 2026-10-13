@@ -8,7 +8,7 @@ from datetime import date, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
 
-from src.providers.domain_cache import domain_cache_for
+from src.providers.domain_cache import connection_open, domain_cache_for, identifier_column
 from src.semantic.question_kind import descriptive_phrase
 from src.semantic.period_parser import (
     GRANULARITY_LABELS,
@@ -1645,14 +1645,16 @@ class QueryPlanBuilder:
         por turno; ver src/providers/domain_cache.py)."""
         return domain_cache_for(self.powerbi_provider)
 
-    def _get_values(self, semantic_model, table, column, essential=False):
+    def _get_values(self, semantic_model, table, column, essential=False, limit=None):
         """Valores de la columna: los estáticos del PBIR y luego los de Power BI
         (VALUES, desde la caché de dominios). None si Power BI no respondió.
         `essential`: filtro pedido con su columna o periodo (sin límite de
-        consultas de exploración del turno)."""
+        consultas de exploración del turno ni de tiempo). `limit`: tope TOPN
+        (por defecto el histórico, 2500); uno menor basta cuando solo importa
+        si el dominio pasa de cierto tamaño (calificativos aproximados)."""
         key = (semantic_model, table, column)
         cache = self._domain_cache()
-        domain = cache.get(semantic_model, table, column, essential=essential)
+        domain = cache.get(semantic_model, table, column, essential=essential, limit=limit)
         if domain is None:
             error = cache.errors.get(cache.key(semantic_model, table, column))
             self.domain_errors[key] = error or {
@@ -1682,10 +1684,14 @@ class QueryPlanBuilder:
 
     _PREWARM_COLUMNS_PER_MODEL = 12
 
-    def prewarm_domains(self, max_columns_per_model=None):
-        """Trae (en lote, una consulta por modelo) los dominios de las columnas
-        de los visuales donde suele nombrarse un valor suelto (servicio,
-        especialidad, aseguradora, sede...). Devuelve {modelo: columnas}."""
+    def prewarm_domains(self, max_columns_per_model=None, only_open_connections=False):
+        """Trae (en lotes pequeños de columnas de baja cardinalidad) los dominios
+        de las columnas de los visuales donde suele nombrarse un valor suelto
+        (servicio, especialidad, aseguradora, sede...). Nunca columnas de
+        personas o identificadores. `only_open_connections`: solo modelos cuya
+        conexión ya abrió el hilo principal (el hilo de precalentamiento no abre
+        conexiones: con Interactive Login el inicio de sesión no debe salir de un
+        hilo secundario). Devuelve {modelo: columnas}."""
         limit = int(max_columns_per_model or self._PREWARM_COLUMNS_PER_MODEL)
         by_model = {}
         for field in self.dimension_fields:
@@ -1693,7 +1699,7 @@ class QueryPlanBuilder:
             if not model or not self._plausible_value_column(field) or not self._implicit_eligible(field, model):
                 continue
             column = normalize_text(field.get("column")).replace(" ", "")
-            if any(part in column for part in self._PRIVATE_COLUMN_PARTS):
+            if any(part in column for part in self._PRIVATE_COLUMN_PARTS) or identifier_column(field.get("column")):
                 continue
             bucket = by_model.setdefault(model, [])
             key = (normalize_text(field.get("table")), normalize_text(field.get("column")))
@@ -1701,18 +1707,29 @@ class QueryPlanBuilder:
                 key != (normalize_text(f.get("table")), normalize_text(f.get("column"))) for f in bucket
             ):
                 bucket.append(field)
+        if only_open_connections:
+            by_model = {
+                model: fields for model, fields in by_model.items()
+                if connection_open(self.powerbi_provider, model)
+            }
         for model, fields in by_model.items():
             self._prefetch_values(model, fields)
         return {model: len(fields) for model, fields in by_model.items()}
 
     def _maybe_prewarm_domains(self):
+        """POWERBI_DOMAIN_PREWARM=1: precalienta en un hilo aparte (no bloquea el
+        arranque). Usa el MISMO proveedor (su _connection_lock serializa las
+        consultas con las del usuario), solo modelos con la conexión ya abierta,
+        lotes pequeños con tiempo límite, y sus consultas no cuentan en el turno
+        del usuario (DomainCache.background). Desactivado por defecto."""
         flag = str(os.getenv("POWERBI_DOMAIN_PREWARM") or "").strip().lower()
         if flag not in ("1", "true", "si", "sí", "yes") or self.powerbi_provider is None:
             return None
 
         def run():
             try:
-                self.prewarm_domains()
+                with self._domain_cache().background():
+                    self.prewarm_domains(only_open_connections=True)
             except Exception:
                 pass  # solo optimización: los dominios se consultan al necesitarlos
 
@@ -1720,10 +1737,12 @@ class QueryPlanBuilder:
         thread.start()
         return thread
 
-    def _prefetch_values(self, semantic_model, fields):
-        """Trae en una sola consulta (lote) los dominios de texto de `fields`
-        que aún no están en caché, en el orden dado (prioridad). Solo adelanta
-        consultas que se harían igual: los valores no cambian."""
+    def _prefetch_values(self, semantic_model, fields, limit=None, max_batches=None, lead=False):
+        """Trae en lotes pequeños los dominios de texto de baja cardinalidad de
+        `fields` que aún no están en caché, en el orden dado (prioridad). Solo
+        adelanta consultas que se harían igual: los valores no cambian.
+        `max_batches=1` + `lead=True`: búsqueda incremental (solo el siguiente
+        lote, y solo si la primera columna entra a un lote)."""
         if not semantic_model or not fields:
             return
         columns = [
@@ -1732,9 +1751,26 @@ class QueryPlanBuilder:
             for field in fields if field.get("table") and field.get("column")
         ]
         try:
-            self._domain_cache().prefetch(semantic_model, columns)
+            self._domain_cache().prefetch(semantic_model, columns, limit=limit, max_batches=max_batches,
+                                          lead=lead)
         except Exception:
             pass  # el lote es solo una optimización: get() consulta columna por columna
+
+    def _prefetch_next(self, semantic_model, fields, position, limit=None, skip=()):
+        """Búsqueda incremental: antes de leer fields[position], trae en un lote
+        (si hace falta) esa columna y las siguientes de baja cardinalidad. Así se
+        consulta solo lo que se llega a revisar: el llamador se detiene en la
+        primera coincidencia fuerte."""
+        field = fields[position]
+        cache = self._domain_cache()
+        if cache is None or cache.cached(semantic_model, field.get("table"), field.get("column"),
+                                         limit=limit or 2500) is not None:
+            return
+        rest = [
+            item for item in fields[position:]
+            if (normalize_text(item.get("table")), normalize_text(item.get("column"))) not in skip
+        ]
+        self._prefetch_values(semantic_model, rest, limit=limit, max_batches=1, lead=True)
 
     def _value_match_score(self, question, value, value_hint=None, allow_short=False):
         q = normalize_text(value_hint or question)
@@ -2195,12 +2231,20 @@ class QueryPlanBuilder:
         ordered = plausible[:max(self.max_implicit_dimensions, 10)]
         ordered += others[:max(0, self.max_implicit_dimensions - len(ordered))]
         ordered = own + ordered
-        # Dominios de las columnas a revisar en una sola consulta (en su orden
-        # de prioridad); el bucle los lee de la caché.
-        self._prefetch_values(semantic_model, ordered)
+        # Identificadores y datos de personas (documento, ingreso, OID...) nunca
+        # son un valor nombrado suelto (como ya no lo son en las columnas propias):
+        # se quitan después de armar la lista, sin que otra columna ocupe su lugar.
+        # En Power BI real su dominio tiene miles de valores (TOPN 2500 solo trae
+        # los primeros en orden alfabético) y consultarlo cuesta segundos.
+        ordered = [field for field in ordered if not identifier_column(field.get("column"))]
 
+        # Búsqueda incremental: los dominios se traen en lotes pequeños (solo
+        # columnas de baja cardinalidad) a medida que el bucle los revisa, en su
+        # orden de prioridad; al encontrar una coincidencia fuerte (≥ 1.0) no se
+        # consulta el resto. Mismo orden y mismos valores que antes.
         best = None
-        for field in ordered:
+        for position, field in enumerate(ordered):
+            self._prefetch_next(semantic_model, ordered, position)
             resolved = self._resolve_implicit_value(
                 leftover, field, semantic_model, decisions, question=question,
             )
@@ -5995,7 +6039,20 @@ class QueryPlanBuilder:
         """Valores del campo con sus palabras canónicas (caché por campo)."""
         cache = self.__dict__.setdefault("_value_token_cache", {})
         key = (normalize_text(semantic_model), normalize_text(field.get("table")), normalize_text(field.get("column")))
-        values = self._get_values(semantic_model, field["table"], field["column"])
+        # Un dominio de más de _QUALIFIER_MAX_DOMAIN valores no se indexa (abajo):
+        # si ya se sabe que los pasa (consulta de cardinalidad o dominio ya
+        # traído) o es un identificador/dato de persona (documento, ingreso,
+        # OID...: siempre miles de valores), no se consulta. Para el resto basta
+        # pedir _QUALIFIER_MAX_DOMAIN + 1 valores: con eso se sabe si los pasa.
+        domains = self._domain_cache()
+        if domains is not None and (
+            identifier_column(field.get("column"))
+            or domains.exceeds(semantic_model, field["table"], field["column"], self._QUALIFIER_MAX_DOMAIN)
+        ):
+            domains.note_avoided(semantic_model, field["table"], field["column"])
+            return []
+        values = self._get_values(semantic_model, field["table"], field["column"],
+                                  limit=self._QUALIFIER_MAX_DOMAIN + 1)
         if values is None:
             return None  # fallo temporal: no se cachea
         cached = cache.get(key)
@@ -6052,11 +6109,12 @@ class QueryPlanBuilder:
             if len(fields) >= self._QUALIFIER_FIELD_LIMIT:
                 break
 
-        # La primera frase (todas las palabras) revisa todos los campos: sus
-        # dominios se traen juntos en una consulta en lugar de uno por campo.
-        if any(canonical_token(word) not in ignored for word in words):
-            self._prefetch_values(semantic_model, fields)
-
+        # Búsqueda incremental: los dominios se traen en lotes pequeños (solo
+        # columnas de baja cardinalidad; basta el tope _QUALIFIER_MAX_DOMAIN + 1)
+        # cuando el bucle llega a cada campo, y una frase deja de revisar campos
+        # al encontrar una coincidencia de 1.0 (el máximo: ningún campo
+        # posterior la reemplaza). Mismo orden y mismos valores que antes.
+        qualifier_limit = self._QUALIFIER_MAX_DOMAIN + 1
         remaining = list(words)
         found = []
         progress = True
@@ -6069,10 +6127,13 @@ class QueryPlanBuilder:
                     if not tokens:
                         continue
                     best = None
-                    for field in fields:
+                    for position, field in enumerate(fields):
+                        if best is not None and best[0] >= 1.0:
+                            break
                         key = (normalize_text(field.get("table")), normalize_text(field.get("column")))
                         if key in used:
                             continue
+                        self._prefetch_next(semantic_model, fields, position, limit=qualifier_limit, skip=used)
                         index = self._value_token_index(semantic_model, field) or []
                         domain = (
                             self._get_values(semantic_model, field["table"], field["column"])
