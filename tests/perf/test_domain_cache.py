@@ -253,6 +253,27 @@ def test_batch_values_identical_to_single_queries_in_simulator():
     assert len(backend.log["dax"]) == before + 1
 
 
+def test_live_query_listener_hears_each_real_query_not_cache_hits():
+    """El razonamiento en vivo (PowerBIProvider.query_listener) recibe un aviso
+    por consulta real a Power BI (el lote es una) y ninguno por lecturas de caché."""
+    provider, backend = simulated_provider()
+    heard = []
+    previous = getattr(provider, "query_listener", None)
+    provider.query_listener = lambda model, dax: heard.append(dax)
+    try:
+        cache = DomainCache(provider, ttl_s=0, batch_size=12)
+        before = len(backend.log["dax"])
+        cache.prefetch(CONSOLIDADO, TEXT_COLUMNS)
+        for table, column, _ in TEXT_COLUMNS:
+            cache.get(CONSOLIDADO, table, column)
+        cache.get(CONSOLIDADO, "EGRESOS", "DIAS_ESTANCIA")   # numérica: consulta individual
+        cache.get(CONSOLIDADO, "EGRESOS", "DIAS_ESTANCIA")   # ya en caché
+    finally:
+        provider.query_listener = previous
+    assert len(heard) == len(backend.log["dax"]) - before == 2, heard
+    assert "UNION(" in heard[0]
+
+
 def test_simulated_latency_option():
     from tests.realistic.powerbi_sim import adomd
     _, backend = simulated_provider()
