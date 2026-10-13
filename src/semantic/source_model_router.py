@@ -105,6 +105,21 @@ def _singular(token):
     return token
 
 
+def _plural_forms(token):
+    """Formas singular/plural comparables de una palabra: «hospitalizaciones»
+    -> hospitalizacion, «parciales» -> parcial, «partos» -> parto."""
+    forms = {token}
+    if len(token) > 4 and token.endswith("es"):
+        forms.add(token[:-2])
+    if len(token) > 3 and token.endswith("s"):
+        forms.add(token[:-1])
+    return forms
+
+
+def _same_word(left, right):
+    return bool(_plural_forms(left) & _plural_forms(right))
+
+
 def _board_name_variants(value):
     """[(forma normalizada, rango)] con las que se nombra un tablero: «TABLERO
     LAVANDERIA» -> «lavanderia» (rango 0); «FARMACIA – INICIO» -> «farmacia
@@ -841,6 +856,80 @@ class SourceModelRouter:
                 "name": " ".join(name_tokens),
                 "tokens": list(name_tokens),
                 "known": bool(contexts),
+                "contexts": contexts,
+            })
+        return mentions
+
+    def known_pages(self):
+        """Páginas conocidas: las del catálogo visual (kind «page») y los
+        tableros documentados en el RAG (kind «documentation»), cada una con
+        su modelo, informe y grupo. Sin duplicados por (modelo, página, tipo)."""
+        pages, seen = [], set()
+        for _, entry in self._board_names():
+            if entry.get("kind") not in ("page", "documentation"):
+                continue
+            key = (normalize_text(entry.get("semantic_model")), normalize_text(entry.get("dashboard")),
+                   entry.get("kind"))
+            if key in seen or not key[1]:
+                continue
+            seen.add(key)
+            pages.append({
+                "name": entry.get("dashboard"), "kind": entry.get("kind"),
+                "semantic_model": entry.get("semantic_model"), "report": entry.get("report"),
+                "source_group": entry.get("source_group"),
+            })
+        return pages
+
+    def page_topic_mentions(self, question, ignored_words=()):
+        """Páginas nombradas por su tema, sin «tablero/página de»:
+        «hospitalizaciones parciales de marzo» nombra HOSPITALIZACIÓN PARCIAL,
+        «partos de 2025» nombra PARTOS. Compara palabra a palabra admitiendo
+        singular/plural. Un nombre de una sola palabra de `ignored_words`
+        (palabras genéricas de medida: «total», «tiempos») no cuenta.
+
+        Devuelve [{"phrase", "name", "tokens", "contexts"}] con las coincidencias
+        más largas (una más corta contenida en otra se descarta)."""
+        words = normalize_text(question).split()
+        if not words:
+            return []
+        ignored = {normalize_text(word) for word in ignored_words or ()}
+        matches = []
+        for tokens, entry in self._board_names():
+            if entry.get("kind") not in ("page", "documentation"):
+                continue
+            length = len(tokens)
+            if not length or length > len(words):
+                continue
+            if length == 1 and (tokens[0] in ignored or len(tokens[0]) < 4 or tokens[0].isdigit()):
+                continue
+            for start in range(len(words) - length + 1):
+                if all(_same_word(words[start + i], tokens[i]) for i in range(length)):
+                    matches.append((start, start + length, entry))
+        if not matches:
+            return []
+        # Solo las coincidencias más largas: «hospitalización parcial» y no
+        # además una página «HOSPITALIZACIÓN».
+        spans = {(start, end) for start, end, _ in matches}
+        kept = {
+            span for span in spans
+            if not any(other != span and other[0] <= span[0] and span[1] <= other[1] for other in spans)
+        }
+        mentions = []
+        for span in sorted(kept):
+            contexts, seen = [], set()
+            for start, end, entry in matches:
+                if (start, end) != span:
+                    continue
+                key = (normalize_text(entry["semantic_model"]), normalize_text(entry["dashboard"]))
+                if key in seen:
+                    continue
+                seen.add(key)
+                contexts.append({**entry, "exact": entry.get("tokens") == words[span[0]:span[1]]})
+            mentions.append({
+                "phrase": " ".join(words[span[0]:span[1]]),
+                "name": " ".join(words[span[0]:span[1]]),
+                "tokens": words[span[0]:span[1]],
+                "known": True,
                 "contexts": contexts,
             })
         return mentions

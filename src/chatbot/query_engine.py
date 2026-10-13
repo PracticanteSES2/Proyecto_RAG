@@ -2327,6 +2327,32 @@ class QueryEngine:
         if reason == "options_from_named_board":
             board = plan.get("named_report") or "ese tablero"
             return f"Estos son los indicadores del tablero {board} más parecidos a tu pregunta. ¿Cuál necesitas?"
+        if reason == "options_from_named_page":
+            page = plan.get("named_page") or "esa página"
+            if (plan.get("named_page_models") or 1) > 1:
+                return (
+                    f"La página {page} existe en varios tableros. Estos son sus indicadores "
+                    "principales. ¿Cuál necesitas?"
+                )
+            report = plan.get("named_page_report")
+            where = f"la página {page}" + (f" del tablero {report}" if report else "")
+            return f"Estos son los indicadores de {where}. ¿Cuál necesitas?"
+        if reason == "metric_not_in_named_page":
+            page = plan.get("named_page") or "esa página"
+            report = plan.get("named_page_report")
+            where = f"la página {page}" + (f" del tablero {report}" if report else "")
+            found = plan.get("found_elsewhere") or {}
+            suggestions = (plan.get("metric_resolution") or {}).get("suggestions") or []
+            if found and len(suggestions) == 1 and (
+                (suggestions[0].get("metric") or {}).get("metric_id") == found.get("metric_id")
+            ):
+                return (
+                    f"En {where} no encontré ese indicador. Lo encontré en otra página. ¿Es este?"
+                )
+            return (
+                f"En {where} no encontré ese indicador. Estos son los más parecidos de esa "
+                "página. ¿Es alguno de estos?"
+            )
         if reason == "qualifier_matches_other_metrics" and words:
             return f"«{words}» aparece en varios indicadores. ¿Cuál necesitas?"
         if reason == "metric_not_in_named_report":
@@ -3076,6 +3102,24 @@ class QueryEngine:
             or item.get("source") == "query_plan_temporal"
         )
 
+    def _pages_without_metrics(self, question):
+        """Páginas que la pregunta nombra al pedir un dato y que no tienen
+        indicadores en los modelos (solo están en la documentación)."""
+        finder = getattr(self.query_plan_builder, "named_page_without_metrics", None)
+        if not callable(finder):
+            return []
+        try:
+            pages = list(finder(question) or [])
+        except Exception:
+            return []
+        if pages:
+            self._think(
+                "Página sin indicadores en los modelos",
+                f"la pregunta pide un dato de la página {' / '.join(pages)}, que solo está en la "
+                "documentación: se responde con ella y se dice que el indicador no está en los modelos",
+            )
+        return pages
+
     def _descriptive_reason(self, question):
         """Frase que hace descriptiva la pregunta («como se calcula», «los
         rangos del»...) o None. Sin Query Plan se usa el detector común."""
@@ -3599,11 +3643,23 @@ class QueryEngine:
                         "none",
                 }
 
+            answer = rag_result.get("answer")
+            missing_pages = self._pages_without_metrics(original_question)
+            if missing_pages and answer:
+                # La pregunta pide un dato de una página que solo existe en la
+                # documentación: se responde con ella, pero se dice que el
+                # indicador no está en los modelos disponibles.
+                answer = (
+                    f"No encontré el indicador de la página {' / '.join(missing_pages)} en los "
+                    "modelos de Power BI disponibles; esto es lo que dice su documentación:\n\n"
+                    + str(answer)
+                )
             return {
                 "status":
                     rag_result.get(
                         "status"
                     ),
+                "pages_without_metrics": missing_pages or [],
                 "route":
                     "rag",
                 "question":
@@ -3615,9 +3671,7 @@ class QueryEngine:
                         "dashboard"
                     ),
                 "answer":
-                    rag_result.get(
-                        "answer"
-                    ),
+                    answer,
                 "sources":
                     rag_result.get(
                         "sources",
