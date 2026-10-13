@@ -1,6 +1,10 @@
+import inspect
 import re
 import unicodedata
 
+from src.chatbot import contextual_rewriter
+from src.chatbot.contextual_rewriter import LLMContextRewriter
+from src.chatbot.conversation_memory import ConversationMemory
 from src.chatbot.intent_parser import ordinal_choice_index
 from src.chatbot.reasoning_trace import ReasoningTrace, format_score, short
 from src.chatbot.response_formatter import (
@@ -28,6 +32,8 @@ class QueryEngine:
         query_plan_builder=None,
         query_plan_dax_generator=None,
         option_describer=None,
+        context_llm=None,
+        conversation_memory=None,
     ):
 
         self.conversation_manager = (
@@ -115,18 +121,81 @@ class QueryEngine:
         # final que no sea un dato de Power BI.
         self._last_success = None
 
+        # Memoria de la conversación (últimos turnos: lo que dijo el usuario,
+        # lo que respondió el asistente y con qué datos). Sobrevive a reset()
+        # y se borra con reset(full=True). La usa la reescritura contextual
+        # («y en el mes pasado?») y se pasa a la redacción del RAG.
+        self.conversation_memory = conversation_memory or ConversationMemory()
+        # LLM para reescribir mensajes que dependen del contexto cuando las
+        # reglas no bastan. Sin él se usa el de OptionDescriber (MedGemma,
+        # que app.py solo crea si el servidor está disponible).
+        self.context_llm = context_llm
+        self._turn_interpretation = None
+
     # ========================================================
     # ESTADO
     # ========================================================
 
     def reset(self, full=False):
         """Limpia las contrapreguntas pendientes. Con full=True («Nueva
-        conversación») también olvida el contexto de seguimiento."""
+        conversación») también olvida el contexto de seguimiento y la memoria
+        de la conversación."""
         self._pending_master_metric = None
         self._pending_query_plan = None
         self._pending_dashboard_clarification = None
         if full:
             self._last_success = None
+            memory = getattr(self, "conversation_memory", None)
+            if memory is not None:
+                memory.clear()
+
+    def conversation_history(self, limit=6):
+        """Últimos `limit` turnos como mensajes [{"role": "user"|"assistant",
+        "text": str, "meta": {...}}] (cada turno aporta dos mensajes). Lo usa
+        la redacción de respuestas (RAGAnswerEngine / AnswerSynthesizer)."""
+        memory = getattr(self, "conversation_memory", None)
+        return memory.history(limit) if memory is not None else []
+
+    # Turnos de historial que se pasan a la redacción del RAG.
+    _RAG_HISTORY_TURNS = 3
+
+    def _call_rag(self, intent_result):
+        """Llama al RAG con el historial de la conversación si lo acepta
+        (interfaz acordada: RAGAnswerEngine.answer(intent_data, history=None))."""
+        answer = self.rag_answer_engine.answer
+        history = self.conversation_history(self._RAG_HISTORY_TURNS)
+        if history and self._accepts_history(answer):
+            return answer(intent_result, history=history)
+        return answer(intent_result)
+
+    @staticmethod
+    def _accepts_history(function):
+        try:
+            parameters = inspect.signature(function).parameters
+        except (TypeError, ValueError):
+            return False
+        return "history" in parameters or any(
+            parameter.kind == parameter.VAR_KEYWORD for parameter in parameters.values()
+        )
+
+    def _record_turn(self, user_text, result, via):
+        memory = getattr(self, "conversation_memory", None)
+        if memory is None or not isinstance(result, dict):
+            return
+        topic = None
+        if (
+            result.get("status") == "success" and result.get("route") == "powerbi"
+            and self._last_success is not None
+        ):
+            topic = self._last_success
+        try:
+            memory.record(
+                user_text, result, via=via,
+                interpreted=getattr(self, "_turn_interpretation", None), topic=topic,
+            )
+        except Exception:
+            # La memoria nunca debe tumbar la respuesta.
+            pass
 
     # ========================================================
     # RAZONAMIENTO (qué revisó y por qué decidió)
@@ -2064,9 +2133,15 @@ class QueryEngine:
             self._remember_success(result)
             return result
 
-        return self._traced(
+        top_level = self._trace is None
+        if top_level:
+            self._turn_interpretation = None
+        result = self._traced(
             "option", f"{label} [{option_id}]" if label else option_id, run,
         )
+        if top_level:
+            self._record_turn(label or option_id, result, via="botón")
+        return result
 
     def _select_clarification_option(self, option_id):
         unavailable = {
@@ -3343,6 +3418,7 @@ class QueryEngine:
                 "metric_id": metric.get("metric_id"),
                 "metric_label": metric.get("label"),
                 "semantic_model": plan.get("semantic_model"),
+                "report": plan.get("report") or plan.get("dashboard"),
                 "filters": [dict(item) for item in plan.get("filters") or []],
                 "group_by": [dict(item) for item in plan.get("group_by") or []],
                 "ranking": dict(plan["ranking"]) if plan.get("ranking") else None,
@@ -3426,7 +3502,141 @@ class QueryEngine:
         except (TypeError, ValueError):
             return False
 
-    def _followup_plan(self, message, original=None):
+    # Palabras de un seguimiento que aparecen en nombres de indicadores pero no
+    # nombran uno: periodos («mes pasado», «año anterior», «actual»), la
+    # respuesta anterior («ese indicador», «el total») o el propósito.
+    _CONTEXT_WORDS = {
+        "pasado", "pasada", "pasados", "pasadas", "anterior", "anteriores", "actual", "actuales",
+        "presente", "corriente", "curso", "ultimo", "ultima", "ultimos", "ultimas", "proximo",
+        "indicador", "indicadores", "dato", "datos", "cifra", "cifras", "valor", "valores",
+        "tabla", "tablas", "resultado", "resultados", "consulta", "mismo", "misma", "total",
+        "totales", "general", "mes", "meses", "ano", "anos", "dia", "dias", "semana", "semanas",
+        "trimestre", "semestre", "periodo", "comite", "informe", "reporte", "solo", "solamente",
+    }
+
+    def _without_period_phrases(self, text):
+        """Texto normalizado sin sus frases de periodo («en el mes pasado», «de
+        septiembre de 2026», «por mes», «hasta hoy»): al decidir si un mensaje
+        nombra un indicador, el periodo se reconoce primero («pasado» también
+        aparece en nombres de indicadores)."""
+        from src.semantic.period_parser import PeriodParser, neutral_phrases
+
+        text = self._normalize_text(text)
+        parser = PeriodParser()
+
+        def drop(phrase, tokens=None):
+            nonlocal text
+            phrase = " ".join(str(phrase or "").split())
+            if phrase and re.search(r"(?<![a-z0-9])" + re.escape(phrase) + r"(?![a-z0-9])", text):
+                text = re.sub(r"(?<![a-z0-9])" + re.escape(phrase) + r"(?![a-z0-9])", " ", text)
+                return True
+            removed = False
+            for token in tokens or []:
+                if re.search(r"(?<![a-z0-9])" + re.escape(token) + r"(?![a-z0-9])", text):
+                    text = re.sub(r"(?<![a-z0-9])" + re.escape(token) + r"(?![a-z0-9])", " ", text)
+                    removed = True
+            return removed
+
+        for _ in range(4):
+            changed = False
+            try:
+                period = parser.parse(text)
+                granularity = parser.granularity(text)
+                neutral = neutral_phrases(text)
+            except Exception:
+                break
+            if period and drop(period.get("phrase"), period.get("tokens")):
+                changed = True
+            if granularity and drop(granularity.get("phrase")):
+                changed = True
+            for phrase in neutral:
+                changed = drop(phrase) or changed
+            text = " ".join(text.split())
+            if not changed:
+                break
+        return text
+
+    def _named_metric_words(self, text, own_label=None):
+        """Palabras del texto que nombran un indicador del catálogo, sin contar
+        el periodo, las palabras de contexto ni (si se da) las del indicador
+        anterior."""
+        metric_words = getattr(self.query_plan_builder, "metric_words", None)
+        if not callable(metric_words):
+            return []
+        try:
+            words = metric_words(self._without_period_phrases(text)) or []
+        except Exception:
+            return []
+        own = set(self._normalize_text(own_label).split()) if own_label else set()
+        return [
+            word for word in words
+            if word not in self._CONTEXT_WORDS
+            and not (own and (word in own or word.rstrip("s") in own or f"{word}s" in own))
+        ]
+
+    def _explained_by_plan(self, words, plan):
+        """Palabras que el plan del seguimiento ya explica como valor de filtro
+        o agrupación («hospitalización» -> SERVICIO = HOSPITALIZACION)."""
+        texts = []
+        for item in (plan or {}).get("filters") or []:
+            values = item.get("values") if item.get("values") is not None else [item.get("value")]
+            for value in values if isinstance(values, (list, tuple)) else [values]:
+                texts.append(self._normalize_text(value))
+            texts.append(self._normalize_text(item.get("label")))
+        for item in (plan or {}).get("group_by") or []:
+            texts.append(self._normalize_text(item.get("label") or item.get("column")))
+        tokens = {token for text in texts for token in text.split()}
+        explained = []
+        for word in words:
+            stem = word.rstrip("s")
+            if any(token == word or token.rstrip("s") == stem or (len(stem) >= 5 and token.startswith(stem[:5]))
+                   for token in tokens):
+                explained.append(word)
+        return explained
+
+    _YEAR_IN_TEXT = re.compile(r"(?<![0-9])(?:19|20)\d{2}(?![0-9])")
+    _RELATIVE_YEAR = re.compile(
+        r"(?<![a-z0-9])(?:an(?:i)?o\s+(?:pasado|anterior|actual|antepasado|en\s+curso)|este\s+an(?:i)?o|"
+        r"ultimo\s+an(?:i)?o|lo\s+que\s+va|lo\s+corrido|mes\s+(?:pasado|anterior|actual)|este\s+mes|"
+        r"ultimos?\s+\d+|hoy|ayer|semana)(?![a-z0-9])"
+    )
+
+    def _previous_year(self, last):
+        """Año del periodo de la consulta anterior (si es uno solo)."""
+        for item in last.get("filters") or []:
+            if not self._is_temporal_filter(item):
+                continue
+            if item.get("year"):
+                return int(item["year"])
+            start, end = str(item.get("start") or ""), str(item.get("end") or "")
+            if start[:4].isdigit() and end[:4].isdigit():
+                end_year = int(end[:4]) - (1 if end[4:] in ("-01-01",) else 0)
+                if int(start[:4]) == end_year:
+                    return int(start[:4])
+            if item.get("column") and self._normalize_text(item.get("column")) in ("ano", "anio", "year"):
+                try:
+                    return int(item.get("value"))
+                except (TypeError, ValueError):
+                    pass
+        return None
+
+    def _with_previous_year(self, complement, last):
+        """«de septiembre» tras una consulta de octubre de 2026 -> «de septiembre
+        de 2026»: un mes sin año toma el año del periodo anterior."""
+        from src.semantic.period_parser import MONTHS
+
+        norm = self._normalize_text(complement)
+        if not norm or self._YEAR_IN_TEXT.search(norm) or self._RELATIVE_YEAR.search(norm):
+            return complement, None
+        months = [word for word in norm.split() if word in MONTHS]
+        if not months:
+            return complement, None
+        year = self._previous_year(last)
+        if not year:
+            return complement, None
+        return f"{str(complement).rstrip(' ?¿!.')} de {year}", year
+
+    def _followup_plan(self, message, original=None, complement=None, why=None, base=None, lenient=False):
         """Plan de seguimiento o None si el mensaje no es claramente un
         complemento de la última respuesta numérica.
 
@@ -3436,79 +3646,151 @@ class QueryEngine:
           aporta un período, un filtro o una agrupación («y en 2025?»); o
         - se refiere a la respuesta anterior («de esos 33», «de esta
           cantidad de pacientes», «desglósalo por...», «ahora por...») y no
-          nombra OTRO indicador (puede repetir el nombre del mismo).
+          nombra OTRO indicador (puede repetir el nombre del mismo); o
+        - la reescritura contextual ya decidió que depende de la consulta
+          anterior y pasa su `complement` («eso mismo pero de septiembre» ->
+          «de septiembre»), con `why` y, para volver a un tema anterior, `base`.
         Una pregunta nueva completa que nombra otro indicador nunca es seguimiento.
+        Las frases de periodo («el mes pasado») se reconocen ANTES de buscar
+        nombres de indicador.
+        Con `lenient` (referencia explícita a la respuesta anterior, «los de
+        urgencias», cuando ni las reglas estrictas ni el LLM bastaron) se
+        responde la consulta anterior declarando lo que no se pudo aplicar.
         """
-        last = self._last_success
+        last = base or self._last_success
         builder = self.query_plan_builder
         if last is None or builder is None or self.query_plan_dax_generator is None:
             return None
         if self._has_pending_clarification():
             return None
-        words = self._normalize_text(message).split()
-        phrases, cited = self._anaphora(message, original)
-        # «de los 33» sin demostrativo solo es referencia si 33 es el valor anterior.
-        plain_number = [p for p in phrases if re.fullmatch(r"(?:de|entre) (?:los|las) [\d ]+", p)]
-        if plain_number and len(plain_number) == len(phrases) and not self._same_number(cited, last.get("value")):
-            phrases = []
-        metric_words = getattr(builder, "metric_words", None)
-        if phrases and len(words) <= self._ANAPHORA_MAX_WORDS:
-            complement_text = self._normalize_text(message)
-            for phrase in sorted(phrases, key=len, reverse=True):
-                complement_text = re.sub(
-                    r"(?<![a-z0-9])" + re.escape(phrase) + r"(?![a-z0-9])", " ", complement_text,
-                )
-            # Las palabras del propio indicador («de esta cantidad de
-            # pacientes») no son un indicador nuevo.
+        phrases, cited = [], None
+        pending_named = []
+        from_context = complement is not None
+        if complement is not None:
+            # La reescritura contextual ya decidió que el mensaje depende del
+            # contexto: solo se descarta si nombra OTRO indicador que el plan
+            # no explique como filtro.
+            pending_named = self._named_metric_words(complement, own_label=last.get("metric_label"))
             own = set(self._normalize_text(last.get("metric_label")).split())
-            named = [
-                word for word in (metric_words(complement_text) if callable(metric_words) else [])
-                if word not in own and word.rstrip("s") not in own and f"{word}s" not in own
-            ]
-            if named:
-                self._think(
-                    "¿Es un seguimiento de la consulta anterior?",
-                    f"no: aunque se refiere a la respuesta anterior ({', '.join(phrases)}), nombra "
-                    f"otro indicador ({', '.join(named)}); se trata como pregunta nueva",
-                )
-                return None
-            kept = [
-                word for word in complement_text.split()
-                if word not in self._FOLLOWUP_FILLER and word not in own
-                and word.rstrip("s") not in own and word not in ("de", "del", "el")
-            ]
-            if not kept:
-                return None
-            complement = complement_text
+            complement_text = self._normalize_text(complement)
             for word in sorted(own, key=len, reverse=True):
                 if len(word) >= 4:
-                    complement = re.sub(r"(?<![a-z0-9])" + re.escape(word) + r"s?(?![a-z0-9])", " ", complement)
-            complement = re.sub(r"\s+", " ", complement).strip()
-            reference = ", ".join(f"«{phrase}»" for phrase in phrases)
-            if cited is not None and last.get("value") is not None and not self._same_number(cited, last["value"]):
-                reference += (
-                    f" (el número citado, {format_value_es(cited) or cited}, no coincide con el valor "
-                    f"anterior {format_value_es(last['value']) or last['value']}; se usa la consulta anterior)"
-                )
-            why = f"se refiere a la respuesta anterior: {reference}"
-        else:
-            if len(words) < 2 or words[0] != "y" or len(words) > self._FOLLOWUP_MAX_WORDS:
+                    complement_text = re.sub(
+                        r"(?<![a-z0-9])" + re.escape(word) + r"s?(?![a-z0-9])", " ", complement_text,
+                    )
+            complement = re.sub(r"\s+", " ", complement_text).strip()
+            if not complement:
                 return None
-            complement = " ".join(words[1:])
-            named = metric_words(complement) if callable(metric_words) else []
-            if named:
+            why = why or "el mensaje depende de la consulta anterior"
+        else:
+            words = self._normalize_text(message).split()
+            phrases, cited = self._anaphora(message, original)
+            # «de los 33» sin demostrativo solo es referencia si 33 es el valor anterior.
+            plain_number = [p for p in phrases if re.fullmatch(r"(?:de|entre) (?:los|las) [\d ]+", p)]
+            if plain_number and len(plain_number) == len(phrases) and not self._same_number(cited, last.get("value")):
+                phrases = []
+            if phrases and len(words) <= self._ANAPHORA_MAX_WORDS:
+                complement_text = self._normalize_text(message)
+                for phrase in sorted(phrases, key=len, reverse=True):
+                    complement_text = re.sub(
+                        r"(?<![a-z0-9])" + re.escape(phrase) + r"(?![a-z0-9])", " ", complement_text,
+                    )
+                # Las palabras del propio indicador («de esta cantidad de
+                # pacientes») no son un indicador nuevo.
+                own = set(self._normalize_text(last.get("metric_label")).split())
+                named = self._named_metric_words(complement_text, own_label=last.get("metric_label"))
+                if named:
+                    self._think(
+                        "¿Es un seguimiento de la consulta anterior?",
+                        f"no: aunque se refiere a la respuesta anterior ({', '.join(phrases)}), nombra "
+                        f"otro indicador ({', '.join(named)}); se trata como pregunta nueva",
+                    )
+                    return None
+                kept = [
+                    word for word in complement_text.split()
+                    if word not in self._FOLLOWUP_FILLER and word not in own
+                    and word.rstrip("s") not in own and word not in ("de", "del", "el")
+                ]
+                if not kept:
+                    return None
+                complement = complement_text
+                for word in sorted(own, key=len, reverse=True):
+                    if len(word) >= 4:
+                        complement = re.sub(r"(?<![a-z0-9])" + re.escape(word) + r"s?(?![a-z0-9])", " ", complement)
+                complement = re.sub(r"\s+", " ", complement).strip()
+                reference = ", ".join(f"«{phrase}»" for phrase in phrases)
+                if cited is not None and last.get("value") is not None and not self._same_number(cited, last["value"]):
+                    reference += (
+                        f" (el número citado, {format_value_es(cited) or cited}, no coincide con el valor "
+                        f"anterior {format_value_es(last['value']) or last['value']}; se usa la consulta anterior)"
+                    )
+                why = f"se refiere a la respuesta anterior: {reference}"
+            else:
+                phrases = []
+                if len(words) < 2 or words[0] != "y" or len(words) > self._FOLLOWUP_MAX_WORDS:
+                    return None
+                complement = " ".join(words[1:])
+                named = self._named_metric_words(complement)
+                own = set(self._normalize_text(last.get("metric_label")).split())
+                if any(word in own or word.rstrip("s") in own or f"{word}s" in own for word in named):
+                    # Repite el nombre del indicador: es una pregunta completa.
+                    self._think(
+                        "¿Es un seguimiento de la consulta anterior?",
+                        f"no: nombra un indicador ({', '.join(named)}); se trata como pregunta nueva",
+                    )
+                    return None
+                if named:
+                    # Un complemento corto («y de hospitalización») puede ser un
+                    # valor de filtro con el mismo nombre que un indicador: se
+                    # decide con el plan (si no lo explica, es pregunta nueva).
+                    content = [w for w in self._without_period_phrases(complement).split()
+                               if w not in self._FOLLOWUP_FILLER and w not in ("de", "del", "en", "el", "la")]
+                    if len(content) > 3:
+                        self._think(
+                            "¿Es un seguimiento de la consulta anterior?",
+                            f"no: nombra un indicador ({', '.join(named)}); se trata como pregunta nueva",
+                        )
+                        return None
+                    pending_named = named
+                why = "empieza con «y» y solo agrega un complemento"
+
+        complement, inherited_year = self._with_previous_year(complement, last)
+        plan = builder.build(complement, selected_metric_id=last["metric_id"])
+        if pending_named:
+            unexplained = [w for w in pending_named if w not in self._explained_by_plan(pending_named, plan)]
+            if unexplained and lenient:
+                # Se declara lo que no se pudo aplicar («No pude aplicar: urgencias»).
+                known = {self._normalize_text(term) for term in plan.get("unapplied_terms") or []}
+                plan = {**plan, "unapplied_terms": [
+                    *(plan.get("unapplied_terms") or []),
+                    *[word for word in unexplained if word not in known],
+                ]}
+            if unexplained and not lenient:
                 self._think(
                     "¿Es un seguimiento de la consulta anterior?",
-                    f"no: nombra un indicador ({', '.join(named)}); se trata como pregunta nueva",
+                    f"no: nombra un indicador ({', '.join(unexplained)}) que no es un filtro de "
+                    f"{last['metric_label']}; se trata como pregunta nueva",
                 )
                 return None
-            why = "empieza con «y» y solo agrega un complemento"
-
-        plan = builder.build(complement, selected_metric_id=last["metric_id"])
         status = plan.get("status")
+        if from_context and status == "ready" and not lenient:
+            # Sin «y» ni anáfora, todo el complemento debe entenderse como
+            # periodo, filtro o agrupación del indicador anterior; si sobra
+            # algo («total atenciones por servicio»: «atenciones») es otra pregunta.
+            unapplied = [
+                term for term in plan.get("unapplied_terms") or []
+                if self._normalize_text(term) not in ("cuantos", "cuantas", "cuanto", "cuanta")
+            ]
+            if unapplied:
+                self._think(
+                    "¿Es un seguimiento de la consulta anterior?",
+                    f"no: «{', '.join(unapplied)}» no es un periodo, filtro ni agrupación de "
+                    f"{last['metric_label']}",
+                )
+                return None
         if status == "ready":
             new_filters = plan.get("filters") or []
-            if not new_filters and not plan.get("group_by"):
+            if not new_filters and not plan.get("group_by") and not (lenient and plan.get("unapplied_terms")):
                 self._think(
                     "¿Es un seguimiento de la consulta anterior?",
                     f"no: «{complement}» no aporta un período, filtro ni agrupación reconocible",
@@ -3563,6 +3845,7 @@ class QueryEngine:
                 f"se interpretó «{(original or message).strip()}» como seguimiento de «{last['question']}» "
                 f"(indicador {last['metric_label']}): {why}",
                 "se hereda el indicador y sus filtros; solo cambia lo que agrega el mensaje",
+                f"el mes sin año toma el año de la consulta anterior ({inherited_year})" if inherited_year else None,
                 *[f"se conserva: {self._filter_line(item)}" for item in inherited],
                 *[f"se reemplaza: {self._filter_line(item)}" for item in replaced],
                 *[f"nuevo: {self._filter_line(item)}" for item in new_filters],
@@ -3572,7 +3855,7 @@ class QueryEngine:
         if status == "unsupported_filter":
             self._think(
                 "Seguimiento de la consulta anterior",
-                f"se interpretó «{message.strip()}» como seguimiento de «{last['question']}» "
+                f"se interpretó «{(original or message).strip()}» como seguimiento de «{last['question']}» "
                 f"(indicador {last['metric_label']}), pero el complemento no se pudo aplicar",
             )
             return {**plan, "followup_of": {"question": last["question"], "metric": last["metric_label"]}}
@@ -3643,6 +3926,752 @@ class QueryEngine:
             return rewritten
         return message
 
+    # ========================================================
+    # CONVERSACIÓN: mensajes que dependen del contexto
+    # ========================================================
+    #
+    # «Y en el mes pasado?», «necesito eso mismo pero de septiembre», «para el
+    # comité, los de urgencias», «¿cómo se calcula ese indicador?», «compáralo
+    # con el año pasado», «no, me refería a hospitalización»... se entienden con
+    # la memoria de la conversación. Primero reglas deterministas sobre la
+    # consulta anterior (indicador, filtros, periodo, agrupación, tablero) y, si
+    # no bastan, MedGemma reescribe el mensaje (validado). Una pregunta nueva
+    # completa (nombra su propio indicador) no se reescribe.
+
+    # Mensajes sin señal explícita que se prueban como complemento de la
+    # consulta anterior («en septiembre», «por servicio»): hasta estas palabras.
+    _CONTEXT_SHORT_WORDS = 6
+    # Señales fuertes: se refieren a la respuesta anterior aunque el mensaje
+    # nombre una palabra que también está en nombres de indicadores.
+    _STRONG_CUES = {"lo mismo", "referencia", "elipsis", "corrección", "volver a un tema"}
+
+    _DESCRIPTIVE_HEADS = {
+        "como se calcula": "¿Cómo se calcula", "como se calculan": "¿Cómo se calcula",
+        "que significa": "¿Qué significa", "que significan": "¿Qué significa",
+        "que quiere decir": "¿Qué quiere decir", "que es": "¿Qué es", "que mide": "¿Qué mide",
+        "como se mide": "¿Cómo se mide", "como se interpreta": "¿Cómo se interpreta",
+        "como se define": "¿Cómo se define", "para que sirve": "¿Para qué sirve",
+        "que muestra": "¿Qué muestra", "que filtros": "¿Qué filtros tiene", "que filtro": "¿Qué filtros tiene",
+        "de donde sale": "¿De dónde sale", "como funciona": "¿Cómo funciona",
+        "que contiene": "¿Qué contiene", "explica": "Explica",
+    }
+    _NUMERIC_CUE_RE = re.compile(
+        r"(?<![a-z0-9])(?:cuant[oa]s?|total|cantidad|numero|valor|cifra|que\s+tanto|cual\s+(?:fue|es)|"
+        r"cuales\s+(?:fueron|son)|por\s+[a-z]{3,})(?![a-z0-9])"
+    )
+    _SAME_PERIOD_LAST_YEAR = re.compile(
+        r"(?<![a-z0-9])(?:(?:el|al|del)\s+)?(?:mismo\s+(?:periodo|mes|trimestre)\s+del?\s+)?"
+        r"an(?:i)?o\s+(?:pasado|anterior)(?![a-z0-9])"
+    )
+
+    def _context_llm_provider(self):
+        llm = getattr(self, "context_llm", None)
+        if llm is not None:
+            return llm
+        return getattr(getattr(self, "option_describer", None), "llm_provider", None)
+
+    def _note_interpretation(self, text, why, source="reglas"):
+        self._turn_interpretation = text
+        self._think(
+            "Interpretación con el contexto de la conversación",
+            f"Interpreté tu mensaje como: «{text}»",
+            f"por qué: {why}",
+            "cómo: reglas sobre la consulta anterior (indicador, filtros, periodo, agrupación o tablero)"
+            if source == "reglas" else
+            "cómo: MedGemma reescribió el mensaje con los últimos turnos; se validó que no "
+            "agregue indicadores, cifras ni datos que no estaban en la conversación",
+        )
+
+    def _plan_interpretation(self, plan):
+        """«CANTIDAD DE PACIENTES por ESPECIALIDAD (SERVICIO = URGENCIAS · septiembre 2026)»."""
+        text = str((plan.get("metric") or {}).get("label") or "el indicador anterior")
+        groups = ", ".join(str(g.get("label") or g.get("column")) for g in plan.get("group_by") or [])
+        if groups:
+            text += f" por {groups}"
+        filters = self._own_filters_text(plan.get("filters"))
+        if filters:
+            text += f", {filters}"
+        return text
+
+    def _context_analysis(self, message):
+        """Señales de contexto del mensaje, o None si no hay conversación previa
+        o hay una contrapregunta pendiente (la contrapregunta manda)."""
+        memory = getattr(self, "conversation_memory", None)
+        if memory is None or not len(memory) or self._has_pending_clarification():
+            return None
+        try:
+            analysis = contextual_rewriter.analyze(message)
+        except Exception as error:
+            self._think("No se pudo analizar el contexto del mensaje", f"{type(error).__name__}: {error}")
+            return None
+        if analysis.get("courtesy"):
+            return None
+        return analysis
+
+    def _previous_turn(self):
+        memory = getattr(self, "conversation_memory", None)
+        return memory.last() if memory is not None else None
+
+    def _run_followup(self, followup, message, why=None):
+        """Ejecuta un plan de seguimiento (o su falla) y conserva el tema."""
+        self._trace_plan(followup, "Query Plan del seguimiento")
+        if followup.get("status") == "ready":
+            self._note_interpretation(
+                self._plan_interpretation(followup),
+                why or "el mensaje completa la consulta anterior (mismo indicador; cambia lo que agrega)",
+            )
+            result = self._execute_query_plan(followup)
+            self._note_breakdown_of_previous(followup, result)
+        else:
+            result = self._query_plan_failure(followup)
+        result["followup_of"] = followup.get("followup_of")
+        self._remember_success(result, followup=True)
+        return result
+
+    # ---------------- temas de la conversación ----------------
+
+    def _topic_subject(self, topic):
+        """«el indicador CANTIDAD DE PACIENTES del tablero BRIEFING HOSPITALARIO»."""
+        text = f"el indicador {topic.get('metric_label')}"
+        report = topic.get("report")
+        if report:
+            text += " " + self._board_phrase(report, "del")
+        return text
+
+    _LEAD_QUESTION_RE = re.compile(
+        r"^\s*(?:cuant[oa]s?|cual(?:es)?|que\s+tanto|que)(?:\s+(?:fue|fueron|es|son|hubo|hay|habia|tuvo|"
+        r"tiene|tienen|registro|registraron|se\s+registraron?|da|dio))?(?![a-z0-9])"
+    )
+
+    def _insert_subject(self, complement, subject):
+        """«cuál fue en septiembre» + «nedocs» -> «cuál fue nedocs en septiembre»."""
+        complement = str(complement or "").strip()
+        match = self._LEAD_QUESTION_RE.match(contextual_rewriter.fold(complement))
+        if not match:
+            return f"{subject} {complement}".strip()
+        lead, rest = complement[: match.end()].strip(), complement[match.end():].strip()
+        return " ".join(part for part in (lead, subject, rest) if part)
+
+    def _documentation_subject(self, turn):
+        """De qué trató una respuesta documental: el indicador o tema de la
+        pregunta (sin «cómo se calcula», interrogativos...) y su tablero."""
+        question = (turn or {}).get("interpreted") or (turn or {}).get("user") or ""
+        norm = self._normalize_text(question)
+        reason = self._descriptive_reason(question)
+        if reason:
+            norm = norm.replace(self._normalize_text(reason), " ")
+        norm = re.sub(
+            r"(?<![a-z0-9])(?:y|que|cual|cuales|como|cuanto|cuantos|cuantas|me|puedes|podrias|decir|dime|"
+            r"explica|explicame|sabes|tiene|tienen|muestra|muestran|hay|es|son|se|el|la|los|las|un|una)(?![a-z0-9])",
+            " ", norm,
+        )
+        subject = " ".join(norm.split())
+        board = ((turn or {}).get("meta") or {}).get("dashboard")
+        return subject, board
+
+    def _board_main_metric(self, board):
+        """Indicador principal de un tablero: el que más aparece en sus
+        visuales (las tarjetas cuentan doble). None si no hay uno claro."""
+        builder = self.query_plan_builder
+        target = set(self._normalize_text(board).split()) - {"tablero", "de", "del", "la", "el"}
+        if not target or builder is None:
+            return None
+        scores = {}
+        for metric in getattr(builder, "metrics", None) or []:
+            if metric.get("validation_status") not in (None, "approved") or not metric.get("metric_id"):
+                continue
+            score = 0
+            for appearance in metric.get("appearances") or []:
+                report = set(self._normalize_text(appearance.get("report")).split()) - {"tablero", "de", "del", "la", "el"}
+                if report and (target <= report or report <= target):
+                    score += 2 if "card" in str(appearance.get("visual_type") or "").lower() else 1
+            if score:
+                scores[metric["metric_id"]] = (score, metric)
+        if not scores:
+            return None
+        ranked = sorted(scores.values(), key=lambda item: -item[0])
+        if len(ranked) > 1 and ranked[1][0] == ranked[0][0]:
+            return None
+        return ranked[0][1]
+
+    def _topic_plan(self, topic, complement="", drop_groups=False, why=None, message=None):
+        """Plan de la consulta del tema (indicador, filtros y agrupación del
+        turno guardado), con el complemento del mensaje si aporta algo."""
+        plan = None
+        content = [
+            word for word in self._normalize_text(complement).split()
+            if len(word) >= 3 and word not in self._FOLLOWUP_FILLER
+            and word not in ("del", "las", "los", "por", "para", "con", "que", "una", "uno")
+        ]
+        if content:
+            plan = self._followup_plan(
+                message or complement, original=message, complement=complement, why=why, base=topic,
+            )
+            if plan is None or plan.get("status") != "ready":
+                return plan
+        if plan is None:
+            try:
+                built = self.query_plan_builder.build("total", selected_metric_id=topic["metric_id"])
+            except Exception as error:
+                self._think("No se pudo rearmar la consulta anterior", f"{type(error).__name__}: {error}")
+                return None
+            if built.get("status") != "ready":
+                return None
+            plan = {
+                **built,
+                "filters": [dict(item) for item in topic.get("filters") or []],
+                "group_by": [dict(item) for item in topic.get("group_by") or []],
+                "ranking": dict(topic["ranking"]) if topic.get("ranking") else None,
+                "question": f"{topic['question']} ({(message or '').strip()})" if message else topic["question"],
+                "followup_base_question": topic["question"],
+                "followup_of": {
+                    "question": topic["question"], "metric": topic.get("metric_label"),
+                    "value": topic.get("value"), "metric_format": topic.get("metric_format"),
+                    "anaphora": False,
+                },
+                "unapplied_terms": [],
+            }
+        if drop_groups:
+            plan = {**plan, "group_by": [], "ranking": None}
+        plan["mode"] = "grouped" if plan.get("group_by") else "scalar"
+        return plan
+
+    # ---------------- reglas que van antes del seguimiento clásico ----------------
+
+    def _contextual_special(self, message, rewritten, analysis):
+        last = self._last_success
+        previous = self._previous_turn() or {}
+        previous_route = (previous.get("meta") or {}).get("route")
+        complement = analysis.get("complement") or ""
+        own_label = last.get("metric_label") if last else None
+        named = self._named_metric_words(complement, own_label=own_label)
+        cues = analysis.get("cues") or []
+
+        # 1. Documentación del tema anterior: «¿cómo se calcula ese indicador?»,
+        #    «¿y eso qué significa?», «¿por qué tan alto?», «¿y qué filtros tiene?».
+        descriptive = self._descriptive_reason(message)
+        if (
+            (descriptive or analysis.get("why")) and not named
+            and not self._has_own_subject(analysis, descriptive) and not self._mentions_board(complement)
+        ):
+            response = self._documentation_about_topic(message, analysis, descriptive, last, previous)
+            if response is not None:
+                return response
+
+        # 2. Comparación con otro periodo: «compáralo con el año pasado».
+        if analysis.get("compare") and last is not None and not named:
+            response = self._comparison_turn(message, analysis, last)
+            if response is not None:
+                return response
+
+        # 3. Total sin desglose: «ok, y el total?».
+        if analysis.get("total") and last is not None and last.get("group_by") and not named:
+            plan = self._topic_plan(
+                last, complement, drop_groups=True, message=message,
+                why="pide el total de la consulta anterior (sin el desglose)",
+            )
+            if plan is not None and plan.get("status") == "ready":
+                self._think(
+                    "Total de la consulta anterior",
+                    f"«{message.strip()}» pide el total de {last['metric_label']}: se quita la agrupación "
+                    "y se conservan los filtros",
+                )
+                return self._run_followup(plan, message, "pide el total de la consulta anterior (sin el desglose)")
+
+        # 4. Corrección: «no, me refería a hospitalización» (otro valor del
+        #    filtro: se reemplaza) o «no, me refería a las cirugías realizadas»
+        #    (otro indicador: misma consulta con ese indicador).
+        correction = analysis.get("correction")
+        if correction and last is not None and previous_route == "powerbi":
+            why = "corrige la consulta anterior: se reemplaza lo que nombra y se conserva el resto"
+            plan = self._followup_plan(message, original=message, complement=correction, why=why)
+            if plan is not None:
+                return self._run_followup(plan, message, why)
+        metric_text = (
+            self._corrected_metric_text(correction, last)
+            if correction and last is not None and previous_route == "powerbi" else None
+        )
+        if metric_text:
+            question = f"{metric_text} {self._topic_scope_text(last)}".strip()
+            self._note_interpretation(
+                question,
+                f"corrige el indicador de la consulta anterior ({last['metric_label']}): se repite "
+                "la consulta con el indicador que nombra, el mismo periodo, filtros y agrupación",
+            )
+            result = self._process(question)
+            self._remember_success(result)
+            return result
+
+        # 5. Volver a un tema anterior: «volviendo a las cirugías programadas, ¿y en 2025?».
+        if analysis.get("regreso") and named:
+            response = self._return_to_topic(message, analysis, named)
+            if response is not None:
+                return response
+
+        # 6. Dato numérico después de una respuesta documental: «¿y cuántos
+        #    hubo en 2025?» tras «¿qué muestra el tablero de cancelaciones?».
+        if previous_route == "rag" and last is None and not named and (
+            "conector" in cues or "referencia" in cues or "lo mismo" in cues
+            or len(self._normalize_text(message).split()) <= self._CONTEXT_SHORT_WORDS
+        ):
+            response = self._numeric_after_documentation(message, analysis, previous)
+            if response is not None:
+                return response
+        return None
+
+    # Palabras que no son un sujeto propio en «¿por qué tan alto?», «¿y qué
+    # filtros tiene?», «¿cómo se calcula?»: la pregunta es sobre el tema anterior.
+    _SUBJECTLESS_WORDS = {
+        "tan", "alto", "alta", "altos", "altas", "bajo", "baja", "bajos", "bajas", "poco", "pocos",
+        "poca", "pocas", "mucho", "muchos", "mucha", "muchas", "tanto", "tantos", "tanta", "tantas",
+        "elevado", "elevada", "subio", "bajo", "aumento", "disminuyo", "cambio", "diferente",
+        "significa", "significan", "calcula", "calculan", "tiene", "tienen", "muestra", "muestran",
+        "sale", "salen", "mide", "miden", "define", "funciona", "contiene", "quiere", "decir",
+        "sirve", "indicador", "dato", "cifra", "valor", "numero", "resultado", "tabla", "esta",
+        "este", "estos", "estas", "ahora", "entonces", "bueno", "pero", "porque", "explica",
+        "explicame", "interpreta", "obtiene", "calculo", "formula", "bien", "normal", "raro",
+    }
+
+    def _has_own_subject(self, analysis, descriptive):
+        """¿La pregunta descriptiva nombra su propio tema («¿qué es el NEDOCS?»)?"""
+        norm = self._normalize_text(analysis.get("complement"))
+        if descriptive:
+            norm = re.sub(
+                r"(?<![a-z0-9])" + re.escape(self._normalize_text(descriptive)) + r"(?![a-z0-9])", " ", norm,
+            )
+        norm = re.sub(r"(?<![a-z0-9])por que(?![a-z0-9])", " ", norm)
+        return any(
+            len(word) >= 4 and word not in self._SUBJECTLESS_WORDS and word not in self._FOLLOWUP_FILLER
+            for word in norm.split()
+        )
+
+    def _metric_ids(self, text):
+        """Indicadores (ids) a los que resuelve el texto solo, o None si no
+        resuelve a ninguno."""
+        builder = self.query_plan_builder
+        try:
+            result = builder._resolve_metric_flexible(text, builder._source_context(text))
+        except Exception:
+            return None
+        if result.get("status") == "resolved":
+            metric = result.get("metric") or {}
+            return {metric.get("metric_id")} if metric.get("metric_id") else None
+        if result.get("status") == "ambiguous":
+            ids = set()
+            for item in result.get("candidates") or []:
+                metric = item.get("metric") if isinstance(item, dict) and "metric" in item else item
+                if isinstance(metric, dict) and metric.get("metric_id"):
+                    ids.add(metric["metric_id"])
+            return ids or None
+        return None
+
+    def _corrected_metric_text(self, correction, last):
+        """«no, me refería a las realizadas» tras CIRUGÍAS PROGRAMADAS: si lo
+        corregido (solo o junto al nombre del indicador anterior, «cirugías
+        realizadas») es OTRO indicador, devuelve ese texto; si es el mismo
+        indicador o ninguno, None (la corrección es de filtro)."""
+        said = self._normalize_text(correction).split()
+        own = [w for w in self._normalize_text(last.get("metric_label")).split() if len(w) >= 4 and w not in said]
+        # Lo corregido solo y con cada palabra del indicador anterior
+        # («realizadas» -> «cirugias realizadas»).
+        texts = [correction, *[f"{word} {correction}" for word in own]]
+        same = False
+        for text in texts:
+            ids = self._metric_ids(text)
+            if ids and last.get("metric_id") not in ids:
+                return text
+            same = same or bool(ids)
+        return None
+
+    def _resolves_to_metric(self, text):
+        """¿El texto, solo, nombra un indicador del catálogo? (metric_words no
+        basta: «cirugías» también es alias de una dimensión)."""
+        builder = self.query_plan_builder
+        if self._named_metric_words(text):
+            return True
+        try:
+            context = builder._source_context(text)
+            result = builder._resolve_metric_flexible(text, context)
+        except Exception:
+            return False
+        return result.get("status") in ("resolved", "ambiguous")
+
+    def _mentions_board(self, text):
+        detect = getattr(getattr(self.conversation_manager, "intent_parser", None), "detect_dashboard", None)
+        if not callable(detect) or not self._normalize_text(text):
+            return False
+        try:
+            return bool(detect(text))
+        except Exception:
+            return False
+
+    def _topic_scope_text(self, topic):
+        """Periodo, valores de filtro y agrupación de una consulta, en texto
+        («urgencias octubre 2026 por especialidad»)."""
+        parts = []
+        for item in topic.get("filters") or []:
+            if self._is_temporal_filter(item):
+                label = re.sub(r"\s*\([^)]*\)", "", str(item.get("label") or ""))
+                if label:
+                    parts.append(label)
+            elif item.get("value") not in (None, ""):
+                parts.append(f"de {item.get('value')}")
+            elif item.get("values"):
+                parts.append("de " + " y ".join(str(v) for v in item["values"]))
+        for item in topic.get("group_by") or []:
+            parts.append(f"por {str(item.get('label') or item.get('column')).lower()}")
+        return " ".join(parts)
+
+    def _documentation_about_topic(self, message, analysis, descriptive, last, previous):
+        """Pregunta documental sin sujeto propio: se completa con el tema
+        anterior (el indicador de la última respuesta numérica o el tablero /
+        tema de la última respuesta documental)."""
+        previous_route = (previous.get("meta") or {}).get("route")
+        if last is not None and previous_route in ("powerbi", "rag"):
+            subject = self._topic_subject(last)
+            why = f"pregunta por el indicador de la respuesta anterior ({last['metric_label']})"
+        elif previous_route == "rag":
+            phrase, board = self._documentation_subject(previous)
+            if phrase and len(phrase.split()) <= 8:
+                subject = phrase
+            elif board:
+                subject = self._board_phrase(board)
+            else:
+                return None
+            why = "pregunta por el tema de la respuesta documental anterior"
+        else:
+            return None
+        if analysis.get("why"):
+            question = f"¿Qué mide y cómo se calcula {subject}?"
+            why += "; «¿por qué?» se responde con lo que mide y cómo se calcula (la documentación no trae causas)"
+        else:
+            head = self._DESCRIPTIVE_HEADS.get(self._normalize_text(descriptive))
+            if head:
+                question = f"{head} {subject}?"
+            else:
+                question = self._replace_reference(message, analysis, subject)
+        self._note_interpretation(question, why)
+        result = self._process(question)
+        # El tema sigue siendo el mismo indicador: «¿y en 2025?» después
+        # vuelve a la consulta numérica.
+        self._remember_success(result, followup=True)
+        return result
+
+    def _replace_reference(self, message, analysis, subject):
+        """Cambia el demostrativo («ese indicador», «eso») por el tema; si no
+        hay, agrega el tema al final."""
+        text = str(message or "").strip()
+        folded = contextual_rewriter.fold(text)
+        for reference in analysis.get("references") or []:
+            match = re.search(
+                r"(?<![a-z0-9])" + r"\s+".join(map(re.escape, reference.split())) + r"(?![a-z0-9])", folded,
+            )
+            if match:
+                return text[: match.start()] + subject + text[match.end():]
+        body = re.sub(r"[\s?¿.!]+$", "", text)
+        body = re.sub(r"^[¿\s]*(?:y|e)\s+", "", body, flags=re.IGNORECASE)
+        return f"¿{body.lstrip('¿')} {subject}?"
+
+    def _comparison_turn(self, message, analysis, last):
+        """«compáralo con el año pasado»: la consulta anterior y la misma con el
+        otro periodo, lado a lado (un valor por periodo o una columna por periodo)."""
+        target = analysis.get("compare") or ""
+        base_plan = self._topic_plan(last, "", message=message)
+        if base_plan is None or base_plan.get("status") != "ready":
+            return None
+        target_norm = self._normalize_text(target)
+        has_period = any(self._is_temporal_filter(item) for item in last.get("filters") or [])
+        other = None
+        if has_period and self._SAME_PERIOD_LAST_YEAR.search(target_norm):
+            shifted = self._shift_filters_one_year(base_plan.get("filters"))
+            if shifted is not None:
+                other = {**base_plan, "filters": shifted}
+                how = "el mismo periodo un año antes"
+        if other is None:
+            other = self._followup_plan(
+                message, original=message, complement=target, base=last,
+                why=f"compara la consulta anterior con «{target}»",
+            )
+            how = f"el periodo «{target}»"
+            if other is None or other.get("status") != "ready":
+                return None
+        label = str((base_plan.get("metric") or {}).get("label") or last.get("metric_label"))
+        composite = {
+            "status": "composite",
+            "question": f"{last['question']} ({message.strip()})",
+            "items": [
+                {"kind": "metric", "label": label, "plan": base_plan},
+                {"kind": "metric", "label": label, "plan": other},
+            ],
+            "grouped": bool(base_plan.get("group_by")),
+            "notes": [],
+        }
+        self._think(
+            "Comparación con otro periodo",
+            f"«{message.strip()}» compara la consulta anterior ({last['metric_label']}) con {how}",
+            *[f"periodo comparado: {self._filter_line(item)}" for item in other.get("filters") or []
+              if self._is_temporal_filter(item)],
+        )
+        self._note_interpretation(
+            f"{self._plan_interpretation(base_plan)}, frente a "
+            f"{self._own_filters_text([i for i in other.get('filters') or [] if self._is_temporal_filter(i)]) or target}",
+            f"compara la consulta anterior con {how}",
+        )
+        result = self._execute_composite(composite)
+        if isinstance(result, dict):
+            result["followup_of"] = base_plan.get("followup_of")
+            if result.get("status") == "success" and not composite["grouped"]:
+                self._note_variation(result)
+            # Los periodos van en cada medida; la línea «Filtros:» solo lleva
+            # los filtros comunes (sin el periodo de la primera consulta).
+            if isinstance(result.get("query_plan"), dict):
+                result["query_plan"] = {**result["query_plan"], "filters": list(result.get("filters") or [])}
+        self._remember_success(result, followup=True)
+        return result
+
+    def _note_variation(self, result):
+        """Nota con la diferencia entre los dos periodos de una comparación."""
+        measures = [m for m in result.get("measures") or [] if isinstance(m, dict)]
+        if len(measures) != 2:
+            return
+        try:
+            current, other = float(measures[0]["value"]), float(measures[1]["value"])
+        except (TypeError, ValueError, KeyError):
+            return
+        percent = "%" in str(measures[0].get("format") or "")
+        diff = current - other
+        sign = "+" if diff > 0 else ("−" if diff < 0 else "")
+        if percent:
+            note = f"Diferencia: {sign}{self._fmt_es(abs(diff) * 100, 2)} puntos porcentuales."
+        else:
+            note = f"Diferencia: {sign}{self._fmt_es(abs(diff))}"
+            if other:
+                note += f" ({sign}{self._fmt_es(abs(diff) / abs(other) * 100, 1)} %)"
+            note += "."
+        plan = result.get("query_plan")
+        if isinstance(plan, dict):
+            plan["notes"] = [*(plan.get("notes") or []), note]
+        self._think("Diferencia entre los periodos", note)
+
+    def _shift_filters_one_year(self, filters):
+        """Los filtros con el periodo un año antes, o None si ningún filtro de
+        periodo tiene año («agosto 2026» -> «agosto 2025»; con AÑO y MES por
+        separado solo cambia AÑO y las etiquetas)."""
+        from datetime import date
+        from src.semantic.period_parser import period_label
+
+        def back(value):
+            try:
+                day = date.fromisoformat(str(value)[:10])
+            except ValueError:
+                return None
+            try:
+                return day.replace(year=day.year - 1)
+            except ValueError:  # 29 de febrero
+                return day.replace(year=day.year - 1, day=28)
+
+        years = {}
+        shifted = []
+        for item in filters or []:
+            new = dict(item)
+            if not self._is_temporal_filter(item):
+                shifted.append(new)
+                continue
+            if item.get("start") and item.get("end"):
+                start, end = back(item["start"]), back(item["end"])
+                if start is None or end is None:
+                    return None
+                new["start"], new["end"] = start.isoformat(), end.isoformat()
+                if item.get("year"):
+                    years[int(item["year"])] = int(item["year"]) - 1
+                    new["year"] = int(item["year"]) - 1
+                new["label"] = period_label(start, end)
+                new.pop("to_date", None)
+            elif item.get("year"):
+                years[int(item["year"])] = int(item["year"]) - 1
+                new["year"] = int(item["year"]) - 1
+            elif self._normalize_text(item.get("column")) in ("ano", "anio", "year"):
+                try:
+                    years[int(item.get("value"))] = int(item.get("value")) - 1
+                    new["value"] = int(item.get("value")) - 1
+                except (TypeError, ValueError):
+                    return None
+            shifted.append(new)
+        if not years:
+            return None
+        for new in shifted:
+            if self._is_temporal_filter(new) and new.get("label") and not (new.get("start") and new.get("end")):
+                label = str(new["label"])
+                for old, year in years.items():
+                    label = re.sub(r"(?<![0-9])" + str(old) + r"(?![0-9])", str(year), label)
+                new["label"] = label
+        return shifted
+
+    def _return_to_topic(self, message, analysis, named):
+        """«volviendo a las cirugías programadas, ¿y en 2025?»: el tema anterior
+        cuyo indicador coincide con lo que nombra el mensaje."""
+        memory = getattr(self, "conversation_memory", None)
+        topics = memory.numeric_topics() if memory is not None else []
+        for topic in topics:
+            label = set(self._normalize_text(topic.get("metric_label")).split())
+            if all(word in label or word.rstrip("s") in label or f"{word}s" in label for word in named):
+                complement = self._normalize_text(analysis.get("complement"))
+                for word in named:
+                    complement = re.sub(r"(?<![a-z0-9])" + re.escape(word) + r"(?![a-z0-9])", " ", complement)
+                complement = " ".join(complement.split())
+                why = f"vuelve a un tema anterior de la conversación ({topic.get('metric_label')})"
+                plan = self._topic_plan(topic, complement, message=message, why=why)
+                if plan is None:
+                    return None
+                return self._run_followup(plan, message, why)
+        return None
+
+    def _numeric_after_documentation(self, message, analysis, previous):
+        """Pide un dato tras una respuesta documental: se consulta el indicador
+        del que se habló (o el principal del tablero)."""
+        complement = analysis.get("complement") or ""
+        norm = self._normalize_text(complement)
+        builder = self.query_plan_builder
+        has_period = False
+        try:
+            has_period = bool(builder is not None and builder._has_period(norm))
+        except Exception:
+            has_period = False
+        if not (self._NUMERIC_CUE_RE.search(norm) or has_period):
+            return None
+        phrase, board = self._documentation_subject(previous)
+        about_board = bool(board) and (not phrase or "tablero" in phrase.split())
+        if phrase and not about_board and self._named_metric_words(phrase):
+            question = self._insert_subject(complement, phrase)
+            self._note_interpretation(
+                question, "pide un dato del indicador del que trató la respuesta documental anterior",
+            )
+            result = self._process(question)
+            self._remember_success(result)
+            return result
+        if not board:
+            return None
+        metric = self._board_main_metric(board)
+        if metric is not None and builder is not None and self.query_plan_dax_generator is not None:
+            topic = {
+                "question": f"{metric.get('label')} ({self._board_phrase(board, 'del')})",
+                "metric_id": metric["metric_id"], "metric_label": metric.get("label"),
+                "semantic_model": metric.get("semantic_model"), "report": board,
+                "filters": [], "group_by": [], "ranking": None, "value": None, "metric_format": None,
+            }
+            why = (
+                f"pide un dato después de la respuesta documental sobre {self._board_phrase(board)}: "
+                f"se usa su indicador principal ({metric.get('label')})"
+            )
+            plan = self._topic_plan(topic, complement, message=message, why=why)
+            if plan is not None:
+                return self._run_followup(plan, message, why)
+        question = f"{complement} en {self._board_phrase(board)}".strip()
+        self._note_interpretation(question, "pide un dato del tablero de la respuesta documental anterior")
+        result = self._process(question)
+        self._remember_success(result)
+        return result
+
+    # ---------------- reglas que van después del seguimiento clásico ----------------
+
+    def _contextual_generic(self, message, rewritten, analysis):
+        """Mensajes que dependen de la consulta anterior sin «y» ni anáfora
+        («necesito eso mismo pero de septiembre», «para el comité, los de
+        urgencias», «no, me refería a hospitalización», «en septiembre») y, si
+        las reglas no bastan, la reescritura con MedGemma."""
+        last = self._last_success
+        cues = set(analysis.get("cues") or [])
+        complement = analysis.get("complement") or ""
+        words = self._normalize_text(message).split()
+        own_label = last.get("metric_label") if last else None
+        strong = bool(cues & self._STRONG_CUES)
+        # Con una referencia explícita («eso mismo», «los de...») se perdonan
+        # las palabras del indicador anterior; sin ella, nombrar cualquier
+        # indicador (también el mismo) hace del mensaje una pregunta completa.
+        named = self._named_metric_words(complement, own_label=own_label if strong else None)
+        short = len(words) <= self._CONTEXT_SHORT_WORDS and not self._is_new_full_question(message)
+        if named and not strong:
+            return None  # nombra su propio indicador: pregunta nueva
+        if not cues and not (short and not named):
+            return None
+        if last is not None and complement.strip() and not analysis.get("correction"):
+            target = complement
+            reason = (
+                "corrige la consulta anterior" if analysis.get("correction")
+                else "depende de la consulta anterior (" + ", ".join(sorted(cues)) + ")" if cues
+                else "es un complemento corto sin indicador propio"
+            )
+            plan = self._followup_plan(
+                message, original=message, complement=target, why=reason,
+            )
+            if plan is not None:
+                return self._run_followup(plan, message, reason)
+        if not cues:
+            return None  # sin señal explícita no se gasta una llamada al LLM
+        response = self._llm_rewrite_turn(message, analysis)
+        if response is not None:
+            return response
+        # Referencia explícita a la respuesta anterior («los de urgencias»,
+        # «no, me refería a hospitalización») que no se pudo aplicar: se
+        # responde la consulta anterior diciendo qué no se pudo aplicar, en
+        # lugar de tratar el mensaje como una pregunta nueva sin sentido.
+        target = analysis.get("correction") or complement
+        if strong and last is not None and target.strip():
+            reason = (
+                "se refiere a la consulta anterior (" + ", ".join(sorted(cues)) + "), pero lo que "
+                "agrega no es un filtro de ese indicador: se responde la consulta anterior y se dice qué no se aplicó"
+            )
+            plan = self._followup_plan(
+                message, original=message, complement=target, why=reason, lenient=True,
+            )
+            if plan is not None:
+                return self._run_followup(plan, message, reason)
+        return None
+
+    def _llm_rewrite_turn(self, message, analysis):
+        llm = self._context_llm_provider()
+        memory = getattr(self, "conversation_memory", None)
+        if llm is None or memory is None or not len(memory):
+            return None
+        if not (analysis.get("cues") or analysis.get("complement")):
+            return None
+        transcript = memory.transcript(limit=3)
+        allowed = " ".join(
+            f"{m['text']} {(m.get('meta') or {}).get('interpreted') or ''} "
+            f"{(m.get('meta') or {}).get('metric') or ''} {(m.get('meta') or {}).get('dashboard') or ''}"
+            for m in memory.history(3)
+        )
+        self._activity("Interpretando el mensaje con el contexto de la conversación (MedGemma)")
+        metric_words = getattr(self.query_plan_builder, "metric_words", None)
+        try:
+            outcome = LLMContextRewriter(llm).rewrite(
+                message, transcript, allowed, metric_words=metric_words if callable(metric_words) else None,
+            )
+        except Exception as error:
+            outcome = {"status": "error", "reason": f"{type(error).__name__}: {error}", "elapsed": None}
+        if outcome.get("status") != "success":
+            self._think(
+                "Reescritura con MedGemma descartada",
+                f"estado: {outcome.get('status')}"
+                + (f" · {outcome.get('elapsed')} s" if outcome.get("elapsed") is not None else ""),
+                f"propuesta: «{outcome.get('question')}»" if outcome.get("question") else None,
+                f"motivo: {outcome.get('reason')}" if outcome.get("reason") else None,
+                "se responde el mensaje tal como llegó",
+            )
+            return None
+        question = outcome["question"]
+        if self._normalize_text(question) == self._normalize_text(message):
+            return None
+        self._note_interpretation(
+            question,
+            f"el mensaje depende de la conversación ({', '.join(analysis.get('cues') or []) or 'mensaje corto sin indicador'}) "
+            f"y las reglas no bastaron (MedGemma, {outcome.get('elapsed')} s)",
+            source="llm",
+        )
+        result = self._process(question)
+        self._remember_success(result)
+        return result
+
     def _process_turn(self, message):
         self._activity("Interpretando la pregunta")
         # Mensaje tal como lo escribió el usuario (la contrapregunta pendiente
@@ -3656,20 +4685,26 @@ class QueryEngine:
 
     def _process_typed_turn(self, message):
         rewritten = self._rewrite_request(message)
+        analysis = self._context_analysis(message)
+        if analysis is not None:
+            contextual = self._contextual_special(message, rewritten, analysis)
+            if contextual is not None:
+                return self._with_interpretation(contextual)
         followup = self._followup_plan(rewritten, original=message)
         if followup is not None:
-            self._trace_plan(followup, "Query Plan del seguimiento")
-            if followup.get("status") == "ready":
-                result = self._execute_query_plan(followup)
-                self._note_breakdown_of_previous(followup, result)
-            else:
-                result = self._query_plan_failure(followup)
-            result["followup_of"] = followup.get("followup_of")
-            self._remember_success(result, followup=True)
-            return result
+            return self._with_interpretation(self._run_followup(followup, message))
+        if analysis is not None:
+            contextual = self._contextual_generic(message, rewritten, analysis)
+            if contextual is not None:
+                return self._with_interpretation(contextual)
         result = self._process(rewritten)
         result = self._check_requester_filter(message, rewritten, result)
         self._remember_success(result)
+        return result
+
+    def _with_interpretation(self, result):
+        if isinstance(result, dict) and self._turn_interpretation:
+            result.setdefault("interpreted_as", self._turn_interpretation)
         return result
 
     def _check_requester_filter(self, message, rewritten, result):
@@ -3745,7 +4780,13 @@ class QueryEngine:
         return result
 
     def process(self, message):
-        return self._traced("question", message, lambda: self._process_turn(message))
+        top_level = getattr(self, "_trace", None) is None
+        if top_level:
+            self._turn_interpretation = None
+        result = self._traced("question", message, lambda: self._process_turn(message))
+        if top_level:
+            self._record_turn(message, result, via="texto")
+        return result
 
     def _discard_stale_dashboard_clarification(self, message):
         """«¿A qué tablero te refieres?» pendiente y llega una pregunta nueva
@@ -4059,12 +5100,7 @@ class QueryEngine:
         ]:
 
             self._activity("Buscando en la documentación y redactando la respuesta con MedGemma")
-            rag_result = (
-                self.rag_answer_engine
-                .answer(
-                    intent_result
-                )
-            )
+            rag_result = self._call_rag(intent_result)
 
             self._think(
                 "Búsqueda en la documentación (RAG)",

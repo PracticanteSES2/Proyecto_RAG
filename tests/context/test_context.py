@@ -411,7 +411,13 @@ def test_sim_pending_dashboard_question_does_not_capture_new_questions():
     assert result["route"] == "rag" and "Lavanderia" in str(result.get("dashboard")), result.get("dashboard")
     assert "Contrapregunta de tablero descartada" in steps(result)
     assert engine._pending_dashboard_clarification is None and not cm.state.awaiting_clarification
-    # El botón de tablero sigue funcionando.
+    # Justo después de hablar del tablero de lavandería, «que filtros tiene» se
+    # entiende con el contexto (los filtros de ESE tablero), no se contrapregunta.
+    result, ui = ask("que filtros tiene")
+    assert result["route"] == "rag" and "Lavanderia" in str(result.get("dashboard")), result.get("dashboard")
+    assert "Interpretación con el contexto de la conversación" in steps(result)
+    # El botón de tablero sigue funcionando (conversación nueva: sin contexto).
+    engine, cm, ask, choose = conversation()
     first, _ = ask("que filtros tiene")
     buttons = clarification_buttons(first)
     result, ui = choose(buttons[1]["id"])
