@@ -7,6 +7,7 @@ from src.chatbot.contextual_rewriter import LLMContextRewriter
 from src.chatbot.conversation_memory import ConversationMemory
 from src.chatbot.intent_parser import ordinal_choice_index
 from src.chatbot.reasoning_trace import ReasoningTrace, format_score, short
+from src.chatbot.runtime_stats import STATS, degradation_lines, status_line
 from src.chatbot.response_formatter import (
     NONE_OF_THE_ABOVE_ID, format_filters_line, format_value_es, group_header,
 )
@@ -223,6 +224,9 @@ class QueryEngine:
         provider = self.powerbi_provider
         if provider is not None and hasattr(provider, "query_listener"):
             provider.query_listener = self._on_powerbi_query if listener else None
+        if provider is not None and hasattr(provider, "activity_listener"):
+            # Aperturas/reconexiones (posible ventana de inicio de sesión).
+            provider.activity_listener = self._activity if listener else None
 
     def _on_powerbi_query(self, semantic_model, dax):
         self._activity(f"Consultando Power BI ({semantic_model or 'modelo por defecto'})",
@@ -236,10 +240,20 @@ class QueryEngine:
         domains = domain_cache_for(getattr(self, "powerbi_provider", None))
         if domains is not None:
             domains.begin_turn()
+        # Estado del servidor al empezar (queda en el razonamiento y en la
+        # exportación): llamadas a MedGemma en curso, conexiones, hilos...
+        before = self._server_snapshot()
+        if before is not None:
+            # Cabecera del razonamiento (no es un paso de la decisión).
+            self._trace.server_state = status_line(before)
+        STATS.turn_started()
+        failed = True
         try:
             result = runner()
+            failed = False
             if isinstance(result, dict):
                 self._think_exploration(domains)
+                self._think_degradation(before)
                 self._think(
                     "Resultado del turno",
                     f"estado={result.get('status')} · ruta={result.get('route')}"
@@ -257,9 +271,26 @@ class QueryEngine:
             self.last_reasoning = self._trace.to_dict()
             raise
         finally:
+            STATS.turn_finished(error=failed)
             self._trace = None
             if domains is not None:
                 domains.end_turn()
+
+    def _server_snapshot(self):
+        try:
+            return STATS.snapshot(getattr(self, "powerbi_provider", None))
+        except Exception:
+            return None  # el diagnóstico nunca tumba el turno
+
+    def _think_degradation(self, before):
+        """Paso final si algo se degradó en el turno (MedGemma cortado o
+        saturado, reconexión con Power BI...)."""
+        if before is None:
+            return
+        after = self._server_snapshot()
+        lines = degradation_lines(before, after) if after is not None else []
+        if lines:
+            self._think("Estado al terminar (degradado)", *lines, status_line(after))
 
     def _think_exploration(self, domains):
         """Una línea con las consultas de valores de columnas (exploración) del
@@ -5262,6 +5293,7 @@ class QueryEngine:
             self._think(
                 "Búsqueda en la documentación (RAG)",
                 f"estado: {rag_result.get('status')} · síntesis: {rag_result.get('synthesis_mode')}",
+                rag_result.get("synthesis_issue"),
                 *[
                     f"fuente: {source.get('dashboard') or '-'} · {source.get('chunk_type') or '-'}"
                     f" · puntaje {format_score(source.get('score'))}"

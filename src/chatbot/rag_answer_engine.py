@@ -134,8 +134,26 @@ class RAGAnswerEngine:
         contexts = [r.get("text", "") for r in results if r.get("text")]
         return "\n\n".join(contexts)
 
+    @staticmethod
+    def _synthesis_issue(synthesis):
+        """Por qué no se usó el LLM (texto para el razonamiento) o None."""
+        details = synthesis.get("details") or {}
+        status = details.get("status") or synthesis.get("status")
+        if status == "llm_timeout":
+            return (f"MedGemma no respondió en {details.get('timeout_seconds') or '-'} s "
+                    "(se cortó la llamada): se usa el resumen extractivo")
+        if status == "llm_saturated":
+            return (f"MedGemma estaba saturado ({details.get('error') or 'sin hueco libre'}): "
+                    "se usa el resumen extractivo sin esperar")
+        if status:
+            error = details.get("error")
+            return f"MedGemma no disponible ({status}{': ' + str(error)[:120] if error else ''}): "                    "se usa el resumen extractivo"
+        return None
+
     def _synthesize_answer(self, question, results, history=None):
-        """(respuesta, modo, sin_evidencia)."""
+        """(respuesta, modo, sin_evidencia). Si no se usa el LLM, el motivo
+        queda en self.last_synthesis_issue (lo muestra el razonamiento)."""
+        self.last_synthesis_issue = None
         if self.answer_synthesizer is None:
             return self._fallback_answer(results), "extractive", False
 
@@ -149,6 +167,7 @@ class RAGAnswerEngine:
         if synthesis.get("status") == "success":
             return synthesis.get("answer"), "llm", bool(synthesis.get("no_evidence"))
 
+        self.last_synthesis_issue = self._synthesis_issue(synthesis)
         return self._fallback_answer(results), "extractive", False
 
     def _not_found_response(self, sources=None, synthesis_mode="none", reason="no_relevant_context"):
@@ -184,6 +203,7 @@ class RAGAnswerEngine:
             "sources": results,
             "retrieval_mode": "open",
             "synthesis_mode": synthesis_mode,
+            "synthesis_issue": getattr(self, "last_synthesis_issue", None),
         }
 
     def _answer_general(self, intent_data, history=None):

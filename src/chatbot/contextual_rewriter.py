@@ -21,9 +21,9 @@ Este módulo tiene dos partes:
    mensaje, sin palabras de contenido inventadas.
 """
 import re
-import threading
 import time
 
+from src.llm.llm_gate import call_llm
 from src.semantic.request_phrases import fold
 
 
@@ -295,24 +295,19 @@ Asistente: CIRUGÍAS PROGRAMADAS: 6.803. Filtros: 2024
         ]
 
     def _chat(self, messages):
-        box = {}
-
-        def run():
-            try:
-                box["response"] = self.llm_provider.chat(
-                    messages=messages, temperature=0.0, max_tokens=80, think=False,
-                )
-            except TypeError:
-                box["response"] = self.llm_provider.chat(messages=messages, temperature=0.0, max_tokens=80)
-            except Exception as error:  # el respaldo nunca tumba el turno
-                box["response"] = {"status": "error", "error": f"{type(error).__name__}: {error}"}
-
-        worker = threading.Thread(target=run, daemon=True)
-        worker.start()
-        worker.join(self.timeout if self.timeout and self.timeout > 0 else None)
-        if worker.is_alive():
-            return {"status": "timeout"}
-        return box.get("response") or {"status": "error"}
+        """Llamada con tiempo límite real (src/llm/llm_gate.py): al vencer se
+        cierra la conexión con MedGemma. Si el servidor está saturado se
+        espera como mucho 1 s por un hueco: la reescritura es opcional."""
+        timeout = self.timeout if self.timeout and self.timeout > 0 else None
+        response = call_llm(
+            self.llm_provider, messages, purpose="reescritura contextual",
+            timeout=timeout, queue_wait=min(1.0, timeout) if timeout else 1.0,
+            temperature=0.0, max_tokens=80, think=False,
+        )
+        if response.get("status") == "llm_timeout":
+            # Nombre histórico del estado (lo muestra el razonamiento).
+            response = dict(response, status="timeout")
+        return response
 
     @staticmethod
     def clean(answer):
