@@ -105,7 +105,7 @@ def validate_questions(data):
 KNOWN_EXPECT_KEYS = {
     "route", "status", "metrics_any", "models_any", "filters", "allow_declared_filters",
     "group_by_any", "result_type", "numbers", "answer_any", "answer_all", "answer_none",
-    "keywords", "min_keyword_coverage", "options_any", "min_options", "has_none_option",
+    "keywords", "min_keyword_coverage", "options_any", "options_all", "min_options", "has_none_option",
     "prompt_any", "forbid", "allow",
 }
 

@@ -235,6 +235,7 @@
         "seccion": "Tarjetas: total de dosis suministradas"
       },
       "arneses": ["realistic"],
+      "descripcion": "La medida correcta es TOTAL ATB: su tarjeta se titula «Total de dosis de antibióticos suministradas» (la comprobación de métrica acepta el título del visual).",
       "turns": [
         {
           "user": "total de dosis de antibioticos suministradas",
@@ -1175,13 +1176,17 @@
         "seccion": "Distribución de las remisiones según la EPS"
       },
       "arneses": ["realistic"],
+      "descripcion": "REMISIONES existe en dos tableros con datos distintos (BRIEFING HOSPITALARIO › SEGUIMIENTO REMISIONES y TABLERO REFERENCIA › SEGUIMIENTO DE REMISION): sin tablero en la pregunta, contrapreguntar es correcto siempre que se ofrezcan ambos; si responde, debe agrupar por EPS.",
       "turns": [
         {
           "user": "remisiones por eps",
           "expect": {
-            "route": ["powerbi"],
+            "route": ["powerbi", "clarification"],
             "result_type": "table",
-            "group_by_any": ["eps", "asegur", "entidad"]
+            "group_by_any": ["eps", "asegur", "entidad"],
+            "options_any": ["remision"],
+            "options_all": ["briefing", "referencia"],
+            "has_none_option": true
           }
         }
       ]
@@ -1363,14 +1368,15 @@
         "seccion": "Tarjeta de indicador – Tiempo promedio gestión factura (repetida en cada área)"
       },
       "arneses": ["realistic"],
+      "descripcion": "Es la MISMA medida (mismo modelo, tabla y expresión: AVERAGE('FACTURACION PERFILES'[TIEMPO])) repetida en la tarjeta de cada área/página de Control Facturación; solo cambian los filtros de cada visual. No se contrapregunta entre páginas idénticas: se responde una vez el valor general y la respuesta dice en qué páginas aparece (cada una puede aplicar sus filtros).",
       "turns": [
         {
           "user": "tiempo promedio gestion factura",
           "expect": {
-            "options_any": ["gestion", "factur", "tiempo"],
-            "route": ["clarification"],
-            "min_options": 2,
-            "has_none_option": true
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["gestion"],
+            "models_any": ["factur"],
+            "answer_any": ["paginas"]
           }
         }
       ]
@@ -2745,6 +2751,7 @@
         "seccion": "Consultas prioritarias"
       },
       "arneses": ["realistic"],
+      "descripcion": "Las opciones deben ser solo las que explican «consultas prioritarias» (Total de consultas de TABLERO EPS › página CONSULTAS PRIORITARIAS sobre la tabla CONSULTAS_PRIORITARIAS, y PRIORITARIAS_2025 de Atenciones), no cualquier «Consultas». El botón 1 es una de ellas: la métrica se comprueba por nombre, título del visual o tabla de la medida.",
       "turns": [
         {
           "user": "consultas prioritarias de 2025",
@@ -2772,6 +2779,7 @@
         "seccion": "Tiempo promedio de respuesta"
       },
       "arneses": ["realistic"],
+      "descripcion": "El catálogo reconstruido no tiene en TABLERO REFERENCIA una medida de tiempo de respuesta y ninguna opción ofrecida es de Referencia. «el de referencia» debe reconocerse como el nombre de un tablero: decir que ninguna opción es de Referencia y buscar allí (responder si existe; si no, volver a ofrecer las opciones diciéndolo), nunca «Indica el número o el nombre…».",
       "turns": [
         {
           "user": "tiempo promedio de respuesta",
@@ -2782,8 +2790,9 @@
         {
           "user": "el de referencia",
           "expect": {
-            "route": ["powerbi", "powerbi_empty"],
-            "models_any": ["referencia"]
+            "route": ["powerbi", "powerbi_empty", "clarification"],
+            "answer_all": ["referencia"],
+            "answer_none": ["Indica el número"]
           }
         }
       ]

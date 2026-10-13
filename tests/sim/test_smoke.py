@@ -633,6 +633,23 @@ def test_group_by_with_named_dashboard_does_not_filter_by_its_name():
 
 
 # ----------------------------------------------------------------------------
+# Opciones de la contrapregunta
+# ----------------------------------------------------------------------------
+
+def test_reply_naming_a_board_without_options_says_so_and_keeps_options():
+    turns = run("opc_tablero_sin_opcion")
+    first = turns[0][1]
+    result, ui = turns[-1][1], turns[-1][2]
+    assert result["status"] == "needs_clarification", result.get("status")
+    assert ui.lower().startswith("ninguna de las opciones es del tablero lavanderia."), ui
+    assert "«Cuántas cirugías realizadas hubo en 2024»" in ui and "Indica el número" not in ui, ui
+    shown = [o["id"] for o in first["clarification_options"]]
+    assert [o["id"] for o in result["clarification_options"]] == shown
+    lines = _reasoning_lines(result)
+    assert any("nombra un tablero que no es de ninguna opción" in line for line in lines), lines
+
+
+# ----------------------------------------------------------------------------
 # Preguntas compuestas (varias medidas en una pregunta)
 # ----------------------------------------------------------------------------
 

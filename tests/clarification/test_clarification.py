@@ -960,6 +960,296 @@ def test_named_board_without_metric_is_not_out_of_scope():
 
 
 # ---------------------------------------------------------------------------
+# Opciones de la contrapregunta (agente opciones-v3)
+# ---------------------------------------------------------------------------
+
+def test_single_option_asks_do_you_mean_it_not_several():
+    engine, _ = make_engine()
+    one = {"status": "ambiguous", "question": "cirugías realizadas",
+           "metric_resolution": {"candidates": [{"metric": M_QUIR, "score": 1.0}]}}
+    result = engine._query_plan_failure(one)
+    assert result["prompt"] == "¿Te refieres a CIRUGÍAS REALIZADAS?", result["prompt"]
+    assert "varios" not in result["question"]
+    # Sugerencia única tras «no encontré»: también en singular.
+    suggestion = {"status": "not_found", "question": "cirugias",
+                  "metric_resolution": {"candidates": [], "suggestions": [{"metric": M_PROG, "score": 0.5}]}}
+    prompt = engine._query_plan_failure(suggestion)["prompt"]
+    assert prompt == "No identifiqué con certeza el indicador. ¿Te refieres a CIRUGÍAS PROGRAMADAS?", prompt
+    # Con varias opciones no cambia.
+    assert clarify(engine)["prompt"] == "Encontré varios indicadores. ¿Cuál necesitas?"
+
+
+def test_technical_labels_show_visual_title_or_readable_name_and_keep_id():
+    engine, _ = make_engine()
+    pend = {**_hidden_metric("f_pend1", "PENDIENTES1", "TABLERO FARMACIA"),
+            "appearances": [{"report": "TABLERO FARMACIA", "page_display_name": "INICIO", "visual_title": None}]}
+    triage = _hidden_metric("t_tot", "total_triage", "TABLERO DE ATENCIONES INSTITUCIONALES")
+    pac = {**_hidden_metric("n_pac", "Pac_act", "TABLERO NAOS"),
+           "appearances": [{"report": "TABLERO NAOS", "page_display_name": "Listado",
+                            "visual_title": "Pacientes activos con pendientes"}]}
+    plain = metric("p_ok", "Total de consultas", "TABLERO EPS", "TABLERO EPS", "Consultas prioritarias")
+    plan = {"status": "ambiguous", "question": "pendientes", "metric_resolution": {"candidates": [
+        {"metric": m, "score": 1.0} for m in (pend, triage, pac, plain)]}}
+    options = engine._query_plan_failure(plan)["clarification_options"]
+    assert [o["id"] for o in options] == ["f_pend1", "t_tot", "n_pac", "p_ok"], options
+    assert [o["label"] for o in options] == [
+        "PENDIENTES", "Total triage", "Pacientes activos con pendientes", "Total de consultas"], options
+    # Escribir el nombre técnico sigue eligiendo la opción.
+    assert engine._match_query_plan_choice("total_triage", options)["id"] == "t_tot"
+
+
+class BoardRouter:
+    """board_mentions mínimo: conoce el tablero «referencia»."""
+
+    def board_mentions(self, question):
+        text = question.lower()
+        if text.endswith("referencia"):
+            return [{"phrase": "tablero referencia", "name": "referencia", "tokens": ["referencia"],
+                     "known": True, "contexts": [{"semantic_model": "TABLERO REFERENCIA",
+                                                   "report": "TABLERO REFERENCIA", "name": "REFERENCIA",
+                                                   "kind": "report"}]}]
+        return []
+
+
+def test_reply_naming_a_board_without_options_searches_there():
+    referencia = metric("r_sol", "CANTIDAD DE SOLICITUDES", "TABLERO REFERENCIA", "TABLERO REFERENCIA", "Inicio")
+    factura = metric("f_t", "TIEMPO GESTION FACTURACION", "Control Facturacion",
+                     "TABLERO CONTROL FACTURACION", "Escaneo")
+    espera = metric("b_t", "TIEMPO EN ESPERA", "BRIEFING", "BRIEFING", "Interconsultas")
+
+    class SearchingBuilder(PickingBuilder):
+        def __init__(self, found):
+            super().__init__([referencia, factura, espera])
+            self.source_router = BoardRouter()
+            self.found = found
+
+        def build_composite(self, question, intent_result=None):
+            return None
+
+        def build(self, question, intent_result=None, selected_metric_id=None):
+            if selected_metric_id is not None:
+                return super().build(question, intent_result, selected_metric_id)
+            self.calls.append({"question": question, "selected": None})
+            if self.found:
+                return {"status": "ready", "mode": "scalar", "question": question, "metric": referencia,
+                        "semantic_model": "TABLERO REFERENCIA", "report": "TABLERO REFERENCIA",
+                        "filters": [], "group_by": [], "notes": []}
+            return {"status": "not_found", "question": question, "named_report": "TABLERO REFERENCIA",
+                    "metric_resolution": {"candidates": [], "suggestions": [{"metric": factura, "score": 1.0}]}}
+
+    def ask(found):
+        engine, _ = make_engine()
+        engine.query_plan_builder = SearchingBuilder(found)
+        plan = {"status": "ambiguous", "question": "tiempo promedio de respuesta",
+                "metric_resolution": {"candidates": [
+                    {"metric": espera, "score": 1.0}, {"metric": factura, "score": 1.0}]}}
+        engine._query_plan_failure(plan)
+        return engine, engine._continue_query_plan("el de referencia")
+
+    # Allí tampoco está (solo ofrecería el de otro tablero): se dice y se re-ofrecen las opciones.
+    engine, result = ask(found=False)
+    assert result["status"] == "needs_clarification", result
+    assert result["prompt"].startswith("Ninguna de las opciones es del TABLERO REFERENCIA."), result["prompt"]
+    assert "Indica el número" not in result["prompt"]
+    assert [o["id"] for o in result["clarification_options"]] == ["b_t", "f_t"]
+    assert engine.query_plan_builder.calls[-1]["question"].endswith("en el tablero REFERENCIA")
+    assert engine._pending_query_plan is not None  # se puede seguir eligiendo
+    # Existe en ese tablero: se responde y la respuesta lo dice.
+    engine, result = ask(found=True)
+    assert result["status"] == "success", result
+    assert result["query_plan"]["notes"][0].startswith("Ninguna de las opciones es del TABLERO REFERENCIA")
+    # Una respuesta que nombra el tablero de una opción la elige (no busca en otro lado).
+    engine, _ = make_engine()
+    engine.query_plan_builder = SearchingBuilder(False)
+    engine._query_plan_failure({"status": "ambiguous", "question": "tiempo", "metric_resolution": {
+        "candidates": [{"metric": referencia, "score": 1.0}, {"metric": factura, "score": 1.0}]}})
+    assert engine._continue_query_plan("el de referencia")["status"] == "success"
+    assert engine.query_plan_builder.calls[-1]["selected"] == "r_sol"
+
+
+def test_new_resolution_reasons_have_their_prompts():
+    engine, _ = make_engine()
+    candidates = [{"metric": M_QUIR, "score": 1}, {"metric": M_ATEN, "score": 1}]
+    similar = {"status": "ambiguous", "reason": "similar_name_in_several_boards", "question": "imagenes",
+               "metric_resolution": {"candidates": candidates}}
+    assert engine._query_plan_failure(similar)["prompt"].startswith("Hay varios indicadores con un nombre casi igual")
+    board = {"status": "ambiguous", "reason": "options_from_named_board", "named_report": "TABLERO NAOS",
+             "question": "pendientes en naos", "metric_resolution": {"candidates": candidates}}
+    assert "del tablero TABLERO NAOS" in engine._query_plan_failure(board)["prompt"]
+    elsewhere = {"status": "ambiguous", "reason": "metric_not_in_named_report", "named_report": "TABLERO NAOS",
+                 "question": "x en naos", "source_context": {"semantic_model": "TABLERO NAOS"},
+                 "metric_resolution": {"candidates": candidates}}
+    assert "Estos son los más parecidos de otros tableros" in engine._query_plan_failure(elsewhere)["prompt"]
+
+
+# --- QueryPlanBuilder real con un catálogo mínimo ---------------------------
+
+OPT_ATEN, OPT_BRIEF, OPT_NAOS, OPT_CITAS = "ATENCIONES", "BRIEFING", "TABLERO NAOS", "ASIGNACION CITAS"
+OPT_CAMAS, OPT_FACT, OPT_EPS, OPT_EXT = "GESTION CAMAS", "CONTROL FACTURACION", "TABLERO EPS", "CONSULTA EXTERNA"
+
+
+def _opt_metric(metric_id, model, label, table, pages=(), titles=None, dax=None):
+    visible = bool(pages)
+    return {
+        "metric_id": metric_id, "label": label, "measure": label, "aliases": [label],
+        "semantic_model": model, "report": model if visible else None, "reports": [model] if visible else [],
+        "table": table, "dax_expression": dax or f"[{label}]", "validation_status": "approved",
+        "appearances": [
+            {"report": model, "page_display_name": page, "visual_id": f"{metric_id}_{i}",
+             "visual_title": (titles or {}).get(page, label)}
+            for i, page in enumerate(pages)
+        ],
+    }
+
+
+OPTION_METRICS = [
+    _opt_metric("a_total_triage", OPT_ATEN, "total_triage", "OPORTUNIDAD_TRIAGE"),
+    _opt_metric("a_total_triages", OPT_ATEN, "TOTAL_TRIAGES", "OPORTUNIDAD_TRIAGE"),
+    _opt_metric("a_imagenes", OPT_ATEN, "IMAGENES", "CONSOLIDADO_IMAGENES"),
+    _opt_metric("a_observados_mes", OPT_ATEN, "PACIENTES OBSERVADOS POR MES", "CONSULTAS PRIORITARIAS",
+                pages=["Consultas prioritarias"], dax="COUNT('CONSULTAS PRIORITARIAS'[ASEGURADOR])",
+                titles={"Consultas prioritarias": "PACIENTES OBSERVADOS"}),
+    _opt_metric("a_observados_2025", OPT_ATEN, "OBSERVADOS_2025", "OBSERVADOS"),
+    _opt_metric("a_prioritarias_2025", OPT_ATEN, "PRIORITARIAS_2025", "CONSULTA_URGENCIAS"),
+    _opt_metric("b_imagenes_tomadas", OPT_BRIEF, "IMAGENES TOMADAS", "IMAGENES_TOMADAS",
+                pages=["Imagenes diagnosticas"]),
+    _opt_metric("n_pacientes", OPT_NAOS, "Total de pacientes con pendientes activos", "PACIENTES",
+                pages=["NAOS listado"]),
+    _opt_metric("n_cirugias", OPT_NAOS, "Total de cirugías pendientes", "NAOS_CIRUGIAS_PENDIENTES",
+                pages=["NAOS cirugias pendientes"]),
+    _opt_metric("c_pendiente", OPT_CITAS, "%PENDIENTE", "CITAS_ASIGNADAS", pages=["Oferta especialidades"]),
+    _opt_metric("c_citas_asignadas", OPT_CITAS, "CITAS ASIGNADAS", "AGENDA_ESPECIALISTAS", pages=["Dispo"]),
+    _opt_metric("c_asignadas", OPT_CITAS, "ASIGNADAS", "CITAS_ASIGNADAS", pages=["Dispo"]),
+    _opt_metric("k_ocupacion", OPT_CAMAS, "% Ocupación", "OCUPACION", pages=["Ocupacion"],
+                titles={"Ocupacion": "Ocupación por servicio"}),
+    _opt_metric("f_tiempo_prom", OPT_FACT, "TIEMPO PROMEDIO GESTION FACTURA", "FACTURACION PERFILES",
+                pages=["Escaneo fotocopias"], dax="AVERAGE('FACTURACION PERFILES'[TIEMPO])"),
+    _opt_metric("f_tiempo", OPT_FACT, "TIEMPO GESTION FACTURACION", "FACTURACION PERFILES",
+                pages=["Escaneo fotocopias", "Estacion enfermeria", "Urgencias"],
+                dax="AVERAGE('FACTURACION PERFILES'[TIEMPO])"),
+    _opt_metric("e_consultas", OPT_EPS, "Total de consultas", "CONSULTAS_PRIORITARIAS",
+                pages=["Consultas prioritarias"], titles={"Consultas prioritarias": "Consultas"}),
+    _opt_metric("x_consultas", OPT_EXT, "Consultas", "CONSULTAS_EXTERNAS", pages=["Consulta externa"]),
+]
+
+_OPTIONS_STATE = {}
+
+
+def options_builder():
+    """QueryPlanBuilder real sobre un catálogo temporal mínimo (sin Power BI real)."""
+    if "builder" in _OPTIONS_STATE:
+        return _OPTIONS_STATE["builder"]
+    import json
+    import tempfile
+    from src.semantic.query_plan_builder import QueryPlanBuilder
+    from src.semantic.source_model_router import SourceModelRouter
+
+    tmp = tempfile.TemporaryDirectory()
+    _OPTIONS_STATE["tmp"] = tmp
+    root = Path(tmp.name)
+    catalog, rag = root / "data" / "catalog", root / "data" / "rag"
+    catalog.mkdir(parents=True)
+    rag.mkdir(parents=True)
+    models = [OPT_ATEN, OPT_BRIEF, OPT_NAOS, OPT_CITAS, OPT_CAMAS, OPT_FACT, OPT_EPS, OPT_EXT]
+    keys = {model: f"m{i}" for i, model in enumerate(models)}
+    sources = [{"source_group": keys[m], "report": m, "semantic_model": m, "default_dashboard": "Inicio",
+                "aliases": [m.lower()] + (["naos"] if m == OPT_NAOS else []),
+                "technical_catalog": f"data/catalog/{keys[m]}_rag.json"} for m in models]
+    registry = {"models": [{"semantic_model": s["semantic_model"], "semantic_model_key": s["source_group"],
+                            "technical_catalog": s["technical_catalog"]} for s in sources],
+                "sources": sources}
+    tables = {OPT_NAOS: [{"name": "PACIENTES", "columns": [{"name": "SERVICIO", "data_type": "String"}]}]}
+    field = {"role": "Values", "kind": "column", "table": "PACIENTES", "column": "SERVICIO",
+             "display_name": "SERVICIO", "native_query_ref": "SERVICIO", "query_ref": "PACIENTES.SERVICIO"}
+    visuals = {"schema_version": 2, "reports": [
+        {"report": OPT_NAOS, "semantic_model": OPT_NAOS, "source_group": keys[OPT_NAOS], "pages": [
+            {"page_name": "p1", "page_display_name": "NAOS listado", "filters": {}, "visuals": [
+                {"visual_id": "n_serv", "visual_type": "slicer", "fields": [field]}]}]}]}
+    files = {catalog / "source_registry.json": registry, rag / "visual_metrics_catalog.json": visuals,
+             rag / "master_metrics.json": {"metrics": OPTION_METRICS}}
+    for model in models:
+        files[catalog / f"{keys[model]}_rag.json"] = {"semantic_model": model, "tables": tables.get(model, [])}
+    for path, data in files.items():
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    class Provider:
+        def execute_dax(self, dax, semantic_model=None):
+            if "VALUES('PACIENTES'[SERVICIO])" in dax.replace(" ", ""):
+                return {"status": "success", "rows": [{"[Value]": "CIRUGIA"}, {"[Value]": "PEDIATRIA"}]}
+            return {"status": "success", "rows": []}
+
+    router = SourceModelRouter(catalog / "source_registry.json", rag / "visual_metrics_catalog.json",
+                               project_root=root)
+    _OPTIONS_STATE["builder"] = QueryPlanBuilder(
+        rag / "master_metrics.json", rag / "visual_metrics_catalog.json", router, Provider(), project_root=root,
+    )
+    return _OPTIONS_STATE["builder"]
+
+
+def _option_ids(plan):
+    resolution = plan.get("metric_resolution") or {}
+    return [item["metric"]["metric_id"] for item in resolution.get("candidates") or resolution.get("suggestions") or []]
+
+
+def test_builder_single_option_after_grouping_is_answered_and_noted():
+    plan = options_builder().build("dame el total de triages del tablero atenciones")
+    assert plan["status"] == "ready", (plan["status"], _option_ids(plan))
+    assert plan["metric"]["metric_id"] in ("a_total_triage", "a_total_triages")
+    assert any("única opción" in note for note in plan.get("resolution_notes") or []), plan.get("resolution_notes")
+
+
+def test_builder_named_board_options_come_from_that_board():
+    plan = options_builder().build("pacientes con pendientes en naos por servicio")
+    assert plan["status"] == "ready", (plan["status"], plan.get("reason"), _option_ids(plan))
+    assert plan["metric"]["metric_id"] == "n_pacientes"
+    assert [g["column"] for g in plan["group_by"]] == ["SERVICIO"], plan["group_by"]
+    assert any("tablero nombrado" in note for note in plan["resolution_notes"]), plan["resolution_notes"]
+
+
+def test_builder_prunes_options_without_the_distinctive_words():
+    plan = options_builder().build("consultas prioritarias de 2025")
+    assert plan["status"] == "ambiguous", plan["status"]
+    assert set(_option_ids(plan)) == {"e_consultas", "a_prioritarias_2025"}, _option_ids(plan)
+    scores = {item["score"] for item in plan["metric_resolution"]["candidates"]}
+    assert len(scores) == 1, scores  # la pregunta no decide entre ellas: se muestran todas
+    assert any("opciones depuradas" in note for note in plan["resolution_notes"])
+
+
+def test_builder_similar_names_in_other_tables_are_asked():
+    builder = options_builder()
+    imagenes = builder.build("cuantas imagenes se tomaron")
+    assert imagenes["status"] == "ambiguous" and imagenes["reason"] == "similar_name_in_several_boards", \
+        (imagenes["status"], imagenes.get("reason"))
+    assert set(_option_ids(imagenes)) == {"b_imagenes_tomadas", "a_imagenes"}, _option_ids(imagenes)
+    observados = builder.build("cuantos pacientes observados hay")
+    assert observados.get("reason") == "similar_name_in_several_boards", observados["status"]
+    assert set(_option_ids(observados)) == {"a_observados_mes", "a_observados_2025"}, _option_ids(observados)
+    # Tarjetas parecidas del MISMO tablero no se preguntan.
+    citas = builder.build("citas asignadas")
+    assert citas["status"] == "ready" and citas["metric"]["metric_id"] == "c_citas_asignadas", citas["status"]
+    # Nombrando el tablero tampoco.
+    named = builder.build("cuantas imagenes se tomaron en el tablero briefing")
+    assert named["status"] == "ready" and named["metric"]["metric_id"] == "b_imagenes_tomadas", named["status"]
+
+
+def test_same_measure_on_several_pages_is_answered_once_with_its_pages():
+    builder = options_builder()
+    plan = builder.build("tiempo promedio gestion factura")
+    assert plan["status"] == "ready", (plan["status"], plan.get("reason"), _option_ids(plan))
+    engine, _ = make_engine()
+    engine.query_plan_builder = builder
+    engine._note_same_measure_pages(plan)
+    note = plan["notes"][-1]
+    assert note.startswith("Este indicador aparece en 3 páginas del tablero CONTROL FACTURACION"), note
+    for page in ("Escaneo fotocopias", "Estacion enfermeria", "Urgencias"):
+        assert page in note, note
+    # Una medida en una sola página no lleva la nota.
+    single = builder.build("citas asignadas")
+    engine._note_same_measure_pages(single)
+    assert not single.get("notes"), single.get("notes")
+
+
+# ---------------------------------------------------------------------------
 # Runner mínimo
 # ---------------------------------------------------------------------------
 

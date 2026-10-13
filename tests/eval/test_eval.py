@@ -172,6 +172,63 @@ def test_year_filter_accepts_integer_year_column_and_month_only():
     assert not failed(checks), checks
 
 
+def test_month_filter_accepts_month_names_in_text():
+    """NOMBRE_MES = 'abril' o MES = 'ABRIL' son el mes 4 igual que MES = 4."""
+    year = {"type": "categorical", "column": "AÑO", "value": 2025}
+    for column, value in (("NOMBRE_MES", "abril"), ("MES", "ABRIL"), ("MES", 4), ("NUM_MES", "04"),
+                          ("MES_NOMBRE", "Abr")):
+        month = {"type": "categorical", "column": column, "value": value}
+        _, checks = ex.evaluate_turn({"filters": [{"year": 2025, "month": 4}]},
+                                     powerbi_result([year, month]), "x: 1", [])
+        assert not failed(checks), (column, value, checks)
+    # Otro mes u otra columna no cuentan.
+    wrong = {"type": "categorical", "column": "NOMBRE_MES", "value": "mayo"}
+    _, checks = ex.evaluate_turn({"filters": [{"year": 2025, "month": 4}]},
+                                 powerbi_result([year, wrong]), "x: 1", [])
+    assert "filter periodo 2025-4" in failed(checks), checks
+    other = {"type": "categorical", "column": "SERVICIO", "value": "abril"}
+    _, checks = ex.evaluate_turn({"filters": [{"month": 4}]}, powerbi_result([other]), "x: 1", [])
+    assert "filter periodo 4" in failed(checks), checks
+    assert ex.month_number("setiembre") == 9 and ex.month_number("12") == 12
+    assert ex.month_number("ABRIL 2025") == 4 and ex.month_number("2025") is None
+
+
+def test_metric_check_accepts_visual_title_matched_name_and_table():
+    """TOTAL ATB es la tarjeta «Total de dosis de antibióticos suministradas»."""
+    plan = {"metric": {"label": "TOTAL ATB", "metric_id": "m1", "measure": "TOTAL ATB", "table": "ANTIBIOTICOS",
+                       "appearances": [{"visual_title": "Total de dosis de antibióticos suministradas"}]},
+            "metric_match": {"matched_name": "Total de dosis de antibióticos suministradas"}}
+    result = powerbi_result(metric="TOTAL ATB", model="TABLERO ANTIBIOTICOS", query_plan=plan)
+    _, checks = ex.evaluate_turn({"metrics_any": ["dosis"]}, result, "**TOTAL ATB**: 3.432", [])
+    assert not failed(checks), checks
+    # «Total de consultas» sobre la tabla CONSULTAS_PRIORITARIAS.
+    plan = {"metric": {"label": "Total de consultas", "metric_id": "m2", "table": "CONSULTAS_PRIORITARIAS"}}
+    result = powerbi_result(metric="Total de consultas", query_plan=plan)
+    _, checks = ex.evaluate_turn({"metrics_any": ["priorit"]}, result, "x: 1", [])
+    assert not failed(checks), checks
+    # El nombre técnico sigue primero en el detalle y una métrica ajena sigue fallando.
+    assert ex.metric_texts(result)[0] == "Total de consultas"
+    _, checks = ex.evaluate_turn({"metrics_any": ["triage"]}, result, "x: 1", [])
+    assert failed(checks) == ["metric"], checks
+
+
+def test_options_all_requires_every_text_in_some_option():
+    from src.chatbot.response_formatter import clarification_buttons
+
+    result = clarification_result()
+    buttons = clarification_buttons(result)
+    _, checks = ex.evaluate_turn({"options_all": ["quirurgico", "atenciones"]}, result, "x", buttons)
+    assert not failed(checks), checks
+    _, checks = ex.evaluate_turn({"options_all": ["quirurgico", "referencia"]}, result, "x", buttons)
+    assert failed(checks) == ["options_all «referencia»"], checks
+    # «Ninguna de las anteriores» no cuenta como opción y sin contrapregunta no aplica.
+    _, checks = ex.evaluate_turn({"options_all": ["ninguna"]}, result, "x", buttons)
+    assert failed(checks) == ["options_all «ninguna»"], checks
+    _, checks = ex.evaluate_turn({"options_all": ["referencia"]}, powerbi_result(), "x: 1", [])
+    assert not failed(checks), checks
+    assert "options_all" in runner.KNOWN_EXPECT_KEYS
+
+
 def test_group_by_and_result_type():
     grouped = powerbi_result(result_type="table", group_by=[{"column": "TURNO_OK", "label": "turno"}])
     _, checks = ex.evaluate_turn({"group_by_any": ["turno"], "result_type": "table"}, grouped, "| a |", [])

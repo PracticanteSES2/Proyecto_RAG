@@ -108,16 +108,30 @@ def _plans(result):
 
 
 def metric_texts(result):
-    """Etiquetas, ids y medidas de las métricas que usó el turno."""
+    """Etiquetas, ids y medidas de las métricas que usó el turno.
+
+    Además del nombre de la medida se aceptan los títulos de sus visuales
+    (TOTAL ATB es la tarjeta «Total de dosis de antibióticos suministradas»),
+    el nombre con que coincidió la pregunta y la tabla que cuenta («Total de
+    consultas» sobre CONSULTAS_PRIORITARIAS son las consultas prioritarias):
+    el usuario conoce el indicador por cualquiera de ellos."""
     texts = [result.get("metric"), result.get("metric_id")]
     for measure in as_list(result.get("measures")):
         if isinstance(measure, dict):
             texts.append(measure.get("label"))
+    extra = []
     for plan in _plans(result):
         metric = plan.get("metric") or {}
         if isinstance(metric, dict):
             texts += [metric.get("label"), metric.get("metric_id"), metric.get("measure"),
                       metric.get("dax_expression")]
+            extra += [appearance.get("visual_title") for appearance in as_list(metric.get("appearances"))
+                      if isinstance(appearance, dict)]
+            extra.append(metric.get("table"))
+        match = plan.get("metric_match") or {}
+        if isinstance(match, dict):
+            extra.append(match.get("matched_name"))
+    texts += [t for t in extra if t and t not in texts]
     return [str(t) for t in texts if t]
 
 
@@ -206,6 +220,30 @@ def resolve_year(value):
     return value
 
 
+_MONTH_ABBREVIATIONS = {name[:3]: number for name, number in MONTHS.items()}
+
+
+def month_number(value):
+    """Mes como número: 4, "4", "04", "abril", "ABRIL", "Abr", "4 - abril"; None si no es un mes."""
+    text = norm(value)
+    if not text:
+        return None
+    for token in text.split():
+        if token.isdigit() and 1 <= int(token) <= 12:
+            return int(token)
+        if token in MONTHS:
+            return MONTHS[token]
+        if token in _MONTH_ABBREVIATIONS:
+            return _MONTH_ABBREVIATIONS[token]
+    return None
+
+
+def _is_month_column(column):
+    """Columna de mes numérica o en texto: MES, NUM_MES, MES_NUM, NOMBRE_MES, MES_NOMBRE, MONTH..."""
+    tokens = norm(column).split()
+    return any(token in ("mes", "month", "mesnum", "nombremes") for token in tokens)
+
+
 def _filter_ok(spec, filters, dax):
     """¿El filtro esperado está aplicado? spec: {column?, value?} o {year?, month?}."""
     if "year" in spec or "month" in spec:
@@ -223,7 +261,7 @@ def _filter_ok(spec, filters, dax):
             value = item.get("value")
             if year is not None and column in ("ano", "anio", "year", "a o") and str(value) == str(year):
                 year_ok = True
-            if month is not None and column in ("mes", "month", "num mes", "mes num") and str(value) == str(month):
+            if month is not None and _is_month_column(column) and month_number(value) == int(month):
                 month_ok = True
         if not (year_ok and month_ok) and dax:
             compact = dax.replace(" ", "")
@@ -384,6 +422,17 @@ def evaluate_turn(expect, result, ui, buttons, question="", forbid=(), allow=())
         else:
             ok = any(contains(f"{lab} {cap}", o) for lab, cap in zip(labels, captions) for o in options_any)
             checks.append(_check("options", ok, f"botones={labels} · aceptables={options_any}"))
+    # Cada texto debe estar en alguna opción (etiqueta o descripción): «se
+    # ofrecen las de ambos tableros».
+    for needle in as_list(expect.get("options_all")):
+        if kind != "clarification":
+            checks.append(_check(f"options_all «{needle}»", None, f"sin contrapregunta ({kind}): no aplica"))
+            continue
+        found = any(
+            contains(f"{b.get('label') or ''} {b.get('caption') or ''}", needle)
+            for b in buttons or [] if str(b.get("id")) != "__none__"
+        )
+        checks.append(_check(f"options_all «{needle}»", found, f"botones={labels}"))
     if expect.get("min_options") is not None:
         if kind != "clarification":
             checks.append(_check("min_options", None, f"sin contrapregunta ({kind}): no aplica"))
