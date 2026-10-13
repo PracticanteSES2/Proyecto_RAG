@@ -536,18 +536,22 @@ def format_query_plan_answer(result):
         if total > MAX_TABLE_ROWS and "Mostrando" not in result["answer"]:
             lines.append(f"\nMostrando {MAX_TABLE_ROWS} de {total} filas.")
     else:
-        measures = [
-            m for m in (result.get("measures") or [])
-            if isinstance(m, dict) and not is_blank_value(m.get("value"))
-        ]
+        all_measures = [m for m in (result.get("measures") or []) if isinstance(m, dict)]
+        measures = [m for m in all_measures if not is_blank_value(m.get("value"))]
         if measures:
+            # Una medida vacía se declara («sin datos») en vez de omitirse: si
+            # no, la respuesta parece completa aunque falte una parte.
             measure_lines = []
-            for measure in measures:
+            for measure in all_measures:
+                label = measure.get("label") or "Valor"
+                if is_blank_value(measure.get("value")):
+                    measure_lines.append(f"- **{label}**: sin datos para esos filtros")
+                    continue
                 text = format_value_es(
                     measure.get("value"), measure.get("label"),
                     measure.get("format"), measure.get("unit"),
                 )
-                measure_lines.append(f"- **{measure.get('label') or 'Valor'}**: {text}")
+                measure_lines.append(f"- **{label}**: {text}")
             lines.append("\n".join(measure_lines))
         elif result.get("answer") and not result.get("measures"):
             lines.append(str(result["answer"]))

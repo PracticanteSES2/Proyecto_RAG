@@ -397,6 +397,7 @@
       "id": "b_consultas_ambulatorias_abril_2025",
       "category": "b_kpi_periodo",
       "tablero": "Atenciones Institucionales",
+      "descripcion": "Las consultas ambulatorias están en Atenciones (página Consultas Ambulatorias) y también en el modelo TABLERO CONSULTA EXTERNA (nombre real del workspace; en el arnés es sintético y reutiliza CONSULTAS_AMBULATORIAS). Responder con cualquiera de los dos, o preguntar cuál, es correcto.",
       "fuente": {
         "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/14 Documentacion Tablero Consultas Ambulatorias.docx",
         "seccion": "Total de consultas ambulatorias"
@@ -406,9 +407,11 @@
         {
           "user": "cuantas consultas ambulatorias hubo en abril de 2025",
           "expect": {
-            "route": ["powerbi", "powerbi_empty"],
+            "route": ["powerbi", "powerbi_empty",
+            "clarification"],
             "metrics_any": ["ambulator", "consulta"],
-            "models_any": ["atenciones"],
+            "models_any": ["atenciones",
+            "consulta externa"],
             "filters": [{"year": 2025, "month": 4}]
           }
         }

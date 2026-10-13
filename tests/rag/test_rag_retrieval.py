@@ -343,6 +343,17 @@ def test_trailing_no_evidence_phrase_is_removed():
     assert AnswerSynthesizer._clean_answer(NO_EVIDENCE_ANSWER) == NO_EVIDENCE_ANSWER
 
 
+def test_empty_bullets_plus_no_evidence_is_no_evidence():
+    # MedGemma real: viñetas con título pero sin contenido + la negativa.
+    answer = (
+        "*   **Interconsultas solicitadas:** .\n"
+        "*   **Interconsultas respondidas:** " + NO_EVIDENCE_ANSWER
+    )
+    assert AnswerSynthesizer._clean_answer(answer) == NO_EVIDENCE_ANSWER
+    kept = "*   **Total:** 5 pacientes atendidos en urgencias durante el periodo.\n*   **Otro:** ."
+    assert AnswerSynthesizer._clean_answer(kept + " " + NO_EVIDENCE_ANSWER).startswith("*   **Total:** 5")
+
+
 def test_llm_no_evidence_becomes_not_found():
     retriever = make_retriever(scores={"como se calcula el turno ok en lavanderia": {"l2": 0.15}})
     synthesizer = AnswerSynthesizer(_FakeProvider(answer=NO_EVIDENCE_ANSWER), timeout_seconds=0)

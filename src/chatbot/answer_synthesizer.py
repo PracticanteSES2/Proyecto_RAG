@@ -1,4 +1,5 @@
 import os
+import re
 import threading
 
 from src.rag.ranking import detect_question_intent
@@ -404,7 +405,14 @@ responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
             text[:position] + text[position + len(phrase):]
         ).strip(" .\n\t")
 
-        if len(remainder) < 40:
+        # Viñetas con título pero sin contenido («* **Interconsultas
+        # solicitadas:** .») no cuentan como respuesta.
+        remainder = re.sub(
+            r"(?:^|\s)[*\-•]\s+\*\*[^*\n]{1,80}?:?\*\*\s*:?\s*[.;,]?(?=\s*(?:[*\-•]\s|$))",
+            " ", remainder, flags=re.MULTILINE,
+        ).strip().rstrip(" .\n\t*-•")
+        content = re.sub(r"[*_#`•\-]+", " ", remainder)
+        if len(remainder) < 40 or len(re.findall(r"\w{3,}", content)) < 6:
             return NO_EVIDENCE_ANSWER
 
         return remainder + ("." if remainder[-1].isalnum() else "")

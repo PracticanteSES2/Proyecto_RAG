@@ -526,7 +526,8 @@ def test_answer_formatting_measures_and_empty_and_never_none():
         {"label": "Vacío", "value": None, "format": "number"},
     ]})
     assert "- **Peso**: 488,3 kg" in text and "- **Participación**: 12,5 %" in text
-    assert "None" not in text and "Vacío" not in text
+    # La medida vacía se declara, no se omite (si no, la respuesta parece completa).
+    assert "None" not in text and "- **Vacío**: sin datos para esos filtros" in text
     for value in (None, "", "BLANK"):
         out = format_query_plan_answer({"value": value, "metric": "X"})
         assert EMPTY_RESULT_MESSAGE in out and "None" not in out
