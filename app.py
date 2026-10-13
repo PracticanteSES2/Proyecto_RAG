@@ -19,6 +19,10 @@ from src.chatbot.rag_answer_engine import RAGAnswerEngine
 from src.chatbot.answer_synthesizer import AnswerSynthesizer
 from src.chatbot.option_describer import OptionDescriber
 from src.chatbot.reasoning_trace import format_reasoning_text
+from src.chatbot.conversation_export import (
+    export_conversation_markdown,
+    export_file_name,
+)
 from src.chatbot.response_formatter import (
     ResponseFormatter,
     clarification_buttons,
@@ -393,10 +397,10 @@ def render_reasoning(text):
             st.code(text, language="text")
 
 
-def execute_turn(user_text, runner):
+def execute_turn(user_text, runner, via="texto"):
     st.session_state.pending_clarification = None
     st.session_state.queued_option = None
-    st.session_state.messages.append({"role": "user", "content": user_text})
+    st.session_state.messages.append({"role": "user", "content": user_text, "via": via})
     with st.chat_message("user"):
         st.markdown(user_text)
 
@@ -510,6 +514,7 @@ def execute_turn(user_text, runner):
         "role": "assistant", "content": answer,
         "buttons": buttons, "clarification_id": clarification_id,
         "reasoning": reasoning_text,
+        "status": result.get("status"), "route": result.get("route"),
     })
     reset_if_finished(result, engine, conversation_manager)
 
@@ -588,4 +593,50 @@ elif queued:
     execute_turn(
         queued["label"],
         lambda: engine.select_clarification_option(queued["id"], queued["label"]),
+        via="botón",
     )
+
+
+@st.cache_resource
+def code_version():
+    # Commit del código en ejecución: ayuda a saber qué versión se probó.
+    try:
+        import inspect
+        import subprocess
+
+        code_root = Path(inspect.getfile(QueryEngine)).resolve().parents[2]
+        return subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=code_root, capture_output=True, text=True, timeout=5,
+        ).stdout.strip() or None
+    except Exception:
+        return None
+
+
+# Al final del script: así el archivo incluye también el turno recién respondido.
+with st.sidebar:
+    st.divider()
+    st.subheader("Exportar conversación")
+    include_reasoning = st.checkbox("Incluir el razonamiento", value=True)
+    exported = export_conversation_markdown(
+        st.session_state.messages,
+        meta={
+            "MedGemma": f"{medgemma_status.get('status')} ({medgemma_status.get('model')})",
+            "Power BI": powerbi_connection.get("status"),
+            "Versión del código": code_version(),
+        },
+        include_reasoning=include_reasoning,
+    )
+    download_args = dict(
+        label="Descargar conversación (.md)",
+        data=exported.encode("utf-8"),
+        file_name=export_file_name(),
+        mime="text/markdown",
+        use_container_width=True,
+    )
+    try:
+        # on_click="ignore": descargar no vuelve a ejecutar la app.
+        st.download_button(**download_args, on_click="ignore")
+    except TypeError:
+        st.download_button(**download_args)
+    st.caption("Descarga un documento con las preguntas, respuestas, opciones y el razonamiento de cada turno para compartirlo.")
