@@ -570,6 +570,18 @@ class FakeDaxEngine:
         up = dax.upper()
         rowlevel = "data" in model
 
+        # Lote de dominios (src/providers/domain_cache.py): UNION de una rama por
+        # columna, cada una con su índice en "__columna".
+        if re.match(r"EVALUATE\s+UNION\(", dax.strip(), re.I) and '"__COLUMNA"' in up:
+            rows = []
+            for part in self._split_args(self._inside(dax, "UNION")):
+                inner = self._inside(part, "VALUES")
+                t, c = TC_RE.findall(inner)[0]
+                t, c, meta = self._column(model, t, c)
+                index = int(re.search(r'"__columna"\s*,\s*(\d+)', part, re.I).group(1))
+                rows += [[index, v] for v in sorted(meta.get("values", []), key=lambda v: str(v))]
+            return ["[__columna]", "[Value]"], rows
+
         # Dominio de valores (QueryPlanBuilder._get_values / BusinessFilterResolver._get_values)
         if "SELECTCOLUMNS(" in up and "VALUES(" in up:
             inner = self._inside(dax, "VALUES")

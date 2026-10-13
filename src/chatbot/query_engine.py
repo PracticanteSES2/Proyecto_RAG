@@ -6,6 +6,7 @@ from src.chatbot.reasoning_trace import ReasoningTrace, format_score, short
 from src.chatbot.response_formatter import (
     NONE_OF_THE_ABOVE_ID, format_filters_line, format_value_es,
 )
+from src.providers.domain_cache import domain_cache_for
 from src.semantic.request_phrases import requester, rewrite_request, without_requester
 
 class QueryEngine:
@@ -158,9 +159,13 @@ class QueryEngine:
         if self._trace is not None:
             return runner()  # turno anidado (p. ej. tablero elegido -> process)
         self._trace = ReasoningTrace(kind, text, listener=getattr(self, "progress_listener", None))
+        domains = domain_cache_for(getattr(self, "powerbi_provider", None))
+        if domains is not None:
+            domains.begin_turn()
         try:
             result = runner()
             if isinstance(result, dict):
+                self._think_exploration(domains)
                 self._think(
                     "Resultado del turno",
                     f"estado={result.get('status')} · ruta={result.get('route')}"
@@ -179,6 +184,31 @@ class QueryEngine:
             raise
         finally:
             self._trace = None
+            if domains is not None:
+                domains.end_turn()
+
+    def _think_exploration(self, domains):
+        """Una línea con las consultas de valores de columnas (exploración) del
+        turno y su tiempo: contra Power BI real es donde suele irse el tiempo."""
+        if domains is None:
+            return
+        stats = domains.turn_stats()
+        if not (stats["queries"] or stats["skipped"]):
+            return
+        line = (
+            f"{stats['queries']} consulta(s) de valores de columnas"
+            + (f" ({stats['batch_queries']} en lote)" if stats["batch_queries"] else "")
+            + f" · {stats['columns']} columna(s) · {stats['seconds']:.2f} s"
+            + f" · {stats['hits']} lectura(s) desde caché"
+        )
+        extra = []
+        if stats["errors"]:
+            extra.append(f"{stats['errors']} con error")
+        if stats["skipped"]:
+            extra.append(
+                f"{stats['skipped']} omitida(s) por el límite de {domains.turn_budget} consultas de exploración"
+            )
+        self._think("Consultas de exploración a Power BI", line, " · ".join(extra) or None)
 
     @staticmethod
     def _metric_where(metric):
