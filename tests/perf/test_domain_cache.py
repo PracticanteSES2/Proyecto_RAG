@@ -12,6 +12,7 @@ versionados en tests/realistic/synthetic_models).
 """
 import datetime as dt
 import os
+import re
 import sys
 import types
 from pathlib import Path
@@ -80,18 +81,24 @@ class CountingProvider:
         if self.down:
             return {"status": "error", "error": "XMLA caído", "error_type": "AdomdConnectionException"}
         refs = [(t, c) for (t, c) in self.domains if f"'{t}'[{c}]" in dax]
+        if '"__card' in dax:   # cardinalidad: ROW("__card0", COUNTROWS(VALUES(...)), ...)
+            order = sorted(refs, key=lambda ref: dax.index(f"'{ref[0]}'[{ref[1]}]"))
+            return {"status": "success",
+                    "rows": [{f"[__card{i}]": len(self.domains[ref]) for i, ref in enumerate(order)}]}
+        limit = re.search(r"TOPN\(\s*(\d+)", dax)
+        limit = int(limit.group(1)) if limit else None
         if "UNION(" in dax:
             if self.fail_batch or any(ref in self.fail_columns for ref in refs):
                 return {"status": "error", "error": "lote no soportado"}
             rows = []
             order = sorted(refs, key=lambda ref: dax.index(f"'{ref[0]}'[{ref[1]}]"))
             for index, ref in enumerate(order):
-                rows += [{"[__columna]": index, "[Value]": v} for v in self.domains[ref]]
+                rows += [{"[__columna]": index, "[Value]": v} for v in self.domains[ref][:limit]]
             return {"status": "success", "rows": rows}
         ref = refs[0]
         if ref in self.fail_columns:
             return {"status": "error", "error": "columna no encontrada"}
-        return {"status": "success", "rows": [{"[Value]": v} for v in self.domains[ref]]}
+        return {"status": "success", "rows": [{"[Value]": v} for v in self.domains[ref][:limit]]}
 
 
 DOMAINS = {
@@ -140,7 +147,7 @@ def test_single_query_is_the_historic_one():
 
 def test_prefetch_batches_text_columns_only():
     provider = CountingProvider(DOMAINS)
-    cache = DomainCache(provider, ttl_s=0, batch_size=12)
+    cache = DomainCache(provider, ttl_s=0, batch_size=12, card_probe=False)
     cache.prefetch("M", [("T", "A", "Text"), ("T", "B", "Text"), ("T", "C", "String"), ("T", "N", "Integer")])
     assert len(provider.queries) == 1 and "UNION(" in provider.queries[0]
     assert "'T'[N]" not in provider.queries[0], "una columna numérica no entra al lote (UNION convertiría tipos)"
@@ -156,7 +163,7 @@ def test_prefetch_batches_text_columns_only():
 
 def test_batch_size_splits_and_one_disables():
     provider = CountingProvider(DOMAINS)
-    cache = DomainCache(provider, ttl_s=0, batch_size=2)
+    cache = DomainCache(provider, ttl_s=0, batch_size=2, card_probe=False)
     cache.prefetch("M", [("T", "A", "Text"), ("T", "B", "Text"), ("T", "C", "Text")])
     assert len(provider.queries) == 1, "3 columnas con lote de 2: un lote y la última queda para get()"
     off = DomainCache(CountingProvider(DOMAINS), ttl_s=0, batch_size=1)
@@ -166,7 +173,7 @@ def test_batch_size_splits_and_one_disables():
 
 def test_failed_batch_falls_back_to_single_queries():
     provider = CountingProvider(DOMAINS, fail_columns={("T", "B")})
-    cache = DomainCache(provider, ttl_s=0)
+    cache = DomainCache(provider, ttl_s=0, card_probe=False)
     cache.begin_turn()
     cache.prefetch("M", [("T", "A", "Text"), ("T", "B", "Text"), ("T", "C", "Text")])
     # lote fallido + una consulta por columna
@@ -184,7 +191,7 @@ def test_failed_batch_falls_back_to_single_queries():
 def test_unsupported_batch_shape_is_disabled_after_two_failures():
     domains = {**DOMAINS, ("X", "Y"): ["Z"], ("X", "W"): ["Q"], ("X", "V"): ["R"]}
     provider = CountingProvider(domains, fail_batch=True)
-    cache = DomainCache(provider, ttl_s=0)
+    cache = DomainCache(provider, ttl_s=0, card_probe=False)
     cache.prefetch("M", [("T", "A", "Text"), ("T", "B", "Text")])
     cache.prefetch("M", [("T", "C", "Text"), ("X", "Y", "Text")])
     assert cache._batch_failures == 2
@@ -203,7 +210,7 @@ def test_unexpected_batch_result_is_not_trusted():
                 return {"status": "success", "rows": [{"[Value]": "X"}]}   # sin __columna
             return {"status": "success", "rows": [{"[Value]": "OK"}]}
     provider = Weird(DOMAINS)
-    cache = DomainCache(provider, ttl_s=0)
+    cache = DomainCache(provider, ttl_s=0, card_probe=False)
     cache.prefetch("M", [("T", "A", "Text"), ("T", "B", "Text")])
     assert cache.get("M", "T", "A") == ["OK"], "un resultado sin __columna no se usa: consulta por columna"
 
@@ -241,7 +248,7 @@ def test_batch_values_identical_to_single_queries_in_simulator():
     single = DomainCache(provider, ttl_s=0, batch_size=1)
     expected = {(t, c): single.get(CONSOLIDADO, t, c) for t, c, _ in TEXT_COLUMNS}
     assert all(expected.values()), expected
-    batched = DomainCache(provider, ttl_s=0, batch_size=12)
+    batched = DomainCache(provider, ttl_s=0, batch_size=12, card_probe=False)
     before = len(backend.log["dax"])
     batched.prefetch(CONSOLIDADO, TEXT_COLUMNS)
     assert len(backend.log["dax"]) == before + 1, "una sola consulta para todas las columnas"
@@ -261,7 +268,7 @@ def test_live_query_listener_hears_each_real_query_not_cache_hits():
     previous = getattr(provider, "query_listener", None)
     provider.query_listener = lambda model, dax: heard.append(dax)
     try:
-        cache = DomainCache(provider, ttl_s=0, batch_size=12)
+        cache = DomainCache(provider, ttl_s=0, batch_size=12, card_probe=False)
         before = len(backend.log["dax"])
         cache.prefetch(CONSOLIDADO, TEXT_COLUMNS)
         for table, column, _ in TEXT_COLUMNS:
@@ -339,9 +346,13 @@ def test_builder_prefetch_uses_catalog_types():
     builder = _bare_builder(provider, types_by_column={("t", "a"): "Text", ("t", "b"): "Text", ("t", "n"): "Integer"})
     fields = [{"table": "T", "column": "A"}, {"table": "T", "column": "B"}, {"table": "T", "column": "N"}]
     builder._prefetch_values("M", fields)
-    assert len(provider.queries) == 1 and "UNION(" in provider.queries[0] and "'T'[N]" not in provider.queries[0]
+    # Cardinalidad de las columnas de texto (barata) y luego el lote (sin la numérica).
+    assert len(provider.queries) == 2 and '"__card' in provider.queries[0]
+    assert "UNION(" in provider.queries[1] and "'T'[N]" not in provider.queries[1]
     assert builder._get_values("M", "T", "B") == ["SURA", "NUEVA EPS"]
-    assert len(provider.queries) == 1
+    assert len(provider.queries) == 2
+    builder._prefetch_values("M", fields)
+    assert len(provider.queries) == 2, "cardinalidad y dominios quedan en caché"
 
 
 def test_prewarm_fetches_plausible_columns_in_one_batch_per_model():
@@ -355,9 +366,9 @@ def test_prewarm_fetches_plausible_columns_in_one_batch_per_model():
         for column in ("SERVICIO", "ESPECIALIDAD", "SERVICIO PACIENTE", "CODIGO", "SERVICIO")
     ]
     assert builder.prewarm_domains() == {"M": 2}
-    assert len(provider.queries) == 1 and "UNION(" in provider.queries[0]
-    assert "PACIENTE" not in provider.queries[0], "nunca columnas de personas"
-    assert builder._get_values("M", "T", "ESPECIALIDAD") == ["ORTOPEDIA"] and len(provider.queries) == 1
+    assert len(provider.queries) == 2 and '"__card' in provider.queries[0] and "UNION(" in provider.queries[1]
+    assert all("PACIENTE" not in query for query in provider.queries), "nunca columnas de personas"
+    assert builder._get_values("M", "T", "ESPECIALIDAD") == ["ORTOPEDIA"] and len(provider.queries) == 2
     previous = os.environ.pop("POWERBI_DOMAIN_PREWARM", None)
     try:
         assert builder._maybe_prewarm_domains() is None, "desactivado por defecto"
@@ -407,6 +418,236 @@ def test_engine_reasoning_reports_exploration_queries():
 
     titles = [step["title"] for step in engine._traced("question", "otra", quiet)["reasoning"]["steps"]]
     assert "Consultas de exploración a Power BI" not in titles
+
+
+# ----------------------------------------------------------------------------
+# Cardinalidad, lotes pequeños, tope TOPN, tiempo límite y consultas lentas
+# ----------------------------------------------------------------------------
+
+BIG = [f"VALOR {i:04d}" for i in range(700)]
+WIDE = {**DOMAINS, ("T", "D"): ["X", "Y"], ("T", "E"): ["Z"], ("T", "BIG"): BIG,
+        ("T", "PACNUMDOC"): ["1", "2"], ("T", "FECHA_TEXTO"): ["2026-01-01"]}
+
+
+def test_identifier_and_date_names_are_high_cardinality():
+    from src.providers.domain_cache import identifier_column, likely_high_cardinality
+    for name in ("PACNUMDOC", "ADNINGRESO", "OIDSERVICIO", "AINCONSEC", "NUMERO_DOCUMENTO", "ID", "ID_PACIENTE",
+                 "HISTORIA_CLINICA", "PACNOMBRE", "RowNumber-2662979B"):
+        assert identifier_column(name), name
+    for name in ("HSUNOMBRE", "TERNOMCOM", "NOMBRE", "ESPECIALIDAD", "INGRESO", "TIPO_INGRESO", "SERVICIO",
+                 "TIEMPO_ESTANCIA", "SEXO"):
+        assert not identifier_column(name), name
+    assert likely_high_cardinality("FECHA_TEXTO") and not likely_high_cardinality("ESPECIALIDAD")
+
+
+def test_cardinality_probe_keeps_high_columns_out_of_small_batches():
+    provider = CountingProvider(WIDE)
+    cache = DomainCache(provider, ttl_s=0, batch_size=2)
+    columns = [("T", "A", "Text"), ("T", "BIG", "Text"), ("T", "PACNUMDOC", "Text"), ("T", "B", "Text"),
+               ("T", "C", "Text"), ("T", "D", "Text")]
+    cache.prefetch("M", columns, max_batches=1)
+    probe, batch = provider.queries
+    assert '"__card' in probe and "'T'[BIG]" in probe and "PACNUMDOC" not in probe, \
+        "los identificadores no se cuentan: ya se sabe que son de alta cardinalidad"
+    assert "UNION(" in batch and "'T'[A]" in batch and "'T'[B]" in batch
+    assert "'T'[BIG]" not in batch and "PACNUMDOC" not in batch and "'T'[C]" not in batch, \
+        "lote de 2 columnas de baja cardinalidad; max_batches=1 trae solo el siguiente"
+    assert cache.classify("M", "T", "BIG") == "high" and cache.classify("M", "T", "PACNUMDOC") == "high"
+    assert cache.classify("M", "T", "C") == "low" and cache.exceeds("M", "T", "BIG", 500)
+    assert not cache.exceeds("M", "T", "A", 500)
+    # Siguiente lote: la cardinalidad ya se conoce (no se vuelve a contar).
+    cache.prefetch("M", columns)
+    assert len(provider.queries) == 3 and "'T'[C]" in provider.queries[2] and "'T'[D]" in provider.queries[2]
+    # lead=True: si la primera columna es de alta cardinalidad no se adelanta ningún lote.
+    lead = DomainCache(CountingProvider(WIDE), ttl_s=0, batch_size=2)
+    lead.prefetch("M", [("T", "BIG", "Text"), ("T", "A", "Text"), ("T", "B", "Text")], max_batches=1, lead=True)
+    assert not any("UNION(" in q for q in lead.provider.queries)
+
+
+def test_probe_failure_is_harmless_and_disabled_after_two():
+    class NoProbe(CountingProvider):
+        def execute_dax(self, dax, semantic_model=None):
+            if '"__card' in dax:
+                self.queries.append(dax)
+                return {"status": "error", "error": "función no soportada"}
+            return super().execute_dax(dax, semantic_model)
+    provider = NoProbe(WIDE)
+    cache = DomainCache(provider, ttl_s=0, batch_size=4)
+    cache.prefetch("M", [("T", "A", "Text"), ("T", "B", "Text")])
+    assert cache.get("M", "T", "A") == ["URGENCIAS", "HOSPITALIZACION"]
+    cache.prefetch("M", [("T", "C", "Text"), ("T", "D", "Text")])
+    cache.prefetch("M", [("T", "E", "Text"), ("X", "Y", "Text")])
+    assert sum('"__card' in q for q in provider.queries) == 2, "tras dos fallos no se vuelve a contar"
+
+
+def test_topn_limit_entries_serve_smaller_requests_and_complete_domains():
+    provider = CountingProvider(WIDE)
+    cache = DomainCache(provider, ttl_s=0)
+    assert len(cache.get("M", "T", "BIG", limit=501)) == 501
+    assert "TOPN(\n    501," in provider.queries[-1]
+    assert cache.exceeds("M", "T", "BIG", 500)
+    assert len(cache.get("M", "T", "BIG", limit=300)) == 501, "un tope mayor sirve para un pedido menor"
+    assert len(provider.queries) == 1
+    assert len(cache.get("M", "T", "BIG")) == 700, "el dominio truncado no sirve para el pedido completo"
+    assert len(provider.queries) == 2 and "TOPN(\n    2500," in provider.queries[-1]
+    assert cache.get("M", "T", "A", limit=501) == ["URGENCIAS", "HOSPITALIZACION"]
+    assert cache.get("M", "T", "A") == ["URGENCIAS", "HOSPITALIZACION"]
+    assert len(provider.queries) == 3, "un dominio completo (menos valores que el tope) sirve para todo"
+
+
+class TimeoutProvider(CountingProvider):
+    """Proveedor con tiempo límite: las columnas de `slow` lo vencen."""
+
+    def __init__(self, domains, slow=(), seconds=None):
+        super().__init__(domains)
+        self.slow = set(slow)
+        self.timeouts = []
+
+    def execute_dax(self, dax, semantic_model=None, timeout_s=None):
+        self.timeouts.append(timeout_s)
+        if timeout_s and any(f"'{t}'[{c}]" in dax for t, c in self.slow) and '"__card' not in dax:
+            self.queries.append(dax)
+            return {"status": "error", "error": "XML for Analysis request timed out before it was completed.",
+                    "error_type": "AdomdConnectionException", "timed_out": True}
+        return super().execute_dax(dax, semantic_model)
+
+
+def test_timeout_drops_column_reports_it_and_essential_has_no_limit():
+    provider = TimeoutProvider(WIDE, slow={("T", "BIG")})
+    clock = Clock()
+    cache = DomainCache(provider, ttl_s=600, timeout_s=8, clock=clock)
+    cache.begin_turn()
+    assert cache.get("M", "T", "BIG") is None
+    assert provider.timeouts[-1] == 8
+    assert cache.errors[cache.key("M", "T", "BIG")]["error_type"] == "timeout"
+    stats = cache.turn_stats()
+    assert stats["timeouts"] == 1 and stats["slow"][0]["timed_out"] and stats["slow"][0]["columns"] == ["T[BIG]"]
+    lines = cache.describe_turn()
+    assert any("cancelada" in line and "T[BIG]" in line and "se siguió sin" in line for line in lines), lines
+    cache.end_turn()
+    cache.begin_turn()
+    before = len(provider.queries)
+    assert cache.get("M", "T", "BIG") is None and len(provider.queries) == before, \
+        "no se vuelve a esperar el tiempo límite en cada turno"
+    assert cache.turn_stats()["skipped_slow"] == 1
+    assert cache.classify("M", "T", "BIG") == "high", "nunca vuelve a un lote"
+    assert len(cache.get("M", "T", "BIG", essential=True)) == 700, "un filtro pedido con su columna no tiene límite"
+    assert provider.timeouts[-1] is None
+    cache.end_turn()
+    clock.now += 601
+    cache.begin_turn()
+    assert cache.get("M", "T", "A") and provider.timeouts[-1] == 8
+
+
+def test_batch_timeout_leaves_columns_for_single_queries():
+    provider = TimeoutProvider(WIDE, slow={("T", "B")})
+    cache = DomainCache(provider, ttl_s=0, timeout_s=8, card_probe=False)
+    cache.begin_turn()
+    cache.prefetch("M", [("T", "A", "Text"), ("T", "B", "Text"), ("T", "C", "Text")])
+    assert cache.turn_stats()["timeouts"] == 1 and cache._batch_failures == 0
+    # El siguiente lote incremental no repite las columnas del lote vencido.
+    before = len(provider.queries)
+    cache.prefetch("M", [("T", "B", "Text"), ("T", "C", "Text"), ("T", "D", "Text")])
+    assert len(provider.queries) == before, "B y C ya no entran a un lote; D sola no hace lote"
+    assert cache.get("M", "T", "A") == ["URGENCIAS", "HOSPITALIZACION"], "las demás se consultan solas"
+    assert cache.get("M", "T", "B") is None
+
+
+def test_slow_queries_are_listed_with_their_columns():
+    class SlowTimer:
+        def __init__(self):
+            self.now, self.calls = 0.0, 0
+
+        def __call__(self):
+            self.calls += 1
+            if self.calls % 2 == 0:
+                self.now += 3.25   # cada consulta tarda 3,25 s
+            return self.now
+    cache = DomainCache(CountingProvider(WIDE), ttl_s=0, card_probe=False, timer=SlowTimer())
+    cache.begin_turn()
+    cache.prefetch("M", [("T", "A", "Text"), ("T", "B", "Text")])
+    cache.get("M", "T", "C")
+    lines = cache.describe_turn()
+    assert lines[0].startswith("2 consulta(s) de valores de columnas (1 en lote) · 3 columna(s) · 6.50 s"), lines
+    assert "consulta lenta de lote (3.25 s): T[A], T[B]" in lines
+    assert "consulta lenta de columna (3.25 s): T[C]" in lines
+
+
+def test_background_queries_do_not_count_in_the_user_turn():
+    provider = CountingProvider(WIDE)
+    cache = DomainCache(provider, ttl_s=0, turn_budget=1, batch_size=1)
+    cache.begin_turn()
+    with cache.background():
+        assert cache.get("M", "T", "A") and cache.get("M", "T", "B")
+    assert cache.turn_stats()["queries"] == 0 and cache.totals["queries"] == 2
+    assert cache.get("M", "T", "C"), "el presupuesto del usuario sigue intacto"
+
+
+def test_prewarm_only_uses_already_open_connections():
+    class Conn:
+        def __init__(self, state):
+            self.state = state
+    provider = CountingProvider({("T", "SERVICIO"): ["URGENCIAS"], ("T", "SEDE"): ["NORTE"]})
+    provider._connections = {"M": Conn("Open"), "OTRO": Conn("Closed")}
+    provider._is_connection_open = lambda connection: connection.state == "Open"
+    from src.providers.domain_cache import connection_open
+    assert connection_open(provider, "m") and not connection_open(provider, "OTRO")
+    assert not connection_open(provider, "NUEVO")
+    builder = _bare_builder(provider, types_by_column={("t", "servicio"): "Text", ("t", "sede"): "Text"})
+    builder._raw_column_type_cache["otro"] = {("t", "servicio"): "Text", ("t", "sede"): "Text"}
+    builder._column_type_cache = {m: {("t", "servicio"): "text", ("t", "sede"): "text"} for m in ("m", "otro")}
+    builder.dimension_fields = [
+        {"semantic_model": model, "table": "T", "column": column, "kind": "column", "aliases": [column.lower()]}
+        for model in ("M", "OTRO") for column in ("SERVICIO", "SEDE")
+    ]
+    assert builder.prewarm_domains(only_open_connections=True) == {"M": 2}
+
+
+def test_value_token_index_skips_high_cardinality_without_querying():
+    provider = CountingProvider(WIDE)
+    builder = _bare_builder(provider)
+    provider.domain_cache = DomainCache(provider, ttl_s=0)
+    provider.domain_cache.begin_turn()
+    assert builder._value_token_index("M", {"table": "T", "column": "PACNUMDOC"}) == []
+    assert provider.queries == [], "un identificador no puede ser un calificativo: no se consulta"
+    assert builder._value_token_index("M", {"table": "T", "column": "BIG"}) == []
+    assert "TOPN(\n    501," in provider.queries[-1], "basta saber si pasa de 500 valores"
+    assert builder._value_token_index("M", {"table": "T", "column": "BIG"}) == []
+    assert len(provider.queries) == 1
+    assert provider.domain_cache.turn_stats()["avoided"] == 2
+
+
+def test_simulator_cost_model_and_command_timeout():
+    """Modelo de coste del simulador: un lote con una columna de alta cardinalidad
+    concentra el coste; PowerBIProvider pasa CommandTimeout y el simulador cancela."""
+    from tests.realistic.powerbi_sim.cost import CostModel
+    provider, backend = simulated_provider()
+    saved = (dict(backend.config), backend.costs)
+    backend.config["cost_model"] = True
+    backend.costs = CostModel(backend.sim, overrides={("CIRUGIAS", "ESPECIALIDAD"): 200_000},
+                              base_ms=500, valor_us=100, fila_us=100, columna_ms=30, conteo_us=0.5)
+    try:
+        heavy = batch_domain_dax([("CIRUGIAS", "ESPECIALIDAD"), ("EGRESOS", "SEXO")])
+        light = batch_domain_dax([("CIRUGIAS", "ESTADO_CIRUGIA"), ("EGRESOS", "SEXO")])
+        assert backend.costs.estimate(CONSOLIDADO, heavy, 0)["cost_ms"] > 20_000
+        assert backend.costs.estimate(CONSOLIDADO, light, 0)["cost_ms"] < 700
+        from src.providers.domain_cache import cardinality_dax
+        probe = cardinality_dax([("CIRUGIAS", "ESPECIALIDAD"), ("EGRESOS", "SEXO")])
+        assert backend.costs.estimate(CONSOLIDADO, probe, 1)["cost_ms"] < 700, "contar valores es barato"
+        result = provider.execute_dax(heavy, semantic_model=CONSOLIDADO, timeout_s=8)
+        assert result["status"] == "error" and result["timed_out"], result
+        assert backend.log["dax"][-1]["timeout_s"] == 8 and backend.log["dax"][-1]["timed_out"]
+        ok = provider.execute_dax(light, semantic_model=CONSOLIDADO, timeout_s=8)
+        assert ok["status"] == "success" and backend.log["dax"][-1]["cost_ms"] < 700
+        cache = DomainCache(provider, ttl_s=0, timeout_s=8)
+        cache.begin_turn()
+        assert cache.get(CONSOLIDADO, "CIRUGIAS", "ESPECIALIDAD") is None
+        assert cache.turn_stats()["timeouts"] == 1
+        assert cache.get(CONSOLIDADO, "CIRUGIAS", "ESPECIALIDAD", essential=True), "sin límite: responde"
+    finally:
+        backend.config.clear()
+        backend.config.update(saved[0])
+        backend.costs = saved[1]
 
 
 def _run_all():

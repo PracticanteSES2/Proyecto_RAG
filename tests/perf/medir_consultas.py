@@ -1,10 +1,16 @@
 """
 Mide cuántas consultas DAX lanza el chatbot por turno (arnés realista) y cuánto
-tardarían contra Power BI real con una latencia fija por consulta.
+tardarían contra Power BI real.
 
     python -m tests.perf.medir_consultas --out C:/tmp/antes.json
     python -m tests.perf.medir_consultas --out C:/tmp/despues.json --latencia-ms 500
     python -m tests.perf.medir_consultas --comparar C:/tmp/antes.json C:/tmp/despues.json
+
+Tiempo estimado por turno con el modelo de coste del simulador
+(tests/realistic/powerbi_sim/cost.py; activo salvo con --sin-coste): latencia
+base por consulta (--latencia-ms) + coste por la cardinalidad «real» de cada
+columna explorada con VALUES + filas devueltas; las consultas que superan el
+CommandTimeout de exploración se cancelan como en ADOMD. Sin dormir de verdad.
 
 Recorre el banco tests/eval/questions.json (los casos aplicables al arnés
 realista) y además la conversación del propietario (2026-10-13). Por cada turno
@@ -58,8 +64,11 @@ ELECCION_PROPIETARIO = {
 
 
 def clasificar(dax):
-    """Tipo de consulta DAX: dominio de valores (VALUES), lote de dominios o medida."""
+    """Tipo de consulta DAX: dominio de valores (VALUES), lote de dominios,
+    cardinalidad de columnas (COUNTROWS(VALUES())) o medida."""
     text = " ".join(str(dax or "").split())
+    if '"__card' in text:
+        return "cardinalidad"
     if "__dominio_lote" in text or "\"__columna\"" in text:
         return "dominio_lote"
     if "VALUES(" in text and "\"Value\"" in text and "TOPN(" in text:
@@ -106,9 +115,25 @@ def vaciar_cachés(engine):
         cache.clear()
 
 
-def correr(case_ids=None, latencia_ms=500, incluir_propietario=True, frio=False, solo_propietario=False):
+def _estimado(consultas, latencia_ms):
+    """Segundos estimados del turno: con el modelo de coste, la suma de cost_ms;
+    sin él, consultas × latencia fija."""
+    if consultas and all(q.get("cost_ms") is not None for q in consultas):
+        return round(sum(q["cost_ms"] for q in consultas) / 1000.0, 2)
+    return round(len(consultas) * latencia_ms / 1000.0, 2)
+
+
+def correr(case_ids=None, latencia_ms=500, incluir_propietario=True, frio=False, solo_propietario=False,
+           coste=True):
+    import os
+
     from tests.eval import run as runner
     from tests.realistic import harness
+
+    # Modelo de coste (sin dormir): lo lee el backend del simulador al construirse.
+    os.environ["SIM_DAX_COST"] = "1" if coste else "0"
+    os.environ["SIM_DAX_BASE_MS"] = str(latencia_ms)
+    os.environ.pop("SIM_DAX_LATENCY_MS", None)
 
     data = runner.load_questions()
     cases = runner.select_cases(data, (), tuple(case_ids or ()), "realistic", only_applicable=True)
@@ -123,6 +148,8 @@ def correr(case_ids=None, latencia_ms=500, incluir_propietario=True, frio=False,
         captured.append([
             {"tipo": clasificar(e.get("dax")), "modelo": e.get("semantic_model"),
              "filas": e.get("rows"), "error": bool(e.get("error")),
+             "cost_ms": e.get("cost_ms"), "timed_out": bool(e.get("timed_out")),
+             "cost_detail": e.get("cost_detail"),
              "dax": " ".join(str(e.get("dax") or "").split())[:400]}
             for e in entries
         ])
@@ -163,7 +190,8 @@ def correr(case_ids=None, latencia_ms=500, incluir_propietario=True, frio=False,
                 "case": case["id"], "turn": turn.get("index"), "input": turn.get("input"),
                 "signature": _turn_signature(turn),
                 "consultas": len(consultas), "por_tipo": por_tipo,
-                "estimado_s": round(len(consultas) * latencia_ms / 1000.0, 2),
+                "estimado_s": _estimado(consultas, latencia_ms),
+                "canceladas": sum(1 for q in consultas if q.get("timed_out")),
                 "latency_s": turn.get("latency_s"),
                 "dax_log": consultas,
                 "reasoning_head": "\n".join((turn.get("reasoning") or "").splitlines()[:6]),
@@ -173,8 +201,8 @@ def correr(case_ids=None, latencia_ms=500, incluir_propietario=True, frio=False,
     if incluir_propietario and not case_ids:
         turnos.append(_eleccion_propietario(system, harness, ask_option, captured, latencia_ms, frio))
     harness.ask, harness.ask_option = original_ask, original_choose
-    return {"latencia_ms": latencia_ms, "frio": frio, "elapsed_s": round(time.perf_counter() - started, 1),
-            "casos": casos, "turnos": turnos}
+    return {"latencia_ms": latencia_ms, "frio": frio, "coste": coste,
+            "elapsed_s": round(time.perf_counter() - started, 1), "casos": casos, "turnos": turnos}
 
 
 def _eleccion_propietario(system, harness, ask_option, captured, latencia_ms, frio):
@@ -204,7 +232,8 @@ def _eleccion_propietario(system, harness, ask_option, captured, latencia_ms, fr
         "case": spec["id"], "turn": 1, "input": f"[botón inyectado] {spec['label']}",
         "signature": _turn_signature({"ui": ui, "buttons": buttons, "result": summary, "passed": None}),
         "consultas": len(consultas), "por_tipo": por_tipo,
-        "estimado_s": round(len(consultas) * latencia_ms / 1000.0, 2),
+        "estimado_s": _estimado(consultas, latencia_ms),
+        "canceladas": sum(1 for q in consultas if q.get("timed_out")),
         "dax_log": consultas,
     }
 
@@ -216,27 +245,42 @@ def _p95(values):
     return ordered[min(len(ordered) - 1, int(round(0.95 * (len(ordered) - 1))))]
 
 
+def _exploracion_s(turno):
+    """Segundos estimados de las consultas de exploración (dominios y cardinalidad)."""
+    return sum((q.get("cost_ms") or 0) for q in turno.get("dax_log") or []
+               if q.get("tipo") != "medida") / 1000.0
+
+
 def resumen(data, top=12):
     turnos = data["turnos"]
     counts = [t["consultas"] for t in turnos]
     lat = data.get("latencia_ms", 500)
     dominios = [t["por_tipo"].get("dominio", 0) + t["por_tipo"].get("dominio_lote", 0) for t in turnos]
+    tiempos = [t.get("estimado_s", 0) for t in turnos]
+    exploracion = [_exploracion_s(t) for t in turnos]
+    modelo = "modelo de coste" if data.get("coste") else f"{lat} ms/consulta"
     lines = [
         f"turnos: {len(turnos)} · consultas totales: {sum(counts)} "
-        f"(dominio {sum(dominios)}, medida {sum(t['por_tipo'].get('medida', 0) for t in turnos)})",
+        f"(dominio {sum(dominios)}, cardinalidad {sum(t['por_tipo'].get('cardinalidad', 0) for t in turnos)}, "
+        f"medida {sum(t['por_tipo'].get('medida', 0) for t in turnos)})",
         f"consultas/turno: media {statistics.mean(counts):.2f} · p95 {_p95(counts)} · máx {max(counts)}",
-        f"tiempo estimado a {lat} ms/consulta: media {statistics.mean(counts) * lat / 1000:.2f} s · "
-        f"p95 {_p95(counts) * lat / 1000:.2f} s · máx {max(counts) * lat / 1000:.2f} s",
+        f"tiempo estimado ({modelo}, base {lat} ms): media {statistics.mean(tiempos):.2f} s · "
+        f"p95 {_p95(tiempos):.2f} s · máx {max(tiempos):.2f} s · total {sum(tiempos):.1f} s",
+        f"  de ello exploración: media {statistics.mean(exploracion):.2f} s · p95 {_p95(exploracion):.2f} s · "
+        f"máx {max(exploracion):.2f} s · total {sum(exploracion):.1f} s",
+        f"consultas canceladas por tiempo: {sum(t.get('canceladas', 0) for t in turnos)}",
         f"casos que pasan: {sum(1 for c in data['casos'] if c['passed'])}/{len(data['casos'])}",
-        "peores turnos:",
+        "peores turnos (tiempo estimado):",
     ]
-    for t in sorted(turnos, key=lambda t: -t["consultas"])[:top]:
-        lines.append(f"  {t['consultas']:3d} ({t['por_tipo']}) {t['case']}#{t['turn']}: {str(t['input'])[:90]}")
-    prop = [t for t in turnos if t["case"] == PROPIETARIO["id"]]
+    for t in sorted(turnos, key=lambda t: -t.get("estimado_s", 0))[:top]:
+        lines.append(f"  {t.get('estimado_s', 0):6.2f} s {t['consultas']:3d} ({t['por_tipo']}) "
+                     f"{t['case']}#{t['turn']}: {str(t['input'])[:80]}")
+    prop = [t for t in turnos if t["case"] in (PROPIETARIO["id"], ELECCION_PROPIETARIO["id"])]
     if prop:
         lines.append("propietario:")
         for t in prop:
-            lines.append(f"  #{t['turn']} {t['consultas']:3d} ({t['por_tipo']}) {str(t['input'])[:90]}")
+            lines.append(f"  {t['case']}#{t['turn']} {t.get('estimado_s', 0):6.2f} s {t['consultas']:3d} "
+                         f"({t['por_tipo']}) {str(t['input'])[:80]}")
     return "\n".join(lines)
 
 
@@ -277,6 +321,8 @@ def main(argv=None):
                         help="solo la conversación del propietario (y la elección inyectada)")
     parser.add_argument("--frio", action="store_true",
                         help="vacía las cachés de dominios antes de cada caso (peor caso: app recién arrancada)")
+    parser.add_argument("--sin-coste", action="store_true",
+                        help="sin el modelo de coste: tiempo = consultas × latencia fija")
     parser.add_argument("--comparar", nargs=2, metavar=("ANTES", "DESPUES"))
     args = parser.parse_args(argv)
     if args.comparar:
@@ -286,7 +332,7 @@ def main(argv=None):
         return 1 if diffs else 0
     ids = [c.strip() for v in args.case or [] for c in v.split(",") if c.strip()]
     data = correr(ids, args.latencia_ms, not args.sin_propietario, frio=args.frio,
-                  solo_propietario=args.solo_propietario)
+                  solo_propietario=args.solo_propietario, coste=not args.sin_coste)
     if args.out:
         Path(args.out).write_text(json.dumps(data, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
     print(resumen(data))

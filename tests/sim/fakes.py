@@ -239,6 +239,10 @@ class FakeOllamaClient:
             raise ConnectionError("[sim] Ollama no disponible")
         SIM_LOG["llm_calls"] += 1
         user = next((m["content"] for m in reversed(messages or []) if m.get("role") == "user"), "")
+        if user.startswith("CONVERSACIÓN PREVIA") and "PREGUNTA DEL USUARIO:" in user:
+            # Síntesis RAG con historial: el bloque de conversación previa va
+            # antes de la pregunta y nunca es evidencia; se ignora.
+            user = "PREGUNTA DEL USUARIO:" + user.split("PREGUNTA DEL USUARIO:", 1)[1]
         if "CONTEXTO RECUPERADO" in user:
             ctx = user.split("CONTEXTO RECUPERADO:", 1)[1].split("TAREA:", 1)[0]
             lines = [l.strip() for l in ctx.splitlines()
@@ -569,6 +573,18 @@ class FakeDaxEngine:
         self._validate_refs(model, dax)
         up = dax.upper()
         rowlevel = "data" in model
+
+        # Cardinalidad de columnas (src/providers/domain_cache.py):
+        # ROW("__card0", COUNTROWS(VALUES('T'[c])), ...).
+        if re.match(r"EVALUATE\s+ROW\(", dax.strip(), re.I) and '"__CARD' in up:
+            args = self._split_args(self._inside(dax, "ROW"))
+            columns, row = [], []
+            for name, expr in zip(args[0::2], args[1::2]):
+                t, c = TC_RE.findall(self._inside(expr, "VALUES"))[0]
+                t, c, meta = self._column(model, t, c)
+                columns.append(f"[{name.strip().strip(chr(34))}]")
+                row.append(len(set(map(str, meta.get("values", [])))))
+            return columns, [row]
 
         # Lote de dominios (src/providers/domain_cache.py): UNION de una rama por
         # columna, cada una con su índice en "__columna".

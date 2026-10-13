@@ -41,6 +41,14 @@ simulador espere ese tiempo en cada consulta DAX (`dax_log[i]["latency_ms"]`). P
 en todo el banco sin esperar: `python -m tests.perf.medir_consultas --out antes.json [--frio]` y
 `--comparar antes.json despues.json` (respuestas por caso, consultas/turno y tiempo estimado).
 
+Modelo de coste (`powerbi_sim/cost.py`, `SIM_DAX_COST=1`): además de la latencia base, cada rama
+`VALUES(T[c])` de una consulta de dominio cuesta según la cardinalidad «real» estimada de la columna
+(identificadores y columnas casi únicas escalan con `SIM_DAX_ESCALA`; categóricas = sus valores del
+simulador; `SIM_DAX_CARDINALIDAD="TABLA[COL]=N;..."` fija valores) y `COUNTROWS(VALUES())` es barato.
+Calibrado con el turno real del propietario (lote de 9 columnas = 20,8 s). Con `SIM_DAX_LATENCY_MS > 0`
+duerme ese coste (para ver el razonamiento en vivo); sin dormir, `dax_log[i]["cost_ms"]` lo registra y
+`medir_consultas` lo suma. Un `CommandTimeout` menor que el coste cancela la consulta como ADOMD.
+
 Opciones del chat: `--then` (repetible: número de botón, `__none__`/`ninguna` o texto), `--dax`,
 `--no-reasoning`, `--no-synthetic`, `--powerbi-down`, `--data-root RUTA`, `--culture es-CO|en-US|invariant`.
 

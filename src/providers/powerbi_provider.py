@@ -1,6 +1,8 @@
+import math
 import os
 import sys
 import threading
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -474,7 +476,15 @@ class PowerBIProvider:
         self,
         dax,
         semantic_model=None,
+        timeout_s=None,
     ):
+        """
+        Ejecuta la consulta DAX. `timeout_s` (segundos, opcional): tiempo
+        límite de la consulta (AdomdCommand.CommandTimeout); al vencer, ADOMD
+        la cancela y se devuelve status="error" con timed_out=True. Lo usan
+        las consultas de exploración de valores (src/providers/domain_cache.py);
+        las consultas de las respuestas no tienen límite (como siempre).
+        """
 
         model = (
             self._resolve_semantic_model(
@@ -492,6 +502,7 @@ class PowerBIProvider:
         reader = None
         command = None
         connection = None
+        started = None
 
         try:
 
@@ -510,6 +521,14 @@ class PowerBIProvider:
                 )
 
                 command.CommandText = dax
+
+                if timeout_s:
+                    # CommandTimeout es entero (segundos); 0 = sin límite.
+                    command.CommandTimeout = max(
+                        1, int(math.ceil(float(timeout_s)))
+                    )
+
+                started = time.perf_counter()
 
                 reader = (
                     command.ExecuteReader()
@@ -588,6 +607,24 @@ class PowerBIProvider:
                     model
                 )
 
+            # ¿Venció el CommandTimeout? ADOMD no tiene un tipo propio para
+            # eso: se reconoce por el mensaje o por el tiempo transcurrido.
+            message = str(error).lower()
+            timed_out = bool(timeout_s) and (
+                any(
+                    word in message
+                    for word in (
+                        "timed out", "timeout", "time out",
+                        "tiempo de espera",
+                    )
+                )
+                or (
+                    started is not None
+                    and time.perf_counter() - started
+                    >= 0.98 * float(timeout_s)
+                )
+            )
+
             return {
                 "status":
                     "error",
@@ -597,6 +634,8 @@ class PowerBIProvider:
                     type(error).__name__,
                 "error":
                     str(error),
+                "timed_out":
+                    timed_out,
                 "connection_kept":
                     (
                         connection is not None
