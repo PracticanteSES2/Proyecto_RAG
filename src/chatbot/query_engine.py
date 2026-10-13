@@ -3,7 +3,9 @@ import unicodedata
 
 from src.chatbot.intent_parser import ordinal_choice_index
 from src.chatbot.reasoning_trace import ReasoningTrace, format_score, short
-from src.chatbot.response_formatter import NONE_OF_THE_ABOVE_ID, format_value_es
+from src.chatbot.response_formatter import (
+    NONE_OF_THE_ABOVE_ID, format_filters_line, format_value_es,
+)
 
 class QueryEngine:
 
@@ -1941,6 +1943,8 @@ class QueryEngine:
         return response
 
     def _run_selected_metric(self, pending, choice):
+        if pending.get("composite"):
+            return self._run_selected_composite(pending, choice)
         self._pending_query_plan = None
         self._think(
             "El usuario eligió una opción",
@@ -2424,8 +2428,66 @@ class QueryEngine:
             "details": powerbi_result,
         }
 
+    # ---------------- compuestas: filtros comunes y notas ----------------
+    @staticmethod
+    def _filter_identity(item):
+        return (
+            item.get("type"), str(item.get("table")).casefold(), str(item.get("column")).casefold(),
+            str(item.get("value")), str(item.get("values")), str(item.get("start")),
+            str(item.get("end")), str(item.get("label")),
+        )
+
+    def _composite_filters(self, plans):
+        """(filtros comunes a todas las medidas, {índice: filtros propios})."""
+        identities = [
+            {self._filter_identity(item) for item in plan.get("filters") or []}
+            for plan in plans
+        ]
+        shared = set.intersection(*identities) if identities else set()
+        common = [
+            item for item in (plans[0].get("filters") or [])
+            if self._filter_identity(item) in shared
+        ] if plans else []
+        own = {
+            index: [
+                item for item in plan.get("filters") or []
+                if self._filter_identity(item) not in shared
+            ]
+            for index, plan in enumerate(plans)
+        }
+        return common, own
+
+    @staticmethod
+    def _own_filters_text(filters):
+        text = format_filters_line(filters)
+        return text[len("Filtros: "):] if text.startswith("Filtros: ") else text
+
+    def _composite_notes(self, composite, plans, failed_labels):
+        """Notas de la respuesta compuesta: las de cada sub-plan, la división
+        y las partes que no se pudieron responder."""
+        notes = []
+        for plan in plans:
+            notes.extend(str(note) for note in plan.get("notes") or [] if note)
+        notes.extend(str(note) for note in composite.get("notes") or [] if note)
+        unresolved = composite.get("unresolved") or []
+        if unresolved:
+            notes.append(
+                "No pude interpretar " + ", ".join(f"«{w}»" for w in unresolved)
+                + "; respondí solo las partes que identifiqué."
+            )
+        if failed_labels:
+            notes.append(
+                "No pude resolver: " + ", ".join(f"«{label}»" for label in failed_labels)
+                + "; respondí solo las partes que identifiqué."
+            )
+        return list(dict.fromkeys(notes))
+
     def _execute_composite(self, composite):
         """Ejecuta cada medida del plan compuesto y arma un único resultado."""
+        if composite.get("grouped") or any(
+            item["plan"].get("mode") == "grouped" for item in composite["items"]
+        ):
+            return self._execute_composite_table(composite)
         measures, executed, failed_labels = [], [], []
         last_failure = None
         for item in composite["items"]:
@@ -2451,9 +2513,6 @@ class QueryEngine:
                 failed_labels.append(item["label"])
                 continue
             rows = powerbi_result.get("rows", []) or []
-            if dax_result.get("mode") == "grouped":
-                executed.append((item, plan, dax_result, powerbi_result, rows, None))
-                continue
             value = self._row_value(rows[0]) if rows else None
             if item["kind"] == "share":
                 if value is not None:
@@ -2463,9 +2522,11 @@ class QueryEngine:
                     "format": "percent", "unit": "%", "dax": dax_result.get("dax"),
                 }
             else:
+                fmt = (plan.get("metric") or {}).get("format_string")
                 measure = {
                     "label": item["label"], "value": value,
-                    "format": "number", "unit": None, "dax": dax_result.get("dax"),
+                    "format": fmt if fmt and "%" in str(fmt) else "number",
+                    "unit": None, "dax": dax_result.get("dax"),
                 }
             measures.append(measure)
             executed.append((item, plan, dax_result, powerbi_result, rows, measure))
@@ -2473,69 +2534,320 @@ class QueryEngine:
         if not executed:
             return last_failure
         item, plan, dax_result, powerbi_result, rows, _ = executed[0]
+        if all(m["value"] is None for m in measures):
+            return {
+                "status": "empty_result", "route": "powerbi",
+                "stage": "query_plan_result", "query_plan": plan,
+                "dax": dax_result.get("dax"), "details": powerbi_result,
+            }
 
-        if dax_result.get("mode") == "grouped":
-            group = plan["share_dimension"]
-            lines = [
-                f"| {group.get('label') or group.get('column')} | Participación |",
-                "| --- | --- |",
-            ]
-            for row in rows[:50]:
-                label = next(
-                    (v for k, v in row.items() if "__value" not in str(k).lower()), ""
-                )
-                value = self._row_value(row)
-                pct = "" if value is None else f"{self._fmt_es(float(value) * 100, 2)} %"
-                lines.append(f"| {str(label).replace('|', chr(92) + '|')} | {pct} |")
-            answer = "\n".join(lines)
-            result_type, value, metric_label = "table", None, plan["metric"].get("label")
-            measures_out = None
-        else:
-            if all(m["value"] is None for m in measures):
-                return {
-                    "status": "empty_result", "route": "powerbi",
-                    "stage": "query_plan_result", "query_plan": plan,
-                    "dax": dax_result.get("dax"), "details": powerbi_result,
-                }
-            answer = self._composite_answer(
-                plan, measures, composite.get("unresolved"),
-                composite.get("failed_labels", []) + failed_labels,
-            )
-            result_type = "scalar"
-            value, metric_label = measures[0]["value"], measures[0]["label"]
-            measures_out = measures
-
-        base_plan = executed[0][1]
+        plans = [e[1] for e in executed]
+        common, own = self._composite_filters(plans)
+        for index, measure in enumerate(measures):
+            extra = self._own_filters_text(own.get(index))
+            if extra:
+                measure["label"] = f"{measure['label']} ({extra})"
+        all_failed = list(composite.get("failed_labels", [])) + failed_labels
+        answer = self._composite_answer(
+            plan, measures, composite.get("unresolved"), all_failed,
+        )
+        base_plan = dict(executed[0][1])
+        base_plan["notes"] = self._composite_notes(composite, plans, all_failed)
         metric = base_plan.get("metric", {})
-        result = {
+        return {
             "status": "success",
             "route": "powerbi",
-            "result_type": result_type,
+            "result_type": "scalar",
             "question": composite.get("question"),
             "report": base_plan.get("report"),
             "dashboard": base_plan.get("dashboard"),
             "semantic_model": base_plan.get("semantic_model"),
-            "metric": metric_label,
+            "metric": measures[0]["label"],
             "metric_id": metric.get("metric_id"),
             "metric_source": metric.get("source_type"),
-            "value": value,
+            "value": measures[0]["value"],
+            "measures": measures,
             "rows": rows,
-            "filters": base_plan.get("filters", []),
-            "business_filters": [
-                f for f in base_plan.get("filters", []) if f.get("type") == "categorical"
-            ],
+            "filters": common,
+            "business_filters": [f for f in common if f.get("type") == "categorical"],
+            "unapplied_terms": list(dict.fromkeys(
+                term for p in plans for term in p.get("unapplied_terms") or []
+            )),
             "group_by": base_plan.get("group_by", []),
             "answer": answer,
             "dax": dax_result.get("dax"),
             "dax_queries": [e[2].get("dax") for e in executed],
             "powerbi": powerbi_result,
             "query_plan": base_plan,
-            "query_plans": [e[1] for e in executed],
+            "query_plans": plans,
             "source_context": base_plan.get("source_context"),
+            "composite": True,
         }
-        if measures_out is not None:
-            result["measures"] = measures_out
-        return result
+
+    # ---------------- compuestas en tabla (varias columnas) ----------------
+    @staticmethod
+    def _group_key(row):
+        """Valores de agrupación de una fila (sin las columnas de medida)."""
+        return tuple(
+            value for key, value in row.items()
+            if not re.search(r"__(?:value|m\d+|orden)", str(key).lower())
+        )
+
+    def _composite_table_rows(self, composite):
+        """Ejecuta la tabla compuesta. Devuelve (claves en orden, columnas,
+        consultas, fallidas, último fallo). Una sola consulta multi-medida si
+        todas son del mismo modelo; si no (o si falla), una por medida y se
+        unen por el valor de agrupación."""
+        items = composite["items"]
+        models = {self._normalize_text(i["plan"].get("semantic_model")) for i in items}
+        queries, failed, last_failure = [], [], None
+        if len(models) == 1:
+            dax_result = self.query_plan_dax_generator.generate_multi(
+                [{"kind": i["kind"], "plan": i["plan"]} for i in items]
+            )
+            powerbi_result = None
+            if dax_result.get("status") == "generated":
+                powerbi_result = self.powerbi_provider.execute_dax(
+                    dax=dax_result.get("dax"),
+                    semantic_model=items[0]["plan"].get("semantic_model"),
+                )
+            self._trace_dax(
+                "Consulta a Power BI: " + " + ".join(i["label"] for i in items),
+                dax_result, powerbi_result,
+            )
+            if powerbi_result is not None and powerbi_result.get("status") == "success":
+                rows = powerbi_result.get("rows", []) or []
+                keys, columns = [], [{} for _ in items]
+                for row in rows:
+                    key = self._group_key(row)
+                    keys.append(key)
+                    for index, name in enumerate(dax_result["columns"]):
+                        columns[index][key] = next(
+                            (v for k, v in row.items() if str(k).lower().endswith(f"[{name}]") or str(k) == name),
+                            None,
+                        )
+                queries.append((dax_result, powerbi_result, rows))
+                return keys, columns, queries, failed, None
+            self._think(
+                "La consulta multi-medida no se pudo usar",
+                "se consulta cada medida por separado y se unen por el valor de agrupación",
+            )
+
+        keys, columns = [], []
+        for item in items:
+            plan = item["plan"]
+            if item["kind"] == "share":
+                dax_result = self.query_plan_dax_generator.generate_share(plan)
+            else:
+                dax_result = self.query_plan_dax_generator.generate_ranked(plan)
+            if dax_result.get("status") != "generated":
+                self._trace_dax(f"Consulta a Power BI: {item['label']}", dax_result)
+                last_failure = self._composite_failure("query_plan_dax", plan, dax_result)
+                failed.append(item["label"])
+                columns.append(None)
+                continue
+            powerbi_result = self.powerbi_provider.execute_dax(
+                dax=dax_result.get("dax"), semantic_model=plan.get("semantic_model"),
+            )
+            self._trace_dax(f"Consulta a Power BI: {item['label']}", dax_result, powerbi_result)
+            if powerbi_result.get("status") != "success":
+                last_failure = self._composite_failure(
+                    "query_plan_powerbi", plan, dax_result, powerbi_result
+                )
+                failed.append(item["label"])
+                columns.append(None)
+                continue
+            rows = powerbi_result.get("rows", []) or []
+            column = {}
+            for row in rows:
+                key = self._group_key(row)
+                if key not in column:
+                    column[key] = self._row_value(row)
+                if key not in keys:
+                    keys.append(key)
+            columns.append(column)
+            queries.append((dax_result, powerbi_result, rows))
+        return keys, columns, queries, failed, last_failure
+
+    def _execute_composite_table(self, composite):
+        """Tabla con una columna por medida («programadas y realizadas por
+        especialidad», «peso y participación por servicio»)."""
+        items = composite["items"]
+        keys, columns, queries, failed, last_failure = self._composite_table_rows(composite)
+        if not queries:
+            return last_failure
+        kept = [(item, column) for item, column in zip(items, columns) if column is not None]
+        base_plan = dict(kept[0][0]["plan"])
+        dax_result, powerbi_result, rows = queries[0]
+        if not keys or all(
+            self._is_blank_value(column.get(key)) for _, column in kept for key in keys
+        ):
+            return {
+                "status": "empty_result", "route": "powerbi",
+                "stage": "query_plan_result", "query_plan": base_plan,
+                "dax": dax_result.get("dax"), "details": powerbi_result,
+            }
+
+        plans = [item["plan"] for item, _ in kept]
+        common, own = self._composite_filters(plans)
+        groups = base_plan.get("group_by") or []
+        headers = [g.get("label") or g.get("column") for g in groups] or ["Grupo"]
+        measures = []
+        for index, (item, _) in enumerate(kept):
+            label = item["label"]
+            extra = self._own_filters_text(own.get(index))
+            if extra:
+                label = f"{label} ({extra})"
+            fmt = "percent" if item["kind"] == "share" else (item["plan"].get("metric") or {}).get("format_string")
+            measures.append({"label": label, "format": fmt, "kind": item["kind"]})
+            headers.append(label)
+
+        def cell(value, measure):
+            if self._is_blank_value(value):
+                return ""
+            if measure["kind"] == "share":
+                return f"{self._fmt_es(float(value) * 100, 2)} %"
+            text = format_value_es(value, measure["label"], measure["format"])
+            return text if text is not None else str(value)
+
+        def clean(value):
+            return "" if value is None else str(value).replace("|", "\\|")
+
+        lines = [
+            "| " + " | ".join(clean(h) for h in headers) + " |",
+            "| " + " | ".join("---" for _ in headers) + " |",
+        ]
+        for key in keys[:50]:
+            labels = list(key)[:len(headers) - len(measures)]
+            labels += [""] * (len(headers) - len(measures) - len(labels))
+            values = [cell(column.get(key), m) for (_, column), m in zip(kept, measures)]
+            lines.append("| " + " | ".join(clean(v) for v in [*labels, *values]) + " |")
+        if len(keys) > 50:
+            lines.append("")
+            lines.append(f"Mostrando 50 de {len(keys)} filas.")
+
+        all_failed = list(composite.get("failed_labels", [])) + failed
+        base_plan["notes"] = self._composite_notes(composite, plans, all_failed)
+        metric = base_plan.get("metric", {})
+        return {
+            "status": "success",
+            "route": "powerbi",
+            "result_type": "table",
+            "question": composite.get("question"),
+            "report": base_plan.get("report"),
+            "dashboard": base_plan.get("dashboard"),
+            "semantic_model": base_plan.get("semantic_model"),
+            "metric": " y ".join(m["label"] for m in measures),
+            "metric_id": metric.get("metric_id"),
+            "metric_source": metric.get("source_type"),
+            "value": None,
+            "measures": measures,
+            "rows": rows,
+            "total_rows": len(keys),
+            "filters": common,
+            "business_filters": [f for f in common if f.get("type") == "categorical"],
+            "unapplied_terms": list(dict.fromkeys(
+                term for p in plans for term in p.get("unapplied_terms") or []
+            )),
+            "group_by": base_plan.get("group_by", []),
+            "answer": "\n".join(lines),
+            "dax": dax_result.get("dax"),
+            "dax_queries": [q[0].get("dax") for q in queries],
+            "powerbi": powerbi_result,
+            "query_plan": base_plan,
+            "query_plans": plans,
+            "source_context": base_plan.get("source_context"),
+            "composite": True,
+        }
+
+    def _handle_composite(self, composite):
+        """Ejecuta una compuesta o contrapregunta su parte ambigua.
+        Devuelve (respuesta, estado_del_plan)."""
+        if composite.get("status") == "composite":
+            parts = composite.get("split_parts") or []
+            self._think(
+                "Pregunta compuesta (varias medidas o participación)",
+                {
+                    "share": "división: participación sobre el total",
+                    "mentions": "división: indicadores nombrados unidos por «y»",
+                    "coordination": "división: partes coordinadas ("
+                    + " | ".join(f"«{p}»" for p in parts) + ")",
+                }.get(composite.get("split")),
+                *[f"{item['kind']}: {item['label']}"
+                  + (f" ← «{item['part']}»" if item.get("part") else "")
+                  for item in composite["items"]],
+                "presentación: tabla con una columna por medida"
+                if composite.get("grouped") else "presentación: un valor por medida",
+                *[f"nota: {note}" for note in composite.get("notes") or []],
+                *[f"sin interpretar: «{word}»" for word in composite.get("unresolved") or []],
+                *[f"no resuelta: {label}" for label in composite.get("failed_labels") or []],
+            )
+            for item in composite["items"]:
+                if item["plan"].get("composite_sub_question"):
+                    self._think(
+                        f"Sub-pregunta de «{item['label']}»",
+                        f"«{item['plan']['composite_sub_question']}»",
+                    )
+                self._trace_plan(item["plan"], f"Plan de «{item['label']}»")
+            for failure in composite.get("failures") or []:
+                self._trace_plan(failure, "Parte no resuelta")
+            return self._execute_composite(composite), "composite"
+
+        context = composite.get("composite_context")
+        if context:
+            self._think(
+                "Pregunta compuesta con una parte ambigua",
+                f"parte: «{context.get('part_text')}»",
+                "ya resueltas: " + ", ".join(context.get("ready_labels") or []) if context.get("ready_labels") else None,
+                "se contrapregunta esa parte y luego se responde la pregunta completa",
+            )
+        else:
+            self._think("Pregunta compuesta que no se pudo resolver")
+        self._trace_plan(composite)
+        response = self._query_plan_failure(composite)
+        if (
+            context and isinstance(response, dict)
+            and response.get("status") == "needs_clarification"
+            and self._pending_query_plan is not None
+        ):
+            self._pending_query_plan["composite"] = context
+            old_prompt = response.get("prompt") or ""
+            ready = context.get("ready_labels") or []
+            prompt = (
+                f"Para «{context.get('part_text')}» encontré varios indicadores"
+                + (f" (ya identifiqué {', '.join(ready)})" if ready else "")
+                + ". ¿Cuál necesitas?"
+            )
+            question = str(response.get("question") or "")
+            response["prompt"] = prompt
+            response["question"] = (
+                prompt + question[len(old_prompt):] if old_prompt and question.startswith(old_prompt)
+                else prompt
+            )
+        return response, composite.get("status")
+
+    def _run_selected_composite(self, pending, choice):
+        """Opción elegida para una parte de una pregunta compuesta: se arma de
+        nuevo la compuesta completa con esa elección."""
+        self._pending_query_plan = None
+        context = pending["composite"]
+        selections = {**(context.get("selections") or {}), context["part"]: choice["id"]}
+        self._think(
+            "El usuario eligió una opción de una pregunta compuesta",
+            f"{choice['label']} [{choice['id']}] para «{context.get('part_text')}»",
+            f"pregunta completa: {context['question']}",
+        )
+        composite = self.query_plan_builder.build_composite(
+            context["question"], intent_result=pending.get("intent") or {},
+            selections=selections,
+        )
+        if composite is None:
+            plan = self.query_plan_builder.build(pending["question"], selected_metric_id=choice["id"])
+            self._trace_plan(plan, "Query Plan con el indicador elegido")
+            if plan.get("status") == "ready":
+                return self._execute_query_plan(plan)
+            return self._query_plan_failure(plan)
+        return self._handle_composite(composite)[0]
 
     def _run_query_plan(self, question, intent_result, stage):
         """Query Plan completo (compuesto o simple). Devuelve (respuesta, estado_del_plan)."""
@@ -2544,19 +2856,7 @@ class QueryEngine:
                 question, intent_result=intent_result
             )
             if composite is not None:
-                if composite.get("status") == "composite":
-                    self._think(
-                        "Pregunta compuesta (varias medidas o participación)",
-                        *[f"{item['kind']}: {item['label']}" for item in composite["items"]],
-                        *[f"sin interpretar: «{word}»" for word in composite.get("unresolved") or []],
-                        *[f"no resuelta: {label}" for label in composite.get("failed_labels") or []],
-                    )
-                    for item in composite["items"]:
-                        self._trace_plan(item["plan"], f"Plan de «{item['label']}»")
-                    return self._execute_composite(composite), "composite"
-                self._think("Pregunta compuesta que no se pudo resolver")
-                self._trace_plan(composite)
-                return self._query_plan_failure(composite), composite.get("status")
+                return self._handle_composite(composite)
             plan = self.query_plan_builder.build(
                 question=question, intent_result=intent_result,
             )
