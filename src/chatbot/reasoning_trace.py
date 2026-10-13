@@ -10,19 +10,48 @@ from datetime import datetime
 
 
 class ReasoningTrace:
+    """`listener` (opcional) recibe cada evento en el momento en que ocurre,
+    para mostrar el razonamiento en vivo: {"kind": "step"} cuando se completa
+    un paso y {"kind": "activity"} cuando EMPIEZA una operación que puede
+    tardar (consulta a Power BI, llamada a MedGemma...). Las actividades no
+    quedan en el texto final del razonamiento."""
 
-    def __init__(self, kind, text):
+    def __init__(self, kind, text, listener=None):
         self.started = time.perf_counter()
         self.created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.kind = kind
         self.text = text
         self.steps = []
+        self.listener = listener
+        self.current_activity = None
+
+    def _elapsed(self):
+        return round(time.perf_counter() - self.started, 2)
+
+    def _notify(self, event):
+        if self.listener is None:
+            return
+        try:
+            self.listener(event)
+        except Exception:
+            # La vista en vivo nunca debe tumbar la respuesta.
+            pass
 
     def add(self, title, *lines):
         """Agrega un paso. Las líneas vacías o None se omiten."""
-        self.steps.append({
-            "t": round(time.perf_counter() - self.started, 2),
+        step = {
+            "t": self._elapsed(),
             "title": str(title),
+            "lines": [str(line) for line in lines if line not in (None, "")],
+        }
+        self.steps.append(step)
+        self._notify(dict(step, kind="step"))
+
+    def activity(self, title, *lines):
+        """Avisa que empieza una operación (solo vista en vivo)."""
+        self.current_activity = str(title)
+        self._notify({
+            "kind": "activity", "t": self._elapsed(), "title": str(title),
             "lines": [str(line) for line in lines if line not in (None, "")],
         })
 

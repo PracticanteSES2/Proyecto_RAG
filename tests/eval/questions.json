@@ -3013,6 +3013,220 @@
           }
         }
       ]
+    },
+    {
+      "id": "i_propietario_desglose_especialidades",
+      "category": "i_multiturno",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/Documentacion Tablero Detalle Ocupación.docx",
+        "seccion": "Cantidad de pacientes"
+      },
+      "arneses": ["realistic"],
+      "descripcion": "Caso real del propietario (2026-10-13, tests/eval/out/transcripts/propietario_2026-10-13.md): «cada una de las especialidades» pide el desglose por ESPECIALIDAD y «se me ha solicitado saber» es relleno de petición; los dos seguimientos («de esos 33», «de esta cantidad de pacientes») reutilizan el mismo indicador y filtros agrupando por especialidad, sin ofrecer indicadores de otros tableros.",
+      "turns": [
+        {
+          "user": "De urgencias se me ha solicitado saber la cantidad de pacientes que tiene cada una de las especialidades en hospitalizacion en este mes",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "result_type": "table",
+            "group_by_any": ["especialidad"],
+            "metrics_any": ["pacientes"],
+            "answer_none": ["solicitado", "cada especialidades"]
+          }
+        },
+        {
+          "user": "Cuantos de esos 33 tiene cada especialidad?",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "result_type": "table",
+            "group_by_any": ["especialidad"],
+            "metrics_any": ["pacientes"],
+            "answer_none": ["No pude aplicar: esos"]
+          }
+        },
+        {
+          "user": "De esta cantidad de pacientes, cuantos hay de cada especialidad?",
+          "expect": {
+            "route": ["powerbi", "powerbi_empty"],
+            "result_type": "table",
+            "group_by_any": ["especialidad"],
+            "metrics_any": ["pacientes"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_seguimiento_anaforico_desglose",
+      "category": "i_multiturno",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/Documentacion Tablero Detalle Ocupación.docx",
+        "seccion": "Cantidad de pacientes"
+      },
+      "arneses": ["realistic"],
+      "descripcion": "Un valor escalar y luego «¿cuántos de esos tiene cada especialidad?» / «desglósalo por especialidad»: el mismo indicador y periodo agrupado por especialidad, con la nota del desglose del total anterior.",
+      "turns": [
+        {
+          "user": "cantidad de pacientes en este mes",
+          "expect": {"route": ["powerbi"], "result_type": "scalar", "metrics_any": ["pacientes"]}
+        },
+        {
+          "user": "Cuantos de esos tiene cada especialidad?",
+          "expect": {"route": ["powerbi"], "result_type": "table", "group_by_any": ["especialidad"],
+                     "metrics_any": ["pacientes"], "answer_any": ["Desglose por"]}
+        },
+        {
+          "user": "cantidad de pacientes en este mes",
+          "expect": {"route": ["powerbi"], "result_type": "scalar"}
+        },
+        {
+          "user": "desglósalo por especialidad",
+          "expect": {"route": ["powerbi"], "result_type": "table", "group_by_any": ["especialidad"],
+                     "metrics_any": ["pacientes"]}
+        }
+      ]
+    },
+    {
+      "id": "i_contrapregunta_no_captura_pregunta_nueva",
+      "category": "i_multiturno",
+      "tablero": "Varios",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas"
+      },
+      "arneses": ["realistic"],
+      "descripcion": "Con una contrapregunta pendiente (y tras «Ninguna de las anteriores»), una pregunta nueva de otro tablero se resuelve desde cero; antes podía elegirse una opción por compartir palabras y responder la pregunta anterior.",
+      "turns": [
+        {"user": "cuantas cirugias realizadas hubo en 2024", "expect": {"route": ["clarification"]}},
+        {"button": "none", "expect": {"route": ["clarification", "not_found"]}},
+        {
+          "user": "cuantos suministros pendientes hay",
+          "expect": {"route": ["powerbi", "powerbi_empty"], "metrics_any": ["suministros"]}
+        }
+      ]
+    },
+    {
+      "id": "i_documental_no_hereda_tablero",
+      "category": "i_multiturno",
+      "tablero": "Varios",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/2. Documentacion Tablero Detalle Gestion Camas.docx",
+        "seccion": "Porcentaje de ocupación"
+      },
+      "arneses": ["realistic"],
+      "descripcion": "Una pregunta documental sin tablero después de una contrapregunta no hereda el tablero de la pregunta anterior (antes respondía con la documentación de CIRUGIAS).",
+      "turns": [
+        {"user": "cuantas cirugias hubo en el tablero de lavanderia", "expect": {"route": ["clarification"]}},
+        {
+          "user": "como se calcula el porcentaje de ocupacion",
+          "expect": {"route": ["rag"], "answer_any": ["ocupacion"]}
+        }
+      ]
+    },
+    {
+      "id": "i_sim_propietario_desglose",
+      "category": "i_multiturno",
+      "tablero": "Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Filtro Especialidad"
+      },
+      "arneses": ["sim"],
+      "descripcion": "Versión sim del caso del propietario: relleno de petición, «cada una de las especialidades» como agrupación, «Del quirófano» como quien pide (no como ESTADO = Paciente en Quirófano) y seguimientos anafóricos.",
+      "turns": [
+        {
+          "user": "Del quirofano se me ha solicitado saber la cantidad de cirugias programadas que tiene cada una de las especialidades en 2024",
+          "expect": {"route": ["powerbi"], "result_type": "table", "group_by_any": ["especialidad"],
+                     "metrics_any": ["programad"], "filters": [{"year": 2024}],
+                     "answer_none": ["solicitado", "Paciente en Quirofano"]}
+        },
+        {
+          "user": "cirugias programadas en 2024",
+          "expect": {"route": ["powerbi"], "result_type": "scalar", "numbers": ["6.803"]}
+        },
+        {
+          "user": "Cuantas de esas tiene cada especialidad?",
+          "expect": {"route": ["powerbi"], "result_type": "table", "group_by_any": ["especialidad"],
+                     "metrics_any": ["programad"], "filters": [{"year": 2024}]}
+        },
+        {
+          "user": "cirugias programadas en 2024",
+          "expect": {"route": ["powerbi"], "result_type": "scalar"}
+        },
+        {
+          "user": "De esta cantidad de cirugias programadas, cuantas hay de cada especialidad?",
+          "expect": {"route": ["powerbi"], "result_type": "table", "group_by_any": ["especialidad"],
+                     "metrics_any": ["programad"], "filters": [{"year": 2024}]}
+        },
+        {
+          "user": "ahora por especialidad",
+          "expect": {"route": ["powerbi"], "result_type": "table", "group_by_any": ["especialidad"],
+                     "metrics_any": ["programad"], "filters": [{"year": 2024}]}
+        }
+      ]
+    },
+    {
+      "id": "i_sim_seguimiento_anaforico_otro_indicador",
+      "category": "i_multiturno",
+      "tablero": "Lavandería / Tablero Quirúrgico (fixture sim)",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Peso"
+      },
+      "arneses": ["sim"],
+      "descripcion": "«de esos» con otro indicador nombrado es una pregunta nueva, no un seguimiento de la anterior.",
+      "turns": [
+        {"user": "cirugias programadas en 2024", "expect": {"route": ["powerbi"]}},
+        {
+          "user": "y de esos cuanto peso hubo en lavanderia en enero de 2026?",
+          "expect": {"route": ["powerbi"], "metrics_any": ["peso"], "numbers": ["3.906,4"],
+                     "filters": [{"year": 2026, "month": 1}]}
+        }
+      ]
+    },
+    {
+      "id": "i_sim_contrapregunta_no_captura",
+      "category": "i_multiturno",
+      "tablero": "Varios (fixture sim)",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/11 Documentacion Tablero Cirugias.docx",
+        "seccion": "Cirugías realizadas por especialidad"
+      },
+      "arneses": ["sim"],
+      "descripcion": "Una contrapregunta pendiente (también tras «Ninguna de las anteriores») no captura una pregunta nueva aunque nombre una de las opciones («cirugías programadas de urología en 2024» con la opción «Cirugías programadas»).",
+      "turns": [
+        {"user": "top 5 especialidades con mas cirugias", "expect": {"route": ["clarification"]}},
+        {
+          "user": "cuanto peso hubo en lavanderia en enero de 2026",
+          "expect": {"route": ["powerbi"], "metrics_any": ["peso"], "numbers": ["3.906,4"]}
+        },
+        {"user": "top 5 especialidades con mas cirugias", "expect": {"route": ["clarification"]}},
+        {"button": "none", "expect": {"route": ["clarification"], "options_any": ["programadas"]}},
+        {
+          "user": "cirugias programadas de urologia en 2024",
+          "expect": {"route": ["powerbi"], "result_type": "scalar", "metrics_any": ["programad"],
+                     "filters": [{"column": "ESPECIALIDAD", "value": "UROLOGIA"}, {"year": 2024}]}
+        }
+      ]
+    },
+    {
+      "id": "i_sim_tablero_pendiente_no_captura",
+      "category": "i_multiturno",
+      "tablero": "Lavandería (fixture sim)",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Descripción del tablero"
+      },
+      "arneses": ["sim"],
+      "descripcion": "«¿A qué tablero te refieres?» pendiente y llega otra pregunta completa: se responde la nueva (qué muestra Lavandería), no la anterior («qué filtros tiene») con ese tablero.",
+      "turns": [
+        {"user": "que filtros tiene", "expect": {"route": ["clarification"]}},
+        {
+          "user": "¿Qué muestra el tablero de lavandería?",
+          "expect": {"route": ["rag"], "answer_any": ["lavanderia"]}
+        }
+      ]
     }
   ]
 }

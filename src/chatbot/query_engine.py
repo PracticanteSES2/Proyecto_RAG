@@ -7,6 +7,7 @@ from src.chatbot.response_formatter import (
     NONE_OF_THE_ABOVE_ID, format_filters_line, format_value_es,
 )
 from src.providers.domain_cache import domain_cache_for
+from src.semantic.request_phrases import requester, rewrite_request, without_requester
 
 class QueryEngine:
 
@@ -98,6 +99,7 @@ class QueryEngine:
 
         # Razonamiento del turno en curso y del último turno terminado.
         self._trace = None
+        self.progress_listener = None
         self.last_reasoning = None
 
         # Estado de conversación para una ambigüedad
@@ -134,11 +136,29 @@ class QueryEngine:
         if self._trace is not None:
             self._trace.add(title, *lines)
 
+    def _activity(self, title, *lines):
+        """Operación que empieza y puede tardar: solo para la vista en vivo."""
+        if self._trace is not None:
+            self._trace.activity(title, *lines)
+
+    def set_progress_listener(self, listener):
+        """Función que recibe en vivo los pasos del turno (o None). También
+        engancha las consultas DAX del proveedor de Power BI, incluidas las de
+        exploración de valores que hace el Query Plan."""
+        self.progress_listener = listener
+        provider = self.powerbi_provider
+        if provider is not None and hasattr(provider, "query_listener"):
+            provider.query_listener = self._on_powerbi_query if listener else None
+
+    def _on_powerbi_query(self, semantic_model, dax):
+        self._activity(f"Consultando Power BI ({semantic_model or 'modelo por defecto'})",
+                       short(" ".join(str(dax or "").split()), 160))
+
     def _traced(self, kind, text, runner):
         """Ejecuta un turno registrando su razonamiento en result["reasoning"]."""
         if self._trace is not None:
             return runner()  # turno anidado (p. ej. tablero elegido -> process)
-        self._trace = ReasoningTrace(kind, text)
+        self._trace = ReasoningTrace(kind, text, listener=getattr(self, "progress_listener", None))
         domains = domain_cache_for(getattr(self, "powerbi_provider", None))
         if domains is not None:
             domains.begin_turn()
@@ -156,7 +176,10 @@ class QueryEngine:
             self.last_reasoning = self._trace.to_dict()
             return result
         except Exception as error:
-            self._think("Error inesperado", f"{type(error).__name__}: {error}")
+            self._think(
+                "Error inesperado", f"{type(error).__name__}: {error}",
+                f"estaba en: {self._trace.current_activity}" if self._trace.current_activity else None,
+            )
             self.last_reasoning = self._trace.to_dict()
             raise
         finally:
@@ -1721,6 +1744,7 @@ class QueryEngine:
                 "visuals": ", ".join(visuals[:4]),
                 "semantic_model": metric.get("semantic_model"),
             })
+        self._activity(f"MedGemma está describiendo {len(options)} opciones")
         try:
             outcome = self.option_describer.describe(question, options)
         except Exception as error:
@@ -2022,6 +2046,7 @@ class QueryEngine:
             f"{choice['label']} [{choice['id']}]",
             f"pregunta original: {pending['question']}",
         )
+        self._activity("Armando la consulta con el indicador elegido")
         plan = self.query_plan_builder.build(
             pending["question"], selected_metric_id=choice["id"]
         )
@@ -2306,6 +2331,66 @@ class QueryEngine:
             return int(number.group(1)) == count + 1
         return bool(self._NONE_REPLY.fullmatch(norm))
 
+    # Pregunta completa: empieza con un interrogativo seguido de al menos dos
+    # palabras («cuántas atenciones de urgencias hubo en 2024») o con una
+    # petición («me piden...», «se me ha solicitado...», «necesito saber...»).
+    # «cuál de las dos», «cuál es la primera»: siguen siendo respuestas.
+    _FULL_QUESTION_RE = re.compile(
+        r"^(?:y\s+)?(?:"
+        r"(?:cuant[oa]s?|que(?!\s+sea\s)|como|donde|cuando|quien(?:es)?|por\s+que|para\s+que)\s+\S+\s+\S+"
+        r"|cual(?:es)?\s+(?!de\s|es\s+(?:la|el)\s+(?:primer|segund|tercer|ultim))\S+\s+\S+\s+\S+"
+        r"|(?:a\s+mi\s+)?(?:se\s+)?(?:me|nos)\s+(?:ha|han|piden|pidieron|solicitan|solicitaron)\s"
+        r"|(?:de\s+\S+\s+)?se\s+(?:me|nos)\s+(?:ha|han)\s"
+        r"|(?:necesito|necesitamos|quisiera|quiero|queremos)\s+(?:saber|conocer|reportar|consultar)\s"
+        r")"
+    )
+
+    def _is_new_full_question(self, message):
+        return bool(self._FULL_QUESTION_RE.match(self._normalize_text(message)))
+
+    # Palabras con las que se responde a una contrapregunta («quiero la de...
+    # del tablero..., por favor», «la primera»): no son una petición nueva.
+    _REPLY_WORDS = {
+        "la", "el", "los", "las", "lo", "de", "del", "en", "a", "al", "y", "con", "que", "me",
+        "mi", "un", "una", "uno", "es", "esa", "ese", "esta", "este", "eso", "opcion", "numero",
+        "num", "quiero", "prefiero", "seria", "sea", "dame", "elijo", "escojo", "tablero",
+        "informe", "pagina", "modelo", "reporte", "por", "favor", "porfa", "gracias", "ok", "si",
+        "bueno", "pues", "entonces", "mejor", "otra", "otro", "primera", "primero", "segunda",
+        "segundo", "tercera", "tercero", "cuarta", "cuarto", "quinta", "quinto", "ultima",
+        "ultimo", "da", "indicador", "dato", "valor", "total",
+    }
+
+    def _reply_adds_new_request(self, message, choice):
+        """¿El mensaje, además de nombrar la opción, pide otra cosa? «cirugías
+        programadas de urología en 2024» con la opción «Cirugías programadas»
+        es una pregunta nueva (urología, 2024), no la elección de esa opción
+        para la pregunta anterior. Devuelve las palabras de más (o [])."""
+        from src.semantic.query_plan_builder import _tokens_match_loosely, canonical_token
+
+        option_tokens = {
+            canonical_token(token)
+            for token in self._normalize_text(f"{choice.get('label') or ''} {choice.get('detail') or ''}").split()
+        }
+        extra = []
+        for word in self._normalize_text(message).split():
+            if word in self._REPLY_WORDS or (word.isdigit() and len(word) <= 2):
+                continue
+            token = canonical_token(word)
+            if any(_tokens_match_loosely(token, other) for other in option_tokens):
+                continue
+            extra.append(word)
+        has_period = any(re.fullmatch(r"(?:19|20)\d{2}", word) for word in extra) or any(
+            word in self._MONTH_WORDS for word in extra
+        )
+        if has_period or len([word for word in extra if len(word) >= 3]) >= 2:
+            return extra
+        return []
+
+    _MONTH_WORDS = {
+        "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
+        "setiembre", "octubre", "noviembre", "diciembre", "hoy", "ayer", "semana", "mes", "ano",
+    }
+
     def _continue_query_plan(self, message):
         pending = self._pending_query_plan
         if pending is None:
@@ -2318,9 +2403,36 @@ class QueryEngine:
         )
         if self._is_none_reply(message, len(choices)):
             return self._search_alternatives(pending)
+        # Una pregunta completa es una pregunta nueva aunque comparta palabras
+        # con alguna opción («cuántas atenciones de urgencias hubo en 2024»
+        # frente a la opción PACIENTES INTUBADOS EN URGENCIAS): antes se
+        # elegía esa opción y se respondía la pregunta ANTERIOR.
+        norm = self._normalize_text(message)
+        typed = getattr(self, "_turn_message", None) or message
+        if (self._is_new_full_question(message) or self._is_new_full_question(typed)) and not any(
+            self._normalize_text(choice["label"]) == norm for choice in choices
+        ):
+            self._think(
+                "Pregunta nueva: se descarta la contrapregunta pendiente",
+                f"«{message}» es una pregunta completa, no una respuesta a las opciones; se "
+                "resuelve desde cero (sin el indicador, el tablero ni las opciones descartadas "
+                f"de «{pending['question']}»)",
+            )
+            self._pending_query_plan = None
+            return None
         # Primero intentar emparejar una opción: una respuesta larga puede
         # ser una opción y no una pregunta nueva.
         selected = self._match_query_plan_choice(message, choices)
+        extra = self._reply_adds_new_request(message, selected) if selected is not None else []
+        if extra:
+            self._think(
+                "Pregunta nueva: se descarta la contrapregunta pendiente",
+                f"«{message}» nombra la opción {selected['label']}, pero pide además "
+                f"{', '.join(f'«{word}»' for word in extra)}: es una pregunta nueva, no la elección "
+                f"de esa opción para «{pending['question']}»; se resuelve desde cero",
+            )
+            self._pending_query_plan = None
+            return None
         if selected is None:
             board = self._board_named_in_reply(message, choices)
             if board is not None:
@@ -2342,6 +2454,37 @@ class QueryEngine:
                 none_label=pending.get("none_label") or self._NONE_LABEL,
             )
         return self._run_selected_metric(pending, selected)
+
+    def _qualifier_prompt(self, plan, words):
+        """Contrapregunta cuando una palabra de la pregunta forma parte del
+        nombre de otros indicadores. Solo se citan las palabras que de verdad
+        aparecen en esos nombres («urgencias» en PACIENTES INTUBADOS EN
+        URGENCIAS), nunca el resto sin interpretar («solicitado cada»)."""
+        from src.semantic.query_plan_builder import _tokens_match_loosely, canonical_token
+
+        candidates = (plan.get("metric_resolution") or {}).get("candidates") or []
+        names = []
+        for item in candidates:
+            metric = item.get("metric") or {}
+            names.append(" ".join(str(part or "") for part in (
+                metric.get("label"), item.get("matched_name"),
+                *[a.get("visual_title") for a in metric.get("appearances") or []],
+            )))
+        name_tokens = {
+            canonical_token(token)
+            for name in names for token in self._normalize_text(name).split() if len(token) >= 4
+        }
+        cited = []
+        for word in str(words).split():
+            token = canonical_token(self._normalize_text(word))
+            if len(token) >= 4 and any(_tokens_match_loosely(token, other) for other in name_tokens):
+                if word not in cited:
+                    cited.append(word)
+        if cited:
+            quoted = " y ".join(f"«{word}»" for word in cited)
+            verb = "aparecen" if len(cited) > 1 else "aparece"
+            return f"{quoted} {verb} en el nombre de varios indicadores. ¿Cuál necesitas?"
+        return "Encontré varios indicadores que pueden responder tu pregunta. ¿Cuál necesitas?"
 
     def _resolution_prompt(self, plan):
         """Texto de la contrapregunta según por qué no se eligió un indicador."""
@@ -2384,7 +2527,7 @@ class QueryEngine:
                 "página. ¿Es alguno de estos?"
             )
         if reason == "qualifier_matches_other_metrics" and words:
-            return f"«{words}» aparece en varios indicadores. ¿Cuál necesitas?"
+            return self._qualifier_prompt(plan, words)
         if reason == "metric_not_in_named_report":
             board = plan.get("named_report") or "ese tablero"
             suggestions = (plan.get("metric_resolution") or {}).get("suggestions") or []
@@ -3047,6 +3190,7 @@ class QueryEngine:
 
     def _run_query_plan(self, question, intent_result, stage):
         """Query Plan completo (compuesto o simple). Devuelve (respuesta, estado_del_plan)."""
+        self._activity("Buscando el indicador, los filtros y el periodo (Query Plan)")
         try:
             composite = self.query_plan_builder.build_composite(
                 question, intent_result=intent_result
@@ -3095,15 +3239,23 @@ class QueryEngine:
                     places.append((report, page))
         if len(places) < 2:
             return
+        # Con filtros o agrupación la respuesta ya está acotada a lo que se
+        # pidió: la nota de páginas no aporta y solo alarga la respuesta.
+        if plan.get("filters") or plan.get("group_by"):
+            self._think(
+                "La misma medida aparece en varias páginas",
+                f"{metric.get('label')}: misma medida en {len(places)} páginas; la respuesta ya "
+                "está filtrada o agrupada según la pregunta, así que no se agrega la nota de páginas",
+            )
+            return
         reports = list(dict.fromkeys(report for report, _ in places if report))
         pages = ", ".join(page for _, page in places[: self._PAGES_IN_NOTE])
         if len(places) > self._PAGES_IN_NOTE:
             pages += f" y {len(places) - self._PAGES_IN_NOTE} más"
         where = self._board_phrase(reports[0], "del") if len(reports) == 1 else "de varios tableros"
         note = (
-            f"Este indicador aparece en {len(places)} páginas {where} ({pages}); cada "
-            "página puede aplicar sus propios filtros. Este es el valor general, sin "
-            "los filtros propios de cada página."
+            f"Este indicador aparece en {len(places)} páginas {where} ({pages}); "
+            "es el valor general, sin los filtros propios de cada página."
         )
         notes = list(plan.get("notes") or [])
         if note not in notes:
@@ -3194,19 +3346,98 @@ class QueryEngine:
                 "filters": [dict(item) for item in plan.get("filters") or []],
                 "group_by": [dict(item) for item in plan.get("group_by") or []],
                 "ranking": dict(plan["ranking"]) if plan.get("ranking") else None,
+                # Valor mostrado (para «de esos 33» y el desglose del total).
+                "value": result.get("value") if result.get("result_type") == "scalar" else None,
+                "metric_format": result.get("metric_format"),
             }
             return
         if status in ("needs_clarification", "empty_result", "error") or followup:
             return
         self._last_success = None
 
-    def _followup_plan(self, message):
+    # Referencias a la respuesta anterior: «de esos», «de esas 33», «de esta
+    # cantidad», «del total anterior», «de los 33», «desglósalo por...»,
+    # «ahora por...», «lo mismo en...».
+    _ANAPHORA_RE = re.compile(
+        r"(?<![a-z0-9])(?:"
+        r"(?:de|entre|para|en|sobre)\s+(?:esos|esas|estos|estas|ellos|ellas|aquellos|aquellas)"
+        r"(?:\s+\d+(?:\s\d{3})*(?:\s\d+)?(?![a-z0-9]))?"
+        r"|(?:de|en|para|sobre)\s+(?:esta|esa|este|ese)\s+(?:cantidad|cifra|total|numero|valor|"
+        r"resultado|dato|consulta|respuesta|indicador)"
+        r"|(?:de|en|sobre)\s+(?:el|la)\s+(?:total|cifra|cantidad|resultado|valor|consulta|respuesta)\s+anterior"
+        r"|del\s+(?:total|resultado|valor|dato)\s+anterior"
+        r"|(?:de|entre)\s+(?:los|las)\s+\d+(?:\s\d{3})*(?:\s\d+)?(?![a-z0-9])"
+        r"|desglos[a-z]*|discrimin[a-z]*"
+        r"|ahora(?=\s+(?:por|en|de|del|para|solo|sin|con|segun)\s)"
+        r"|lo\s+mismo|la\s+misma\s+(?:consulta|pregunta|cifra)"
+        r")(?![a-z0-9])"
+    )
+    _CITED_NUMBER_RE = re.compile(
+        r"(?<![a-z0-9])(?:de|entre|para|en|sobre)\s+(?:esos|esas|estos|estas|ellos|ellas|los|las)\s+"
+        r"(\d[\d.,]*\d|\d)(?![a-z0-9])"
+    )
+    _ANAPHORA_MAX_WORDS = 18
+    _FOLLOWUP_FILLER = {
+        "y", "cuantos", "cuantas", "cuanto", "cuanta", "cual", "cuales", "que", "hay",
+        "hubo", "tiene", "tienen", "tuvo", "son", "fueron", "es", "corresponden",
+        "corresponde", "pertenecen", "me", "lo", "la", "los", "las", "dime", "dame",
+        "muestrame", "ahora", "favor", "por favor",
+    }
+
+    @staticmethod
+    def _parse_number(text):
+        """«33», «1.234», «1.234,5» -> float (formato español) o None."""
+        text = str(text or "").strip().rstrip(".,")
+        if not text:
+            return None
+        if "," in text:
+            text = text.replace(".", "").replace(",", ".")
+        elif re.fullmatch(r"\d{1,3}(?:\.\d{3})+", text):
+            text = text.replace(".", "")
+        try:
+            return float(text)
+        except ValueError:
+            return None
+
+    def _anaphora(self, message, original=None):
+        """(frases, número citado o None) de las referencias a la respuesta
+        anterior en el mensaje (o en su forma original, antes de reescribirlo)."""
+        phrases = []
+        for text in (original, message):
+            norm = self._normalize_text(text)
+            for match in self._ANAPHORA_RE.finditer(norm):
+                if match.group(0) not in phrases:
+                    phrases.append(match.group(0))
+        number = None
+        if phrases:
+            # El número citado se lee del texto con su puntuación («3.906,4»).
+            raw = "".join(
+                char for char in unicodedata.normalize("NFD", str(original or message).lower())
+                if unicodedata.category(char) != "Mn"
+            )
+            cited = self._CITED_NUMBER_RE.search(raw)
+            if cited:
+                number = self._parse_number(cited.group(1))
+        return phrases, number
+
+    def _same_number(self, cited, value):
+        try:
+            return cited is not None and value is not None and abs(float(value) - cited) < 0.5
+        except (TypeError, ValueError):
+            return False
+
+    def _followup_plan(self, message, original=None):
         """Plan de seguimiento o None si el mensaje no es claramente un
         complemento de la última respuesta numérica.
 
         Condiciones: hay una consulta exitosa previa y ninguna contrapregunta
-        pendiente; el mensaje empieza con «y», es corto, no nombra otro
-        indicador y aporta un período, un filtro o una agrupación.
+        pendiente, y además:
+        - el mensaje empieza con «y», es corto, no nombra ningún indicador y
+          aporta un período, un filtro o una agrupación («y en 2025?»); o
+        - se refiere a la respuesta anterior («de esos 33», «de esta
+          cantidad de pacientes», «desglósalo por...», «ahora por...») y no
+          nombra OTRO indicador (puede repetir el nombre del mismo).
+        Una pregunta nueva completa que nombra otro indicador nunca es seguimiento.
         """
         last = self._last_success
         builder = self.query_plan_builder
@@ -3215,17 +3446,63 @@ class QueryEngine:
         if self._has_pending_clarification():
             return None
         words = self._normalize_text(message).split()
-        if len(words) < 2 or words[0] != "y" or len(words) > self._FOLLOWUP_MAX_WORDS:
-            return None
-        complement = " ".join(words[1:])
+        phrases, cited = self._anaphora(message, original)
+        # «de los 33» sin demostrativo solo es referencia si 33 es el valor anterior.
+        plain_number = [p for p in phrases if re.fullmatch(r"(?:de|entre) (?:los|las) [\d ]+", p)]
+        if plain_number and len(plain_number) == len(phrases) and not self._same_number(cited, last.get("value")):
+            phrases = []
         metric_words = getattr(builder, "metric_words", None)
-        named = metric_words(complement) if callable(metric_words) else []
-        if named:
-            self._think(
-                "¿Es un seguimiento de la consulta anterior?",
-                f"no: nombra un indicador ({', '.join(named)}); se trata como pregunta nueva",
-            )
-            return None
+        if phrases and len(words) <= self._ANAPHORA_MAX_WORDS:
+            complement_text = self._normalize_text(message)
+            for phrase in sorted(phrases, key=len, reverse=True):
+                complement_text = re.sub(
+                    r"(?<![a-z0-9])" + re.escape(phrase) + r"(?![a-z0-9])", " ", complement_text,
+                )
+            # Las palabras del propio indicador («de esta cantidad de
+            # pacientes») no son un indicador nuevo.
+            own = set(self._normalize_text(last.get("metric_label")).split())
+            named = [
+                word for word in (metric_words(complement_text) if callable(metric_words) else [])
+                if word not in own and word.rstrip("s") not in own and f"{word}s" not in own
+            ]
+            if named:
+                self._think(
+                    "¿Es un seguimiento de la consulta anterior?",
+                    f"no: aunque se refiere a la respuesta anterior ({', '.join(phrases)}), nombra "
+                    f"otro indicador ({', '.join(named)}); se trata como pregunta nueva",
+                )
+                return None
+            kept = [
+                word for word in complement_text.split()
+                if word not in self._FOLLOWUP_FILLER and word not in own
+                and word.rstrip("s") not in own and word not in ("de", "del", "el")
+            ]
+            if not kept:
+                return None
+            complement = complement_text
+            for word in sorted(own, key=len, reverse=True):
+                if len(word) >= 4:
+                    complement = re.sub(r"(?<![a-z0-9])" + re.escape(word) + r"s?(?![a-z0-9])", " ", complement)
+            complement = re.sub(r"\s+", " ", complement).strip()
+            reference = ", ".join(f"«{phrase}»" for phrase in phrases)
+            if cited is not None and last.get("value") is not None and not self._same_number(cited, last["value"]):
+                reference += (
+                    f" (el número citado, {format_value_es(cited) or cited}, no coincide con el valor "
+                    f"anterior {format_value_es(last['value']) or last['value']}; se usa la consulta anterior)"
+                )
+            why = f"se refiere a la respuesta anterior: {reference}"
+        else:
+            if len(words) < 2 or words[0] != "y" or len(words) > self._FOLLOWUP_MAX_WORDS:
+                return None
+            complement = " ".join(words[1:])
+            named = metric_words(complement) if callable(metric_words) else []
+            if named:
+                self._think(
+                    "¿Es un seguimiento de la consulta anterior?",
+                    f"no: nombra un indicador ({', '.join(named)}); se trata como pregunta nueva",
+                )
+                return None
+            why = "empieza con «y» y solo agrega un complemento"
 
         plan = builder.build(complement, selected_metric_id=last["metric_id"])
         status = plan.get("status")
@@ -3269,14 +3546,23 @@ class QueryEngine:
                 "group_by": group_by,
                 "mode": "grouped" if group_by else "scalar",
                 "ranking": ranking if group_by else None,
-                "question": f"{last['question']} ({message.strip()})",
+                "question": f"{last['question']} ({(original or message).strip()})",
                 "followup_base_question": last["question"],
-                "followup_of": {"question": last["question"], "metric": last["metric_label"]},
+                "followup_of": {
+                    "question": last["question"], "metric": last["metric_label"],
+                    "value": last.get("value"), "metric_format": last.get("metric_format"),
+                    "anaphora": bool(phrases),
+                },
+                "unapplied_terms": [
+                    term for term in plan.get("unapplied_terms") or []
+                    if self._normalize_text(term) not in ("cuantos", "cuantas", "cuanto", "cuanta")
+                ],
             }
             self._think(
                 "Seguimiento de la consulta anterior",
-                f"se interpretó «{message.strip()}» como seguimiento de «{last['question']}» "
-                f"(indicador {last['metric_label']})",
+                f"se interpretó «{(original or message).strip()}» como seguimiento de «{last['question']}» "
+                f"(indicador {last['metric_label']}): {why}",
+                "se hereda el indicador y sus filtros; solo cambia lo que agrega el mensaje",
                 *[f"se conserva: {self._filter_line(item)}" for item in inherited],
                 *[f"se reemplaza: {self._filter_line(item)}" for item in replaced],
                 *[f"nuevo: {self._filter_line(item)}" for item in new_filters],
@@ -3292,23 +3578,198 @@ class QueryEngine:
             return {**plan, "followup_of": {"question": last["question"], "metric": last["metric_label"]}}
         return None
 
+    _NON_ADDITIVE_RE = re.compile(r"promedio|porcentaje|%|tasa|indice|razon|proporcion|media|giro|estancia")
+
+    def _note_breakdown_of_previous(self, plan, result):
+        """«¿Cuántos de esos 33 tiene cada especialidad?»: la tabla desglosa el
+        valor anterior; se dice cuánto suman sus filas frente a ese total."""
+        followup = plan.get("followup_of") or {}
+        previous = followup.get("value")
+        if (
+            not isinstance(result, dict) or result.get("status") != "success"
+            or result.get("result_type") != "table" or previous is None
+        ):
+            return
+        label = str(followup.get("metric") or "")
+        if self._NON_ADDITIVE_RE.search(self._normalize_text(label)) or "%" in str(followup.get("metric_format") or ""):
+            return
+        total = 0.0
+        for row in result.get("rows") or []:
+            try:
+                total += float(self._row_value(row))
+            except (TypeError, ValueError):
+                return
+        try:
+            previous = float(previous)
+        except (TypeError, ValueError):
+            return
+        groups = ", ".join(
+            str(item.get("label") or item.get("column")) for item in plan.get("group_by") or []
+        )
+        previous_text = format_value_es(previous) or previous
+        total_text = format_value_es(total) or total
+        if abs(total - previous) < 0.5:
+            note = f"Desglose por {groups} de los {previous_text} de la consulta anterior (las filas suman {total_text})."
+        else:
+            note = (
+                f"Desglose por {groups} de la consulta anterior ({previous_text}): las filas suman "
+                f"{total_text}; puede diferir si un mismo registro aparece en más de un grupo o sin {groups}."
+            )
+        query_plan = result.get("query_plan")
+        if isinstance(query_plan, dict):
+            query_plan["notes"] = [*(query_plan.get("notes") or []), note]
+        self._think("Desglose del valor anterior", note)
+
+    def _rewrite_request(self, message):
+        """Quita el relleno de petición («se me ha solicitado saber») y convierte
+        «cada una de las especialidades», «desglose por sede»... en «por
+        <dimensión>». Una respuesta corta a una contrapregunta no se toca."""
+        if self._pending_query_plan is not None and not self._is_new_full_question(message):
+            return message
+        recognizer = getattr(self.query_plan_builder, "grouping_dimension_name", None)
+        try:
+            rewritten, notes = rewrite_request(
+                message, dimension=recognizer if callable(recognizer) else None,
+            )
+        except Exception as error:
+            self._think("No se pudo reinterpretar la forma de la pregunta", f"{type(error).__name__}: {error}")
+            return message
+        if notes and rewritten.strip():
+            self._think(
+                "Frases de la pedida reinterpretadas",
+                *notes,
+                f"pregunta que se resuelve: «{rewritten}»",
+            )
+            return rewritten
+        return message
+
     def _process_turn(self, message):
-        followup = self._followup_plan(message)
+        self._activity("Interpretando la pregunta")
+        # Mensaje tal como lo escribió el usuario (la contrapregunta pendiente
+        # decide con él si es una pregunta nueva aunque se haya reescrito).
+        previous = getattr(self, "_turn_message", None)
+        self._turn_message = message
+        try:
+            return self._process_typed_turn(message)
+        finally:
+            self._turn_message = previous
+
+    def _process_typed_turn(self, message):
+        rewritten = self._rewrite_request(message)
+        followup = self._followup_plan(rewritten, original=message)
         if followup is not None:
             self._trace_plan(followup, "Query Plan del seguimiento")
             if followup.get("status") == "ready":
                 result = self._execute_query_plan(followup)
+                self._note_breakdown_of_previous(followup, result)
             else:
                 result = self._query_plan_failure(followup)
             result["followup_of"] = followup.get("followup_of")
             self._remember_success(result, followup=True)
             return result
-        result = self._process(message)
+        result = self._process(rewritten)
+        result = self._check_requester_filter(message, rewritten, result)
         self._remember_success(result)
+        return result
+
+    def _check_requester_filter(self, message, rewritten, result):
+        """«De urgencias se me ha solicitado...»: «de urgencias» puede ser quien
+        pide el dato o un filtro. Se conserva como filtro solo si coincide
+        exactamente con un valor (SERVICIO = URGENCIAS); si solo se parece a un
+        valor de otra columna («Del quirófano» -> ESTADO = Paciente en Quirófano)
+        se vuelve a consultar sin esa frase y se dice en el razonamiento."""
+        who = requester(message)
+        if not who or not isinstance(result, dict) or result.get("status") != "success":
+            return result
+        plan = result.get("query_plan") or {}
+        who_words = [
+            word for word in self._normalize_text(who["who"]).split()
+            if word not in ("el", "la", "los", "las", "de", "del")
+        ]
+        if not who_words:
+            return result
+
+        def words_of(value):
+            return set(self._normalize_text(value).split())
+
+        loose = []
+        for item in plan.get("filters") or []:
+            if item.get("type") != "categorical":
+                continue
+            values = item.get("values") if item.get("values") is not None else [item.get("value")]
+            for value in values if isinstance(values, (list, tuple)) else [values]:
+                value_words = words_of(value)
+                hit = all(
+                    any(word == other or word.rstrip("s") == other.rstrip("s") or
+                        (len(word) >= 5 and other.startswith(word[:5])) for other in value_words)
+                    for word in who_words
+                )
+                exact = self._normalize_text(value).rstrip("s") == " ".join(who_words).rstrip("s")
+                if hit and not exact:
+                    loose.append((item, value))
+        if not loose:
+            if any(self._normalize_text(item.get("value")).rstrip("s") == " ".join(who_words).rstrip("s")
+                   for item in plan.get("filters") or [] if item.get("type") == "categorical"):
+                self._think(
+                    "Quién pide el dato o filtro",
+                    f"«{who['phrase']}» coincide exactamente con un valor de filtro: se aplica como filtro "
+                    "(si era solo quien pide el dato, la respuesta muestra el filtro aplicado)",
+                )
+            return result
+        item, value = loose[0]
+        retry = without_requester(rewritten, who["phrase"])
+        if not retry or retry == rewritten:
+            return result
+        self._think(
+            "Quién pide el dato o filtro",
+            f"«{who['phrase']}» va antes de la petición y solo se parece al valor "
+            f"{item.get('column')} = {value} (no coincide exactamente): se toma como quien pide "
+            f"el dato y se consulta de nuevo sin esa frase («{retry}»)",
+        )
+        pending_before = self._pending_query_plan
+        second = self._process(retry)
+        if isinstance(second, dict) and second.get("status") == "success":
+            second_plan = second.get("query_plan")
+            if isinstance(second_plan, dict):
+                second_plan["notes"] = [
+                    f"«{who['phrase']}» se tomó como quien solicita el dato, no como filtro.",
+                    *(second_plan.get("notes") or []),
+                ]
+            return second
+        self._think(
+            "Quién pide el dato o filtro",
+            "sin esa frase no se obtuvo una respuesta directa: se conserva la primera respuesta",
+        )
+        self._pending_query_plan = pending_before
+        self._pending_dashboard_clarification = None
         return result
 
     def process(self, message):
         return self._traced("question", message, lambda: self._process_turn(message))
+
+    def _discard_stale_dashboard_clarification(self, message):
+        """«¿A qué tablero te refieres?» pendiente y llega una pregunta nueva
+        completa: se olvidan la contrapregunta y lo deducido de la pregunta
+        anterior (tablero, intención) para resolver la nueva desde cero."""
+        state = getattr(self.conversation_manager, "state", None)
+        waiting = self._pending_dashboard_clarification is not None or bool(
+            getattr(state, "awaiting_clarification", False)
+        )
+        is_reply = getattr(self.conversation_manager, "is_reply_to_clarification", None)
+        if not waiting or not callable(is_reply) or is_reply(message):
+            return
+        previous = (self._pending_dashboard_clarification or {}).get("question") or getattr(
+            state, "original_question", None
+        )
+        self._think(
+            "Contrapregunta de tablero descartada",
+            f"«{message}» es una pregunta nueva, no la respuesta a «¿A qué tablero te refieres?» "
+            f"de «{previous}»: se resuelve desde cero, sin el tablero ni la intención anteriores",
+        )
+        self._pending_dashboard_clarification = None
+        discard = getattr(self.conversation_manager, "discard_clarification", None)
+        if callable(discard):
+            discard()
 
     def _process(
         self,
@@ -3318,6 +3779,8 @@ class QueryEngine:
             response = self._continue_query_plan(message)
             if response is not None:
                 return response
+
+        self._discard_stale_dashboard_clarification(message)
 
 
 # ----------------------------------------------------
@@ -3595,6 +4058,7 @@ class QueryEngine:
             "general_question",
         ]:
 
+            self._activity("Buscando en la documentación y redactando la respuesta con MedGemma")
             rag_result = (
                 self.rag_answer_engine
                 .answer(
