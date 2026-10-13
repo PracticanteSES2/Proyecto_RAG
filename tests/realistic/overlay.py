@@ -8,7 +8,7 @@ COPIA en caché, usando el pipeline real del proyecto. El data/ original nunca s
     #                     + chunks RAG de su documentación, embebidos con el modelo real
 
 Pasos (todo con código de src/):
-  1. Copia data/{catalog,rag,model_metadata,vector_db} a <caché>/root/data.
+  1. Copia data/{catalog,rag,model_metadata,vector_db,semantic_documents} a <caché>/root/data.
   2. Añade la metadata sintética en data/model_metadata/<slug>, su manifest en data/raw/<grupo>/
      y su PBIR en data/pbir/<Reporte>.Report (generado desde source.json).
   3. PowerBICatalogManager(root).run(): catálogo técnico, visual y métricas maestras de las fuentes
@@ -31,7 +31,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SYNTHETIC_DIR = HERE / "synthetic_models"
-COPY_DIRS = ("catalog", "rag", "model_metadata", "vector_db")
+# semantic_documents: documentación normalizada por tablero (la usa el
+# planificador para saber qué palabras describen a un indicador).
+COPY_DIRS = ("catalog", "rag", "model_metadata", "vector_db", "semantic_documents")
 SKIP_FILES = {"knowledge_chunks.json", "semantic_knowledge.json"}   # grandes y no los usa app.py
 
 
