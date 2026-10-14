@@ -256,6 +256,9 @@ class DomainHarvest:
         self.values = {}          # (key tabla, key columna) -> lista ordenada sin duplicados
         self.by_column = {}       # key columna -> lista (cuando la tabla no coincide)
         self.ranges = {}          # (tabla, columna) -> {"min":..., "max":...} de comparaciones numéricas
+        # (tabla, columna) que un filtro de PBIR compara con blanco («sin respuesta» =
+        # OID_RESPUESTA en blanco, «pendiente» = FECHA_CIERRE en blanco): deben tener blancos.
+        self.blank_tested = set()
 
     def add(self, table, column, value, weak=False):
         if value is None or is_person_column(table, column):
@@ -423,13 +426,21 @@ class DomainHarvest:
                     continue
                 entity, prop = columns[index]
                 literal = self._literal(value)
+                if entity and prop and self._is_null_literal(value):
+                    self.blank_tested.add((key(entity), key(prop)))
                 if entity and prop and literal is not None:
                     self.add(entity, prop, literal)
                     found += 1
         return found
 
+    @staticmethod
+    def _is_null_literal(value):
+        return isinstance(value, dict) and (value.get("Literal") or {}).get("Value") == "null"
+
     def _from_comparison(self, node, aliases):
         entity, prop = self._column_of(node.get("Left"), aliases)
+        if entity and prop and self._is_null_literal(node.get("Right")):
+            self.blank_tested.add((key(entity), key(prop)))
         literal = self._literal(node.get("Right"))
         if entity and prop and literal is not None and node.get("ComparisonKind", 0) == 0:
             self.add(entity, prop, literal)

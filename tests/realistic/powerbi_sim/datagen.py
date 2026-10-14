@@ -93,6 +93,7 @@ class DataGenerator:
         self.harvest = runtime.harvest
         self.seed = runtime.seed
         self._plans = {}
+        self._blank_tested = set(getattr(runtime.harvest, "blank_tested", ()) or ())
         self._classify()
 
     # ------------------------------------------------------------------
@@ -468,7 +469,14 @@ class DataGenerator:
         blankable, generate = plan
         if blankable and rng.random() < 0.015:
             return None
-        return generate(rng, serial, day)
+        value = generate(rng, serial, day)
+        # Columna que un filtro de visual compara con blanco: ~20 % de blancos,
+        # decididos por hash (sin consumir el rng: el resto de la fila no cambia).
+        if (key(table.name), key(column.name)) in self._blank_tested and (
+            seed_int(self.seed, table.name, column.name, serial, "blank") % 100 < 20
+        ):
+            return None
+        return value
 
     def _plan(self, table, column):
         """Analiza la columna una sola vez y devuelve (admite_blancos, generador(rng, serial, día))."""

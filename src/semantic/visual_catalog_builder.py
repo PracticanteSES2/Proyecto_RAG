@@ -6,6 +6,8 @@ import unicodedata
 from collections import defaultdict
 from pathlib import Path
 
+from src.semantic.visual_filters import UnsupportedCondition, parse_condition
+
 
 PBIR_AGGREGATIONS = {
     0: "Sum",
@@ -1046,6 +1048,20 @@ class PBIRVisualCatalogBuilder:
                 )
             )
 
+            # Condición completa (operador incluido): «mes <= 1», «NOT IN
+            # {...}». `values` solo trae los literales y pierde el operador.
+            try:
+                condition = parse_condition(
+                    item,
+                    field.get("column")
+                    if isinstance(field, dict)
+                    else None,
+                )
+                condition_error = None
+            except UnsupportedCondition as error:
+                condition = None
+                condition_error = str(error)
+
             output.append(
                 {
                     "scope":
@@ -1054,6 +1070,13 @@ class PBIRVisualCatalogBuilder:
                         item.get(
                             "name"
                         ),
+                    "condition":
+                        condition,
+                    **(
+                        {"condition_error": condition_error}
+                        if condition_error
+                        else {}
+                    ),
                     "type":
                         item.get(
                             "type"

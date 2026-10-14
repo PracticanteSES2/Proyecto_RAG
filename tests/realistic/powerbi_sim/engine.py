@@ -52,6 +52,9 @@ class ModelRuntime:
             if schema.column(tkey, ckey) is not None:
                 for value in values:
                     self.harvest.add(tkey, ckey, value)
+        self.harvest.blank_tested = {
+            item for item in simulator.pbir_harvest.blank_tested if schema.column(*item) is not None
+        }
         self.harvest.harvest_schema(schema)
         # Valores categóricos citados en la documentación del tablero.
         self.harvest.harvest_documented(schema)
