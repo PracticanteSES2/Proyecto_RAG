@@ -1609,7 +1609,7 @@ class QueryEngine:
             formatted = format_value_es(
                 metric_value,
                 metric_label,
-                plan.get("metric", {}).get("format_string"),
+                plan.get("metric", {}).get("format_string") or plan.get("metric", {}).get("format"),
             )
             values.append(formatted if formatted is not None else metric_value)
             table_rows.append(values)
@@ -1924,6 +1924,8 @@ class QueryEngine:
                                      question=None):
         scored = []
         seen_ids = set()
+        seen_measures = {}
+        key_of = getattr(self.query_plan_builder, "_logical_key", None)
         for item in raw_candidates:
             metric = item.get("metric", {}) or {}
             metric_id = metric.get("metric_id")
@@ -1931,6 +1933,19 @@ class QueryEngine:
             if not label or not metric_id or metric_id in seen_ids:
                 continue
             seen_ids.add(metric_id)
+            # La MISMA medida (modelo, tabla y expresión) publicada en varias
+            # páginas es una sola opción: se responde una vez (ver
+            # _note_same_measure_pages), no se pregunta por página.
+            measure_key = key_of(metric) if callable(key_of) else None
+            if measure_key and measure_key[-1]:
+                if measure_key in seen_measures:
+                    self._think(
+                        "La misma medida aparece en varias páginas",
+                        f"{label}: misma medida que la opción {seen_measures[measure_key]} "
+                        "(modelo, tabla y expresión); se ofrece una sola vez",
+                    )
+                    continue
+                seen_measures[measure_key] = label
             scored.append((float(item.get("score") or 0.0), metric))
         if not scored:
             return []
@@ -1953,6 +1968,7 @@ class QueryEngine:
                 "detail": detail,
                 "description": str(metric.get("description") or "").strip(),
                 "_parts": [report, page, model, str(metric.get("measure") or "").strip()],
+                "_computation": self._computation_text(metric),
                 # Sin página, la descripción muestra al menos el tablero o el
                 # modelo: así dos opciones parecidas nunca son indistinguibles.
                 "_where": (report or model, page),
@@ -1963,6 +1979,18 @@ class QueryEngine:
         # tildes, mayúsculas ni guiones bajos («Total cirugías» = «TOTAL_CIRUGIAS»).
         def label_key(choice):
             return self._normalize_text(choice["label"]) or choice["label"].casefold()
+
+        # Mismo nombre y distinto cálculo (CONSULTAS EN ESPERA = conteo de
+        # OID_CITA en una página y suma de PENDIENTES en otra): lo primero que
+        # las distingue es qué calculan, no la página.
+        groups = {}
+        for choice in choices:
+            groups.setdefault(label_key(choice), []).append(choice)
+        for group in groups.values():
+            computations = {choice.get("_computation") for choice in group}
+            if len(group) > 1 and len(computations) == len(group) and None not in computations:
+                for choice in group:
+                    choice["label"] = f"{choice['label']} ({choice['_computation']})"
 
         for _ in range(4):
             groups = {}
@@ -1989,7 +2017,28 @@ class QueryEngine:
                     choice["label"] = f"{choice['label']} ({number})"
         for choice in choices:
             choice.pop("_parts", None)
+            choice.pop("_computation", None)
         return self._finalize_choices(question, choices, metrics)
+
+    _AGGREGATION_TEXT = {
+        "SUM": "suma de", "SUMX": "suma de", "AVERAGE": "promedio de", "AVERAGEX": "promedio de",
+        "DISTINCTCOUNT": "conteo de", "DISTINCTCOUNTNOBLANK": "conteo de", "COUNT": "conteo de",
+        "COUNTA": "conteo de", "COUNTROWS": "filas de", "MIN": "mínimo de", "MAX": "máximo de",
+        "MEDIAN": "mediana de",
+    }
+
+    def _computation_text(self, metric):
+        """Qué calcula una medida simple, en palabras: «suma de PENDIENTES»,
+        «conteo de OID_CITA». None si la expresión no es una agregación simple."""
+        expression = str(metric.get("base_dax_expression") or metric.get("dax_expression") or "")
+        match = re.match(
+            r"^\s*([A-Z]+)\s*\(\s*'?([^'\[\]()]+?)'?\s*(?:\[([^\]]+)\])?\s*\)",
+            expression, re.IGNORECASE,
+        )
+        if not match or match.group(1).upper() not in self._AGGREGATION_TEXT:
+            return None
+        target = match.group(3) or match.group(2)
+        return f"{self._AGGREGATION_TEXT[match.group(1).upper()]} {target.strip()}"
 
     _NONE_LABEL = "Ninguna de las anteriores"
     _NONE_CAPTION = "Buscar otros indicadores parecidos a la pregunta"
@@ -2001,10 +2050,17 @@ class QueryEngine:
         text = str(prompt or "").strip()
         if not text or text.startswith("Encontré varios indicadores"):
             return ask
+        if "Estos son los más parecidos de otros tableros. " in text:
+            # El tablero nombrado no lo tiene: se dice dónde está el parecido
+            # («... no encontré ese indicador. Lo más parecido está en el
+            # tablero Control Facturación: ¿te refieres a MONTO?»).
+            board = str(choice.get("detail") or "").split(" › ")[0].split(" · ")[0].strip()
+            where = f"Lo más parecido está en {self._board_phrase(board, 'el')}: " if board else ""
+            text = text.replace("Estos son los más parecidos de otros tableros. ", where)
+            if where:
+                ask = f"¿te refieres a {choice['label']}?"
         text = text.replace(
             "Estos son los más parecidos de ese tablero. ", "Encontré uno parecido en ese tablero. ",
-        ).replace(
-            "Estos son los más parecidos de otros tableros. ", "",
         )
         for plural in ("¿Es alguno de estos?", "¿Es alguna de estas?", "¿Cuál necesitas?"):
             if text.endswith(plural):
@@ -3029,10 +3085,10 @@ class QueryEngine:
                     "format": "percent", "unit": "%", "dax": dax_result.get("dax"),
                 }
             else:
-                fmt = (plan.get("metric") or {}).get("format_string")
+                fmt = (plan.get("metric") or {}).get("format_string") or (plan.get("metric") or {}).get("format")
                 measure = {
                     "label": item["label"], "value": value,
-                    "format": fmt if fmt and "%" in str(fmt) else "number",
+                    "format": fmt if fmt and ("%" in str(fmt) or "currency" in str(fmt) or "$" in str(fmt)) else "number",
                     "unit": None, "dax": dax_result.get("dax"),
                 }
             measures.append(measure)
@@ -3205,7 +3261,7 @@ class QueryEngine:
             extra = self._own_filters_text(own.get(index))
             if extra:
                 label = f"{label} ({extra})"
-            fmt = "percent" if item["kind"] == "share" else (item["plan"].get("metric") or {}).get("format_string")
+            fmt = "percent" if item["kind"] == "share" else ((item["plan"].get("metric") or {}).get("format_string") or (item["plan"].get("metric") or {}).get("format"))
             measures.append({"label": label, "format": fmt, "kind": item["kind"]})
             headers.append(label)
 

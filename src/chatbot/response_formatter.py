@@ -465,10 +465,29 @@ def is_percent_metric(label=None, fmt=None, unit=None):
     return any(word in haystack for word in _PERCENT_WORDS)
 
 
+def is_currency_metric(fmt=None, unit=None):
+    """Formato de dinero: «currency» (lo marca el planificador para sumas de
+    MONTO/VALOR/COSTO...) o un formato de Power BI con símbolo de moneda."""
+    text = f"{fmt or ''} {unit or ''}"
+    return "currency" in text.lower() or "$" in text or "€" in text
+
+
+def format_currency_es(value):
+    """4952786591 -> '$ 4.952.786.591' (pesos sin decimales salvo montos pequeños)."""
+    number = _to_number(value)
+    if number is None:
+        return str(value)
+    if abs(number) >= 100:
+        number = round(number)
+    return "$ " + format_number_es(number)
+
+
 def format_value_es(value, label=None, fmt=None, unit=None):
     """Valor ya formateado para mostrar; nunca devuelve 'None'."""
     if is_blank_value(value):
         return None
+    if is_currency_metric(fmt, unit) and not is_percent_metric(label, None, None):
+        return format_currency_es(value)
     if is_percent_metric(label, fmt, unit):
         # Con formato de Power BI '0.0%' el valor crudo es una fracción.
         raw_fraction = True if "%" in str(fmt or "") else None
@@ -770,7 +789,9 @@ def _ranking_text(plan):
 def _lead_scalar(label, value_text, scope, past):
     """Frase inicial de un valor único."""
     match = _COUNT_LABEL_RE.match(_plain(label)) if label else None
-    if match and not value_text.endswith("%"):
+    # Un monto («$ 4.952.786.591») no se cuenta: «TOTAL FACTURACION: $ ...»,
+    # no «Hay 4.952.786.591 facturacion».
+    if match and not value_text.endswith("%") and not value_text.startswith("$"):
         noun = match.group("noun").strip().lower()
         verb = "hubo" if past else "hay"
         sentence = f"{scope}, {verb}" if scope else verb
