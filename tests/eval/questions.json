@@ -3400,6 +3400,603 @@
         {"user": "cuanto peso hubo en lavanderia en enero de 2026", "expect": {"route": ["powerbi"], "metrics_any": ["peso"]}},
         {"user": "total atenciones por servicio en 2024", "expect": {"route": ["powerbi", "clarification"], "metrics_any": ["atenciones"], "options_any": ["atenciones"], "filters": [{"year": 2024}], "answer_none": ["enero 2026", "Peso"]}}
       ]
+    },
+    {
+      "id": "b_hospital_ocupacion_general_hoy",
+      "category": "b_kpi_periodo",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/1. Documentacion Inicio.docx",
+        "seccion": "% Ocupación"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "contrapregunta %OCUPACION/CamasFiltradas (CamasFiltradas empata por el alias «%OCUPACIÓN» del visual)"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Prueba con usuarios del hospital (2026-10-14): «ocupación general hoy en el hospital» es el %OCUPACION de hoy, un solo valor y sin contrapregunta. CAMAS DISPONIBLES es el estado actual de las camas (sin fecha): «hoy» no se filtra con la fecha de otra tabla y «general»/«hospital» no son SERVICIOS = HOSPITALIZACIÓN GENERAL. El propietario obtuvo la contrapregunta %OCUPACION/CamasFiltradas (empate 0.68; CamasFiltradas solo por el alias «%OCUPACIÓN» del visual de INICIO) y, al elegir, 76,08 % con «No pude aplicar: hospital» tras 20 s explorando valores. Simulador: 45 camas ocupadas / 62 filtradas = 72,58 %. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones): el catálogo del propietario no lo tiene y sus «% Ocupación»/«Camas disponibles» tapan el fallo real.",
+      "turns": [
+        {
+          "user": "necesito saber la ocupación general hoy en el hospital",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "scalar",
+            "metrics_any": [
+              "%OCUPACION"
+            ],
+            "models_any": [
+              "briefing"
+            ],
+            "numbers": [
+              72.58
+            ],
+            "answer_none": [
+              "No pude aplicar",
+              "HOSPITALIZACIÓN GENERAL"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_hospital_ocupacion_general_boton",
+      "category": "i_multiturno",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/1. Documentacion Inicio.docx",
+        "seccion": "% Ocupación"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "al elegir %OCUPACIÓN filtra SERVICIOS = HOSPITALIZACIÓN GENERAL por «general», aplica «hoy» con la fecha de ATENCIONES_SERVICIO y declara «No pude aplicar: hospital»"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Camino del propietario para «ocupación general hoy»: si aún se contrapregunta, al elegir %OCUPACIÓN la respuesta es el % general (72,58 %), sin filtrar SERVICIOS = HOSPITALIZACIÓN GENERAL por «general» ni declarar «No pude aplicar: hospital». El botón es opcional: si el primer turno ya responde, no aplica. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones): el catálogo del propietario no lo tiene y sus «% Ocupación»/«Camas disponibles» tapan el fallo real.",
+      "turns": [
+        {
+          "user": "necesito saber la ocupación general hoy en el hospital",
+          "expect": {
+            "route": [
+              "clarification",
+              "powerbi"
+            ],
+            "answer_none": [
+              "No pude aplicar",
+              "HOSPITALIZACIÓN GENERAL"
+            ]
+          }
+        },
+        {
+          "button": {
+            "label_any": [
+              "%OCUPACI"
+            ]
+          },
+          "opcional": true,
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "scalar",
+            "numbers": [
+              72.58
+            ],
+            "answer_none": [
+              "No pude aplicar",
+              "HOSPITALIZACIÓN GENERAL"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_hospital_detalle_ocupacion_aseguradores",
+      "category": "d_agrupado",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/6. Documentacion Tablero Detalle Ocupación.docx",
+        "seccion": "Tabla de pacientes por aseguradora"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "contrapregunta %OCUPACION/CamasFiltradas/%OCUPACIONALC; las opciones por aseguradora se depuran por no compartir «detalle ocupacion»"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Prueba con usuarios (2026-10-14): «el detalle de ocupación por aseguradores» pide una TABLA de la ocupación por EPS (pacientes hospitalizados por TERNOMCOM: PACIENTES X ASEGURADORA, página DETALLE OCUPACIÓN / visual «PACIENTES por ASEGURADORA», o una fuente equivalente). El propietario recibió %OCUPACION / CamasFiltradas / %OCUPACIONALC (TABLERO EPS) y un escalar con «No pude aplicar: detalle aseguradores»; las opciones con «asegurador» se depuraron por no compartir «detalle ocupacion». Simulador: 43 pacientes (NUEVA EPS 11, SANITAS EPS 7, SURA EPS 6...). Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones): el catálogo del propietario no lo tiene y sus «% Ocupación»/«Camas disponibles» tapan el fallo real.",
+      "turns": [
+        {
+          "user": "necesito el detalle de ocupación por aseguradores",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "group_by_any": [
+              "TERNOMCOM",
+              "asegura"
+            ],
+            "models_any": [
+              "briefing"
+            ],
+            "table_min_rows": 5,
+            "answer_all": [
+              "NUEVA EPS",
+              "SANITAS EPS"
+            ],
+            "answer_none": [
+              "No pude aplicar"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_hospital_detalle_aseguradores_boton",
+      "category": "i_multiturno",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/6. Documentacion Tablero Detalle Ocupación.docx",
+        "seccion": "Tabla de pacientes por aseguradora"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "PACIENTES por ASEGURADORA no está entre las opciones (depurada)"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Si «el detalle de ocupación por aseguradores» contrapregunta, entre las opciones está PACIENTES por ASEGURADORA (los usuarios dicen que con ella funciona) y al elegirla responde la tabla por EPS. Botón opcional: si el primer turno ya da la tabla, no aplica. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones): el catálogo del propietario no lo tiene y sus «% Ocupación»/«Camas disponibles» tapan el fallo real.",
+      "turns": [
+        {
+          "user": "necesito el detalle de ocupación por aseguradores",
+          "expect": {
+            "route": [
+              "clarification",
+              "powerbi"
+            ],
+            "answer_none": [
+              "No pude aplicar"
+            ]
+          }
+        },
+        {
+          "button": {
+            "label_any": [
+              "PACIENTES por ASEGURADORA",
+              "aseguradora"
+            ]
+          },
+          "opcional": true,
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "group_by_any": [
+              "TERNOMCOM",
+              "asegura"
+            ],
+            "numbers": [
+              11,
+              7
+            ],
+            "answer_all": [
+              "NUEVA EPS"
+            ],
+            "answer_none": [
+              "No pude aplicar"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_hospital_camas_disponibles_hosp_general",
+      "category": "c_kpi_filtro",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/2. Documentacion Tablero Detalle Gestion Camas.docx",
+        "seccion": "Estado de las camas por servicio"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "contrapregunta HOSPITALIZACIÓN (Demanda Insatisfecha)/CAMAS; no hay respuesta con lista de camas"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Prueba con usuarios (2026-10-14): «cuántas camas hay disponibles en hospitalización general» pide el total de camas DISPONIBLES de HOSPITALIZACIÓN GENERAL (CAMAS DISPONIBLES[ESTADOS_CAM] = DISPONIBLE y SERVICIOS = HOSPITALIZACIÓN GENERAL) Y la lista de esas camas (código de cama y servicio). El propietario recibió HOSPITALIZACIÓN (Demanda Insatisfecha), CAMAS, TOTAL_SOLICITUD_CAMAS y CamasFiltradas, y «disponibles» no se aplicó (se tomó como el nombre de la tabla CAMAS DISPONIBLES). Simulador: 6 camas (403, 407, 411, 415, 419, 422); 401 está ocupada. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones): el catálogo del propietario no lo tiene y sus «% Ocupación»/«Camas disponibles» tapan el fallo real.",
+      "turns": [
+        {
+          "user": "cuántas camas hay disponibles en hospitalización general",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "models_any": [
+              "briefing"
+            ],
+            "metrics_any": [
+              "CAMAS"
+            ],
+            "filters": [
+              {
+                "column": "ESTADOS_CAM",
+                "value": "DISPONIBLE"
+              },
+              {
+                "column": "SERVICIOS",
+                "value": "HOSPITALIZACIÓN GENERAL"
+              }
+            ],
+            "allow_declared_filters": false,
+            "numbers": [
+              6
+            ],
+            "table_columns": [
+              [
+                "cama",
+                "HCACODIGO"
+              ],
+              [
+                "servicio"
+              ]
+            ],
+            "answer_all": [
+              "403",
+              "407",
+              "411",
+              "415",
+              "419",
+              "422"
+            ],
+            "answer_none": [
+              "No pude aplicar",
+              "401"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_hospital_camas_disponibles_boton",
+      "category": "i_multiturno",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/2. Documentacion Tablero Detalle Gestion Camas.docx",
+        "seccion": "Estado de las camas por servicio"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "con CAMAS «disponibles» se toma como la tabla CAMAS DISPONIBLES: no filtra ESTADOS_CAM = DISPONIBLE (26 camas del servicio)"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Camino del propietario: si «cuántas camas hay disponibles en hospitalización general» contrapregunta y se elige CAMAS, la respuesta aplica ESTADOS_CAM = DISPONIBLE (no solo el servicio: hoy da las 26 camas del servicio) y lista las camas. Botón opcional. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones): el catálogo del propietario no lo tiene y sus «% Ocupación»/«Camas disponibles» tapan el fallo real.",
+      "turns": [
+        {
+          "user": "cuántas camas hay disponibles en hospitalización general",
+          "expect": {
+            "route": [
+              "clarification",
+              "powerbi"
+            ],
+            "answer_none": [
+              "No pude aplicar"
+            ]
+          }
+        },
+        {
+          "button": {
+            "label_any": [
+              "CAMAS"
+            ]
+          },
+          "opcional": true,
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "filters": [
+              {
+                "column": "ESTADOS_CAM",
+                "value": "DISPONIBLE"
+              }
+            ],
+            "allow_declared_filters": false,
+            "numbers": [
+              6
+            ],
+            "answer_all": [
+              "403",
+              "407",
+              "411",
+              "415",
+              "419",
+              "422"
+            ],
+            "answer_none": [
+              "401"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_hospital_camas_disponibles_uci",
+      "category": "c_kpi_filtro",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/2. Documentacion Tablero Detalle Gestion Camas.docx",
+        "seccion": "Estado de las camas por servicio"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "«qué camas» no se detecta como pregunta de datos: responde documentación (RAG)"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Variante de lista: «qué camas» pide el detalle (código de cama) de las camas DISPONIBLES de UCI ADULTOS, no un número ni documentación. Simulador: solo UCI-06. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones): el catálogo del propietario no lo tiene y sus «% Ocupación»/«Camas disponibles» tapan el fallo real.",
+      "turns": [
+        {
+          "user": "qué camas están disponibles en UCI",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "models_any": [
+              "briefing"
+            ],
+            "filters": [
+              {
+                "column": "ESTADOS_CAM",
+                "value": "DISPONIBLE"
+              },
+              {
+                "column": "SERVICIOS",
+                "value": "UCI"
+              }
+            ],
+            "allow_declared_filters": false,
+            "table_columns": [
+              [
+                "cama",
+                "HCACODIGO"
+              ]
+            ],
+            "answer_all": [
+              "UCI-06"
+            ],
+            "answer_none": [
+              "UCI-01",
+              "No pude aplicar"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_hospital_ocupacion_por_servicio_hoy",
+      "category": "d_agrupado",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/1. Documentacion Inicio.docx",
+        "seccion": "% Ocupación por servicio"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "contrapregunta %OCUPACION/CamasFiltradas en lugar de la tabla por servicio"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Variante agrupada: %OCUPACION por SERVICIOS de CAMAS DISPONIBLES (estado actual; «hoy» no exige una fecha que la tabla no tiene). Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones): el catálogo del propietario no lo tiene y sus «% Ocupación»/«Camas disponibles» tapan el fallo real.",
+      "turns": [
+        {
+          "user": "ocupación por servicio hoy",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "metrics_any": [
+              "%OCUPACION"
+            ],
+            "models_any": [
+              "briefing"
+            ],
+            "group_by_any": [
+              "SERVICIOS",
+              "servicio"
+            ],
+            "table_min_rows": 5,
+            "answer_all": [
+              "UCI ADULTOS",
+              "PEDIATR"
+            ],
+            "answer_none": [
+              "no tiene una fecha"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "c_hospital_lista_camas_bloqueadas",
+      "category": "c_kpi_filtro",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/2. Documentacion Tablero Detalle Gestion Camas.docx",
+        "seccion": "Estado de las camas por servicio"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "«lista de camas bloqueadas» no se detecta como pregunta de datos: responde documentación (RAG)"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Variante de lista: «lista de camas bloqueadas» es el detalle (cama y servicio) de CAMAS DISPONIBLES con ESTADOS_CAM = BLOQUEADA. Simulador: 412, 321, 322, UCI-10, 609, 610 y 708. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones): el catálogo del propietario no lo tiene y sus «% Ocupación»/«Camas disponibles» tapan el fallo real.",
+      "turns": [
+        {
+          "user": "lista de camas bloqueadas",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "models_any": [
+              "briefing"
+            ],
+            "filters": [
+              {
+                "column": "ESTADOS_CAM",
+                "value": "BLOQUEADA"
+              }
+            ],
+            "allow_declared_filters": false,
+            "table_columns": [
+              [
+                "cama",
+                "HCACODIGO"
+              ],
+              [
+                "servicio"
+              ]
+            ],
+            "table_min_rows": 7,
+            "answer_all": [
+              "412",
+              "UCI-10",
+              "708"
+            ],
+            "answer_none": [
+              "403",
+              "No pude aplicar"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_hospital_pacientes_por_aseguradora",
+      "category": "d_agrupado",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/6. Documentacion Tablero Detalle Ocupación.docx",
+        "seccion": "Tabla de pacientes por aseguradora"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Pregunta estructurada que según los usuarios funciona (eligiendo «PACIENTES por ASEGURADORA»): pacientes por EPS agrupando por una columna de la tabla de la medida (PACIENTES X ASEGURADORA[TERNOMCOM]). Sin los parches del arnés (SIM_PATCHES=0) responde PACIENTES OBSERVADOS POR MES agrupado por EGRESOS_POR_SERVICIO[TERNOMCOM], que no filtra su tabla (2.410 en cada fila).",
+      "turns": [
+        {
+          "user": "¿Cuántos pacientes hay por aseguradora?",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "metrics_any": [
+              "PACIENTES"
+            ],
+            "group_by_any": [
+              "PACIENTES X ASEGURADORA"
+            ],
+            "numbers": [
+              11,
+              7
+            ],
+            "answer_all": [
+              "NUEVA EPS"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_pacientes_observados_por_aseguradora",
+      "category": "d_agrupado",
+      "tablero": "Atenciones Institucionales",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/5 Documentacion Tablero Pacientes Observados.docx",
+        "seccion": "Pacientes observados"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "agrupa por EGRESOS_POR_SERVICIO[TERNOMCOM], tabla que no filtra CONSULTAS PRIORITARIAS (2.410 en cada fila)"
+      },
+      "descripcion": "La agrupación debe usar una columna que filtre la tabla de la medida: PACIENTES OBSERVADOS POR MES = COUNT('CONSULTAS PRIORITARIAS'[ASEGURADOR]) se agrupa por 'CONSULTAS PRIORITARIAS'[ASEGURADOR] (o su TERNOMCOM), no por 'EGRESOS_POR_SERVICIO'[TERNOMCOM] (tabla sin relación: el mismo 2.410 en cada fila).",
+      "turns": [
+        {
+          "user": "cuantos pacientes observados hay por aseguradora",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "metrics_any": [
+              "OBSERVADOS"
+            ],
+            "group_by_any": [
+              "CONSULTAS PRIORITARIAS"
+            ]
+          }
+        }
+      ]
     }
   ]
 }
