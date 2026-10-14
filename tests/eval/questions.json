@@ -4202,9 +4202,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«por areas de servicio» se busca como valor de filtro: unsupported_filter"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «por areas de servicio» (plural) agrupa MONTO_FACTURADO por FACTURADORES[AREA_SERVICIO] (columna de la tabla de detalle de FACTURADORES, «AREA DE SERVICIO»). Línea base: lo toma como un valor de filtro y responde «no pude verificar el valor del filtro solicitado».",
       "turns": [
         {
@@ -4239,9 +4236,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "no reconoce GEEDESCRI como especialidad: «no pude verificar la dimensión solicitada»"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «por especialidades» agrupa las solicitudes por REFERENCIA[GEEDESCRI] (la especialidad; tabla «Cantidad de solicitudes» por GEEDESCRI en REFERENCIA – INICIO). Línea base: «no pude verificar la dimensión solicitada».",
       "turns": [
         {
@@ -4277,9 +4271,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "no agrupa por PACIENTES X ASEGURADORA[ESPECIALIDAD]: «no pude verificar la dimensión solicitada»"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -4545,15 +4536,12 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "agrupa por TercerosRelacionados y filtra con ATENCIONES_SERVICIO[FECHA]: 7 en cada fila"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
         ]
       },
-      "descripcion": "Variante de generalidad (hospital 2026-10-14). «egresos por eps en 2025»: si contrapregunta, al elegir EGRESOS (BRIEFING) la tabla por EPS debe usar una columna y una fecha que filtren EGRESOS. Línea base: agrupa por TercerosRelacionados[nombre_tercero] y filtra 2025 con ATENCIONES_SERVICIO[FECHA] (otra tabla): 7 en cada fila. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones), como los casos del hospital: el catálogo del propietario no lo tiene.",
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «egresos por eps en 2025»: si contrapregunta, al elegir EGRESOS (BRIEFING) la tabla por EPS debe usar una columna y una fecha que filtren EGRESOS. Línea base: agrupa por TercerosRelacionados[nombre_tercero] y filtra 2025 con ATENCIONES_SERVICIO[FECHA] (otra tabla): 7 en cada fila. EGRESOS (BRIEFING) no tiene ninguna columna de EPS que lo filtre (TercerosRelacionados no se relaciona con EGRESOS), así que ya no se ofrece para «por eps»: el botón elige la opción de egresos que quede y su tabla no puede repetir el mismo valor. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones), como los casos del hospital: el catálogo del propietario no lo tiene.",
       "turns": [
         {
           "user": "egresos por eps en 2025",
@@ -4570,7 +4558,8 @@
         {
           "button": {
             "label_any": [
-              "BRIEFING"
+              "BRIEFING",
+              "egresos"
             ]
           },
           "opcional": true,
