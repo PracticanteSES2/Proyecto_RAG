@@ -720,7 +720,7 @@ class SlowProbeProvider(CountingProvider):
 
 
 def test_slow_probe_has_its_own_short_limit_and_is_not_paid_again():
-    provider = SlowProbeProvider(CAMAS)
+    provider = SlowProbeProvider({**CAMAS, ("T", "FECHA_TEXTO"): ["2026-01-01"]})
     clock = Clock()
     cache = DomainCache(provider, ttl_s=600, timeout_s=8, card_timeout_s=3, clock=clock)
     cache.begin_turn(question="ocupacion general")
@@ -737,6 +737,10 @@ def test_slow_probe_has_its_own_short_limit_and_is_not_paid_again():
     assert sum(1 for _, card in provider.timeouts if card) == 1, "la cardinalidad de ese modelo no se paga otra vez"
     assert cache.turn_stats()["card_skipped"] >= 1
     assert any("sin consulta de cardinalidad" in line for line in cache.describe_turn())
+    # Sin poder contar barato, una fecha/hora en texto no se consulta sola para explorar.
+    before = len(provider.queries)
+    assert cache.get("M", "T", "FECHA_TEXTO") == [] and len(provider.queries) == before
+    assert cache.get("M", "T", "FECHA_TEXTO", essential=True) is not None and len(provider.queries) == before + 1
     cache.end_turn()
     # Otro modelo sí la intenta; y al vencer ttl_s el mismo modelo también.
     cache.begin_turn()

@@ -683,6 +683,13 @@ class DomainCache:
                 return entry[1]
             if self._skip_failed(key) and not (essential and key in self._timed_out_at):
                 return None   # (un filtro esencial sí reintenta, sin límite, lo que venció el tiempo)
+            if not essential and self._unverifiable_high(semantic_model, table, column):
+                # Por el nombre es de alta cardinalidad (fecha/hora en texto,
+                # código, identificador) y en este modelo no se pudo contar
+                # barato: consultarla sola costaría segundos (o vencería el
+                # límite) para un valor que nadie nombra así.
+                self.note_avoided(semantic_model, table, column)
+                return []
             if not essential and self._recently_timed_out(key):
                 # Venció el tiempo límite hace poco: no se vuelve a esperar en cada
                 # turno (se reintenta al pasar POWERBI_DOMAIN_TTL_S).
@@ -692,6 +699,17 @@ class DomainCache:
                 self._count("skipped")
                 return None
             return self._fetch_one(semantic_model, table, column, limit, timeout=not essential)
+
+    def _unverifiable_high(self, semantic_model, table, column):
+        """¿Columna de alta cardinalidad por el nombre cuya cardinalidad no se
+        conoce porque en su modelo la consulta de cardinalidad no es barata (o
+        se canceló para ella)? (Un código con un código en la pregunta, no.)"""
+        if not likely_high_cardinality(column) or (code_column(column) and self._turn_has_code):
+            return False
+        key = self.key(semantic_model, table, column)
+        if key in self._entries or self.cardinality(semantic_model, table, column) is not None:
+            return False
+        return self.slow_probe(semantic_model) is not None or self._probe_unknown(semantic_model, table, column)
 
     def _recently_timed_out(self, key):
         moment = self._timed_out_at.get(key)
