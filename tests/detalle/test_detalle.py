@@ -169,6 +169,28 @@ def test_counted_entity_and_listable():
     # Un conteo de una cifra (no un código) no identifica registros.
     assert listable_entity({**CAMAS_METRIC, "model_expression": "COUNT('CAMAS DISPONIBLES'[MOSTRAR_6TO])"},
                            builder) is None
+    # COUNT de una columna descriptiva cuenta filas, no entidades; DISTINCTCOUNT de texto sí.
+    assert listable_entity({**CAMAS_METRIC, "model_expression": "COUNT('CONSULTAS PRIORITARIAS'[ASEGURADOR])"},
+                           builder) is None
+    assert listable_entity({**CAMAS_METRIC, "model_expression": "DISTINCTCOUNT('X'[ASEGURADOR])"}, builder)
+    assert listable_entity({**CAMAS_METRIC, "model_expression": "DISTINCTCOUNT('PENDIENTES'[HCNFOLIO])"}, builder)
+
+
+def test_listable_choice_only_for_explicit_lists():
+    """Desempate: solo con lista explícita y solo entre las opciones que se ofrecerían."""
+    suma = {"metric_id": "h1", "label": "HOSPITALIZACIÓN", "table": "SOLICITUD_CAMAS",
+            "model_expression": "SUM('SOLICITUD_CAMAS'[DEMANDA_INS])"}
+    filtradas = {**CAMAS_METRIC, "metric_id": "f1", "label": "CamasFiltradas",
+                 "model_expression": "CALCULATE(DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]), FILTER(...))"}
+    plan = {"status": "ambiguous", "metric_resolution": {"candidates": [
+        {"metric": suma, "score": 1.21}, {"metric": CAMAS_METRIC, "score": 1.19},
+        {"metric": filtradas, "score": 0.43}]}}
+    engine = _engine(FakeProvider({}))
+    assert engine._listable_choice("lista de camas bloqueadas", plan)["metric_id"] == "c1"
+    assert engine._listable_choice("cuántas camas hay disponibles en UCI", plan) is None
+    close = json.loads(json.dumps(plan))
+    close["metric_resolution"]["candidates"][2]["score"] = 1.2
+    assert engine._listable_choice("lista de camas bloqueadas", close) is None, "dos listables: se pregunta"
 
 
 def test_private_columns_policy():

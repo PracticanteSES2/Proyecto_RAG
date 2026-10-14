@@ -61,7 +61,7 @@ _LOCATION_WORDS = (
     "pabellon", "sala", "bloque",
 )
 # Nombre de columna con aspecto de código o identificador de la entidad.
-_CODE_RE = re.compile(r"cod|codigo|numero|^num|nro|consec|^id|id$|cama|placa|serial|ingreso|radicado")
+_CODE_RE = re.compile(r"cod|codigo|numero|^num|nro|consec|^id|id$|cama|placa|serial|ingreso|radicado|folio")
 _COUNT_RE = re.compile(
     r"\b(?P<function>DISTINCTCOUNTNOBLANK|DISTINCTCOUNT|COUNTA|COUNT)\s*\(\s*"
     r"(?:'(?P<qtable>(?:[^']|'')+)'|(?P<table>[A-Za-z_][\w ]*?))?\s*\[(?P<column>[^\]]+)\]\s*\)",
@@ -181,14 +181,17 @@ def counted_entity(expression):
     return None
 
 
-def identifier_like(column, column_type=None):
-    """¿La columna puede identificar cada registro contado (código, número de
-    cama, consecutivo...)? Una fecha o una cifra cualquiera no."""
+def identifier_like(column, column_type=None, function=None):
+    """¿La columna puede identificar cada registro contado? Sí: nombre de
+    código (código, número de cama, folio, consecutivo...) o un DISTINCTCOUNT
+    de texto (cuenta entidades distintas). No: una fecha, una cifra o un
+    COUNT de una columna descriptiva (COUNT(T[ASEGURADOR]) cuenta filas, no
+    aseguradoras: listar por ella no daría una fila por registro)."""
     if not column or column_type == "date":
         return False
     if _CODE_RE.search(compact(column)):
         return True
-    return column_type in (None, "text")
+    return str(function or "").upper().startswith("DISTINCTCOUNT") and column_type in (None, "text")
 
 
 # ---------------------------------------------------------------------------
@@ -328,7 +331,8 @@ def listable_entity(metric, builder=None):
         return entity
     if is_technical_column(entity["column"]):
         return None
-    if not identifier_like(entity["column"], _column_type(builder, model, table, entity["column"])):
+    if not identifier_like(entity["column"], _column_type(builder, model, table, entity["column"]),
+                           entity.get("function")):
         return None
     return entity
 

@@ -1769,8 +1769,8 @@ class QueryEngine:
     # ========================================================
 
     def _listable_choice(self, question, plan):
-        """Pregunta de listado («lista de camas bloqueadas», «cuántas camas hay
-        disponibles en ...») con varios indicadores posibles: si exactamente
+        """Pregunta de listado explícita («lista de camas bloqueadas», «qué
+        camas están disponibles») con varios indicadores posibles: si exactamente
         uno cuenta registros identificables de la entidad nombrada (CAMAS =
         COUNT(HCACODIGO) frente a HOSPITALIZACIÓN = SUM(DEMANDA_INS) o
         NUMERO_CAMAS, un número fijo por servicio), se usa ese sin
@@ -1781,7 +1781,11 @@ class QueryEngine:
         if not isinstance(plan, dict) or plan.get("status") != "ambiguous":
             return None
         request = detail_request(question)
-        if not request:
+        # Solo con una lista pedida de forma explícita («lista de», «qué
+        # camas están…»): un indicador que no cuenta registros no puede
+        # responderla. «¿Cuántas … hay?» también se responde con un total, así
+        # que la contrapregunta entre indicadores se mantiene.
+        if not request or request.get("strength") != "explicit":
             return None
         resolution = plan.get("metric_resolution") or {}
         items = [
