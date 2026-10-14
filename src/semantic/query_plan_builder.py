@@ -157,7 +157,7 @@ FILLER_WORDS = {
 
 DIMENSION_SYNONYMS = {
     "servicio": {"servicio", "servicios", "unidad", "unidades", "area", "areas"},
-    "aseguradora": {"asegurador", "aseguradora", "aseguradoras", "eps", "pagador", "pagadores"},
+    "aseguradora": {"asegurador", "aseguradora", "aseguradoras", "aseguradores", "eps", "pagador", "pagadores"},
     "especialidad": {"especialidad", "especialidades"},
     "cirujano": {"cirujano", "cirujanos", "medico", "medicos"},
     "estado": {"estado", "estados", "situacion"},
@@ -296,6 +296,24 @@ def _tokens_match_loosely(left, right):
     if left == right or _token_similarity(left, right) >= 0.88:
         return True
     return min(len(left), len(right)) >= 5 and _stem_token(left) == _stem_token(right)
+
+
+def _alias_prefix(text, alias):
+    """Parte inicial de `text` que nombra `alias` palabra por palabra, admitiendo
+    plural/género/derivación («aseguradores» = ASEGURADORA, «servicios» =
+    SERVICIO); None si no empieza por él. Las palabras cortas (≤ 4 letras)
+    deben ser iguales o tener la misma forma canónica."""
+    text_words = normalize_text(text).split()
+    alias_words = normalize_text(alias).split()
+    if not alias_words or len(text_words) < len(alias_words):
+        return None
+    for word, other in zip(text_words, alias_words):
+        if word == other or canonical_token(word) == canonical_token(other):
+            continue
+        if min(len(word), len(other)) >= 5 and _stem_token(word) == _stem_token(other):
+            continue
+        return None
+    return " ".join(text_words[:len(alias_words)])
 
 
 # Frases equivalentes con la MISMA polaridad («sin responder» = «sin
@@ -1272,9 +1290,77 @@ class QueryPlanBuilder:
                             "column": column,
                             "level": field.get("level"),
                             "query_ref": field.get("query_ref"),
+                            "display_name": field.get("display_name"),
+                            "native_query_ref": field.get("native_query_ref"),
                             "aliases": self._field_aliases(field),
                         })
+        # Campo sin nombre de negocio (la dona «HSUNOMBRE» de DETALLE OCUPACIÓN):
+        # hereda los nombres con que otros visuales del modelo muestran esa
+        # columna (HSUNOMBRE -> «SERVICIO»). Funciona con catálogos ya construidos.
+        self._business_names_index = self._build_business_names_index(fields)
+        for field in fields:
+            names = [field.get("display_name"), field.get("native_query_ref")]
+            if any(self._business_column_name(name, field.get("column")) for name in names):
+                continue
+            for name in self._column_business_names(
+                field.get("semantic_model"), field.get("column"), field.get("table"),
+            ):
+                field["aliases"] = _unique_strings([*field["aliases"], *self._field_aliases({"display_name": name})])
         return fields
+
+    @staticmethod
+    def _business_column_name(name, column):
+        """Nombre de negocio de una columna en un visual («ASEGURADORA» para
+        TERNOMCOM), normalizado y sin dígitos finales («SERVICIO1»); None si es
+        el nombre técnico, una agregación («Recuento de X», «Sum(T.C)») o vacío."""
+        text = re.sub(r"\s*\d+$", "", str(name or "")).strip()
+        norm = normalize_text(text)
+        if (
+            not norm or len(norm) < 3 or len(norm.split()) > 3 or "(" in text or "." in text
+            or norm == normalize_text(column)
+            or re.match(r"^(?:recuento|conteo|count|suma|sum|promedio|average|total)\b", norm)
+        ):
+            return None
+        return text
+
+    def _build_business_names_index(self, fields):
+        index = {}
+        for field in fields:
+            key = (normalize_text(field.get("semantic_model")), normalize_text(field.get("column")))
+            for name in (field.get("display_name"), field.get("native_query_ref")):
+                business = self._business_column_name(name, field.get("column"))
+                item = (normalize_text(field.get("table")), business)
+                if business and item not in index.setdefault(key, []):
+                    index[key].append(item)
+        return index
+
+    @staticmethod
+    def _technical_code_column(column):
+        """Nombre técnico de una sola palabra que no es una palabra de negocio
+        ni de tiempo (TERNOMCOM, HSUNOMBRE, HCACODIGO, GEEDESCRI): significa lo
+        mismo en todas las tablas del modelo. FECHA o ESTADO no (cada tabla le
+        da su propio sentido: «FECHA INGRESO», «ESTADO TRÁMITE»)."""
+        norm = normalize_text(column)
+        if not norm or " " in norm or len(norm) < 6 or norm in TEMPORAL_WORDS:
+            return False
+        return not any(norm in synonyms for synonyms in DIMENSION_SYNONYMS.values())
+
+    def _column_business_names(self, semantic_model, column, table=None):
+        """Nombres de negocio con que los visuales del modelo muestran una
+        columna: los de la misma tabla y, si es un código técnico, los de
+        cualquier tabla (TERNOMCOM -> «ASEGURADOR», «ASEGURADORA»; HSUNOMBRE
+        -> «SERVICIO»). Sirve de alias en tiempo de ejecución sin reconstruir
+        los catálogos (el catálogo visual ya guarda displayName/nativeQueryRef
+        de cada columna)."""
+        index = self.__dict__.get("_business_names_index")
+        if index is None:
+            index = self._business_names_index = self._build_business_names_index(self.dimension_fields or [])
+        anywhere = self._technical_code_column(column)
+        table = normalize_text(table)
+        return _unique_strings(
+            name for owner, name in index.get((normalize_text(semantic_model), normalize_text(column)), [])
+            if anywhere or not table or owner == table
+        )
 
     def _iter_filters(self, value):
         if isinstance(value, list):
@@ -1426,9 +1512,14 @@ class QueryPlanBuilder:
     def _expression_fact_table(self, semantic_model, metric):
         """Única tabla (que no sea calendario/medidas) que la expresión de la
         medida referencia como 'TABLA'[columna] o TABLA[columna], o None."""
+        used = self._expression_tables(semantic_model, metric)
+        return next(iter(used)) if len(used) == 1 else None
+
+    def _expression_tables(self, semantic_model, metric):
+        """Tablas (que no sean calendario/medidas) que nombra la expresión de la medida."""
         expression = str(self._measure_expression(semantic_model, metric) or "")
         if not expression:
-            return None
+            return set()
         tables = {
             table.get("name") for table in self._technical_catalog(semantic_model).get("tables", []) or []
             if table.get("name") and not self._CALENDAR_TABLE_RE.match(normalize_text(table.get("name")))
@@ -1440,7 +1531,7 @@ class QueryPlanBuilder:
             or re.search(r"(?:COUNTROWS|RELATEDTABLE|VALUES|ALL|FILTER)\s*\(\s*'?" + re.escape(name) + r"'?\s*[),]",
                          expression, re.IGNORECASE)
         }
-        return next(iter(used)) if len(used) == 1 else None
+        return used
 
     def _with_technical_dimensions(self, metric, candidates):
         """Dimensiones del catálogo técnico para métricas SIN visual.
@@ -1497,7 +1588,7 @@ class QueryPlanBuilder:
             if key in seen:
                 continue
             seen.add(key)
-            aliases = self._technical_field_aliases(name)
+            aliases = self._technical_column_aliases(semantic_model, table.get("name"), name)
             if column_type == "date" and not words & TEMPORAL_WORDS:
                 aliases.append("fecha")  # «FechaParto»: es la fecha de la tabla
             technical.append({
@@ -1511,6 +1602,198 @@ class QueryPlanBuilder:
         result = adjusted + technical
         result.sort(key=lambda item: item.get("relevance_score", 0), reverse=True)
         return result
+
+    def _technical_column_aliases(self, semantic_model, table, column):
+        """Alias de una columna del catálogo técnico: su nombre, sus sinónimos
+        y los nombres de negocio con que la muestran los visuales del modelo."""
+        aliases = self._technical_field_aliases(column)
+        for name in self._column_business_names(semantic_model, column, table):
+            aliases.extend(self._field_aliases({"display_name": name}))
+        return _unique_strings(aliases)
+
+    # ---------------- relación de una columna con el indicador ----------------
+    # Una columna solo sirve para agrupar, ordenar o filtrar un indicador si su
+    # tabla lo filtra. Regla (`_dimension_relation`):
+    # - «own»: la tabla del campo es la tabla de hechos del indicador. Siempre vale.
+    # - «related»: la expresión del indicador nombra esa tabla, o las relaciones
+    #   activas del modelo la conectan con la tabla de hechos (dimensión y
+    #   dimensión de la dimensión, como `_related_tables`).
+    # - «unrelated»: (a) el modelo declara sus relaciones (catálogo técnico con
+    #   tablas y la clave «relationships», aunque la lista esté vacía:
+    #   INFO.VIEW.RELATIONSHIPS las devuelve todas; BRIEFING no tiene ninguna y
+    #   sus tablas son independientes) y ninguna conecta esa tabla; o (b) sin
+    #   relaciones declaradas, la tabla de hechos tiene su PROPIA columna con el
+    #   mismo significado (mismo alias de negocio, p. ej. ASEGURADOR frente al
+    #   TERNOMCOM «ASEGURADOR» de otra tabla, o una fecha propia frente a la
+    #   fecha de otra tabla): se prefiere la propia.
+    # - «unknown»: falta información (tabla de hechos desconocida o de medidas,
+    #   expresión que no la nombra, sin relaciones ni columna equivalente): el
+    #   campo se conserva como antes, para no dejar sin dimensiones a los
+    #   modelos sin metadata de relaciones.
+    def _has_relationship_metadata(self, semantic_model):
+        catalog = self._technical_catalog(semantic_model)
+        return bool(catalog.get("tables")) and "relationships" in catalog
+
+    def _fact_table_entry(self, metric):
+        """Tabla de hechos del indicador en el catálogo técnico (o None)."""
+        table_name = self._metric_fact_table(metric)
+        if not table_name or self._CALENDAR_TABLE_RE.match(normalize_text(table_name)):
+            return None
+        return next(
+            (item for item in self._technical_catalog(metric.get("semantic_model")).get("tables", []) or []
+             if normalize_text(item.get("name")) == normalize_text(table_name)),
+            None,
+        )
+
+    def _own_column_profiles(self, metric):
+        """[(alias normalizados, es_temporal)] de las columnas de la tabla de
+        hechos del indicador: las del catálogo técnico y las de los visuales."""
+        model = metric.get("semantic_model")
+        table_name = normalize_text(self._metric_fact_table(metric))
+        profiles = []
+        entry = self._fact_table_entry(metric)
+        for column in (entry or {}).get("columns", []) or []:
+            name = column.get("name")
+            if not name:
+                continue
+            aliases = {normalize_text(a) for a in self._technical_column_aliases(model, entry.get("name"), name)}
+            temporal = (
+                self._classify_data_type(column.get("data_type")) == "date"
+                or bool(set(normalize_text(name).split()) & TEMPORAL_WORDS)
+            )
+            profiles.append((aliases - {""}, temporal))
+        for field in self.dimension_fields or []:
+            if (
+                normalize_text(field.get("semantic_model")) == normalize_text(model)
+                and normalize_text(field.get("table")) == table_name
+            ):
+                aliases = {normalize_text(a) for a in field.get("aliases") or []}
+                profiles.append((aliases - {""}, self._is_temporal_field(field)))
+        return profiles
+
+    def _own_equivalent_column(self, metric, field):
+        """¿La tabla del indicador tiene su propia columna con el significado
+        de `field` (otra tabla)? Fechas con fechas; el resto por alias común."""
+        temporal = self._is_temporal_field(field)
+        aliases = {normalize_text(alias) for alias in field.get("aliases") or []} - {""}
+        aliases.discard(normalize_text(field.get("table")))
+        for own_aliases, own_temporal in self._own_column_profiles(metric):
+            if temporal or own_temporal:
+                if temporal and own_temporal:
+                    return True
+                continue
+            if aliases & own_aliases:
+                return True
+        return False
+
+    def _dimension_relation(self, metric, field):
+        """«own» | «related» | «unrelated» | «unknown» (ver la regla arriba)."""
+        model = metric.get("semantic_model")
+        table = self._metric_fact_table(metric)
+        field_table = normalize_text(field.get("table"))
+        if not table or not field_table or self._CALENDAR_TABLE_RE.match(normalize_text(table)):
+            return "unknown"
+        if field_table == normalize_text(table):
+            return "own"
+        cache = self.__dict__.setdefault("_dimension_relation_cache", {})
+        metric_key = (self._logical_key(metric), normalize_text(metric.get("label")))
+        if metric_key not in cache:
+            # Por indicador: tablas de su expresión y, si el modelo declara sus
+            # relaciones, las que filtran su tabla (None = sin esa metadata o
+            # expresión que no nombra la tabla: se decide por columna).
+            if len(cache) > 5000:
+                cache.clear()
+            used = {normalize_text(name) for name in self._expression_tables(model, metric)}
+            related = None
+            if self._has_relationship_metadata(model):
+                if self._expression_uses_table(self._measure_expression(model, metric), table):
+                    related = set()
+                    for name in {normalize_text(table)} | used:
+                        related |= self._related_tables(model, name)
+                else:
+                    related = "unknown"
+            cache[metric_key] = {"used": used, "related": related, "columns": {}}
+        info = cache[metric_key]
+        if field_table in info["used"]:
+            return "related"
+        if info["related"] == "unknown":
+            return "unknown"
+        if info["related"] is not None:
+            return "related" if field_table in info["related"] else "unrelated"
+        column_key = (field_table, normalize_text(field.get("column")))
+        if column_key not in info["columns"]:
+            info["columns"][column_key] = (
+                "unrelated" if self._own_equivalent_column(metric, field) else "unknown"
+            )
+        return info["columns"][column_key]
+
+    def _own_table_fallback_fields(self, metric, existing):
+        """Columnas de la tabla de hechos de un indicador CON visuales que no
+        están entre sus campos visuales (ASEGURADOR de CONSULTAS PRIORITARIAS
+        solo aparece agregado): respaldo para «por X», rankings, filtros
+        explícitos y el periodo. Van al final (relevancia baja), marcadas
+        `own_fallback`; los valores implícitos no las recorren. Las fechas solo
+        se agregan si no queda ninguna columna temporal válida."""
+        entry = self._fact_table_entry(metric)
+        if not entry:
+            return []
+        model = metric.get("semantic_model")
+        seen = {(normalize_text(f.get("table")), normalize_text(f.get("column"))) for f in existing}
+        has_temporal = any(self._is_temporal_field(field) for field in existing)
+        result = []
+        for column in entry.get("columns", []) or []:
+            name = column.get("name")
+            lowered = str(name or "").lower()
+            if not name or any(part in lowered for part in self._PRIVATE_COLUMN_PARTS):
+                continue
+            column_type = self._classify_data_type(column.get("data_type"))
+            words = set(normalize_text(name).split())
+            temporal = column_type == "date" or bool(words & TEMPORAL_WORDS)
+            if (column_type == "number" and not words & TEMPORAL_WORDS) or (temporal and has_temporal):
+                continue
+            key = (normalize_text(entry.get("name")), normalize_text(name))
+            if key in seen:
+                continue
+            seen.add(key)
+            aliases = self._technical_column_aliases(model, entry.get("name"), name)
+            if column_type == "date" and not words & TEMPORAL_WORDS:
+                aliases.append("fecha")
+            result.append({
+                "semantic_model": model, "report": None, "source_group": None,
+                "page": None, "visual_id": None, "visual_type": "technical_catalog",
+                "role": None, "kind": "column", "table": entry.get("name"), "column": name,
+                "level": None, "query_ref": f"{entry.get('name')}.{name}",
+                "aliases": aliases, "relevance_score": 8, "own_fallback": True,
+            })
+        return result
+
+    def _metric_dimensions(self, metric, dropped=None):
+        """Dimensiones candidatas del indicador para agrupar, ordenar, filtrar
+        y elegir la fecha del periodo: las de sus visuales o del catálogo
+        técnico (`_with_technical_dimensions`) SIN las de tablas que no lo
+        filtran («unrelated»: un SUMMARIZECOLUMNS por EGRESOS_POR_SERVICIO
+        [TERNOMCOM] repite el total de CONSULTAS PRIORITARIAS en cada fila) y,
+        si tiene visuales, con las columnas de su propia tabla como respaldo.
+        `dropped` (lista) recibe los campos descartados. Con caché por
+        indicador (los catálogos no cambian durante la vida del planificador)."""
+        cache = self.__dict__.setdefault("_metric_dimensions_cache", {})
+        key = (self._logical_key(metric), normalize_text(metric.get("label")),
+               tuple(sorted(self._metric_visual_ids(metric))), tuple(self._metric_pages(metric)),
+               tuple(self._metric_reports(metric)))
+        if key not in cache:
+            if len(cache) > 2000:
+                cache.clear()
+            candidates = self._with_technical_dimensions(metric, self._relevant_dimensions(metric))
+            kept, unrelated = [], []
+            for field in candidates:
+                (unrelated if self._dimension_relation(metric, field) == "unrelated" else kept).append(field)
+            if metric.get("appearances"):
+                kept.extend(self._own_table_fallback_fields(metric, kept))
+            cache[key] = (kept, unrelated)
+        kept, unrelated = cache[key]
+        if dropped is not None:
+            dropped.extend(unrelated)
+        return list(kept)
 
     def _period_in_metric_note(self, question, temporal, metric, metric_result):
         """Nota visible cuando el periodo pedido forma parte del nombre del
@@ -1938,6 +2221,11 @@ class QueryPlanBuilder:
                 matched_alias = alias_norm
                 break
         if not matched_alias:
+            # Plural/género del nombre («por aseguradores» = ASEGURADORA/ASEGURADOR).
+            matched_alias = next(
+                (prefix for prefix in (_alias_prefix(tail, alias) for alias in aliases) if prefix), None,
+            )
+        if not matched_alias:
             return {"group_by": [], "explicit_filters": []}
 
         remainder = tail[len(matched_alias):].strip()
@@ -2203,7 +2491,7 @@ class QueryPlanBuilder:
         unrelated = []
         for field in candidates:
             key = (normalize_text(field.get("table")), normalize_text(field.get("column")))
-            if key in used_fields or not self._implicit_eligible(field, semantic_model):
+            if key in used_fields or field.get("own_fallback") or not self._implicit_eligible(field, semantic_model):
                 continue
             if not self._field_filters_metric(metric, field):
                 if field.get("table") not in unrelated:
@@ -2266,17 +2554,9 @@ class QueryPlanBuilder:
         trae las relaciones del modelo y la tabla del campo no es esa tabla ni
         una de las que la filtran (p. ej. BRIEFING: tablas independientes, un
         SERVICIO de la página SEGUIMIENTO RECEPCIÓN no filtra INTERCONSULTAS).
-        Con información incompleta se asume que sí (no se descarta)."""
-        table = self._metric_fact_table(metric)
-        model = metric.get("semantic_model")
-        if not table or self._CALENDAR_TABLE_RE.match(normalize_text(table)):
-            return True
-        catalog = self._technical_catalog(model)
-        if not catalog.get("tables") or "relationships" not in catalog:
-            return True
-        if not self._expression_uses_table(self._measure_expression(model, metric), table):
-            return True
-        return normalize_text(field.get("table")) in self._related_tables(model, table)
+        Con información incompleta se asume que sí (no se descarta). Misma
+        regla que la agrupación y el periodo (`_dimension_relation`)."""
+        return self._dimension_relation(metric, field) != "unrelated"
 
     _OWN_FIELD_LIMIT = 8
 
@@ -6099,7 +6379,7 @@ class QueryPlanBuilder:
         fields = []
         for field in candidates:
             key = (normalize_text(field.get("table")), normalize_text(field.get("column")))
-            if key in used or not self._implicit_eligible(field, semantic_model):
+            if key in used or field.get("own_fallback") or not self._implicit_eligible(field, semantic_model):
                 continue
             if any(key == (normalize_text(f.get("table")), normalize_text(f.get("column"))) for f in fields):
                 continue
@@ -6253,7 +6533,8 @@ class QueryPlanBuilder:
         semantic_model = metric.get("semantic_model")
         reports = metric.get("reports", []) or []
         report = metric.get("report") or (reports[0] if reports else source_context.get("report"))
-        candidates = self._with_technical_dimensions(metric, self._relevant_dimensions(metric))
+        dropped_dimensions = []
+        candidates = self._metric_dimensions(metric, dropped_dimensions)
         # Periodo («entre enero y marzo», «este año») y agrupación temporal
         # («por mes»): sus palabras no son valores ni dimensiones.
         temporal = self._periods_for_metric(question, metric, metric_result.get("matched_name"))
@@ -6280,7 +6561,8 @@ class QueryPlanBuilder:
             semantic_model = metric.get("semantic_model")
             reports = metric.get("reports", []) or []
             report = metric.get("report") or (reports[0] if reports else source_context.get("report"))
-            candidates = self._with_technical_dimensions(metric, self._relevant_dimensions(metric))
+            dropped_dimensions = []
+            candidates = self._metric_dimensions(metric, dropped_dimensions)
             temporal = self._periods_for_metric(question, metric, metric_result.get("matched_name"))
             dimension_question, board_tokens = self._strip_board_mentions(
                 temporal["clean_question"], source_context,
@@ -6300,7 +6582,7 @@ class QueryPlanBuilder:
         requested_group = re.search(
             r"\b(?:por|segun|agrupad[oa] por|desglosad[oa] por)\s+"
             r"(?:el|la|los|las)?\s*"
-            r"(servicio|servicios|especialidad|especialidades|aseguradora|asegurador|sexo|estado|tipo)\b",
+            r"(servicio|servicios|especialidad|especialidades|asegurador(?:a|as|es)?|eps|sexo|estados?|tipos?)\b",
             normalize_text(question),
         )
         if requested_group and not group_by and not group_detection["explicit_filters"]:
@@ -6507,12 +6789,14 @@ class QueryPlanBuilder:
                 }
             unapplied_terms.append(" ".join(significant))
 
+        # Nunca se agrupa por una columna de una tabla que no filtra el
+        # indicador (repetiría el total en cada fila).
         normalized_group_by = [{
             "table": field["table"],
             "column": field["column"],
             "label": (field.get("aliases") or [field["column"]])[0],
             "source": "query_plan_group_by",
-        } for field in group_by]
+        } for field in group_by if self._dimension_relation(metric, field) != "unrelated"]
         if temporal_result["group"]:
             normalized_group_by = [temporal_result["group"]]
 
