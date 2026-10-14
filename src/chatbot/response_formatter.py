@@ -1,6 +1,8 @@
 import re
 import unicodedata
 
+from src.chatbot.detail_formatter import detail_lead, detail_notes, detail_table
+
 class ResponseFormatter:
 
     MONTHS = {
@@ -866,7 +868,14 @@ def format_query_plan_answer(result, followup=None):
             if text is None:
                 lines.append(EMPTY_RESULT_MESSAGE)
             else:
-                lines.append(_lead_scalar(result.get("metric"), text, scope, past))
+                # «Total + listado»: «**6 camas disponibles** en ...» y la tabla.
+                lead = detail_lead(result, text, period_phrase_es(period)) if result.get("detail") else None
+                lines.append(lead or _lead_scalar(result.get("metric"), text, scope, past))
+                if result.get("detail"):
+                    table = detail_table(result["detail"])
+                    if table:
+                        lines.append(table)
+                    notes.extend(detail_notes(result))
 
     footer = [part for part in (format_filters_line(filters), format_unapplied_line(unapplied)) if part]
     if footer:
