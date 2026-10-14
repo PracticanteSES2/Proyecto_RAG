@@ -3988,6 +3988,1181 @@
           }
         }
       ]
+    },
+    {
+      "id": "v_escalar_triage_en_el_hospital",
+      "category": "a_kpi_simple",
+      "tablero": "Tiempos Urgencias",
+      "fuente": {
+        "docx": "32 DOCUMENTACION TABLERO TIEMPOS DE URGENCIAS/1 Documentacion Tablero Resumen Dia.docx",
+        "seccion": "Tiempo promedio para atención en triage"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "contrapregunta «no entendí «hospital» como un filtro de ese tablero»"
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «en el hospital» es el alcance institucional, no un filtro: un solo valor (tiempo promedio de triage) sin contrapreguntar ni declarar «No pude aplicar: hospital». Línea base: contrapregunta «no entendí «hospital» como un filtro».",
+      "turns": [
+        {
+          "user": "cual es el tiempo promedio de atencion en triage en el hospital",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "scalar",
+            "metrics_any": [
+              "triage"
+            ],
+            "answer_none": [
+              "No pude aplicar",
+              "no entendí"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_escalar_referencia_en_general",
+      "category": "a_kpi_simple",
+      "tablero": "Referencia",
+      "fuente": {
+        "docx": "40 DOCUMENTACION TABLERO REFERENCIA/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Cantidad de solicitudes"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "«general» se aplica como GEEDESCRI = CIRUGIA GENERAL"
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «en general» es el total, no un valor de columna: no debe filtrar GEEDESCRI = CIRUGIA GENERAL (ni ningún valor con GENERAL). Línea base: «Con geedescri CIRUGIA GENERAL, hay 459 solicitudes».",
+      "turns": [
+        {
+          "user": "cuantas solicitudes de referencia hay en general",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "scalar",
+            "models_any": [
+              "referencia"
+            ],
+            "filters_none": [
+              {
+                "value": "GENERAL"
+              }
+            ],
+            "answer_none": [
+              "CIRUGIA GENERAL",
+              "No pude aplicar",
+              "no entendí"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_escalar_inasistencia_institucional",
+      "category": "i_multiturno",
+      "tablero": "Asignación de Citas",
+      "fuente": {
+        "docx": "2 DOCUMENTACION TABLERO ASIGNACION DE CITAS/7 Documentacion Tablero Comparativo Consultas Asignadas.docx",
+        "seccion": "% Inasistencia"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "«porcentaje» no se reconoce como el % del nombre: «no entendí» y luego «No pude aplicar: porcentaje»"
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «porcentaje de inasistencia institucional»: «porcentaje» es el «%» del nombre (%INASISTENCIA) e «institucional» el alcance. Si contrapregunta (p. ej. entre tableros), al elegir el de inasistencia responde un solo valor sin «No pude aplicar». Línea base: «no entendí «porcentaje» como un filtro» y, al consultar sin él, «No pude aplicar: porcentaje».",
+      "turns": [
+        {
+          "user": "porcentaje de inasistencia institucional",
+          "expect": {
+            "route": [
+              "powerbi",
+              "clarification"
+            ],
+            "answer_none": [
+              "No pude aplicar",
+              "no entendí"
+            ]
+          }
+        },
+        {
+          "button": {
+            "label_any": [
+              "inasistencia"
+            ]
+          },
+          "opcional": true,
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "scalar",
+            "metrics_any": [
+              "inasistencia"
+            ],
+            "answer_none": [
+              "No pude aplicar"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_escalar_pacientes_hospitalizados_en_el_hospital",
+      "category": "a_kpi_simple",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/6. Documentacion Tablero Detalle Ocupación.docx",
+        "seccion": "Total pacientes"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "contrapregunta «no entendí «hospitalizados hospital» como un filtro»"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «cuántos pacientes hospitalizados hay en el hospital»: el total de pacientes (43 en las filas fijas), sin tomar «hospitalizados»/«hospital» como filtros. Puede acompañarse de un listado, pero sin datos personales. Línea base: contrapregunta «no entendí «hospitalizados hospital»». Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones), como los casos del hospital: el catálogo del propietario no lo tiene.",
+      "turns": [
+        {
+          "user": "cuantos pacientes hospitalizados hay en el hospital",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "models_any": [
+              "briefing"
+            ],
+            "numbers": [
+              43
+            ],
+            "answer_none": [
+              "No pude aplicar",
+              "no entendí",
+              "PACIENTE SIMULADO"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_agrupado_antibiotico_por_servicios",
+      "category": "d_agrupado",
+      "tablero": "Antibióticos",
+      "fuente": {
+        "docx": "34 DOCUMENTACION TABLERO ANTIBIOTICOS/1 Documentacion Tablero Antibioticos.docx",
+        "seccion": "Pacientes activos"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). Control: «detalle de M por X» con X en plural (servicios) es una tabla de PAC_ACT por SERVICIO (visual «Pacientes activos» por SERVICIO). Pasa en la línea base.",
+      "turns": [
+        {
+          "user": "detalle de pacientes activos con antibiotico por servicios",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "metrics_any": [
+              "PAC_ACT",
+              "activos"
+            ],
+            "group_by_any": [
+              "SERVICIO"
+            ],
+            "table_min_rows": 5,
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_agrupado_facturado_por_areas",
+      "category": "d_agrupado",
+      "tablero": "Control Facturación",
+      "fuente": {
+        "docx": "16 DOCUMENTACION TABLERO CONTROL FACTURACION/5 Documentacion Tablero de Facturadores.docx",
+        "seccion": "Monto facturado"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "«por areas de servicio» se busca como valor de filtro: unsupported_filter"
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «por areas de servicio» (plural) agrupa MONTO_FACTURADO por FACTURADORES[AREA_SERVICIO] (columna de la tabla de detalle de FACTURADORES, «AREA DE SERVICIO»). Línea base: lo toma como un valor de filtro y responde «no pude verificar el valor del filtro solicitado».",
+      "turns": [
+        {
+          "user": "monto facturado por areas de servicio",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "models_any": [
+              "factur"
+            ],
+            "group_by_any": [
+              "AREA_SERVICIO",
+              "area"
+            ],
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_agrupado_referencia_por_especialidades",
+      "category": "d_agrupado",
+      "tablero": "Referencia",
+      "fuente": {
+        "docx": "40 DOCUMENTACION TABLERO REFERENCIA/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Solicitudes por especialidad"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "no reconoce GEEDESCRI como especialidad: «no pude verificar la dimensión solicitada»"
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «por especialidades» agrupa las solicitudes por REFERENCIA[GEEDESCRI] (la especialidad; tabla «Cantidad de solicitudes» por GEEDESCRI en REFERENCIA – INICIO). Línea base: «no pude verificar la dimensión solicitada».",
+      "turns": [
+        {
+          "user": "solicitudes de referencia por especialidades",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "models_any": [
+              "referencia"
+            ],
+            "group_by_any": [
+              "GEEDESCRI",
+              "especialidad"
+            ],
+            "table_min_rows": 3,
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_agrupado_pacientes_por_especialidad",
+      "category": "d_agrupado",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/6. Documentacion Tablero Detalle Ocupación.docx",
+        "seccion": "Tabla de pacientes"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "no agrupa por PACIENTES X ASEGURADORA[ESPECIALIDAD]: «no pude verificar la dimensión solicitada»"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «detalle de pacientes hospitalizados por especialidad»: pacientes de PACIENTES X ASEGURADORA por su ESPECIALIDAD (filas fijas: MEDICINA INTERNA 9, MEDICINA CRÍTICA 8...), sin nombres de pacientes. Línea base: «no pude verificar la dimensión solicitada». Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones), como los casos del hospital: el catálogo del propietario no lo tiene.",
+      "turns": [
+        {
+          "user": "detalle de pacientes hospitalizados por especialidad",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "models_any": [
+              "briefing"
+            ],
+            "group_by_any": [
+              "ESPECIALIDAD"
+            ],
+            "numbers": [
+              9,
+              8
+            ],
+            "answer_all": [
+              "MEDICINA INTERNA"
+            ],
+            "answer_none": [
+              "PACIENTE SIMULADO"
+            ],
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_agrupado_camas_bloqueadas_por_servicio",
+      "category": "i_multiturno",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/2. Documentacion Tablero Detalle Gestion Camas.docx",
+        "seccion": "Estado de las camas por servicio"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). Valor + agrupación: CAMAS con ESTADOS_CAM = BLOQUEADA por SERVICIOS (HOSPITALIZACIÓN GENERAL 3, PEDIATRÍA 2, UCI ADULTOS 1, GINECOBSTETRICIA 1). Si contrapregunta, al elegir CAMAS la respuesta es esa tabla. Control: pasa en la línea base (contrapregunta CAMAS / NUMERO CAMAS y, al elegir CAMAS, la tabla). Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones), como los casos del hospital: el catálogo del propietario no lo tiene.",
+      "turns": [
+        {
+          "user": "cuantas camas bloqueadas hay por servicio",
+          "expect": {
+            "route": [
+              "powerbi",
+              "clarification"
+            ],
+            "result_type": "table",
+            "models_any": [
+              "briefing"
+            ],
+            "group_by_any": [
+              "SERVICIOS",
+              "servicio"
+            ],
+            "filters": [
+              {
+                "column": "ESTADOS_CAM",
+                "value": "BLOQUEADA"
+              }
+            ],
+            "allow_declared_filters": false,
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        },
+        {
+          "button": {
+            "label_any": [
+              "CAMAS"
+            ]
+          },
+          "opcional": true,
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "models_any": [
+              "briefing"
+            ],
+            "group_by_any": [
+              "SERVICIOS",
+              "servicio"
+            ],
+            "filters": [
+              {
+                "column": "ESTADOS_CAM",
+                "value": "BLOQUEADA"
+              }
+            ],
+            "allow_declared_filters": false,
+            "numbers": [
+              3,
+              2
+            ],
+            "answer_all": [
+              "HOSPITALIZACIÓN GENERAL",
+              "PEDIATR",
+              "UCI ADULTOS"
+            ],
+            "answer_none": [
+              "No pude aplicar"
+            ],
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_agrupado_camas_disponibles_por_servicio",
+      "category": "d_agrupado",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/2. Documentacion Tablero Detalle Gestion Camas.docx",
+        "seccion": "Estado de las camas por servicio"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "elige CAMAS_DISPONIBLES (capacidad × días) de TABLERO DE ATENCIONES: 2 filas"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «detalle de camas disponibles por servicio» son las camas en estado DISPONIBLE de CAMAS DISPONIBLES por SERVICIOS (HOSPITALIZACIÓN GENERAL 6, URGENCIAS 4, PEDIATRÍA 3...), no la capacidad CAMAS_DISPONIBLES (número de camas × días) de Atenciones. Línea base: responde CAMAS_DISPONIBLES de TABLERO DE ATENCIONES con 2 filas. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones), como los casos del hospital: el catálogo del propietario no lo tiene.",
+      "turns": [
+        {
+          "user": "detalle de camas disponibles por servicio",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "models_any": [
+              "briefing"
+            ],
+            "group_by_any": [
+              "SERVICIOS"
+            ],
+            "filters": [
+              {
+                "column": "ESTADOS_CAM",
+                "value": "DISPONIBLE"
+              }
+            ],
+            "allow_declared_filters": false,
+            "numbers": [
+              6,
+              4
+            ],
+            "answer_all": [
+              "HOSPITALIZACIÓN GENERAL",
+              "UCI ADULTOS",
+              "PEDIATR",
+              "URGENCIAS"
+            ],
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_relacion_citas_en_espera_por_especialidad",
+      "category": "d_agrupado",
+      "tablero": "Asignación de Citas",
+      "fuente": {
+        "docx": "2 DOCUMENTACION TABLERO ASIGNACION DE CITAS/6 Documentacion Tablero Disponibilidad de Especialistas.docx",
+        "seccion": "Citas en espera"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). Control: la especialidad está en ESPECIALIDADES (relacionada con EN_ESPERA): tabla por ESPECIALIDADES[GEEDESCRI] con valores distintos. Pasa en la línea base.",
+      "turns": [
+        {
+          "user": "citas en espera por especialidad",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "models_any": [
+              "citas"
+            ],
+            "group_by_any": [
+              "GEEDESCRI",
+              "especialidad"
+            ],
+            "table_min_rows": 5,
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_relacion_triages_no_atendidos_por_aseguradoras",
+      "category": "d_agrupado",
+      "tablero": "Demanda Insatisfecha",
+      "fuente": {
+        "docx": "7 DOCUMENTACION TABLERO DEMANDA INSATISFECHA/2 Docuemntacion Tablero Triages.docx",
+        "seccion": "Triages no atendidos por aseguradora"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "agrupa por SOLICITUD_CAMAS[aseguradora] (sin relación con TRIAGES): 2.223 en cada fila"
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). La aseguradora de los triages no atendidos es TRIAGES[TERNOMCOM] (visual del tablero); SOLICITUD_CAMAS[aseguradora] no filtra TRIAGES. Línea base: agrupa por SOLICITUD_CAMAS[aseguradora] y repite 2.223 en cada fila.",
+      "turns": [
+        {
+          "user": "triages no atendidos por aseguradoras",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "models_any": [
+              "demanda"
+            ],
+            "group_by_any": [
+              "TERNOMCOM",
+              "TERCERO"
+            ],
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_relacion_egresos_briefing_por_eps",
+      "category": "i_multiturno",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/8. Documentacion Tablero Ingresos y Egresos.docx",
+        "seccion": "Egresos por EPS"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "agrupa por TercerosRelacionados y filtra con ATENCIONES_SERVICIO[FECHA]: 7 en cada fila"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «egresos por eps en 2025»: si contrapregunta, al elegir EGRESOS (BRIEFING) la tabla por EPS debe usar una columna y una fecha que filtren EGRESOS. Línea base: agrupa por TercerosRelacionados[nombre_tercero] y filtra 2025 con ATENCIONES_SERVICIO[FECHA] (otra tabla): 7 en cada fila. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones), como los casos del hospital: el catálogo del propietario no lo tiene.",
+      "turns": [
+        {
+          "user": "egresos por eps en 2025",
+          "expect": {
+            "route": [
+              "clarification",
+              "powerbi"
+            ],
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        },
+        {
+          "button": {
+            "label_any": [
+              "BRIEFING"
+            ]
+          },
+          "opcional": true,
+          "expect": {
+            "route": [
+              "powerbi",
+              "unsupported_filter"
+            ],
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_sin_dimension_lavanderia_por_aseguradora",
+      "category": "d_agrupado",
+      "tablero": "Lavandería",
+      "fuente": {
+        "docx": "39 DOCUMENTACION TABLERO LAVANDERIA/1 Documentacion Tablero Lavanderia.docx",
+        "seccion": "Peso"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "«no pude verificar la dimensión solicitada» sin nombrar la dimensión (aseguradora) ni el indicador"
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). LAVANDERIA no tiene aseguradora: la respuesta dice que el peso no se puede ver por aseguradora (nombrándola), nunca una tabla con el mismo valor por fila. Línea base: «no pude verificar la dimensión solicitada» sin decir cuál.",
+      "turns": [
+        {
+          "user": "peso de lavanderia por aseguradora",
+          "expect": {
+            "route": [
+              "unsupported_filter",
+              "powerbi"
+            ],
+            "answer_any": [
+              "asegurador"
+            ],
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_sin_dimension_farmacia_pendientes_por_servicio",
+      "category": "d_agrupado",
+      "tablero": "Farmacia",
+      "fuente": {
+        "docx": "36 DOCUMENTACION TABLERO FARMACIA/1 Documentacion Tablero Inicio Farmacia.docx",
+        "seccion": "Suministros pendientes"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "«no pude verificar la dimensión solicitada» sin nombrar la dimensión (servicio) ni el indicador"
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). PENDIENTES_FARMACIA no tiene servicio y el modelo no tiene relaciones (TIEMPOS_DISPENSACIÓN[gasnombre] no la filtra): debe decir que no se puede ver por servicio, sin tabla con valores repetidos. Línea base: «no pude verificar la dimensión solicitada» sin decir cuál.",
+      "turns": [
+        {
+          "user": "suministros pendientes de farmacia por servicio",
+          "expect": {
+            "route": [
+              "unsupported_filter",
+              "powerbi"
+            ],
+            "answer_any": [
+              "servicio"
+            ],
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_sin_dimension_remisiones_registradas_por_servicio",
+      "category": "i_multiturno",
+      "tablero": "Referencia",
+      "fuente": {
+        "docx": "40 DOCUMENTACION TABLERO REFERENCIA/5 Documentacion Tablero Seguimiento de Remision.docx",
+        "seccion": "Total de remisiones registradas"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "«no pude verificar la dimensión solicitada» sin nombrar la dimensión (servicio) ni el indicador"
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «remisiones por servicio»: REMISIONES (BRIEFING) sí tiene SERVICIO; «Total de remisiones registradas» (DETALLE_REMISIONES) no. Si contrapregunta y se elige esta última, la respuesta dice que no se puede ver por servicio (nombrándolo), sin tabla repetida. Línea base: «no pude verificar la dimensión solicitada».",
+      "turns": [
+        {
+          "user": "remisiones por servicio",
+          "expect": {
+            "route": [
+              "clarification",
+              "powerbi"
+            ],
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        },
+        {
+          "button": {
+            "label_any": [
+              "Total de remisiones registradas"
+            ]
+          },
+          "opcional": true,
+          "expect": {
+            "route": [
+              "unsupported_filter",
+              "powerbi"
+            ],
+            "answer_any": [
+              "servicio"
+            ],
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_listado_productos_vencidos",
+      "category": "c_kpi_filtro",
+      "tablero": "Farmacia",
+      "fuente": {
+        "docx": "36 DOCUMENTACION TABLERO FARMACIA/1 Documentacion Tablero Inicio Farmacia.docx",
+        "seccion": "Productos vencidos"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "«lista de» no se detecta como pregunta de datos: responde documentación (RAG)"
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «lista de productos vencidos» es el detalle de PRODUCTOS_VENCIDOS (tabla «PRODUCTOS VENCIDOS»: código, producto, cantidad, fecha), no documentación. Filas fijas: 5 productos (79 unidades). Línea base: responde la documentación (RAG).",
+      "turns": [
+        {
+          "user": "lista de productos vencidos en farmacia",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "models_any": [
+              "farmacia"
+            ],
+            "table_columns": [
+              [
+                "producto",
+                "iprdescor"
+              ]
+            ],
+            "table_min_rows": 5,
+            "answer_all": [
+              "ACETAMINOFEN",
+              "AMOXICILINA",
+              "DIPIRONA",
+              "OMEPRAZOL",
+              "CEFTRIAXONA"
+            ],
+            "answer_none": [
+              "No pude aplicar"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_listado_vencen_30_dias",
+      "category": "i_multiturno",
+      "tablero": "Farmacia",
+      "fuente": {
+        "docx": "36 DOCUMENTACION TABLERO FARMACIA/1 Documentacion Tablero Inicio Farmacia.docx",
+        "seccion": "Medicamentos en vencimiento 0-30 días"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "al elegir la tarjeta 0-30 DÍAS da 6 (no aplica su filtro mes <= 1), «No pude aplicar: vencen proximos» y no lista los productos"
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). Total + listado con el filtro propio de la tarjeta: «cuántos se vencen en los próximos 30 días y cuáles» = MEDICAMENTOS EN VENCIMIENTO 0-30 DÍAS (mes <= 1): 3 productos (SALBUTAMOL, ENOXAPARINA, METOCLOPRAMIDA) y su lista, sin los de 30-120 días. Si contrapregunta, se elige esa tarjeta. Línea base: contrapregunta de una sola opción y, al elegirla, 6 (sin el filtro mes <= 1 de la tarjeta), «No pude aplicar: vencen proximos» y sin listado.",
+      "turns": [
+        {
+          "user": "cuantos medicamentos se vencen en los proximos 30 dias y cuales son",
+          "expect": {
+            "route": [
+              "powerbi",
+              "clarification"
+            ],
+            "models_any": [
+              "farmacia"
+            ],
+            "table_columns": [
+              [
+                "producto",
+                "IPRDESCOR"
+              ]
+            ]
+          }
+        },
+        {
+          "button": {
+            "label_any": [
+              "0-30"
+            ]
+          },
+          "opcional": true,
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "models_any": [
+              "farmacia"
+            ],
+            "numbers": [
+              3
+            ],
+            "table_columns": [
+              [
+                "producto",
+                "IPRDESCOR"
+              ]
+            ],
+            "answer_all": [
+              "SALBUTAMOL",
+              "ENOXAPARINA",
+              "METOCLOPRAMIDA"
+            ],
+            "answer_none": [
+              "LOSARTAN",
+              "HIDROCORTISONA",
+              "RANITIDINA",
+              "No pude aplicar"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_listado_interconsultas_medicina_interna",
+      "category": "c_kpi_filtro",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/15. Documentacion Interconsultas.docx",
+        "seccion": "Tabla de interconsultas en espera"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "«qué ... están» no se detecta como pregunta de datos: responde documentación (RAG)"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «qué interconsultas están pendientes en medicina interna»: total + detalle de INTERCONSULTAS con GEEDESCRI = MEDICINA INTERNA (cama, servicio, fecha de solicitud...), sin documento ni nombre del paciente. Línea base: responde la documentación (RAG). Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones), como los casos del hospital: el catálogo del propietario no lo tiene.",
+      "turns": [
+        {
+          "user": "que interconsultas estan pendientes en medicina interna",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "models_any": [
+              "briefing"
+            ],
+            "filters": [
+              {
+                "column": "GEEDESCRI",
+                "value": "MEDICINA INTERNA"
+              }
+            ],
+            "allow_declared_filters": false,
+            "table_columns": [
+              [
+                "cama",
+                "HCACODIGO"
+              ]
+            ],
+            "table_min_rows": 1,
+            "answer_none": [
+              "PACIENTE SIMULADO",
+              "No pude aplicar"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_listado_camas_ocupadas_uci",
+      "category": "c_kpi_filtro",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/2. Documentacion Tablero Detalle Gestion Camas.docx",
+        "seccion": "Estado de las camas por servicio"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "elige «Camas ocupadas» de GESTIÓN CAMAS y contrapregunta «no entendí «uci»»"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «cuántas camas ocupadas hay en uci y cuáles son»: CAMAS con ESTADOS_CAM = OCUPADA y SERVICIOS = UCI ADULTOS = 8 y la lista de camas (UCI-01...UCI-09 sin UCI-06 disponible ni UCI-10 bloqueada). Línea base: elige «Camas ocupadas» (GESTIÓN CAMAS) y no entiende «uci». Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones), como los casos del hospital: el catálogo del propietario no lo tiene.",
+      "turns": [
+        {
+          "user": "cuantas camas ocupadas hay en uci y cuales son",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "models_any": [
+              "briefing"
+            ],
+            "metrics_any": [
+              "CAMAS"
+            ],
+            "filters": [
+              {
+                "column": "ESTADOS_CAM",
+                "value": "OCUPADA"
+              },
+              {
+                "column": "SERVICIOS",
+                "value": "UCI"
+              }
+            ],
+            "allow_declared_filters": false,
+            "numbers": [
+              8
+            ],
+            "table_columns": [
+              [
+                "cama",
+                "HCACODIGO"
+              ]
+            ],
+            "answer_all": [
+              "UCI-01",
+              "UCI-02",
+              "UCI-03",
+              "UCI-04",
+              "UCI-05",
+              "UCI-07",
+              "UCI-08",
+              "UCI-09"
+            ],
+            "answer_none": [
+              "UCI-06",
+              "UCI-10",
+              "No pude aplicar",
+              "PACIENTE SIMULADO"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_listado_pacientes_sanitas_camas",
+      "category": "c_kpi_filtro",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/6. Documentacion Tablero Detalle Ocupación.docx",
+        "seccion": "Tabla de pacientes por aseguradora"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "contrapregunta CAMAS / NUMERO CAMAS: «de sanitas» no se usa como filtro de PACIENTES X ASEGURADORA"
+      },
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «cuántos pacientes de sanitas están hospitalizados y en qué camas»: «de sanitas» es TERNOMCOM = SANITAS EPS (7 pacientes en las filas fijas) y el listado trae sus camas (405, 406, 503, 507, 510, UCI-09, EXP-01) y servicio, sin nombre ni documento. Línea base: contrapregunta CAMAS / NUMERO CAMAS. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones), como los casos del hospital: el catálogo del propietario no lo tiene.",
+      "turns": [
+        {
+          "user": "cuantos pacientes de sanitas estan hospitalizados y en que camas",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "models_any": [
+              "briefing"
+            ],
+            "filters": [
+              {
+                "column": "TERNOMCOM",
+                "value": "SANITAS"
+              }
+            ],
+            "allow_declared_filters": false,
+            "numbers": [
+              7
+            ],
+            "table_columns": [
+              [
+                "cama",
+                "HCACODIGO"
+              ]
+            ],
+            "answer_all": [
+              "405",
+              "406",
+              "503",
+              "507",
+              "510",
+              "UCI-09",
+              "EXP-01"
+            ],
+            "answer_none": [
+              "PACIENTE SIMULADO",
+              "No pude aplicar"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_listado_pacientes_espera_cardiologia",
+      "category": "c_kpi_filtro",
+      "tablero": "Asignación de Citas",
+      "fuente": {
+        "docx": "2 DOCUMENTACION TABLERO ASIGNACION DE CITAS/3 Documentacion Tablero Detalle en Espera.docx",
+        "seccion": "Detalle en espera"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "xfail": {
+        "realistic": "«lista de» no se detecta como pregunta de datos: responde documentación (RAG)"
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «lista de pacientes en espera de cita de cardiología»: detalle de EN_ESPERA con especialidad CARDIOLOGIA (fecha, especialidad, días en espera, médico, aseguradora...) sin documento, nombre, teléfono ni correo del paciente. Línea base: responde la documentación (RAG) de otro tablero.",
+      "turns": [
+        {
+          "user": "lista de pacientes en espera de cita de cardiologia",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "models_any": [
+              "citas"
+            ],
+            "filters": [
+              {
+                "value": "CARDIOLOGIA"
+              }
+            ],
+            "allow_declared_filters": false,
+            "table_min_rows": 1,
+            "answer_none": [
+              "PACIENTE SIMULADO",
+              "No pude aplicar"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_control_total_pacientes_hospitalizados",
+      "category": "a_kpi_simple",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/6. Documentacion Tablero Detalle Ocupación.docx",
+        "seccion": "Total pacientes"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). Control: «total de ...» es un solo valor (tarjeta TOTAL PACIENTES de DETALLE OCUPACIÓN: 43), sin listado ni datos personales. Pasa en la línea base. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones), como los casos del hospital: el catálogo del propietario no lo tiene.",
+      "turns": [
+        {
+          "user": "total de pacientes hospitalizados",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "scalar",
+            "models_any": [
+              "briefing"
+            ],
+            "numbers": [
+              43
+            ],
+            "answer_none": [
+              "PACIENTE SIMULADO"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_control_casos_desabastecidos",
+      "category": "a_kpi_simple",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/14. Documentacion Detalle Medicamentos Desabastecidos.docx",
+        "seccion": "Casos totales"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). Control: la tarjeta CASOS TOTALES está en la página DETALLE MEDICAMENTOS DESABASTECIDOS pero la pregunta pide un conteo: un solo valor. Pasa en la línea base.",
+      "turns": [
+        {
+          "user": "cuantos casos de medicamentos desabastecidos hay",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "scalar",
+            "metrics_any": [
+              "CASOS"
+            ],
+            "models_any": [
+              "briefing"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_control_consultas_en_espera",
+      "category": "i_multiturno",
+      "tablero": "Asignación de Citas",
+      "fuente": {
+        "docx": "2 DOCUMENTACION TABLERO ASIGNACION DE CITAS/3 Documentacion Tablero Detalle en Espera.docx",
+        "seccion": "Consultas en espera"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). Control: CONSULTAS EN ESPERA aparece en 7 páginas (DETALLE EN ESPERA, DETALLE ASIGNADAS...): sigue siendo un solo valor. Si contrapregunta, al elegir la tarjeta responde el escalar. Pasa en la línea base.",
+      "turns": [
+        {
+          "user": "cuantas consultas en espera hay",
+          "expect": {
+            "route": [
+              "powerbi",
+              "clarification"
+            ],
+            "result_type": "scalar"
+          }
+        },
+        {
+          "button": {
+            "label_any": [
+              "CONSULTAS EN ESPERA"
+            ]
+          },
+          "opcional": true,
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "scalar",
+            "metrics_any": [
+              "EN ESPERA"
+            ],
+            "models_any": [
+              "citas"
+            ]
+          }
+        }
+      ]
     }
   ]
 }
