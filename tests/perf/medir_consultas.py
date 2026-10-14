@@ -81,6 +81,9 @@ REPRODUCCIONES = [
         "columnas": [("SERVICIOS", "NOM_SERV"), ("CAMAS DISPONIBLES", "ESTADOS_CAM"),
                      ("CAMAS DISPONIBLES", "SERVICIOS"), ("CAMAS DISPONIBLES", "HCACODIGO"),
                      ("SERVICIOS", "HSUNOMBRE")],
+        # Turno 3: otra pregunta del mismo modelo (otras columnas, conexión ya abierta).
+        "otras_columnas": [("PACIENTES X ASEGURADORA", "TERNOMCOM"), ("PACIENTES X ASEGURADORA", "HSUNOMBRE"),
+                           ("PACIENTES X ASEGURADORA", "HCACODIGO"), ("SOLICITUD CAMAS", "GDPNOMBRE")],
     },
     {
         "id": "propietario_2026_10_14_demanda",
@@ -88,6 +91,7 @@ REPRODUCCIONES = [
         "pregunta": "cuántas camas hay disponibles en hospitalización general",
         "columnas": [("SOLICITUD_CAMAS", "aseguradora"), ("TERCEROS", "TERNOMCOM"),
                      ("SOLICITUD_CAMAS", "GDPNOMBRE")],
+        "otras_columnas": [("TRIAGES", "TERNOMCOM"), ("CIRUGIAS", "TERNOMCOM"), ("SOLICITUD_CAMAS", "HSUNOMBRE")],
     },
 ]
 
@@ -193,9 +197,12 @@ def reproducir(system, spec, latencia_ms):
     except Exception:  # noqa: BLE001
         pass
     model = spec["modelo"]
-    columns = [(table, column, "Text") for table, column in spec["columnas"]]
     turnos = []
-    for numero in (1, 2):
+    rondas = [(1, spec["columnas"]), (2, spec["columnas"])]
+    if spec.get("otras_columnas"):
+        rondas.append((3, spec["otras_columnas"]))
+    for numero, ref in rondas:
+        columns = [(table, column, "Text") for table, column in ref]
         start = len(backend.log["dax"])
         try:
             cache.begin_turn(question=spec["pregunta"])
@@ -208,7 +215,8 @@ def reproducir(system, spec, latencia_ms):
         lines = cache.describe_turn() or []
         cache.end_turn()
         consultas = [_entrada(e) for e in backend.log["dax"][start:]]
-        texto = f"[exploración reproducida, turno {'frío' if numero == 1 else 'siguiente'}] {spec['pregunta']}"
+        cuando = {1: "frío", 2: "siguiente", 3: "otras columnas del modelo"}[numero]
+        texto = f"[exploración reproducida, turno {cuando}] {spec['pregunta']}"
         turnos.append(_turno(spec["id"], numero, texto, consultas, latencia_ms, reasoning="\n".join(lines)))
         print(f"[ R  ] {spec['id']}#{numero} · consultas {len(consultas)} · {turnos[-1]['estimado_s']} s", flush=True)
     return turnos
@@ -233,6 +241,8 @@ def correr(case_ids=None, latencia_ms=500, incluir_propietario=True, frio=False,
     cases = runner.select_cases(data, (), tuple(case_ids or ()), "realistic", only_applicable=True)
     if incluir_propietario and not case_ids:
         cases = [PROPIETARIO] if solo_propietario else list(cases) + [PROPIETARIO]
+    if reproducciones == "solo":
+        cases, incluir_propietario = [], False
 
     captured = []
     original_ask, original_choose = harness.ask, harness.ask_option
@@ -418,6 +428,8 @@ def main(argv=None):
                         help="calibración del modelo de coste (tests/realistic/powerbi_sim/cost.py)")
     parser.add_argument("--reproducir", action="store_true",
                         help="agrega la exploración reproducida de los turnos del propietario del 2026-10-14")
+    parser.add_argument("--solo-reproducir", action="store_true",
+                        help="solo la exploración reproducida (sin el banco)")
     parser.add_argument("--comparar", nargs=2, metavar=("ANTES", "DESPUES"))
     args = parser.parse_args(argv)
     if args.comparar:
@@ -428,7 +440,8 @@ def main(argv=None):
     ids = [c.strip() for v in args.case or [] for c in v.split(",") if c.strip()]
     data = correr(ids, args.latencia_ms, not args.sin_propietario, frio=args.frio,
                   solo_propietario=args.solo_propietario, coste=not args.sin_coste,
-                  escenario=args.escenario, reproducciones=args.reproducir)
+                  escenario=args.escenario,
+                  reproducciones="solo" if args.solo_reproducir else args.reproducir)
     if args.out:
         Path(args.out).write_text(json.dumps(data, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
     print(resumen(data))

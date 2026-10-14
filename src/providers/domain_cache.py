@@ -52,6 +52,30 @@ Esta caché:
 - `background()`: consultas de un hilo de precalentamiento, que no cuentan en el
   turno del usuario ni gastan su presupuesto.
 
+Turnos del propietario del 2026-10-14 (BRIEFING HOSPITALARIO, DEMANDA
+INSATISFECHA): la consulta de cardinalidad NO fue barata (3 columnas en 6,40 s;
+5 columnas canceladas «a los 13,48 s con límite de 8 s») y la exploración costó
+17,55 s de un turno de 25 s cuya respuesta tardó menos de 1 s. Por eso:
+
+- los CÓDIGOS (HCACODIGO, COD_SERV, codcama, NRO_CAMA...: `code_column`) no se
+  cuentan ni entran a un lote, y si la pregunta del turno (`begin_turn(question)`)
+  no trae un código («403», «UCI-06», «III») tampoco se exploran: ningún valor de
+  un código puede ser lo que el usuario nombró (`get` devuelve [] sin consultar;
+  un filtro pedido con su columna, `essential=True`, sí se consulta);
+- la consulta de cardinalidad tiene su propio límite, corto
+  (POWERBI_DOMAIN_CARD_TIMEOUT_S, por defecto 3 s): existe para ser barata; si no
+  lo es, se sigue con las reglas por nombre (como cuando falla). Si se cancela o
+  tarda más de POWERBI_DOMAIN_SLOW_S, ese modelo no vuelve a contarse durante
+  POWERBI_DOMAIN_TTL_S (ni en el turno siguiente) y sus columnas quedan con
+  cardinalidad «desconocida» en la caché;
+- solo se cuentan las columnas de los próximos lotes de la búsqueda incremental
+  (2 × POWERBI_DOMAIN_BATCH por lote pedido), no las 24 primeras;
+- el tiempo de ABRIR la conexión del modelo (y de esperar el candado de la
+  conexión) lo informa PowerBIProvider (`connect_s`, `wait_s`) y se descuenta:
+  el «13,48 s con límite de 8 s» eran ~5,5 s abriendo la conexión (fuera del
+  CommandTimeout de ADOMD) + 8 s de consulta. Se muestra aparte en el
+  razonamiento y no hace «lenta» una consulta.
+
 La consulta de una columna (con el tope histórico de 2500) es exactamente la que
 usaba QueryPlanBuilder:
 
@@ -86,6 +110,19 @@ _IDENTIFIER_RE = re.compile(r"^oid|oid$|(^|_)id($|_)", re.I)
 # Textos de fecha u hora: muchos valores distintos; no entran a un lote (se
 # consultan solos si se necesitan).
 _DATE_TEXT_PARTS = ("fecha", "hora", "timestamp")
+# Códigos (de cama, servicio, aseguradora, diagnóstico...): HCACODIGO,
+# GDECODIGO, CODIGO_CIE10, COD_SERV, codcama, NRO_CAMA. Un valor así solo se
+# nombra escribiendo el código.
+_CODE_RE = re.compile(r"codigo|^cod|cod$|(^|_)(nro|numero|code)(_|$)")
+# Palabra de la pregunta que puede ser un código: letras y dígitos mezclados
+# («UCI-06», «A12»), un número de 3+ cifras que no es un año («403») o un
+# numeral romano («III», como las clasificaciones de triage).
+_CODE_TOKEN_RE = re.compile(
+    r"^(?=[a-z0-9\-/.]*[a-z])(?=[a-z0-9\-/.]*\d)[a-z0-9][a-z0-9\-/.]*$"
+    r"|^\d{3,}$"
+    r"|^(?:i{1,3}|iv|v|vi{1,3}|ix)$"      # sin «x» sola: «pacientes x aseguradora»
+)
+_YEAR_RE = re.compile(r"^(?:19|20)\d{2}$")
 
 
 def _env_number(name, default, cast=float):
@@ -120,9 +157,33 @@ def identifier_column(column):
 
 
 def likely_high_cardinality(column):
-    """Identificadores, personas y textos de fecha/hora (por el nombre)."""
+    """Identificadores, personas, códigos y textos de fecha/hora (por el nombre)."""
     compact = _compact(column)
-    return identifier_column(column) or any(part in compact for part in _DATE_TEXT_PARTS)
+    return (identifier_column(column) or code_column(column)
+            or any(part in compact for part in _DATE_TEXT_PARTS))
+
+
+def _plain(text):
+    text = unicodedata.normalize("NFD", str(text or "").lower())
+    return "".join(c for c in text if unicodedata.category(c) != "Mn")
+
+
+def code_column(column):
+    """¿Columna de códigos (HCACODIGO, COD_SERV, codcama, NRO_CAMA...)? No entra
+    a un lote ni a la consulta de cardinalidad y solo se explora si la pregunta
+    trae un código (`has_code_token`)."""
+    text = re.sub(r"[^a-z0-9]+", "_", _plain(column)).strip("_")
+    return bool(text) and bool(_CODE_RE.search(text))
+
+
+def has_code_token(text):
+    """¿La pregunta trae algo que puede ser un código? («cama 403», «UCI-06»,
+    «triage III»). Un año («2025») o una cantidad corta («3 meses», «top 10») no."""
+    for token in re.split(r"[\s,;:()\[\]{}¿?¡!\"'«»]+", _plain(text)):
+        token = token.strip(".-/")
+        if token and not _YEAR_RE.match(token) and _CODE_TOKEN_RE.match(token):
+            return True
+    return False
 
 
 def table_ref(table):
@@ -231,7 +292,7 @@ class DomainCache:
 
     def __init__(self, provider, ttl_s=None, batch_size=None, turn_budget=None, clock=None,
                  low_cardinality=None, card_probe=None, card_ttl_s=None, timeout_s=None, slow_s=None,
-                 timer=None):
+                 timer=None, card_timeout_s=None):
         self.provider = provider
         self.ttl_s = float(ttl_s if ttl_s is not None else _env_number("POWERBI_DOMAIN_TTL_S", 3600.0))
         self.batch_size = int(batch_size if batch_size is not None
@@ -247,6 +308,9 @@ class DomainCache:
         self.timeout_s = float(timeout_s if timeout_s is not None
                                else _env_number("POWERBI_DOMAIN_TIMEOUT_S", 8.0))
         self.slow_s = float(slow_s if slow_s is not None else _env_number("POWERBI_DOMAIN_SLOW_S", 2.0))
+        # La consulta de cardinalidad existe para ser barata: límite propio y corto.
+        self.card_timeout_s = float(card_timeout_s if card_timeout_s is not None
+                                    else _env_number("POWERBI_DOMAIN_CARD_TIMEOUT_S", 3.0))
         self.clock = clock or time.monotonic
         self.timer = timer or time.perf_counter
         self._entries = {}        # clave -> (momento, [valores como texto], tope TOPN)
@@ -255,6 +319,9 @@ class DomainCache:
         self._timed_out_at = {}     # clave -> momento del último vencimiento
         self._failed_turn = {}    # clave -> número de turno del fallo (no se reintenta en ese turno)
         self._avoided_turn = set()  # columnas no exploradas en el turno (alta cardinalidad)
+        self._card_unknown = {}   # clave -> momento: su cardinalidad no se pudo contar (no se reintenta)
+        self._slow_probe = {}     # modelo -> (momento, segundos, ¿cancelada?): no se vuelve a contar
+        self._turn_has_code = None  # ¿la pregunta del turno trae un código? (None = no se sabe)
         self.errors = {}          # clave -> detalle del último fallo
         self._lock = threading.RLock()
         self._local = threading.local()
@@ -293,6 +360,8 @@ class DomainCache:
         with self._lock:
             self._entries.clear()
             self._cards.clear()
+            self._card_unknown.clear()
+            self._slow_probe.clear()
             self._slow_columns.clear()
             self._timed_out_at.clear()
             self._failed_turn.clear()
@@ -338,9 +407,24 @@ class DomainCache:
         dom = self._entries.get(key)
         if dom is not None and len(dom[1]) > self.low_cardinality:
             return "high"
-        if identifier_column(column):
+        if identifier_column(column) or code_column(column):
             return "high"
         return "unknown"
+
+    def _fresh_moment(self, moment):
+        return moment is not None and (self.ttl_s <= 0 or self.clock() - moment < self.ttl_s)
+
+    def _probe_unknown(self, semantic_model, table, column):
+        """¿Ya se intentó contar esta columna y no se pudo (consulta cancelada)?"""
+        return self._fresh_moment(self._card_unknown.get(self.key(semantic_model, table, column)))
+
+    def slow_probe(self, semantic_model):
+        """(segundos, ¿cancelada?) de la última consulta de cardinalidad lenta del
+        modelo si sigue vigente (no se vuelve a contar en ese modelo), o None."""
+        entry = self._slow_probe.get(str(semantic_model or "").casefold())
+        if entry is None or not self._fresh_moment(entry[0]):
+            return None
+        return entry[1], entry[2]
 
     def _probe(self, semantic_model, columns):
         """Cardinalidad de `columns` = [(tabla, columna)] en una consulta barata."""
@@ -350,11 +434,21 @@ class DomainCache:
             return
         dax = cardinality_dax(columns)
         result, elapsed, timed_out = self._execute(dax, semantic_model, timeout=True,
-                                                   kind="cardinalidad", columns=columns)
+                                                   kind="cardinalidad", columns=columns,
+                                                   limit_s=self.card_timeout_s or self.timeout_s)
         self._count("card_queries")
+        if timed_out or elapsed > self.slow_s:
+            # No fue barata (el 2026-10-14: 6,40 s y una cancelada): en este modelo
+            # no se vuelve a contar durante POWERBI_DOMAIN_TTL_S; las columnas se
+            # deciden por el nombre, como cuando la consulta falla.
+            self._slow_probe[str(semantic_model or "").casefold()] = (self.clock(), round(elapsed, 2), timed_out)
         if result.get("status") != "success" or timed_out:
             if not timed_out:
                 self._probe_failures += 1
+            else:
+                now = self.clock()
+                for table, column in columns:
+                    self._card_unknown[self.key(semantic_model, table, column)] = now
             self._probe_failed_turn = self._turn_id
             return
         rows = result.get("rows") or []
@@ -384,22 +478,31 @@ class DomainCache:
     def _empty_stats():
         return {"queries": 0, "batch_queries": 0, "card_queries": 0, "columns": 0, "hits": 0,
                 "seconds": 0.0, "errors": 0, "skipped": 0, "timeouts": 0, "skipped_slow": 0, "avoided": 0,
-                "slow": []}
+                "card_skipped": 0, "connect_seconds": 0.0, "slow": []}
 
-    def begin_turn(self):
-        """Inicio de un turno del chat: reinicia las métricas y el presupuesto."""
+    def begin_turn(self, question=None):
+        """Inicio de un turno del chat: reinicia las métricas y el presupuesto.
+        `question`: texto del turno (y de la pregunta pendiente si es un botón);
+        sin un código en él, las columnas de códigos no se exploran. None (no
+        se sabe): se exploran como siempre."""
         with self._lock:
             self._turn_id += 1
             self._in_turn = True
             self._failed_turn.clear()
             self._avoided_turn.clear()
+            self._turn_has_code = None if question is None else has_code_token(question)
             self.turn = self._empty_stats()
 
     def end_turn(self):
         with self._lock:
             self._in_turn = False
             self._failed_turn.clear()
+            self._turn_has_code = None
             return self.turn_stats()
+
+    @property
+    def turn_has_code(self):
+        return self._turn_has_code
 
     def turn_stats(self):
         stats = dict(self.turn)
@@ -444,9 +547,13 @@ class DomainCache:
         return self._in_turn and self._failed_turn.get(key) == self._turn_id
 
     # ---------------- consultas ----------------
-    def _execute(self, dax, semantic_model, timeout=False, kind="columna", columns=()):
-        """(resultado, segundos, ¿venció el tiempo límite?)"""
-        limit = self.timeout_s if (timeout and self.timeout_s > 0 and self._timeout_ok) else None
+    def _execute(self, dax, semantic_model, timeout=False, kind="columna", columns=(), limit_s=None):
+        """(resultado, segundos de la consulta, ¿venció el tiempo límite?). Los
+        segundos no incluyen abrir la conexión ni esperar su candado (los informa
+        PowerBIProvider: `connect_s`, `wait_s`): el CommandTimeout de ADOMD
+        tampoco los cuenta y la respuesta los pagaría igual."""
+        limit_s = self.timeout_s if limit_s is None else limit_s
+        limit = limit_s if (timeout and limit_s > 0 and self._timeout_ok) else None
         started = self.timer()
         try:
             if limit:
@@ -455,11 +562,20 @@ class DomainCache:
                 result = self.provider.execute_dax(dax=dax, semantic_model=semantic_model)
         except Exception as exc:  # proveedores de prueba que lanzan en lugar de devolver error
             result = {"status": "error", "error": str(exc), "error_type": type(exc).__name__}
-        elapsed = self.timer() - started
+        total = self.timer() - started
         if not isinstance(result, dict):
             result = {"status": "error", "error": "respuesta inválida"}
+        overhead = 0.0
+        for name in ("connect_s", "wait_s"):
+            try:
+                overhead += max(0.0, float(result.get(name) or 0.0))
+            except (TypeError, ValueError):
+                pass
+        overhead = min(overhead, total)
+        elapsed = total - overhead
         timed_out = bool(limit) and result.get("status") != "success" and _is_timeout(result, elapsed, limit)
         self._count("seconds", elapsed)
+        self._count("connect_seconds", overhead)
         if kind != "cardinalidad":
             self._count("queries")
         if timed_out:
@@ -468,6 +584,7 @@ class DomainCache:
             self.turn["slow"].append({
                 "kind": kind, "seconds": round(elapsed, 2), "timed_out": timed_out,
                 "limit_s": limit, "columns": [f"{table}[{column}]" for table, column in columns],
+                "connect_s": round(overhead, 2),
             })
         return result, elapsed, timed_out
 
@@ -552,9 +669,15 @@ class DomainCache:
         del turno agotado). `limit`: tope TOPN (por defecto 2500, el histórico);
         un tope menor basta para saber si el dominio pasa de cierto tamaño.
         `essential=True` (filtro que el usuario pidió con su columna, mes o año
-        del periodo) no está sujeto al presupuesto ni al tiempo límite."""
+        del periodo) no está sujeto al presupuesto ni al tiempo límite.
+        Una columna de códigos (`code_column`) en un turno cuya pregunta no trae
+        ningún código devuelve [] sin consultar (ningún valor suyo coincide con
+        lo nombrado; «uci» no es la cama UCI-06)."""
         limit = int(limit or DEFAULT_LIMIT)
         key = self.key(semantic_model, table, column)
+        if not essential and self._turn_has_code is False and code_column(column):
+            self.note_avoided(semantic_model, table, column)
+            return []
         with self._lock:
             entry = self._entries.get(key)
             if self._fresh(entry, limit):
@@ -609,12 +732,20 @@ class DomainCache:
             if len(pending) < 2:
                 return  # una sola columna: la consulta normal cuando se pida
             # Cardinalidad de las que no se conocen (una consulta barata para todas).
+            # Búsqueda incremental: solo las de los próximos lotes (se cuentan y
+            # se agrupan); las siguientes, en la próxima llamada.
+            window = pending if max_batches is None else pending[:self.batch_size * max_batches * 2]
             if self.card_probe and self._probe_failures < 2:
-                unknown = [(t, c) for t, c in pending if self.classify(semantic_model, t, c) == "unknown"]
+                unknown = [(t, c) for t, c in window
+                           if self.classify(semantic_model, t, c) == "unknown"
+                           and not self._probe_unknown(semantic_model, t, c)]
                 if unknown:
-                    self._probe(semantic_model, unknown[:CARD_PROBE_MAX_COLUMNS])
+                    if self.slow_probe(semantic_model) is not None:
+                        self._count("card_skipped")   # en este modelo no es barata: por el nombre
+                    else:
+                        self._probe(semantic_model, unknown[:CARD_PROBE_MAX_COLUMNS])
             batchable = [
-                (t, c) for t, c in pending
+                (t, c) for t, c in window
                 if self.classify(semantic_model, t, c) == "low"
                 or (self.classify(semantic_model, t, c) == "unknown" and not likely_high_cardinality(c))
             ]
@@ -659,7 +790,7 @@ class DomainCache:
         POWERBI_DOMAIN_SLOW_S) o cancelada, sus columnas y su tiempo."""
         stats = stats or self.turn_stats()
         if not (stats["queries"] or stats["skipped"] or stats.get("card_queries") or stats.get("avoided")
-                or stats.get("skipped_slow")):
+                or stats.get("skipped_slow") or stats.get("card_skipped")):
             return None
         line = (
             f"{stats['queries']} consulta(s) de valores de columnas"
@@ -670,15 +801,19 @@ class DomainCache:
         extra = []
         if stats.get("card_queries"):
             extra.append(f"{stats['card_queries']} consulta(s) de cardinalidad (cuántos valores tiene cada columna)")
+        if stats.get("card_skipped"):
+            extra.append(
+                "sin consulta de cardinalidad: en este modelo no fue barata (se decide por el nombre de la columna)"
+            )
         if stats.get("avoided"):
             extra.append(
-                f"{stats['avoided']} columna(s) de alta cardinalidad sin explorar "
-                "(identificadores o más valores de los que un calificativo puede nombrar)"
+                f"{stats['avoided']} columna(s) sin explorar (identificadores, códigos sin un código en la "
+                "pregunta o más valores de los que un calificativo puede nombrar)"
             )
         if stats["errors"]:
             extra.append(f"{stats['errors']} con error")
         if stats.get("timeouts"):
-            extra.append(f"{stats['timeouts']} cancelada(s) por tiempo (> {self.timeout_s:g} s)")
+            extra.append(f"{stats['timeouts']} cancelada(s) por tiempo")
         if stats.get("skipped_slow"):
             extra.append(
                 f"{stats['skipped_slow']} columna(s) sin consultar porque hace poco superaron "
@@ -691,20 +826,29 @@ class DomainCache:
         lines = [line]
         if extra:
             lines.append(" · ".join(extra))
+        if stats.get("connect_seconds", 0) >= 0.5:
+            lines.append(
+                f"además {stats['connect_seconds']:.2f} s para abrir la conexión con Power BI (o esperar a que "
+                "se liberara): no cuentan en el límite de tiempo de las consultas y la respuesta los pagaría igual"
+            )
         for item in stats.get("slow") or []:
             names = ", ".join(item["columns"][:8]) + ("…" if len(item["columns"]) > 8 else "")
             what = {"lote": "lote", "cardinalidad": "cardinalidad", "columna": "columna"}.get(item["kind"], item["kind"])
+            opening = (f" (+ {item['connect_s']:.2f} s abriendo la conexión)"
+                       if (item.get("connect_s") or 0) >= 0.5 else "")
             if item.get("timed_out"):
                 after = {
                     "lote": "sus columnas se consultan por separado si se necesitan",
-                    "cardinalidad": "se siguió sin saber su cardinalidad",
+                    "cardinalidad": "se siguió sin saber su cardinalidad (no se vuelve a contar en este modelo)",
                 }.get(item["kind"], "se siguió sin esa columna")
                 lines.append(
                     f"consulta de {what} cancelada a los {item['seconds']:.2f} s "
-                    f"(límite {item.get('limit_s') or self.timeout_s:g} s): {names} — {after}"
+                    f"(límite {item.get('limit_s') or self.timeout_s:g} s){opening}: {names} — {after}"
                 )
             else:
-                lines.append(f"consulta lenta de {what} ({item['seconds']:.2f} s): {names}")
+                note = (" — no se vuelve a contar en este modelo (se decide por el nombre)"
+                        if item["kind"] == "cardinalidad" else "")
+                lines.append(f"consulta lenta de {what} ({item['seconds']:.2f} s){opening}: {names}{note}")
         return lines
 
 
