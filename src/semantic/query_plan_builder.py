@@ -4306,6 +4306,226 @@ class QueryPlanBuilder:
         )
         return alternative
 
+    # ---------------- «M por X» con un indicador que no se desglosa por X ----------------
+    _GROUP_TAIL_RE = re.compile(
+        r"(?<![a-z0-9])(?:por|segun|agrupad[oa]s?\s+por|desglosad[oa]s?\s+por)\s+"
+        r"(?:(?:el|la|los|las|cada)\s+)?(.+)$"
+    )
+
+    def _requested_group_tail(self, question):
+        """Lo que sigue a «por/según» en la pregunta, sin el periodo («ocupación
+        por servicio hoy» -> «servicio»), o None."""
+        text = self._analyze_periods(question)["clean_question"]
+        match = self._GROUP_TAIL_RE.search(text)
+        tail = match.group(1).strip() if match else ""
+        return tail or None
+
+    def _group_field_in(self, tail, fields):
+        """Campo de `fields` que nombra el comienzo de `tail` («aseguradores» ->
+        TERNOMCOM «ASEGURADORA»), sin columnas temporales; o None."""
+        if not tail:
+            return None
+        # Primero el filtro barato (algún alias abre `tail`); luego el mejor
+        # de esos por coincidencia y relevancia, como `_best_dimension`.
+        named = [
+            field for field in fields
+            if any(_alias_prefix(tail, alias) for alias in field.get("aliases") or [])
+        ]
+        return self._best_dimension(tail, named, exclude_temporal=True) if named else None
+
+    def _group_topic_words(self, question, source_context, tail):
+        """Palabras del tema de «detalle de ocupación por aseguradores»
+        («ocupacion»): sin la agrupación, unidades ni palabras de página genéricas."""
+        ignored = {canonical_token(word) for word in self._OPTION_UNIT_WORDS
+                   | self._PAGE_IGNORED_NAME_WORDS | GENERIC_PAGE_WORDS}
+        ignored |= set(canonical_tokens(tail))
+        return [word for word in self._option_words(question, source_context) if word not in ignored]
+
+    def _table_pages(self, semantic_model, table):
+        """Páginas del informe que usan la tabla (columnas en visuales o
+        indicadores de esa tabla): PACIENTES X ASEGURADORA -> DETALLE OCUPACIÓN."""
+        index = self.__dict__.get("_table_pages_index")
+        if index is None:
+            index = {}
+            for field in self.dimension_fields or []:
+                key = (normalize_text(field.get("semantic_model")), normalize_text(field.get("table")))
+                if field.get("page") and field["page"] not in index.setdefault(key, []):
+                    index[key].append(field["page"])
+            for metric in self.metrics:
+                key = (normalize_text(metric.get("semantic_model")), normalize_text(metric.get("table")))
+                for page in self._metric_pages(metric):
+                    if page not in index.setdefault(key, []):
+                        index[key].append(page)
+            self._table_pages_index = index
+        return list(index.get((normalize_text(semantic_model), normalize_text(table)), []))
+
+    def _metric_topic_page(self, metric, words):
+        """Página (de sus visuales o de su tabla) cuyo nombre explica TODAS las
+        palabras del tema («ocupacion» -> DETALLE OCUPACIÓN); "" si las explica
+        el nombre/tabla del indicador; None si nada las explica."""
+        if not words:
+            return None
+        pages = _unique_strings([
+            *self._metric_pages(metric),
+            *self._table_pages(metric.get("semantic_model"), self._metric_fact_table(metric)),
+        ])
+        for page in pages:
+            tokens = self._page_name_tokens(page)
+            if tokens and all(self._explains(word, tokens) for word in words):
+                return page
+        vocabulary = self._metric_vocabulary_tokens(metric, with_pages=False)
+        if all(self._explains(word, vocabulary) for word in words):
+            return ""
+        return None
+
+    def _groupable_on_topic(self, metric, tail, words):
+        """¿El indicador se desglosa por `tail` y su página/nombre trata el tema?"""
+        return (
+            self._metric_topic_page(metric, words) is not None
+            and self._group_field_in(tail, self._metric_dimensions(metric)) is not None
+        )
+
+    def _group_siblings(self, question, source_context, tail, models, exclude=()):
+        """Indicadores de esos modelos que SÍ se desglosan por `tail` y cuya
+        página o nombre trata el tema de la pregunta («detalle de ocupación por
+        aseguradores»: %OCUPACION no tiene aseguradora, pero la página DETALLE
+        OCUPACIÓN cuenta los pacientes de PACIENTES X ASEGURADORA por
+        TERNOMCOM). Uno por expresión (TOTAL PACIENTES = PACIENTES por
+        ASEGURADORA): el de la página del tema, tarjeta, nombre más corto."""
+        words = self._group_topic_words(question, source_context, tail)
+        if not words or not tail:
+            return []
+        models = {normalize_text(model) for model in models if model}
+        excluded = {self._logical_key(metric) for metric in exclude}
+        groups = {}
+        for metric in self.metrics:
+            model = metric.get("semantic_model")
+            if (
+                metric.get("validation_status") != "approved" or normalize_text(model) not in models
+                or self._logical_key(metric) in excluded
+            ):
+                continue
+            page = self._metric_topic_page(metric, words)
+            if page is None:
+                continue
+            field = self._group_field_in(tail, self._metric_dimensions(metric))
+            if field is None:
+                continue
+            key = (normalize_text(model), normalize_text(self._measure_expression(model, metric)))
+            groups.setdefault(key, []).append({"metric": metric, "page": page, "field": field, "words": words})
+
+        def rank(item):
+            metric = item["metric"]
+            on_page = [a for a in metric.get("appearances") or []
+                       if normalize_text(a.get("page_display_name")) == normalize_text(item["page"])]
+            generic = bool(re.match(r"^(?:recuento|conteo|count|suma|sum)\b", normalize_text(metric.get("label"))))
+            return (
+                0 if on_page else 1,
+                0 if any(normalize_text(a.get("visual_type")) == "card" for a in on_page) else 1,
+                1 if generic else 0,
+                len(str(metric.get("label") or "")),
+            )
+
+        return [sorted(members, key=rank)[0] for members in groups.values()]
+
+    def _ungroupable_text(self, metrics, tail, question):
+        """«%OCUPACION no se puede desglosar por aseguradores: su tabla CAMAS
+        DISPONIBLES no tiene esa columna ni se relaciona con una que la tenga.»"""
+        labels = _unique_strings(metric.get("label") for metric in metrics)
+        tables = _unique_strings(self._metric_fact_table(metric) for metric in metrics)
+        dimension = _original_phrase(question, tail.split()[0]) if tail else "esa dimensión"
+        if len(labels) == 1:
+            where = f"su tabla {tables[0]}" if tables else "su tabla"
+            return (
+                f"{labels[0]} no se puede desglosar por {dimension}: {where} no tiene esa columna "
+                "ni se relaciona con una que la tenga."
+            )
+        listed = ", ".join(labels[:-1]) + " y " + labels[-1]
+        return f"{listed} no se pueden desglosar por {dimension}: sus tablas no tienen esa columna."
+
+    def _group_sibling_note(self, originals, sibling, tail, question):
+        """Nota visible: qué no se pudo desglosar y qué se muestra en su lugar."""
+        metric = sibling["metric"]
+        field = sibling["field"]
+        topic = " ".join(_original_phrase(question, word) for word in sibling.get("words") or [])
+        where = metric.get("report") or metric.get("semantic_model")
+        if sibling.get("page"):
+            where = f"{where} › página {sibling['page']}"
+        name = (field.get("aliases") or [field.get("column")])[0]
+        lead = f"Para ver «{topic}» por {name.lower()}" if topic else "En su lugar"
+        return (
+            f"{self._ungroupable_text(originals, tail, question)} {lead} se muestra "
+            f"{metric.get('label')} ({where}), que sí se desglosa por {name}."
+        )
+
+    def _group_sibling_plan(self, question, intent_result, originals, tail, source_context, why_prefix=""):
+        """Plan con el único indicador hermano que se desglosa por `tail`, o None."""
+        models = _unique_strings(metric.get("semantic_model") for metric in originals)
+        siblings = self._group_siblings(question, source_context, tail, models, exclude=originals)
+        if len(siblings) != 1:
+            if siblings:
+                self._note(
+                    f"varios indicadores se desglosan por «{tail}» y tratan el tema: "
+                    + ", ".join(str(item["metric"].get("label")) for item in siblings[:5])
+                )
+            return None
+        sibling = siblings[0]
+        note = self._group_sibling_note(originals, sibling, tail, question)
+        item = {"metric": sibling["metric"], "matched_name": sibling["metric"].get("label"), "score": None}
+        return self._forced_plan(
+            question, intent_result, item,
+            f"{why_prefix}{self._ungroupable_text(originals, tail, question)} Se usa el indicador del "
+            f"mismo tablero que sí se desglosa por «{tail}» y trata el tema de la pregunta",
+            consumed_tokens=self._option_words(question, source_context),
+            visible_note=note, group_sibling=True,
+        )
+
+    def _group_feasible_options(self, question, intent_result, plan):
+        """Contrapregunta de «M por X» (sin opción elegida): las opciones que no
+        se pueden desglosar por X no responden la pregunta.
+        - Algunas sí y otras no: quedan solo las que sí (una -> se responde).
+        - Ninguna: el indicador hermano del mismo tablero que sí se desglosa
+          por X y trata el tema (página DETALLE OCUPACIÓN), si es uno solo.
+        Devuelve un plan o None (sin cambios)."""
+        if plan.get("status") != "ambiguous" or plan.get("reason") is not None:
+            return None
+        tail = self._requested_group_tail(question)
+        resolution = plan.get("metric_resolution") or {}
+        items = list(resolution.get("candidates") or [])
+        if not tail or len(items) < 2:
+            return None
+        groupable = [
+            item for item in items
+            if self._group_field_in(tail, self._metric_dimensions(item.get("metric") or {})) is not None
+        ]
+        source_context = plan.get("source_context") or {}
+        if not groupable:
+            return self._group_sibling_plan(
+                question, intent_result, [item["metric"] for item in items], tail, source_context,
+            )
+        if len(groupable) == len(items):
+            return None
+        others = [item["metric"] for item in items if item not in groupable]
+        text = self._ungroupable_text(others, tail, question)
+        self._note(f"opciones depuradas: {text}")
+        if len({self._logical_key(item["metric"]) for item in groupable}) == 1:
+            chosen = groupable[0]
+            words = self._group_topic_words(question, source_context, tail)
+            page = self._metric_topic_page(chosen["metric"], words)
+            note = self._group_sibling_note(
+                others, {"metric": chosen["metric"], "page": page,
+                         "field": self._group_field_in(tail, self._metric_dimensions(chosen["metric"])),
+                         "words": words},
+                tail, question,
+            )
+            return self._forced_plan(
+                question, intent_result, chosen,
+                f"única opción que se desglosa por «{tail}»; {text}",
+                consumed_tokens=self._option_words(question, source_context),
+                visible_note=note, group_sibling=True,
+            )
+        return {**plan, "metric_resolution": {**resolution, "candidates": groupable}}
+
     # ---------------- ranking («top 5», «el servicio con más peso») ----------------
     _RANKING_WORDS = {"top", "mas", "mayor", "mayores", "menos", "menor", "menores", "ranking"}
     # «con más de 3 días» / «más que» comparan con una cifra: no son ranking.
@@ -5070,6 +5290,12 @@ class QueryPlanBuilder:
             return metric_result
         units = {canonical_token(word) for word in self._OPTION_UNIT_WORDS}
         core = [word for word in words if word not in units] or words
+        # «detalle de ocupación por aseguradores»: una opción que se desglosa
+        # por la dimensión pedida y cuya página/nombre trata el tema (PACIENTES
+        # por ASEGURADORA, tabla de la página DETALLE OCUPACIÓN) no se descarta
+        # por no compartir una palabra con «detalle ocupacion».
+        tail = self._requested_group_tail(question)
+        topic = self._group_topic_words(question, source_context, tail) if tail else []
         result = dict(metric_result)
         for key in ("candidates", "suggestions"):
             items = list(result.get(key) or [])
@@ -5081,6 +5307,18 @@ class QueryPlanBuilder:
                 continue  # nada comparte palabras: lo decide otra regla
             full = [index for index in related if len(covered[index]) == len(core)]
             keep = full or related
+            if topic and len(keep) < len(items):
+                protected = [
+                    index for index in range(len(items))
+                    if index not in keep and self._groupable_on_topic(items[index].get("metric") or {}, tail, topic)
+                ]
+                if protected:
+                    self._note(
+                        "se conservan (se desglosan por «" + tail + "» y su página trata «"
+                        + " ".join(topic) + "»): "
+                        + ", ".join(str((items[i].get("metric") or {}).get("label")) for i in protected)
+                    )
+                    keep = sorted(set(keep) | set(protected))
             if len(keep) == len(items):
                 continue
             dropped = [
@@ -5810,9 +6048,12 @@ class QueryPlanBuilder:
             "metric_resolution": {"status": "ambiguous", "candidates": items},
         }
 
-    def _forced_plan(self, question, intent_result, item, why, consumed_tokens=()):
+    def _forced_plan(self, question, intent_result, item, why, consumed_tokens=(),
+                     visible_note=None, group_sibling=False):
         """Plan con un indicador ya decidido (única opción razonable).
-        `consumed_tokens`: palabras de la pregunta que ya explicó la elección."""
+        `consumed_tokens`: palabras de la pregunta que ya explicó la elección.
+        `visible_note`: nota que se muestra con la respuesta. `group_sibling`:
+        indicador elegido porque el pedido no se podía desglosar (no se repite)."""
         metric = item["metric"]
         interpretation = f"{metric.get('label')}: {why}"
         self._note(interpretation)
@@ -5824,6 +6065,8 @@ class QueryPlanBuilder:
             "interpretation": interpretation,
             "final": True,
             "consumed_tokens": set(consumed_tokens or ()),
+            "visible_note": visible_note,
+            "group_sibling": bool(group_sibling),
         }
         return self._build_plan(question, intent_result, forced_resolution=forced)
 
@@ -5914,6 +6157,13 @@ class QueryPlanBuilder:
 
         resolution = self._prune_unrelated_options(question, source_context, resolution)
         plan = {**plan, "metric_resolution": resolution}
+        # «M por X»: fuera las opciones que no se desglosan por X.
+        grouped = self._group_feasible_options(question, intent_result, plan)
+        if grouped is not None:
+            if grouped.get("status") != "ambiguous":
+                return grouped
+            plan = grouped
+            resolution = plan["metric_resolution"]
         candidates = resolution.get("candidates") or []
         if (
             status == "ambiguous" and plan.get("reason") is None and len(candidates) == 1
@@ -6633,11 +6883,27 @@ class QueryPlanBuilder:
             r"(servicio|servicios|especialidad|especialidades|asegurador(?:a|as|es)?|eps|sexo|estados?|tipos?)\b",
             normalize_text(question),
         )
-        if requested_group and not group_by and not group_detection["explicit_filters"]:
+        # «por X» que solo nombra columnas de tablas que no filtran el
+        # indicador: tampoco se agrupa en silencio por ellas.
+        group_tail = self._requested_group_tail(question)
+        unrelated_group = self._group_field_in(group_tail, dropped_dimensions) if group_tail else None
+        if (requested_group or unrelated_group) and not group_by and not group_detection["explicit_filters"]:
+            # Otro indicador del mismo tablero que sí se desglosa por X y trata
+            # el tema («detalle de ocupación por aseguradores»).
+            if not (forced_resolution or {}).get("group_sibling"):
+                sibling = self._group_sibling_plan(question, intent_result, [metric], group_tail, source_context)
+                if sibling is not None:
+                    return sibling
+            if unrelated_group is not None:
+                self._note(
+                    f"«{group_tail}» solo está en {unrelated_group.get('table')}[{unrelated_group.get('column')}], "
+                    f"tabla que no filtra {self._metric_fact_table(metric)}: no se agrupa por ella"
+                )
             return {
                 "status": "unsupported_filter", "stage": "dimensions",
                 "reason": "requested_dimension_not_found_in_report",
-                "requested_dimension": requested_group.group(1),
+                "requested_dimension": requested_group.group(1) if requested_group else group_tail,
+                "explanation": self._ungroupable_text([metric], group_tail, question) if group_tail else None,
                 "question": question, "semantic_model": semantic_model,
                 "source_context": source_context, "metric_resolution": metric_result,
             }
@@ -6658,7 +6924,9 @@ class QueryPlanBuilder:
             )
         )
 
-        if selected_metric_id is None:
+        # Un indicador hermano elegido porque el pedido no se desglosaba por X
+        # ya se justificó por el tema de la pregunta (su página).
+        if selected_metric_id is None and not (forced_resolution or {}).get("group_sibling"):
             rejection = self._metric_evidence_rejection(
                 question, metric, metric_result, group_by, explicit_specs, source_context,
             )
@@ -6668,6 +6936,8 @@ class QueryPlanBuilder:
         filters = []
         unapplied_terms = []
         notes = []
+        if (forced_resolution or {}).get("visible_note"):
+            notes.append(forced_resolution["visible_note"])
         consumed_tokens = set(temporal["tokens"])
         consumed_tokens.update(board_tokens)
         # Palabras con que se eligió un indicador ya decidido (página nombrada:
