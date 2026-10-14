@@ -184,8 +184,10 @@ hospital (2026-10-14) el overlay agrega a la COPIA de `data/` solo lo que su cat
 | BRIEFING HOSPITALARIO | %OCUPACION y CamasFiltradas en INICIO (visual «%OCUPACIÓN»: CamasFiltradas coincide por ese alias), %OCUPACION y la medida CAMAS en GESTIÓN CAMAS (la página local «GESTIÓN DE CAMAS» se renombra; matriz SERVICIOS × ESTADOS_CAM supuesta), visual «PACIENTES por ASEGURADORA» (DISTINCTCOUNT(ADNINGRESO) por TERNOMCOM) en INICIO y **filas fijas** de CAMAS DISPONIBLES (72 camas: HOSPITALIZACIÓN GENERAL, HOSPITALIZACIÓN INTERMEDIOS, UCI ADULTOS, PEDIATRÍA, GINECOBSTETRICIA, URGENCIAS) y PACIENTES X ASEGURADORA (43 pacientes, uno por cama ocupada, con su EPS) |
 | DEMANDA INSATISFECHA | HOSPITALIZACIÓN = SUM(DEMANDA_INS) (CONSOLIDADO y SOLICITUD CAMAS), TOTAL_SOLICITUD_CAMAS, TERCEROS[TERNOMCOM] (la tabla local sigue llamándose SOLICITUD_CAMAS) |
 | TABLERO EPS | %OCUPACIONALC (tabla %OCUPACIONAL) en TRIAGES ATENDIDOS, tarjeta «Ocupación de urgencias» |
+| TABLERO FARMACIA | Solo **filas fijas** (sin tocar el informe ni reconstruir su catálogo): PRODUCTOS_VENCIDOS (5 productos, 79 unidades) y VENCIMIENTO_PRODUCTOS (3 con `mes <= 1`, el filtro de la tarjeta «0-30 DÍAS», y 3 con `mes` 2-4) para los listados de los casos `v_listado_*` |
 
-Cómo: agrega filas a `model_metadata/<slug>/*.csv` de la copia, escribe `_sim_tables.json`, copia el PBIR original
+Cómo: agrega filas a `model_metadata/<slug>/*.csv` de la copia, escribe `_sim_tables.json` y, si el parche
+tiene páginas (`pages`/`rename_pages`), copia el PBIR original
 (sin `.pbi`) a la caché, le agrega/renombra páginas y visuales y escribe `raw/<grupo>/manifest.json`:
 `PowerBICatalogManager.run()` reconstruye los catálogos técnico/visual y las métricas maestras de esos grupos (el
 resto del catálogo queda igual). Lo hecho queda en `data/catalog/patches_report.json` de la caché.

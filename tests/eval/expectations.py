@@ -216,6 +216,67 @@ def table_row_count(result, ui):
     return count
 
 
+def _as_number(value):
+    """Número de una celda (int/float o texto «2.410», «12,5 %»); None si no es numérica."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value if value is not None else "").replace("*", "").replace("%", "").strip()
+    if not text or not NUMBER_RE.fullmatch(text):
+        return None
+    for candidate in (text.replace(".", "").replace(",", "."), text.replace(",", "")):
+        try:
+            return float(candidate)
+        except ValueError:
+            continue
+    return None
+
+
+def table_value_columns(result, ui):
+    """Columnas de valores de las tablas de la respuesta: {nombre: [valores numéricos]}.
+
+    Del resultado: columnas de medida («[__value]», «[PESO]»: SUMMARIZECOLUMNS las nombra
+    entre corchetes) o, si no hay, las numéricas. Si el resultado no trae filas, las columnas
+    numéricas de las tablas markdown de la UI (sin la fila de total)."""
+    rows = result.get("rows")
+    if isinstance(rows, list) and rows and all(isinstance(r, dict) for r in rows):
+        keys = list(rows[0])
+        numeric = {k: [_as_number(r.get(k)) for r in rows] for k in keys}
+        numeric = {k: v for k, v in numeric.items() if all(x is not None for x in v)}
+        measures = {k: v for k, v in numeric.items() if str(k).startswith("[")}
+        return measures or numeric
+    columns = {}
+    lines = [line.strip() for line in str(ui or "").splitlines()]
+    separator = re.compile(r"\|(?:\s*:?-{3,}:?\s*\|)+")
+    index = 0
+    while index < len(lines) - 1:
+        if lines[index].startswith("|") and separator.fullmatch(lines[index + 1]):
+            headers = [c.strip() for c in lines[index].strip("|").split("|")]
+            body = []
+            index += 2
+            while index < len(lines) and lines[index].startswith("|"):
+                if "**total**" not in lines[index].lower():
+                    body.append([c.strip() for c in lines[index].strip("|").split("|")])
+                index += 1
+            for position, header in enumerate(headers):
+                values = [_as_number(row[position]) if position < len(row) else None for row in body]
+                if values and all(v is not None for v in values):
+                    columns[f"{header} #{len(columns)}"] = values
+            continue
+        index += 1
+    return columns
+
+
+def constant_table(result, ui, min_rows=3):
+    """True si la respuesta es una tabla de ≥ min_rows filas cuyas columnas de valores repiten
+    el mismo número en todas las filas (agrupación por una columna que no filtra la medida:
+    «2.410 en cada fila»)."""
+    columns = table_value_columns(result, ui)
+    usable = [values for values in columns.values() if len(values) >= min_rows]
+    return bool(usable) and all(len(set(values)) == 1 for values in usable)
+
+
 def number_in(text, number):
     """True si `number` aparece en el texto (488.3, 488,3, 3.906,4, 12,5 %...)."""
     try:
@@ -419,6 +480,17 @@ def evaluate_turn(expect, result, ui, buttons, question="", forbid=(), allow=())
                         else f"{f.get('year')}-{f.get('month')}") for f in filters]
             checks.append(_check(f"filter {_filter_label(spec)}", False, f"filtros aplicados={applied}"))
 
+    # Filtros que NO deben aplicarse: palabras de alcance («general», «del hospital»,
+    # «institucional») no son un valor de una columna (SERVICIOS = HOSPITALIZACIÓN GENERAL).
+    for spec in as_list(expect.get("filters_none")):
+        label = f"filter_none {_filter_label(spec)}"
+        if not is_data:
+            checks.append(_check(label, None, "sin dato de Power BI (no aplica)"))
+            continue
+        bad = _filter_ok(spec, filters, "")
+        applied = [(f.get("column"), f.get("value")) for f in filters if f.get("type") != "date_range"]
+        checks.append(_check(label, not bad, f"filtros aplicados={applied}" if bad else "no aplicado"))
+
     group_any = as_list(expect.get("group_by_any"))
     if group_any:
         if not is_data:
@@ -591,6 +663,14 @@ def evaluate_forbidden(rules, kind, result, ui, question, missing_hidden=()):
         elif rule == "generic_failure":
             bad = [g for g in GENERIC_FAILURES if g.lower() in text.lower()]
             checks.append(_check("forbid generic_failure", not bad, f"mensaje genérico: {bad}" if bad else ""))
+        elif rule == "constant_table":
+            # Tabla agrupada con el mismo valor en todas las filas: la columna de agrupación
+            # no filtra la tabla de la medida (debe decir que no se puede agrupar así).
+            if kind != "powerbi":
+                continue
+            bad = constant_table(result, ui)
+            checks.append(_check("forbid constant_table", not bad,
+                                 "la tabla repite el mismo valor en todas las filas" if bad else ""))
         elif rule == "powerbi_answer":
             checks.append(_check("forbid powerbi_answer", kind != "powerbi", f"respondió con Power BI ({kind})"
                                  if kind == "powerbi" else ""))
