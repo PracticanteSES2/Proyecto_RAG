@@ -321,6 +321,9 @@ def get_display_answer(result, formatter):
         if reason == "requested_value_not_found":
             return "Identifiqué la métrica, pero no pude verificar el valor del filtro solicitado."
         if reason == "date_dimension_not_found_in_report":
+            if details.get("explanation"):
+                # «CANTIDAD DE PACIENTES muestra el estado actual de ...»
+                return details["explanation"]
             period = details.get("requested_period")
             if period:
                 return (

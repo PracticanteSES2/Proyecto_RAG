@@ -1625,7 +1625,8 @@ class QueryPlanBuilder:
     #   relaciones declaradas, la tabla de hechos tiene su PROPIA columna con el
     #   mismo significado (mismo alias de negocio, p. ej. ASEGURADOR frente al
     #   TERNOMCOM «ASEGURADOR» de otra tabla, o una fecha propia frente a la
-    #   fecha de otra tabla): se prefiere la propia.
+    #   fecha de otra tabla): se prefiere la propia. Un calendario/tabla de
+    #   fechas nunca se descarta en este caso (se supone conectado).
     # - «unknown»: falta información (tabla de hechos desconocida o de medidas,
     #   expresión que no la nombra, sin relaciones ni columna equivalente): el
     #   campo se conserva como antes, para no dejar sin dimensiones a los
@@ -1720,6 +1721,10 @@ class QueryPlanBuilder:
             return "unknown"
         if info["related"] is not None:
             return "related" if field_table in info["related"] else "unrelated"
+        # Sin relaciones declaradas, un calendario (Calendario[AÑO]) se supone
+        # conectado: es la forma habitual de filtrar por periodo.
+        if self._CALENDAR_TABLE_RE.match(field_table):
+            return "unknown"
         column_key = (field_table, normalize_text(field.get("column")))
         if column_key not in info["columns"]:
             info["columns"][column_key] = (
@@ -1731,15 +1736,16 @@ class QueryPlanBuilder:
         """Columnas de la tabla de hechos de un indicador CON visuales que no
         están entre sus campos visuales (ASEGURADOR de CONSULTAS PRIORITARIAS
         solo aparece agregado): respaldo para «por X», rankings, filtros
-        explícitos y el periodo. Van al final (relevancia baja), marcadas
-        `own_fallback`; los valores implícitos no las recorren. Las fechas solo
-        se agregan si no queda ninguna columna temporal válida."""
+        explícitos. Van al final (relevancia baja), marcadas `own_fallback`;
+        los valores implícitos no las recorren. Las fechas no se agregan: si
+        los visuales del indicador no usan ninguna, la tabla es de estado
+        actual para el tablero (FechaSalida de PACIENTES X ASEGURADORA no es
+        la fecha de un periodo; ver `_snapshot_table`)."""
         entry = self._fact_table_entry(metric)
         if not entry:
             return []
         model = metric.get("semantic_model")
         seen = {(normalize_text(f.get("table")), normalize_text(f.get("column"))) for f in existing}
-        has_temporal = any(self._is_temporal_field(field) for field in existing)
         result = []
         for column in entry.get("columns", []) or []:
             name = column.get("name")
@@ -1748,16 +1754,13 @@ class QueryPlanBuilder:
                 continue
             column_type = self._classify_data_type(column.get("data_type"))
             words = set(normalize_text(name).split())
-            temporal = column_type == "date" or bool(words & TEMPORAL_WORDS)
-            if (column_type == "number" and not words & TEMPORAL_WORDS) or (temporal and has_temporal):
+            if column_type in ("number", "date") or words & TEMPORAL_WORDS:
                 continue
             key = (normalize_text(entry.get("name")), normalize_text(name))
             if key in seen:
                 continue
             seen.add(key)
             aliases = self._technical_column_aliases(model, entry.get("name"), name)
-            if column_type == "date" and not words & TEMPORAL_WORDS:
-                aliases.append("fecha")
             result.append({
                 "semantic_model": model, "report": None, "source_group": None,
                 "page": None, "visual_id": None, "visual_type": "technical_catalog",
@@ -3138,27 +3141,28 @@ class QueryPlanBuilder:
         return period
 
     def _current_state_period(self, period):
-        """¿El periodo es «hoy» (el día en curso)?"""
+        """¿El periodo incluye el día de hoy («hoy», «este mes», «este año»)?"""
         start, end = as_date(period.get("start")), as_date(period.get("end"))
         today = self._today()
-        return bool(start and end and start == today and end == today + timedelta(days=1))
+        return bool(start and end and start <= today < end)
 
     def _snapshot_table(self, metric, candidates):
-        """Tabla de hechos sin ninguna fecha (CAMAS DISPONIBLES): refleja el
-        estado actual. Solo si se conoce su tabla y ninguna columna temporal
-        válida (propia o relacionada) quedó entre las candidatas."""
+        """(tabla, tiene_fechas) de un indicador sin ninguna columna temporal
+        válida (propia o relacionada) entre las candidatas: su tabla refleja el
+        estado actual (CAMAS DISPONIBLES no tiene fechas; PACIENTES X
+        ASEGURADORA tiene FechaSalida, que no es la fecha de un periodo). None
+        si queda alguna fecha válida o no se conoce la tabla del indicador."""
         if metric is None or any(self._is_temporal_field(field) for field in candidates):
             return None
         entry = self._fact_table_entry(metric)
         if not entry or not entry.get("columns"):
             return None
-        for column in entry.get("columns") or []:
-            if (
-                self._classify_data_type(column.get("data_type")) == "date"
-                or set(normalize_text(column.get("name")).split()) & TEMPORAL_WORDS
-            ):
-                return None
-        return entry.get("name")
+        dated = any(
+            self._classify_data_type(column.get("data_type")) == "date"
+            or set(normalize_text(column.get("name")).split()) & TEMPORAL_WORDS
+            for column in entry.get("columns") or []
+        )
+        return entry.get("name"), dated
 
     def _apply_temporal(self, analysis, candidates, semantic_model, group_by, metric=None):
         """Filtros del periodo + agrupación temporal («por mes») del plan.
@@ -3181,16 +3185,25 @@ class QueryPlanBuilder:
         if period:
             filters, unapplied, notes = self._period_filters(period, candidates, semantic_model)
             snapshot = None if filters else self._snapshot_table(metric, candidates)
+            phrase = _original_phrase(analysis.get("question") or "", period.get("phrase")) or period.get("label")
             if not filters and snapshot and self._current_state_period(period):
-                phrase = _original_phrase(analysis.get("question") or "", period.get("phrase")) or "hoy"
-                result["notes"].append(
-                    f"«{phrase}»: se muestra el estado actual de {snapshot} "
-                    "(la tabla refleja el momento presente, sin histórico por fechas)."
+                table, dated = snapshot
+                why = (
+                    "el tablero no usa ninguna de sus fechas como periodo" if dated
+                    else "la tabla refleja el momento presente, sin histórico por fechas"
                 )
+                result["notes"].append(f"«{phrase}»: se muestra el estado actual de {table} ({why}).")
+                result["current_state"] = True
                 period = None
             elif not filters:
                 result["unsupported_period"] = period
                 result["unapplied"] = unapplied
+                if snapshot:
+                    # Un periodo pasado en una tabla de estado actual: se dice por qué.
+                    result["explanation"] = (
+                        f"{metric.get('label')} muestra el estado actual de {snapshot[0]}: no tiene "
+                        f"una fecha con la que filtrar «{phrase}»."
+                    )
                 return result
         if period:
             result["filters"].extend(filters)
@@ -6748,16 +6761,28 @@ class QueryPlanBuilder:
         temporal_result = self._apply_temporal(temporal, candidates, semantic_model, group_by, metric=metric)
         requested_period = temporal_result["unsupported_period"]
         if requested_period:
-            return {
+            rejection = {
                 "status": "unsupported_filter", "stage": "temporal_filters",
                 "reason": "date_dimension_not_found_in_report",
                 "requested_year": requested_period.get("year"),
                 "requested_month": requested_period.get("month"),
                 "requested_period": requested_period.get("label"),
                 "unapplied_terms": temporal_result["unapplied"],
+                "explanation": temporal_result.get("explanation"),
                 "question": question, "semantic_model": semantic_model,
                 "source_context": source_context, "metric_resolution": metric_result,
             }
+            # Antes de rendirse por el periodo, un calificativo puede nombrar
+            # otro indicador que sí tiene fecha («triages pediátricos en 2025»:
+            # TRIAGES de BRIEFING no tiene fecha, TRIAGES_PEDIATRICOS_2025 sí).
+            if exploring:
+                qualifier = self._resolve_qualifiers(
+                    question, intent_result, metric, metric_result, source_context, candidates,
+                    group_by, used_fields, consumed_tokens, allow_switch=True,
+                )
+                if qualifier.get("plan") is not None and qualifier["plan"].get("status") == "ready":
+                    return qualifier["plan"]
+            return rejection
         filters.extend(temporal_result["filters"])
         unapplied_terms.extend(temporal_result["unapplied"])
         notes.extend(temporal_result["notes"])
@@ -6865,7 +6890,8 @@ class QueryPlanBuilder:
                 if ranking and normalized_group_by else None
             ),
             "temporal_buckets": temporal_result["buckets"],
-            "period": self._period_summary(temporal),
+            # Estado actual: la respuesta no se presenta como «en lo que va de ...».
+            "period": None if temporal_result.get("current_state") else self._period_summary(temporal),
             "dimension_candidates_checked": min(len(candidates), 20),
         }
 
