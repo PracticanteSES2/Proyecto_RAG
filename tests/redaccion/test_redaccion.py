@@ -154,6 +154,18 @@ def test_scalar_lead_sentence_says_what_and_scope():
     assert format_query_plan_answer({"value": None, "metric": "X"}) == EMPTY_RESULT_MESSAGE
 
 
+def test_money_is_an_amount_not_a_count():
+    """«dame el total de facturacion»: SUM de MONTO_FACTURADO (formato currency)
+    es un monto en pesos, no «Hay 4.952.786.591 facturacion»."""
+    money = {"value": 4952786591, "metric": "TOTAL FACTURACION", "metric_format": "currency"}
+    assert format_query_plan_answer(money) == "**TOTAL FACTURACION**: **$ 4.952.786.591**", money
+    # Formato de Power BI con símbolo de moneda.
+    dollars = dict(money, metric="VALOR", metric_format="\\$#,0")
+    assert format_query_plan_answer(dollars) == "**VALOR**: **$ 4.952.786.591**"
+    # Un conteo sigue siendo «Hay N ...».
+    assert format_query_plan_answer({"value": 36, "metric": "CANTIDAD DE PACIENTES"}) == "Hay **36** pacientes."
+
+
 def test_followup_names_the_new_period_and_not_inherited_filters():
     rows = [{"P[ESPECIALIDAD]": "NEUROCIRUGIA", "[__value]": 3},
             {"P[ESPECIALIDAD]": None, "[__value]": 30}]

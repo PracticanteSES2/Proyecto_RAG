@@ -1291,6 +1291,47 @@ def test_same_measure_on_several_pages_is_answered_once_with_its_pages():
     assert not single.get("notes"), single.get("notes")
 
 
+def test_same_measure_is_one_option_and_same_name_shows_what_it_computes():
+    """CONSULTAS EN ESPERA en dos páginas: si es la MISMA medida (modelo, tabla
+    y expresión) se ofrece una vez; si el nombre coincide pero el cálculo no,
+    la etiqueta dice qué calcula cada una (no solo la página)."""
+    engine, _ = make_engine()
+    engine.query_plan_builder._logical_key = lambda m: (
+        m.get("semantic_model"), m.get("table"), m.get("dax_expression"),
+    )
+
+    def espera(metric_id, page, expression):
+        item = metric(metric_id, "CONSULTAS EN ESPERA", "ASIGNACION DE CITAS", "ASIGNACION DE CITAS", page)
+        return dict(item, table="EN_ESPERA", dax_expression=expression)
+
+    conteo = "DISTINCTCOUNT('EN_ESPERA'[OID_CITA])"
+    same = [espera("e1", "EN ESPERA X ESPECIALIDAD", conteo), espera("e2", "DETALLE EN ESPERA", conteo)]
+    choices = engine._build_clarification_choices(
+        [{"metric": m, "score": 1.0} for m in same], margin=None,
+    )
+    assert [c["id"] for c in choices] == ["e1"], [c["label"] for c in choices]
+
+    different = [espera("e1", "EN ESPERA X ESPECIALIDAD", conteo),
+                 espera("e3", "COMPARATIVO ASIGNADAS", "SUM('EN_ESPERA'[PENDIENTES])")]
+    labels = [c["label"] for c in engine._build_clarification_choices(
+        [{"metric": m, "score": 1.0} for m in different], margin=None,
+    )]
+    assert labels == ["CONSULTAS EN ESPERA (conteo de OID_CITA)", "CONSULTAS EN ESPERA (suma de PENDIENTES)"], labels
+
+
+def test_single_option_from_another_board_says_where_it_is():
+    engine, _ = make_engine()
+    prompt = engine._single_option_prompt(
+        "En el tablero TABLERO PERFIL DE MORBILIDAD no encontré ese indicador. Estos son los más "
+        "parecidos de otros tableros. ¿Es alguno de estos?",
+        {"label": "MONTO", "detail": "TABLERO CONTROL FACTURACION › FACTURADORES · Tablero Control Facturacion"},
+    )
+    assert prompt == (
+        "En el tablero TABLERO PERFIL DE MORBILIDAD no encontré ese indicador. Lo más parecido está en "
+        "el TABLERO CONTROL FACTURACION: ¿te refieres a MONTO?"
+    ), prompt
+
+
 # ---------------------------------------------------------------------------
 # Runner mínimo
 # ---------------------------------------------------------------------------
