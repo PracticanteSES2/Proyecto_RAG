@@ -5223,8 +5223,8 @@
             "metrics_any": [
               "FACTURACION"
             ],
-            "answer_all": [
-              "$"
+            "numbers": [
+              4952786591
             ],
             "answer_none": [
               "Hay **",

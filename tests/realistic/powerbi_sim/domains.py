@@ -256,7 +256,7 @@ class DomainHarvest:
         self.values = {}          # (key tabla, key columna) -> lista ordenada sin duplicados
         self.by_column = {}       # key columna -> lista (cuando la tabla no coincide)
         self.ranges = {}          # (tabla, columna) -> {"min":..., "max":...} de comparaciones numéricas
-        # (tabla, columna) que un filtro de PBIR compara con blanco («sin respuesta» =
+        # (tabla, columna) que un filtro de PBIR elige en blanco («sin respuesta» =
         # OID_RESPUESTA en blanco, «pendiente» = FECHA_CIERRE en blanco): deben tener blancos.
         self.blank_tested = set()
 
@@ -375,7 +375,7 @@ class DomainHarvest:
             count += self._walk_pbir(data, {})
         return count
 
-    def _walk_pbir(self, node, aliases):
+    def _walk_pbir(self, node, aliases, negated=False):
         found = 0
         if isinstance(node, dict):
             local = dict(aliases)
@@ -383,14 +383,14 @@ class DomainHarvest:
                 if isinstance(item, dict) and item.get("Name") and item.get("Entity"):
                     local[item["Name"]] = item["Entity"]
             if isinstance(node.get("In"), dict):
-                found += self._from_in(node["In"], local)
+                found += self._from_in(node["In"], local, negated)
             if isinstance(node.get("Comparison"), dict):
-                found += self._from_comparison(node["Comparison"], local)
-            for value in node.values():
-                found += self._walk_pbir(value, local)
+                found += self._from_comparison(node["Comparison"], local, negated)
+            for name, value in node.items():
+                found += self._walk_pbir(value, local, negated or name == "Not")
         elif isinstance(node, list):
             for value in node:
-                found += self._walk_pbir(value, aliases)
+                found += self._walk_pbir(value, aliases, negated)
         return found
 
     @staticmethod
@@ -417,17 +417,24 @@ class DomainHarvest:
             return float(m.group(1))
         return None
 
-    def _from_in(self, node, aliases):
+    def _from_in(self, node, aliases, negated=False):
         found = 0
         columns = [self._column_of(e, aliases) for e in node.get("Expressions", []) or []]
-        for row in node.get("Values", []) or []:
+        rows = node.get("Values", []) or []
+        # Solo un filtro que ELIGE los blancos («IN {null}», sin NOT): el
+        # dato del visual depende de que la columna tenga blancos.
+        if not negated and len(columns) == 1 and rows and all(
+            len(row or []) == 1 and self._is_null_literal(row[0]) for row in rows
+        ):
+            entity, prop = columns[0]
+            if entity and prop:
+                self.blank_tested.add((key(entity), key(prop)))
+        for row in rows:
             for index, value in enumerate(row or []):
                 if index >= len(columns):
                     continue
                 entity, prop = columns[index]
                 literal = self._literal(value)
-                if entity and prop and self._is_null_literal(value):
-                    self.blank_tested.add((key(entity), key(prop)))
                 if entity and prop and literal is not None:
                     self.add(entity, prop, literal)
                     found += 1
@@ -437,9 +444,12 @@ class DomainHarvest:
     def _is_null_literal(value):
         return isinstance(value, dict) and (value.get("Literal") or {}).get("Value") == "null"
 
-    def _from_comparison(self, node, aliases):
+    def _from_comparison(self, node, aliases, negated=False):
         entity, prop = self._column_of(node.get("Left"), aliases)
-        if entity and prop and self._is_null_literal(node.get("Right")):
+        if (
+            entity and prop and not negated and node.get("ComparisonKind", 0) == 0
+            and self._is_null_literal(node.get("Right"))
+        ):
             self.blank_tested.add((key(entity), key(prop)))
         literal = self._literal(node.get("Right"))
         if entity and prop and literal is not None and node.get("ComparisonKind", 0) == 0:
