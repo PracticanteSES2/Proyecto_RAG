@@ -60,12 +60,19 @@ def _number_value(value):
         return None
 
 
+def _singular(word):
+    """singular() más los grupos consonánticos («disponibles» -> «disponible»)."""
+    if len(word) > 5 and word.endswith("es") and word[-3] not in "aeiou" and word[-4] not in "aeiou":
+        return word[:-1]
+    return singular(word)
+
+
 def _agree(word, one):
     """«camas» -> «cama» y «disponibles» -> «disponible» cuando el total es 1."""
     if not one:
         return word
     folded = _fold(word)
-    single = singular(folded)
+    single = _singular(folded)
     if single == folded:
         return word
     return word[: len(word) - (len(folded) - len(single))]

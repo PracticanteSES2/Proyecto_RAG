@@ -568,6 +568,43 @@ def test_fixed_tables_bed_detail_matches_filtered_count():
     assert sum(r[1] for r in by_state["rows"]) == len(catalog_patches.camas())
 
 
+def test_detail_listing_generated_by_project():
+    """Listado de detalle del chatbot (TOPN + SUMMARIZECOLUMNS con la medida): coincide con el
+    conteo, respeta los filtros internos de la medida y el tope de filas."""
+    from tests.realistic import catalog_patches
+    from src.dax.query_plan_dax_generator import QueryPlanDAXGenerator
+    s = briefing_sim()
+    generator = QueryPlanDAXGenerator()
+    camas = "CAMAS DISPONIBLES"
+    columns = [{"table": camas, "column": "SERVICIOS"}, {"table": camas, "column": "HCACODIGO"}]
+
+    def plan(measure, **values):
+        return {"status": "ready", "mode": "scalar",
+                "metric": {"dax_expression": f"[{measure}]", "validation_status": "approved"},
+                "filters": [{"type": "categorical", "table": camas, "column": column, "value": value}
+                            for column, value in values.items()]}
+
+    disponibles = plan("CAMAS", ESTADOS_CAM="DISPONIBLE", SERVICIOS="HOSPITALIZACIÓN GENERAL")
+    total = table(BRIEFING, generator.generate(disponibles)["dax"], s)["rows"][0][0]
+    detail = table(BRIEFING, generator.generate_detail(disponibles, columns, 51)["dax"], s)
+    assert [r[1] for r in detail["rows"]] == ["403", "407", "411", "415", "419", "422"] == sorted(
+        c["HCACODIGO"] for c in catalog_patches.camas()
+        if c["ESTADOS_CAM"] == "DISPONIBLE" and c["SERVICIOS"] == "HOSPITALIZACIÓN GENERAL")
+    assert sum(r[2] for r in detail["rows"]) == total == 6
+    # CAMAS (COUNT) lista las 7 bloqueadas; CamasFiltradas excluye 321/322 (administrativas) y
+    # 609/610 (sexto piso no habilitado): la lista sigue los filtros internos de la medida.
+    bloqueadas = table(BRIEFING, generator.generate_detail(
+        plan("CAMAS", ESTADOS_CAM="BLOQUEADA"), columns, 51)["dax"], s)
+    assert sorted(r[1] for r in bloqueadas["rows"]) == ["321", "322", "412", "609", "610", "708", "UCI-10"]
+    filtradas = table(BRIEFING, generator.generate_detail(
+        plan("CamasFiltradas", ESTADOS_CAM="BLOQUEADA"), columns, 51)["dax"], s)
+    assert sorted(r[1] for r in filtradas["rows"]) == ["412", "708", "UCI-10"]
+    # Orden por servicio y cama, y TOPN corta en el tope pedido.
+    first = table(BRIEFING, generator.generate_detail(plan("CAMAS", ESTADOS_CAM="BLOQUEADA"), columns, 3)["dax"], s)
+    assert [(r[0], r[1]) for r in first["rows"]] == [
+        ("GINECOBSTETRICIA", "708"), ("HOSPITALIZACIÓN GENERAL", "321"), ("HOSPITALIZACIÓN GENERAL", "322")]
+
+
 def test_fixed_tables_occupancy_and_patients_by_insurer():
     from tests.realistic import catalog_patches
     s = briefing_sim()
