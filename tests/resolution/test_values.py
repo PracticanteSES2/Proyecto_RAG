@@ -339,8 +339,10 @@ def test_without_answer_phrase_and_nominal_question():
     assert plan["question"] == "interconsultas sin responder de pediatria"
     # Frase nominal (sin verbo): indicador tal cual + valor -> Power BI.
     assert b.looks_numeric("interconsultas sin responder de pediatria")
-    # El indicador solo, o el tablero, siguen siendo para la documentación.
-    assert not b.looks_numeric("interconsultas sin responder")
+    # El nombre exacto de un indicador (2-4 palabras) también pide el dato
+    # («medicamentos vencidos», «interconsultas sin respuesta»); el tablero o
+    # una pregunta («qué es...») siguen siendo para la documentación.
+    assert b.looks_numeric("interconsultas sin responder")
     assert not b.looks_numeric("tablero de interconsultas sin respuesta de pediatria")
     assert not b.looks_numeric("que es interconsultas sin respuesta de pediatria")
 

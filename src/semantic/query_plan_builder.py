@@ -79,7 +79,7 @@ COMMON_VERB_WORDS = {
     "habido", "hicieron", "hizo", "hecho", "hechos", "hecha", "hechas",
     "hacen", "hace", "va", "van", "vamos", "iba", "iban", "mas", "menos",
     "aproximadamente", "exactamente", "alrededor", "solo", "solamente",
-    "top", "ranking",
+    "top", "ranking", "estan", "estaba", "estaban", "estuvo", "estuvieron", "existen",
 }
 STOPWORDS |= COMMON_VERB_WORDS
 
@@ -212,9 +212,30 @@ def canonical_tokens(value):
     return result
 
 
+# Sin participios: «vencidos» (ya vencieron) no es «en vencimiento» (por vencer).
+_VERB_ENDINGS = {
+    "ar", "er", "ir", "a", "e", "an", "en", "o", "io", "ia", "ian", "ieron", "aron",
+    "iendo", "ando", "era", "eran", "ara", "aran", "iera", "ieran", "ira", "iran", "ce", "cen",
+}
+
+
+def _derived_noun_match(left, right):
+    """Sustantivo en -miento y una forma conjugada de su verbo: «vencen» ->
+    VENCIMIENTO, «crecen» -> CRECIMIENTO, «seguir» -> SEGUIMIENTO."""
+    for noun, verb in ((left, right), (right, left)):
+        for suffix in ("imiento", "amiento"):
+            if noun.endswith(suffix):
+                stem = noun[: -len(suffix)]
+                if len(stem) >= 4 and verb.startswith(stem) and verb[len(stem):] in _VERB_ENDINGS:
+                    return True
+    return False
+
+
 def _token_similarity(left, right):
     if left == right:
         return 1.0
+    if _derived_noun_match(left, right):
+        return 0.90
     shortest = min(len(left), len(right))
     # Palabras cortas solo coinciden si son idénticas: «mayo» != «mayor».
     if shortest < 6:
@@ -485,6 +506,10 @@ def _phrase_score(question, candidate, weights=None):
     if not q or not c:
         return 0.0
     weights = weights or {}
+    # Un rango que empieza en 0 («0-30 DÍAS») se nombra por su tope:
+    # «los próximos 30 días» cubre «0-30 días»; «30-120» sigue exigiendo el 120.
+    if not _exact_phrase(q, c):
+        c = re.sub(r"(?<![0-9])0 (?=[0-9])", "", c).strip() or c
 
     if _exact_phrase(q, c):
         specificity = min(len(c.split()), 6)
@@ -591,9 +616,166 @@ class QueryPlanBuilder:
         self.reports = self._normalize_reports(self.visual_catalog)
         self.dimension_fields = self._build_dimension_index()
         self.static_values = self._build_static_value_index()
+        # Tarjetas cuyo visual filtra el dato («0-30 DÍAS» = mes <= 1): la
+        # expresión del indicador lleva ese filtro.
+        self.metrics = self._with_visual_filters(self.metrics)
+        # Sumas de dinero (SUM de MONTO/VALOR/COSTO...): se muestran como pesos.
+        self.metrics = self._with_value_formats(self.metrics)
         # Opcional (POWERBI_DOMAIN_PREWARM=1): precalienta en segundo plano los
         # dominios de las columnas más usadas para nombrar valores.
         self.prewarm_thread = self._maybe_prewarm_domains()
+
+    # ---------------- filtros de nivel de visual ----------------
+    _CALENDAR_TABLE_RE = re.compile(r"^(?:calendario|calendar|fecha|dates?|localdatetable.*|datetabletemplate.*)$")
+
+    def _visual_index(self):
+        """{(modelo normalizado, visual_id): visual} del catálogo de visuales."""
+        cached = self.__dict__.get("_visual_index_cache")
+        if cached is None:
+            cached = {}
+            for report in self.reports:
+                model = normalize_text(report.get("semantic_model"))
+                for page in report.get("pages", []) or []:
+                    for visual in page.get("visuals", []) or []:
+                        if visual.get("visual_id"):
+                            cached.setdefault((model, str(visual["visual_id"])), visual)
+            self._visual_index_cache = cached
+        return cached
+
+    def _visual_filter_clauses(self, semantic_model, visual):
+        """[(tabla, columna, condición)] de los filtros de nivel de visual que
+        cambian el dato, o None si alguno no se entiende (no se aplica nada).
+        Se ignoran los filtros sin condición y los de fecha/calendario (el
+        periodo lo decide la pregunta)."""
+        from src.semantic.visual_filters import UnsupportedCondition, condition_from_visual_file
+
+        clauses = []
+        for item in ((visual.get("filters") or {}).get("visual") or []):
+            field = item.get("field") or {}
+            table, column = field.get("table"), field.get("column")
+            if field.get("kind") != "column" or not table or not column:
+                if item.get("values") or item.get("condition"):
+                    return None
+                continue
+            if self._CALENDAR_TABLE_RE.match(normalize_text(table).replace(" ", "")):
+                continue
+            if self._column_type(semantic_model, table, column) == "date":
+                continue
+            if "condition" in item or item.get("condition_error"):
+                if item.get("condition_error"):
+                    return None
+                condition = item.get("condition")
+            else:
+                # Catálogo anterior a guardar la condición: se lee del visual.json.
+                try:
+                    condition = condition_from_visual_file(visual.get("source_file"), item.get("name"), column)
+                except UnsupportedCondition:
+                    return None
+                if condition is None and item.get("values"):
+                    return None  # tenía valores pero no se pudo leer el operador
+            if condition is None:
+                continue
+            clauses.append((table, column, condition))
+        return clauses
+
+    def _with_visual_filters(self, metrics):
+        """Indicadores definidos por un visual (tarjeta, gráfico) cuyo visual
+        tiene filtros propios: la expresión pasa a CALCULATE(expr, filtros).
+        «MEDICAMENTOS EN VENCIMIENTO 0-30 DÍAS» = DISTINCTCOUNT(IPRCODIGO) con
+        mes <= 1; «INTERCONSULTAS SIN RESPUESTA» = ... con OID_RESPUESTA en
+        blanco. Solo si TODAS sus apariciones llevan los mismos filtros (si no,
+        el valor general es el de la medida sin filtro)."""
+        try:
+            from src.semantic.visual_filters import condition_signature, describe_condition, filter_dax
+        except Exception:
+            return metrics
+        index = self._visual_index()
+        if not index:
+            return metrics
+        result = []
+        for metric in metrics:
+            appearances = metric.get("appearances") or []
+            expression = metric.get("dax_expression")
+            if (
+                metric.get("source_type") != "visual_aggregation" or not appearances or not expression
+                or metric.get("visual_filters")
+            ):
+                result.append(metric)
+                continue
+            model = normalize_text(metric.get("semantic_model"))
+            signatures, chosen = set(), None
+            try:
+                for appearance in appearances:
+                    visual = index.get((model, str(appearance.get("visual_id"))))
+                    clauses = None if visual is None else self._visual_filter_clauses(
+                        metric.get("semantic_model"), visual,
+                    )
+                    if clauses is None:
+                        signatures = None
+                        break
+                    signatures.add(tuple(sorted(condition_signature(*clause) for clause in clauses)))
+                    chosen = clauses
+            except Exception:
+                signatures = None
+            if not signatures or len(signatures) != 1 or not chosen:
+                result.append(metric)
+                continue
+            try:
+                arguments = [filter_dax(table, column, condition) for table, column, condition in chosen]
+            except Exception:
+                result.append(metric)
+                continue
+            enriched = dict(metric)
+            enriched["base_dax_expression"] = expression
+            enriched["dax_expression"] = "CALCULATE(" + expression + ", " + ", ".join(arguments) + ")"
+            enriched["visual_filters"] = [
+                {"table": table, "column": column, "condition": condition,
+                 "text": describe_condition(condition, column)}
+                for table, column, condition in chosen
+            ]
+            result.append(enriched)
+        return result
+
+    # ---------------- formato del valor (dinero) ----------------
+    _MONEY_NAME_RE = re.compile(
+        r"(?<![a-z])(?:monto|montos|valor|valores|costo|costos|precio|precios|pago|pagos|tarifa|tarifas|"
+        r"facturado|facturada|facturados|recaudo|recaudado|cartera|glosa|glosado|presupuesto|"
+        r"pesos|dinero|subtotal|iva|copago|cuota)(?![a-z])"
+    )
+    _NOT_MONEY_LABEL_RE = re.compile(
+        r"(?<![a-z])(?:dia|dias|tiempo|tiempos|hora|horas|minuto|minutos|cantidad|cantidades|numero|"
+        r"unidades|unidad|porcentaje|promedio|conteo|recuento|pacientes|registros|casos)(?![a-z])|%"
+    )
+    _SUM_EXPRESSION_RE = re.compile(r"^\s*(?:CALCULATE\s*\(\s*)?SUMX?\s*\(", re.IGNORECASE)
+
+    def _is_money_metric(self, metric):
+        """¿El indicador es una suma de dinero? Por su formato de Power BI
+        («$#,0») o por ser SUM/SUMX de una columna de dinero (MONTO_FACTURADO,
+        VALOR, COSTO...) sin palabras de otra unidad en su nombre."""
+        fmt = str(metric.get("format_string") or "")
+        if "$" in fmt or "€" in fmt or "currency" in fmt.lower():
+            return True
+        if fmt:
+            return False
+        label = normalize_text(f"{metric.get('label') or ''} {metric.get('measure') or ''}")
+        if self._NOT_MONEY_LABEL_RE.search(label):
+            return False
+        expression = str(
+            metric.get("model_expression") or metric.get("base_dax_expression") or metric.get("dax_expression") or ""
+        )
+        if not self._SUM_EXPRESSION_RE.search(expression):
+            return False
+        columns = " ".join(re.findall(r"\[([^\]]+)\]", expression))
+        names = normalize_text(columns.replace("_", " "))
+        return bool(self._MONEY_NAME_RE.search(names))
+
+    def _with_value_formats(self, metrics):
+        result = []
+        for metric in metrics:
+            if not metric.get("format") and self._is_money_metric(metric):
+                metric = {**metric, "format": "currency"}
+            result.append(metric)
+        return result
 
     def _load_json(self, path, default):
         if not Path(path).exists():
@@ -1160,6 +1342,11 @@ class QueryPlanBuilder:
             if best["score"] - item["score"] < self.ambiguity_margin
             and item["business_score"] >= self.min_metric_score
         ]
+        visible = self._visible_over_auxiliary(business_question, best, groups)
+        if visible:
+            best = visible[0]
+            groups = [*visible, *[item for item in groups if item not in visible]]
+            tied = visible
         if len(tied) > 1:
             # Nombre propio frente a alias compartido, palabra que es parte de
             # un valor de filtro y sustantivo contado («cuántas camas»).
@@ -1225,6 +1412,42 @@ class QueryPlanBuilder:
         # Variantes por año (CIRUGIAS_2023/2024, Cirugias_Año_Actual) = una opción.
         result = self._collapse_year_variants(result, question)
         return result if limit is None else result[:limit]
+
+    # ---------------- medida auxiliar frente a indicador visible ----------------
+    def _visible_over_auxiliary(self, business_question, best, groups):
+        """El mejor candidato es una medida auxiliar (no aparece en ningún
+        visual: CAMAS_DISPONIBLES de Atenciones, capacidad × días) y otro que sí
+        se ve en un tablero, a poca distancia, explica con su nombre y su tabla
+        las mismas palabras de la pregunta (CAMAS de la tabla CAMAS
+        DISPONIBLES): se prefiere el visible. Devuelve los visibles que
+        compiten (uno = se elige; varios = se contrapregunta entre ellos)."""
+        if best["metric"].get("appearances"):
+            return []
+        content = [canonical_token(word) for word in self._question_content_words(business_question)]
+        best_vocabulary = self._metric_vocabulary_tokens(best["metric"], with_pages=False)
+        needed = [token for token in content if self._explains(token, best_vocabulary)]
+        if not needed:
+            return []
+        rivals = []
+        for item in groups:
+            if item is best or not item["metric"].get("appearances"):
+                continue
+            if best["score"] - item["score"] >= 2 * self.ambiguity_margin:
+                continue
+            if item["business_score"] < self.min_metric_score:
+                continue
+            vocabulary = self._metric_vocabulary_tokens(item["metric"], with_pages=False)
+            if all(self._explains(token, vocabulary) for token in needed):
+                rivals.append(item)
+        if rivals:
+            self._note(
+                f"{best['metric'].get('label')} ({best['metric'].get('semantic_model')}) no aparece en ningún "
+                "tablero; " + ", ".join(
+                    f"{item['metric'].get('label')} ({item['metric'].get('semantic_model')})" for item in rivals
+                ) + " sí y su nombre y su tabla explican lo mismo de la pregunta: se prefiere"
+                + ("" if len(rivals) == 1 else "n")
+            )
+        return rivals
 
     # ---------------- desempate entre indicadores empatados ----------------
     def _is_own_name(self, metric, name):
@@ -1540,6 +1763,63 @@ class QueryPlanBuilder:
                     or self._explains(previous, vocabulary)
                 ):
                     found.append(word)
+        return found
+
+    # ---------------- palabras del tipo de medida ----------------
+    # «porcentaje de inasistencia», «tasa de...», «promedio de...», «total
+    # de...», «cantidad de...», «número de...»: dicen QUÉ TIPO de dato se pide,
+    # no un filtro. Las explica un indicador de ese tipo (%, promedio, conteo
+    # o suma) aunque su nombre no las contenga (%INASISTENCIA).
+    _MEASURE_TYPE_WORDS = {
+        "porcentaje": "percent", "porcentual": "percent", "%": "percent", "tasa": "percent",
+        "proporcion": "percent", "promedio": "average", "total": "amount",
+        "cantidad": "amount", "numero": "amount", "conteo": "amount", "suma": "amount",
+        "sumatoria": "amount", "recuento": "amount",
+    }
+    _AVERAGE_FUNCTION_RE = re.compile(r"\b(?:AVERAGE|AVERAGEX|AVERAGEA|MEDIAN|MEDIANX)\s*\(", re.IGNORECASE)
+    _AMOUNT_FUNCTION_RE = re.compile(
+        r"\b(?:SUM|SUMX|COUNT|COUNTA|COUNTX|COUNTAX|COUNTROWS|DISTINCTCOUNT|DISTINCTCOUNTNOBLANK)\s*\(",
+        re.IGNORECASE,
+    )
+
+    def _metric_measure_kinds(self, metric):
+        """Tipos de dato que da el indicador: {'percent', 'average', 'amount'}."""
+        label = normalize_text(f"{metric.get('label') or ''} {metric.get('measure') or ''}")
+        expression = " ".join(
+            str(value) for value in (
+                metric.get("base_dax_expression") or metric.get("dax_expression"), metric.get("model_expression"),
+                self._measure_expression(metric.get("semantic_model"), metric),
+            ) if value
+        )
+        fmt = str(metric.get("format_string") or metric.get("format") or "")
+        kinds = set()
+        if (
+            "%" in label or "%" in fmt or fmt.lower() == "percent"
+            or re.search(r"(?<![a-z])(?:porcentaje|tasa|proporcion|indice)(?![a-z])", label)
+        ):
+            kinds.add("percent")
+        elif re.search(r"\bDIVIDE\s*\(", expression, re.IGNORECASE) and not self._AVERAGE_FUNCTION_RE.search(expression):
+            kinds.add("percent")
+        if "promedio" in label.split() or self._AVERAGE_FUNCTION_RE.search(expression):
+            kinds.add("average")
+        if not kinds and (
+            self._AMOUNT_FUNCTION_RE.search(expression)
+            or re.search(r"(?<![a-z])(?:total|cantidad|numero|conteo)(?![a-z])", label)
+        ):
+            kinds.add("amount")
+        return kinds
+
+    def _measure_type_words(self, question, metric):
+        """Palabras de la pregunta que solo dicen el tipo de dato y que el
+        indicador elegido da («porcentaje» con %INASISTENCIA): no son filtros."""
+        kinds = self._metric_measure_kinds(metric or {})
+        if not kinds:
+            return []
+        found = []
+        for word in normalize_text(question).split():
+            kind = self._MEASURE_TYPE_WORDS.get(word) or self._MEASURE_TYPE_WORDS.get(canonical_token(word))
+            if kind and kind in kinds:
+                found.append(word)
         return found
 
     # ---------------- palabra de la tabla que además es un valor ----------------
@@ -2015,8 +2295,21 @@ class QueryPlanBuilder:
         mentions = (source_context or {}).get("board_mentions") or []
         text = normalize_text(text)
         tokens = set()
+        explicit = re.search(r"(?<![a-z0-9])(?:tablero|informe|reporte|dashboard|pagina)(?![a-z0-9])", text)
+        dimension_words = {
+            canonical_token(word) for synonyms in DIMENSION_SYNONYMS.values() for word in synonyms
+        }
         for mention in mentions:
             phrase = normalize_text(mention.get("phrase"))
+            # «por eps» agrupa por aseguradora: no nombra el TABLERO EPS. Una
+            # mención que solo es una palabra de dimensión cuenta como tablero
+            # solo si la pregunta dice «tablero/informe».
+            if phrase and not explicit and (
+                re.search(r"(?<![a-z0-9])(?:por|segun)\s+(?:(?:el|la|los|las)\s+)?" + re.escape(phrase)
+                          + r"(?![a-z0-9])", text)
+                or all(token in dimension_words for token in canonical_tokens(phrase))
+            ):
+                continue
             if phrase:
                 pattern = r"(?<![a-z0-9])(?:(?:en|de|del|desde|para)\s+(?:(?:el|la|los|las)\s+)?)?" \
                           + re.escape(phrase) + r"(?![a-z0-9])"
@@ -2457,7 +2750,13 @@ class QueryPlanBuilder:
         return filters
 
     def _metric_removal_tokens(self, metric, matched_name, source_context):
-        values = [matched_name, metric.get("label"), metric.get("semantic_model"), source_context.get("report")]
+        values = [matched_name, metric.get("label"), metric.get("semantic_model")]
+        # El tablero enrutado solo explica palabras si es el del indicador: con
+        # «tiempo de triage por eps» (enrutado a TABLERO EPS) y un indicador de
+        # TIEMPOS URGENCIAS, «eps» sigue pendiente (es una agrupación).
+        routed_model = normalize_text(source_context.get("semantic_model"))
+        if not routed_model or routed_model == normalize_text(metric.get("semantic_model")):
+            values.append(source_context.get("report"))
         values.extend(self._metric_reports(metric))
         tokens = set()
         for value in values:
@@ -3418,6 +3717,36 @@ class QueryPlanBuilder:
 
     _NOMINAL_MAX_WORDS = 8
 
+    _NOMINAL_NAME_MAX_WORDS = 4
+    _LEADING_ARTICLE_RE = re.compile(r"^(?:el|la|los|las|un|una|unos|unas)\s+")
+
+    def _names_indicator_exactly(self, text, source_context):
+        """¿La frase completa (sin artículo inicial, 2 a 4 palabras) es el nombre
+        de un indicador visible (etiqueta o título de su visual) o de una página
+        de un informe que tiene indicadores?"""
+        phrase = self._LEADING_ARTICLE_RE.sub("", normalize_text(text).replace("_", " ")).strip()
+        words = phrase.split()
+        if len(words) < 2 or len(words) > self._NOMINAL_NAME_MAX_WORDS:
+            return False
+        if self._weak_name_kind(phrase):
+            return False
+
+        def same(name):
+            return normalize_text(str(name or "").replace("_", " ")) == phrase
+
+        for metric in self._dedupe_metrics(self.metrics):
+            if metric.get("validation_status") != "approved" or not metric.get("appearances"):
+                continue
+            titles = [item.get("visual_title") for item in metric.get("appearances") or []]
+            if any(same(name) for name in [metric.get("label"), *titles]):
+                return True
+        for key, item in self._page_index().items():
+            if same(item.get("page")) and self._page_members({
+                "semantic_model": item.get("semantic_model"), "page": item.get("page"),
+            }):
+                return True
+        return False
+
     def _nominal_metric_with_filter(self, question, dashboard=None):
         """Frase nominal sin verbo, periodo ni «por ...» que nombra TAL CUAL un
         indicador más un valor de filtro («interconsultas sin responder de
@@ -3432,6 +3761,12 @@ class QueryPlanBuilder:
         if re.match(r"^(?:el |la |los |las )?(?:tablero|informe|reporte|pagina|dashboard)\b", normalized):
             return False
         source_context = self._source_context(text, dashboard=dashboard)
+        # Frase corta que es TAL CUAL el nombre de un indicador o de una página
+        # con indicadores («medicamentos vencidos», «interconsultas sin
+        # respuesta»): se pide el dato (si es una página, se ofrecen sus
+        # indicadores), no la documentación.
+        if self._names_indicator_exactly(text, source_context):
+            return True
         metric_result = self._resolve_metric_flexible(text, source_context)
         if metric_result.get("status") != "resolved":
             return False
@@ -6026,16 +6361,27 @@ class QueryPlanBuilder:
             extra_removals=consumed_tokens,
         )
         words = [word for word in leftover.split() if len(word) >= 3]
-        if not words:
+        vocabulary = self._metric_vocabulary_tokens(metric)
+        # La agrupación «por servicio» (SERVICIOS de la tabla CAMAS DISPONIBLES)
+        # no explica «disponibles»: se buscan las palabras de la tabla también
+        # entre las que quitó el nombre de la columna agrupada.
+        table_words = list(words)
+        if group_by:
+            ungrouped = self._implicit_value_text(
+                question, metric, metric_result.get("matched_name"), source_context, [],
+                extra_removals=consumed_tokens,
+            )
+            table_words.extend(word for word in ungrouped.split() if len(word) >= 3 and word not in table_words)
+        if not words and not table_words:
             return result
 
-        vocabulary = self._metric_vocabulary_tokens(metric)
         own = [word for word in words if self._explains(canonical_token(word), vocabulary)]
+        own_table = [word for word in table_words if self._explains(canonical_token(word), vocabulary)]
         # Una palabra que solo nombra la tabla del indicador pero también es un
         # valor documentado de una de sus columnas se filtra («camas
         # disponibles» en la tabla CAMAS DISPONIBLES -> ESTADOS_CAM = DISPONIBLE).
         for word, field, resolved in self._table_word_filters(
-            metric, own, candidates, used_fields, metric.get("semantic_model"),
+            metric, own_table, candidates, used_fields, metric.get("semantic_model"),
         ):
             result["filters"].append((field, resolved))
             result["consumed"].add(canonical_token(word))
@@ -6174,6 +6520,39 @@ class QueryPlanBuilder:
         cache[key] = texts
         return texts
 
+    def _same_measure_metrics(self, metric):
+        """El indicador y los demás aprobados con su misma medida (modelo,
+        tabla y expresión), el propio primero."""
+        key = self._logical_key(metric)
+        result = [metric]
+        if not key[-1]:
+            return result
+        for other in self._dedupe_metrics(self.metrics):
+            if other is metric or other.get("validation_status") != "approved":
+                continue
+            if self._logical_key(other) == key and other.get("metric_id") != metric.get("metric_id"):
+                result.append(other)
+        return result
+
+    _BREAKDOWN_LABEL_RE = re.compile(r"(?<![a-z0-9])(?:por|x|segun)\s+[a-z]")
+
+    def _scalar_representative(self, metric):
+        """Para un valor único, el nombre de un gráfico «PACIENTES por
+        ASEGURADORA» describe un desglose que no se muestra: si la misma
+        medida está en una tarjeta («TOTAL PACIENTES»), se responde con ella."""
+        if not self._BREAKDOWN_LABEL_RE.search(normalize_text(metric.get("label"))):
+            return metric
+        for other in self._same_measure_metrics(metric)[1:]:
+            if self._BREAKDOWN_LABEL_RE.search(normalize_text(other.get("label"))):
+                continue
+            if any(item.get("visual_type") == "card" for item in other.get("appearances") or []):
+                self._note(
+                    f"{metric.get('label')} es la misma medida que la tarjeta {other.get('label')}: "
+                    "para un valor único se responde con la tarjeta"
+                )
+                return other
+        return metric
+
     def _documented_qualifiers(self, question, metric, words):
         """[(palabra, evidencia)] de las palabras que la documentación del
         indicador usa y que en la pregunta califican a una palabra del propio
@@ -6182,7 +6561,12 @@ class QueryPlanBuilder:
         Nunca palabras de dimensión (servicio, especialidad...)."""
         if not words:
             return []
-        texts = self._metric_documentation(metric)
+        # La misma medida publicada en otra página (TOTAL PACIENTES de DETALLE
+        # OCUPACIÓN = PACIENTES por ASEGURADORA de INICIO) trae también la
+        # documentación de esa página.
+        texts = []
+        for same in self._same_measure_metrics(metric):
+            texts.extend(text for text in self._metric_documentation(same) if text not in texts)
         if not texts:
             return []
         forms = {}
@@ -6265,8 +6649,12 @@ class QueryPlanBuilder:
         CIRUGÍAS REALIZADAS es hermano de CIRUGÍAS PROGRAMADAS."""
         model = normalize_text(metric.get("semantic_model"))
         own = self._logical_key(metric)
+        # Al probar otro candidato porque el elegido no entendía un filtro
+        # (_candidate_that_filters), el elegido no cuenta como «hermano»: sus
+        # palabras («ocupadas» de CAMAS OCUPADAS) pueden ser valores del otro.
+        exempt = frozenset(self.__dict__.get("_sibling_exempt") or ())
         cache = self.__dict__.setdefault("_sibling_tokens_cache", {})
-        key = (model, own, tuple(sorted(core)))
+        key = (model, own, tuple(sorted(core)), exempt)
         if key in cache:
             return cache[key]
         _, generic = self._weak_token_sets()
@@ -6278,6 +6666,7 @@ class QueryPlanBuilder:
                     other.get("validation_status") != "approved"
                     or normalize_text(other.get("semantic_model")) != model
                     or self._logical_key(other) == own
+                    or self._logical_key(other) in exempt
                 ):
                     continue
                 names = [other.get("label"), other.get("measure")] + [
@@ -6322,6 +6711,7 @@ class QueryPlanBuilder:
         clear = (
             top["business_score"] >= self.min_metric_score
             and (second is None or second["_covered"] < top["_covered"]
+                 or second.get("_explained", 0) < top.get("_explained", 0)
                  or top["score"] - second["score"] >= self.ambiguity_margin)
         )
         if clear:
@@ -6367,14 +6757,22 @@ class QueryPlanBuilder:
         """Indicadores cuyo nombre, tabla o página explican al menos un
         calificativo y todas las palabras `core`, ordenados (más calificativos
         cubiertos, mejor coincidencia por nombre) y sin variantes por año repetidas.
-        Con un tablero nombrado (routing fuerte) solo los de ese modelo."""
+        Con un tablero nombrado (routing fuerte) solo los de ese modelo; una
+        palabra que solo coincide con su nombre pero es una dimensión («por
+        eps» no es el TABLERO EPS) no restringe."""
         strong = (
             source_context.get("status") == "resolved"
             and source_context.get("routing_strength") == "strong"
+            and self._board_named_explicitly(question, source_context)
         )
         named_model = normalize_text(source_context.get("semantic_model")) if strong else ""
         business_question = self._metric_business_question(question, source_context)
         weights = self._token_weight_index()
+        stop = {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS}
+        question_words = [
+            token for token in canonical_tokens(business_question)
+            if token not in stop and len(token) >= 3 and not _is_request_word(token)
+        ]
 
         found, seen = [], set(exclude)
         for other in self._dedupe_metrics(self.metrics):
@@ -6389,9 +6787,20 @@ class QueryPlanBuilder:
             covered = [token for token in qualifiers if self._explains(token, vocabulary)]
             if not covered or not all(self._explains(token, vocabulary) for token in core):
                 continue
-            names = self._metric_names(other)
-            scored = [(self._loose_phrase_score(business_question, name, weights), name) for name in names]
-            if other.get("table"):
+            # Nombres sin contenido propio («Promedio de MIN») no cuentan, pero
+            # tampoco descartan el indicador si su etiqueta sí nombra algo; los
+            # conectores del nombre («TIEMPO PROMEDIO PARA ATENCIÓN EN TRIAGE»)
+            # no se exigen en la pregunta.
+            names = [name for name in self._metric_names(other) if not self._weak_name_kind(name)]
+            scored = []
+            for name in names:
+                scored.append((self._loose_phrase_score(business_question, name, weights), name))
+                content_name = " ".join(
+                    word for word in normalize_text(name).split() if canonical_token(word) not in stop
+                )
+                if content_name and content_name != normalize_text(name) and len(content_name.split()) >= 2:
+                    scored.append((self._loose_phrase_score(business_question, content_name, weights), name))
+            if other.get("table") and other.get("label") and not self._weak_name_kind(other.get("label")):
                 scored.append((
                     self._loose_phrase_score(
                         business_question, f"{other.get('label')} {other.get('table')}", weights,
@@ -6399,17 +6808,23 @@ class QueryPlanBuilder:
                     other.get("label"),
                 ))
             score, name = max(scored, key=lambda pair: pair[0], default=(0.0, None))
-            if score <= 0 or self._weak_name_kind(name):
+            if score <= 0 or not name:
                 continue
             seen.add(logical)
             business = score
             if not other.get("appearances"):
                 score -= 0.10
+            # Palabras de la pregunta que su propio nombre explica («tiempo
+            # PROMEDIO ... triage»): desempata entre los que cubren el calificativo.
+            name_tokens = {token for value in names for token in canonical_tokens(value) if len(token) >= 3}
+            explained = sum(1 for token in question_words if self._explains(token, name_tokens))
             found.append({
                 "metric": other, "score": round(score, 4), "business_score": round(business, 4),
-                "matched_name": name, "_covered": len(covered),
+                "matched_name": name, "_covered": len(covered), "_explained": explained,
             })
-        found.sort(key=lambda item: (-item["_covered"], -item["score"], normalize_text(item["metric"].get("label"))))
+        found.sort(key=lambda item: (
+            -item["_covered"], -item["_explained"], -item["score"], normalize_text(item["metric"].get("label")),
+        ))
         return self._collapse_year_variants(found, question)
 
     def _promote_qualifier_metrics(self, question, source_context, metric_result):
@@ -6781,6 +7196,17 @@ class QueryPlanBuilder:
             self._note(
                 f"«{' '.join(dict.fromkeys(scope))}» se refiere a todo el hospital (sin filtro)"
             )
+        # «porcentaje de inasistencia» con %INASISTENCIA: tipo de dato, no filtro.
+        measure_words = [
+            word for word in self._measure_type_words(dimension_question, metric)
+            if canonical_token(word) not in consumed_tokens
+        ]
+        if measure_words:
+            consumed_tokens.update(canonical_token(word) for word in measure_words)
+            self._note(
+                f"«{' '.join(dict.fromkeys(measure_words))}» dice el tipo de dato que da "
+                f"{metric.get('label')}: no es un filtro"
+            )
         implicit_decisions = []
         if ranking:
             consumed_tokens.update(ranking["tokens"])
@@ -6899,7 +7325,31 @@ class QueryPlanBuilder:
             ))
             used_fields.add((normalize_text(field["table"]), normalize_text(field["column"])))
             consumed_tokens.update(resolved.get("tokens", ()))
+            consumed_tokens.update(canonical_tokens(resolved.get("phrase")))
         consumed_tokens.update(qualifier.get("consumed", ()))
+        # Con esas palabras ya explicadas, lo que queda puede ser por sí solo un
+        # valor («camas ocupadas en uci»: tras ESTADOS_CAM = OCUPADA, «uci» es
+        # SERVICIOS = UCI ADULTOS; antes «ocupadas uci» no coincidía con nada).
+        if qualifier.get("filters"):
+            for _ in range(2):
+                implicit = self._resolve_implicit_filter(
+                    question=question, metric=metric,
+                    matched_name=metric_result.get("matched_name"),
+                    source_context=source_context, candidates=candidates,
+                    group_by=group_by, used_fields=used_fields,
+                    extra_removals=consumed_tokens, decisions=implicit_decisions,
+                )
+                if not implicit:
+                    break
+                field = implicit["field"]
+                implicit_filter = self._categorical_filter(
+                    field, implicit, "query_plan_implicit_value", semantic_model,
+                )
+                if implicit.get("reason"):
+                    implicit_filter["reason"] = implicit["reason"]
+                filters.append(implicit_filter)
+                used_fields.add((normalize_text(field["table"]), normalize_text(field["column"])))
+                consumed_tokens.update(implicit.get("tokens", ()))
 
         # El mismo indicador (mismo nombre) en otro tablero/modelo y nada en la
         # pregunta que los distinga: se contrapregunta en lugar de elegir uno.
@@ -6935,6 +7385,15 @@ class QueryPlanBuilder:
                 item.get("type") == "categorical" and item.get("source") != "query_plan_temporal"
                 for item in filters
             ) and not group_by:
+                # Otro candidato cercano sí entiende esas palabras como filtros
+                # («camas ocupadas en uci»: CAMAS de la tabla CAMAS DISPONIBLES
+                # tiene ESTADOS_CAM = OCUPADA y SERVICIOS = UCI ADULTOS).
+                if exploring:
+                    alternative = self._candidate_that_filters(
+                        question, intent_result, metric, metric_result, significant,
+                    )
+                    if alternative is not None:
+                        return alternative
                 return {
                     "status": "unsupported_filter", "stage": "implicit_dimension",
                     "reason": "possible_dimension_value_not_resolved",
@@ -6954,6 +7413,8 @@ class QueryPlanBuilder:
         if temporal_result["group"]:
             normalized_group_by = [temporal_result["group"]]
 
+        if not normalized_group_by:
+            metric = self._scalar_representative(metric)
         pages = self._metric_pages(metric)
         return {
             "status": "ready",
@@ -6987,6 +7448,83 @@ class QueryPlanBuilder:
             "period": self._period_summary(temporal),
             "dimension_candidates_checked": min(len(candidates), 20),
         }
+
+    _FILTER_SWITCH_CANDIDATES = 3
+    _FILTER_SWITCH_SCORE_GAP = 0.35
+
+    def _candidate_that_filters(self, question, intent_result, metric, metric_result, unresolved):
+        """El indicador elegido no entiende palabras de la pregunta como filtro
+        («uci» con CAMAS OCUPADAS de GESTIÓN CAMAS). Si exactamente uno de los
+        siguientes candidatos (por puntaje, a poca distancia) arma la consulta
+        con filtros y sin palabras pendientes, se usa ese. None si no."""
+        best_score = float(metric_result.get("score") or 0.0)
+        current = self._logical_key(metric)
+        tried, ready = 0, []
+        for item in metric_result.get("candidates") or []:
+            other = item.get("metric") or {}
+            if self._logical_key(other) == current or not other.get("metric_id"):
+                continue
+            if float(item.get("business_score") or 0.0) < self.min_metric_score:
+                continue
+            if best_score - float(item.get("score") or 0.0) > self._FILTER_SWITCH_SCORE_GAP:
+                continue
+            tried += 1
+            if tried > self._FILTER_SWITCH_CANDIDATES:
+                break
+            forced = {
+                "status": "resolved", "metric": other,
+                "matched_name": item.get("matched_name"), "score": item.get("score"),
+                "candidates": [{key: value for key, value in item.items() if not key.startswith("_")}],
+                "final": True,
+            }
+            notes = list(self.__dict__.get("_resolution_notes") or [])
+            attempt_notes = []
+            previous_exempt = self.__dict__.get("_sibling_exempt")
+            self._sibling_exempt = {current}
+            try:
+                plan = self._build_plan(question, intent_result, forced_resolution=forced)
+            except Exception:
+                plan = None
+            finally:
+                self._sibling_exempt = previous_exempt
+                if self.__dict__.get("_resolution_notes") is not None:
+                    attempt_notes = self._resolution_notes[len(notes):]
+                    self._resolution_notes[:] = notes
+            if isinstance(plan, dict):
+                plan["_attempt_notes"] = attempt_notes
+            categorical = [
+                entry for entry in (plan.get("filters") or [] if isinstance(plan, dict) else [])
+                if entry.get("type") == "categorical" and not entry.get("temporal")
+                and entry.get("source") != "query_plan_temporal"
+            ]
+            # Las palabras que el elegido no entendía deben ser valores de los
+            # filtros del otro (no basta con que arme la consulta).
+            value_tokens = {
+                token for entry in categorical
+                for value in [entry.get("value"), *(entry.get("values") or [])] if value is not None
+                for token in canonical_tokens(value)
+            }
+            if (
+                isinstance(plan, dict) and plan.get("status") == "ready" and not plan.get("unapplied_terms")
+                and categorical
+                and all(
+                    any(_tokens_match_loosely(canonical_token(word), token) for token in value_tokens)
+                    for word in unresolved
+                )
+            ):
+                ready.append((item, plan))
+        if len(ready) != 1:
+            return None
+        item, plan = ready[0]
+        for note in plan.pop("_attempt_notes", None) or []:
+            self._note(note)
+        interpretation = (
+            f"{metric.get('label')} no entiende «{' '.join(unresolved)}» como filtro; "
+            f"{item['metric'].get('label')} ({item['metric'].get('semantic_model')}) sí: se usa"
+        )
+        self._note(interpretation)
+        plan.setdefault("metric_match", {})["interpretation"] = interpretation
+        return plan
 
     def _period_summary(self, temporal):
         """Periodo interpretado (para el razonamiento y la respuesta), o None."""
