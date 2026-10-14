@@ -3412,9 +3412,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "contrapregunta %OCUPACION/CamasFiltradas (CamasFiltradas empata por el alias «%OCUPACIÓN» del visual)"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3457,9 +3454,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "al elegir %OCUPACIÓN filtra SERVICIOS = HOSPITALIZACIÓN GENERAL por «general», aplica «hoy» con la fecha de ATENCIONES_SERVICIO y declara «No pude aplicar: hospital»"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3626,7 +3620,7 @@
         "realistic"
       ],
       "xfail": {
-        "realistic": "contrapregunta HOSPITALIZACIÓN (Demanda Insatisfecha)/CAMAS; no hay respuesta con lista de camas"
+        "realistic": "el total ya es CAMAS con ESTADOS_CAM = DISPONIBLE y SERVICIOS = HOSPITALIZACIÓN GENERAL (6), pero la respuesta no trae la lista de camas (código y servicio)"
       },
       "arnes_opciones": {
         "excluir_sintetico": [
@@ -3697,9 +3691,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "con CAMAS «disponibles» se toma como la tabla CAMAS DISPONIBLES: no filtra ESTADOS_CAM = DISPONIBLE (26 camas del servicio)"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3825,7 +3816,7 @@
         "realistic"
       ],
       "xfail": {
-        "realistic": "contrapregunta %OCUPACION/CamasFiltradas en lugar de la tabla por servicio"
+        "realistic": "ya responde %OCUPACION sin contrapreguntar, pero agrupa por el SERVICIO de otra tabla que no filtra CAMAS DISPONIBLES (mismo valor en todas las filas) y aplica «hoy» con la fecha de ATENCIONES_SERVICIO"
       },
       "arnes_opciones": {
         "excluir_sintetico": [
