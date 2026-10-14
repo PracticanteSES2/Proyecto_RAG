@@ -1088,6 +1088,12 @@ class QueryPlanBuilder:
                 "matched_name": best_name,
                 "exact_primary_label": label_is_exact,
                 "hinted": bool(in_hint_model and (not report_hint or in_hint_report)),
+                # Para el desempate: ¿coincidió por su propio nombre o por un
+                # alias (título de visual) que comparte con otras medidas?
+                "_own_name": self._is_own_name(metric, best_name),
+                "_shared_alias": (
+                    not self._is_own_name(metric, best_name) and self._is_shared_alias(metric, best_name)
+                ),
             })
 
         if not candidates:
@@ -1155,6 +1161,16 @@ class QueryPlanBuilder:
             and item["business_score"] >= self.min_metric_score
         ]
         if len(tied) > 1:
+            # Nombre propio frente a alias compartido, palabra que es parte de
+            # un valor de filtro y sustantivo contado («cuántas camas»).
+            kept = self._break_metric_tie(business_question, tied)
+            if len(kept) == 1:
+                best = kept[0]
+                groups = [best, *[item for item in groups if item is not best]]
+                tied = kept
+            else:
+                tied = kept + [item for item in tied if item not in kept]
+        if len(tied) > 1:
             rest = [item for item in groups if item not in tied]
             limit = None if candidate_limit is None else max(candidate_limit, len(tied))
             result = {"status": "ambiguous", "candidates": (tied + rest)[:limit]}
@@ -1209,6 +1225,397 @@ class QueryPlanBuilder:
         # Variantes por año (CIRUGIAS_2023/2024, Cirugias_Año_Actual) = una opción.
         result = self._collapse_year_variants(result, question)
         return result if limit is None else result[:limit]
+
+    # ---------------- desempate entre indicadores empatados ----------------
+    def _is_own_name(self, metric, name):
+        """¿`name` es el nombre propio de la medida (etiqueta, medida o la
+        referencia «TABLA.medida») y no un título de visual u otro alias?"""
+        own = {normalize_text(metric.get("label")), normalize_text(metric.get("measure"))}
+        own.discard("")
+        if normalize_text(name) in own:
+            return True
+        text = str(name or "")
+        return "." in text and normalize_text(text.rsplit(".", 1)[1]) in own
+
+    def _visual_title_owners(self):
+        """{título de visual normalizado: claves lógicas de las medidas que lo muestran}."""
+        cached = self.__dict__.get("_visual_title_owners_cache")
+        if cached is None:
+            cached = {}
+            for metric in self._dedupe_metrics(self.metrics):
+                if metric.get("validation_status") != "approved":
+                    continue
+                for appearance in metric.get("appearances") or []:
+                    title = normalize_text(appearance.get("visual_title"))
+                    if title:
+                        cached.setdefault(title, set()).add(self._logical_key(metric))
+            self._visual_title_owners_cache = cached
+        return cached
+
+    def _is_shared_alias(self, metric, name):
+        """Alias que no es exclusivo de la medida: es el nombre de otra medida
+        («%OCUPACIÓN» de CamasFiltradas = %OCUPACION) o el título de un visual
+        que muestra varias medidas."""
+        norm = normalize_text(name)
+        if not norm:
+            return False
+        self._token_weight_index()  # arma self._known_labels
+        own = {normalize_text(metric.get("label")), normalize_text(metric.get("measure"))}
+        if norm in (self.__dict__.get("_known_labels") or set()) - own:
+            return True
+        owners = self._visual_title_owners().get(norm) or set()
+        return bool(owners - {self._logical_key(metric)})
+
+    def _break_metric_tie(self, business_question, tied):
+        """Candidatos empatados que siguen compitiendo tras tres reglas
+        genéricas (cada una solo descarta si queda al menos uno):
+        1. Nombre propio frente a alias compartido: si uno coincide por el
+           nombre de su medida y otro solo por un título de visual/alias que
+           comparten varias medidas, se prefiere el nombre propio
+           (%OCUPACION frente a CamasFiltradas por el visual «%OCUPACIÓN»).
+        2. Palabra que es parte de un valor de filtro: si el nombre de un
+           candidato solo coincide con palabras que forman un valor categórico
+           documentado de su tabla («hospitalización general» =
+           SERVICIO_SOLICITADO), eso es un filtro, no el indicador
+           (HOSPITALIZACIÓN de Demanda Insatisfecha).
+        3. Sustantivo contado: en «cuántas/cuántos X ...» se prefieren los
+           indicadores que cuentan X (nombre, o COUNT/DISTINCTCOUNT sobre una
+           tabla o columna que lo nombra)."""
+        kept = list(tied)
+
+        own = [item for item in kept if item.get("_own_name")]
+        shared = [item for item in kept if not item.get("_own_name") and item.get("_shared_alias")]
+        if own and shared:
+            top_own = max(float(item.get("business_score") or 0.0) for item in own)
+            # Solo si el alias no explica nada más de la pregunta (su tabla o
+            # página no nombra otra palabra: «consultas PRIORITARIAS» sigue
+            # ofreciendo la medida de la tabla CONSULTAS_PRIORITARIAS).
+            content = [canonical_token(word) for word in self._question_content_words(business_question)]
+
+            def explained(item):
+                vocabulary = self._metric_vocabulary_tokens(item["metric"])
+                return {token for token in content if self._explains(token, vocabulary)}
+
+            own_explained = set().union(*(explained(item) for item in own))
+            dropped = [
+                item for item in shared
+                if float(item.get("business_score") or 0.0) <= top_own + 1e-9
+                and explained(item) <= own_explained
+            ]
+            if dropped:
+                kept = [item for item in kept if item not in dropped]
+                self._note(
+                    ", ".join(
+                        f"{item['metric'].get('label')} coincidió solo por «{item.get('matched_name')}»"
+                        for item in dropped
+                    )
+                    + ", un alias que comparte con otras medidas; "
+                    + ", ".join(str(item["metric"].get("label")) for item in own)
+                    + " coincide por su propio nombre: se prefiere"
+                    + (" sin contrapreguntar" if len(kept) == 1 else "")
+                )
+
+        if len(kept) > 1:
+            in_value = []
+            for item in kept:
+                value = self._name_inside_value_phrase(business_question, item)
+                if value:
+                    in_value.append((item, value))
+            if in_value and len(in_value) < len(kept):
+                dropped = [item for item, _ in in_value]
+                kept = [item for item in kept if item not in dropped]
+                self._note(
+                    "; ".join(
+                        f"«{item.get('matched_name')}» de {item['metric'].get('label')} "
+                        f"({item['metric'].get('semantic_model')}) es parte del valor «{value}» de su tabla "
+                        f"{item['metric'].get('table')}: es un filtro, no el indicador"
+                        for item, value in in_value
+                    )
+                )
+
+        if len(kept) > 1:
+            head = self._counted_noun(business_question)
+            if head:
+                counting = [item for item in kept if self._metric_counts(item["metric"], head)]
+                if counting and len(counting) < len(kept):
+                    dropped = [item for item in kept if item not in counting]
+                    kept = counting
+                    self._note(
+                        f"la pregunta cuenta «{head}»: "
+                        + ", ".join(str(item["metric"].get("label")) for item in counting)
+                        + " lo cuenta; "
+                        + ", ".join(str(item["metric"].get("label")) for item in dropped)
+                        + " no"
+                    )
+        return kept
+
+    # «cuántas camas», «cuántos de los pacientes»: el sustantivo que se cuenta.
+    _COUNTED_NOUN_RE = re.compile(
+        r"(?<![a-z0-9])cuant[oa]s\s+(?:(?:de|del)\s+)?(?:(?:los|las|el|la)\s+)?([a-z0-9]+)"
+    )
+    _COUNT_FUNCTION_RE = re.compile(
+        r"\b(?:COUNT|COUNTA|COUNTX|COUNTAX|COUNTROWS|COUNTBLANK|DISTINCTCOUNT|DISTINCTCOUNTNOBLANK)\s*\(",
+        re.IGNORECASE,
+    )
+
+    def _counted_noun(self, business_question):
+        """Sustantivo contado en «cuántos/cuántas X» (canónico) o None. Las
+        unidades genéricas («pacientes», «casos», «registros») no distinguen
+        indicadores y se ignoran."""
+        match = self._COUNTED_NOUN_RE.search(normalize_text(business_question))
+        if not match:
+            return None
+        token = canonical_token(match.group(1))
+        content_free, _ = self._weak_token_sets()
+        units = {canonical_token(word) for word in self._OPTION_UNIT_WORDS}
+        if len(token) < 4 or token.isdigit() or token in content_free or token in units:
+            return None
+        return token
+
+    def _metric_counts(self, metric, head):
+        """¿El indicador cuenta `head`? Su etiqueta/medida lo nombra o su
+        expresión es un conteo (COUNT, DISTINCTCOUNT, COUNTROWS...) sobre una
+        tabla o columna que lo nombra (COUNT('CAMAS DISPONIBLES'[HCACODIGO]))."""
+        names = set(canonical_tokens(metric.get("label"))) | set(canonical_tokens(metric.get("measure")))
+        if self._explains(head, names):
+            return True
+        expression = " ".join(
+            str(value) for value in (
+                self._measure_expression(metric.get("semantic_model"), metric), metric.get("model_expression"),
+            ) if value
+        )
+        if not self._COUNT_FUNCTION_RE.search(expression):
+            return False
+        referenced = set()
+        for table, column in re.findall(r"'([^']+)'\s*\[([^\]]+)\]", expression):
+            referenced.update(canonical_tokens(table))
+            referenced.update(canonical_tokens(column))
+        for table, column in re.findall(r"(?<![\w'\]])([A-Za-z_][\w]*)\s*\[([^\]]+)\]", expression):
+            referenced.update(canonical_tokens(table))
+            referenced.update(canonical_tokens(column))
+        for table in re.findall(r"COUNTROWS\s*\(\s*'?([^'(),\[\]]+?)'?\s*\)", expression, re.IGNORECASE):
+            referenced.update(canonical_tokens(table))
+        return self._explains(head, {token for token in referenced if len(token) >= 3})
+
+    # ---------------- valores categóricos documentados ----------------
+    def _documented_values_index(self):
+        """{modelo normalizado: [(tabla normalizada o None, columna, [valores])]}
+        de data/model_metadata/*/_documented_values.json (valores CASE/IN del
+        SQL documentado y literales DAX; tools/local_data). table=None: aplica
+        a las columnas con ese nombre en cualquier tabla."""
+        cached = self.__dict__.get("_documented_values_cache")
+        if cached is not None:
+            return cached
+        index = {}
+        root = self.project_root / "data" / "model_metadata"
+        try:
+            paths = sorted(root.glob("*/_documented_values.json")) if root.exists() else []
+        except OSError:
+            paths = []
+        for path in paths:
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            model = normalize_text(payload.get("semantic_model"))
+            for item in payload.get("columns") or []:
+                if not isinstance(item, dict) or not item.get("column"):
+                    continue
+                values = [str(value) for value in item.get("values") or [] if value not in (None, "")]
+                if values:
+                    table = normalize_text(item.get("table")) or None
+                    index.setdefault(model, []).append((table, str(item["column"]), values))
+        self._documented_values_cache = index
+        return index
+
+    def _table_documented_values(self, semantic_model, table):
+        """[(columna, [valores])] documentados (o filtros estáticos del PBIR)
+        de las columnas de `table` en el modelo."""
+        table_norm = normalize_text(table)
+        if not table_norm:
+            return []
+        columns = {}
+        for item in self._technical_catalog(semantic_model).get("tables", []) or []:
+            if normalize_text(item.get("name")) == table_norm:
+                for column in item.get("columns", []) or []:
+                    if column.get("name"):
+                        columns[normalize_text(column.get("name"))] = column.get("name")
+        result = {}
+        for doc_table, column, values in self._documented_values_index().get(normalize_text(semantic_model), []):
+            column_norm = normalize_text(column)
+            if doc_table == table_norm or (doc_table is None and column_norm in columns):
+                name = columns.get(column_norm, column)
+                result.setdefault(name, [])
+                result[name].extend(value for value in values if value not in result[name])
+        model_norm = normalize_text(semantic_model)
+        for (model, static_table, column), values in self.static_values.items():
+            if model == model_norm and static_table == table_norm:
+                name = columns.get(column, column)
+                result.setdefault(name, [])
+                result[name].extend(value for value in values if value not in result[name])
+        return list(result.items())
+
+    def _name_inside_value_phrase(self, business_question, item):
+        """Valor documentado (de varias palabras, todas en la pregunta) de la
+        tabla del candidato que contiene todas las palabras con que coincidió
+        su nombre, o None: «hospitalización general» contiene HOSPITALIZACIÓN."""
+        metric = item.get("metric") or {}
+        name_tokens = [token for token in self._name_key(item.get("matched_name")) if len(token) >= 3]
+        if not name_tokens:
+            return None
+        question_words = normalize_text(business_question).split()
+        table = self._metric_fact_table(metric)
+        for _, values in self._table_documented_values(metric.get("semantic_model"), table):
+            for value in values:
+                words = [word for word in _value_words(value) if len(word) >= 3]
+                if len(words) < 2 or len(words) <= len(name_tokens):
+                    continue
+                if not all(_word_in_text(word, words, question_words) for word in words):
+                    continue
+                if all(any(_tokens_match_loosely(token, canonical_token(word)) for word in words)
+                       for token in name_tokens):
+                    return value
+        return None
+
+    # ---------------- alcance «todo el hospital» ----------------
+    # «en el hospital», «de la clínica», «en la institución»: el lugar donde se
+    # mide todo; «ocupación general», «el total», «global», «institucional»:
+    # sin filtro. Nunca son un filtro, un término «no aplicado» ni motivo para
+    # explorar valores de columnas.
+    _SCOPE_PLACE_WORDS = {"hospital", "institucion", "clinica"}
+    _SCOPE_ADJECTIVE_WORDS = {"general", "global", "total", "institucional", "institucionales"}
+    _SCOPE_CONNECTORS = {
+        "en", "de", "del", "la", "el", "los", "las", "a", "al", "para", "todo", "toda",
+        "nivel", "este", "esta", "nuestro", "nuestra", "y",
+    }
+    _SCOPE_FOLLOWERS = {"hoy", "ayer", "actualmente", "ahora", "actual", "manana"}
+    # Palabras sueltas demasiado genéricas para elegir por sí solas un valor de
+    # varias palabras («general» no es HOSPITALIZACIÓN GENERAL).
+    _GENERIC_VALUE_WORDS = _SCOPE_ADJECTIVE_WORDS | {
+        "otro", "otra", "otros", "otras", "todo", "toda", "todos", "todas", "varios",
+        "varias", "normal", "comun", "nuevo", "nueva", "principal",
+    }
+
+    def _scope_words(self, question, metric):
+        """Palabras de la pregunta que solo dicen «todo el hospital»:
+        - lugar («hospital», «institución», «clínica») precedido de en/de/del
+          (+ artículo) y no seguido de otra palabra con contenido («hospital
+          día» sí puede ser un valor);
+        - «general», «global», «total», «institucional» al inicio, tras un
+          conector («en general») o tras una palabra que explica el indicador
+          («ocupación general»). Tras otra palabra («hospitalización general»)
+          son parte de un valor y no se tocan."""
+        words = normalize_text(question).split()
+        if not words:
+            return []
+        vocabulary = self._metric_vocabulary_tokens(metric or {}, with_pages=False)
+        period_words = set(self._period_words(question))
+        stop = {canonical_token(word) for word in STOPWORDS}
+        found = []
+        for index, word in enumerate(words):
+            if word in self._SCOPE_PLACE_WORDS:
+                previous = words[index - 1] if index else ""
+                following = words[index + 1] if index + 1 < len(words) else ""
+                if previous not in self._SCOPE_CONNECTORS:
+                    continue
+                if following and not (
+                    following in self._SCOPE_CONNECTORS or following in self._SCOPE_FOLLOWERS
+                    or canonical_token(following) in stop or canonical_token(following) in period_words
+                    or following.isdigit() or following in MONTHS
+                ):
+                    continue
+                found.append(word)
+            elif word in self._SCOPE_ADJECTIVE_WORDS:
+                position = index - 1
+                while position >= 0 and words[position] in self._SCOPE_CONNECTORS:
+                    position -= 1
+                if position < 0 or position < index - 1:
+                    found.append(word)
+                    continue
+                previous = canonical_token(words[position])
+                if (
+                    previous in stop or _is_request_word(previous)
+                    or self._explains(previous, vocabulary)
+                ):
+                    found.append(word)
+        return found
+
+    # ---------------- palabra de la tabla que además es un valor ----------------
+    def _table_word_filters(self, metric, words, candidates, used_fields, semantic_model):
+        """Palabras que solo explica el NOMBRE DE LA TABLA del indicador (no su
+        etiqueta, medida ni títulos) y que además son un valor categórico
+        documentado de una columna de esa tabla: se filtran en lugar de darlas
+        por explicadas. «camas disponibles» con CAMAS (tabla CAMAS
+        DISPONIBLES) -> ESTADOS_CAM = DISPONIBLE. Devuelve [(palabra, campo, resuelto)]."""
+        table = self._metric_fact_table(metric)
+        table_tokens = [token for token in canonical_tokens(table) if len(token) >= 3]
+        if not table_tokens or not words:
+            return []
+        names = [metric.get("label"), metric.get("measure")]
+        names.extend(appearance.get("visual_title") for appearance in metric.get("appearances") or [])
+        name_tokens = {
+            token for name in names if name and "." not in str(name)
+            for token in canonical_tokens(name) if len(token) >= 3
+        }
+        documented = self._table_documented_values(semantic_model, table)
+        if not documented:
+            return []
+        used = set(used_fields)
+        found = []
+        for word in words:
+            token = canonical_token(word)
+            if not self._explains(token, table_tokens) or self._explains(token, name_tokens):
+                continue
+            for column, values in documented:
+                key = (normalize_text(table), normalize_text(column))
+                if key in used:
+                    continue
+                # Valor de una sola palabra (sin conectores) que es esta palabra.
+                matches = [
+                    value for value in values
+                    if len(_value_words(value)) == 1 and _tokens_match_loosely(token, canonical_token(_value_words(value)[0]))
+                ]
+                if len(matches) != 1:
+                    continue
+                value = matches[0]
+                field = next(
+                    (item for item in candidates
+                     if (normalize_text(item.get("table")), normalize_text(item.get("column"))) == key),
+                    None,
+                ) or {"table": table, "column": column, "aliases": [column], "kind": "column"}
+                # Se confirma con el dominio real si se puede (con su forma escrita).
+                domain = self._get_values(semantic_model, field["table"], field["column"])
+                if domain:
+                    actual = next((item for item in domain if normalize_text(item) == normalize_text(value)), None)
+                    if actual is None:
+                        continue
+                    value = actual
+                used.add(key)
+                found.append((word, field, {
+                    "value": value, "score": 1.0, "phrase": word,
+                    "tokens": {token, *canonical_tokens(value)},
+                }))
+                break
+        return found
+
+    def _generic_partial_value(self, span_tokens, value_tokens, question):
+        """¿El calificativo es solo una palabra genérica («general») que cubre
+        parte de un valor de varias palabras cuyo resto no está en la pregunta?"""
+        generic = {canonical_token(word) for word in self._GENERIC_VALUE_WORDS}
+        if not span_tokens or not all(token in generic for token in span_tokens):
+            return False
+        rest = [
+            token for token in value_tokens
+            if not any(_tokens_match_loosely(token, other) for other in span_tokens)
+        ]
+        if not rest:
+            return False
+        question_tokens = canonical_tokens(question)
+        return not all(
+            any(_tokens_match_loosely(token, other) for other in question_tokens) for token in rest
+        )
 
     # ---------------- dimension index ----------------
     def _physical_column(self, field):
@@ -2059,6 +2466,10 @@ class QueryPlanBuilder:
                 without_numeric_suffix = re.sub(r"\d+$", "", token)
                 if len(without_numeric_suffix) >= 3:
                     tokens.add(without_numeric_suffix)
+                # «%OCUPACION» explica «ocupación»: sin esto la palabra quedaba
+                # como posible valor y se exploraban los dominios de la tabla.
+                if token.startswith("%") and len(token) > 3:
+                    tokens.add(canonical_token(token.lstrip("%")))
         return tokens
 
     def _implicit_value_text(
@@ -5620,6 +6031,20 @@ class QueryPlanBuilder:
 
         vocabulary = self._metric_vocabulary_tokens(metric)
         own = [word for word in words if self._explains(canonical_token(word), vocabulary)]
+        # Una palabra que solo nombra la tabla del indicador pero también es un
+        # valor documentado de una de sus columnas se filtra («camas
+        # disponibles» en la tabla CAMAS DISPONIBLES -> ESTADOS_CAM = DISPONIBLE).
+        for word, field, resolved in self._table_word_filters(
+            metric, own, candidates, used_fields, metric.get("semantic_model"),
+        ):
+            result["filters"].append((field, resolved))
+            result["consumed"].add(canonical_token(word))
+            own = [item for item in own if item != word]
+            words = [item for item in words if item != word]
+            self._note(
+                f"«{word}» nombra la tabla {metric.get('table')} del indicador y además es el valor "
+                f"{resolved['value']} de {field['table']}[{field['column']}]: se aplica como filtro"
+            )
         if own:
             result["consumed"].update(canonical_token(word) for word in own)
             self._note(
@@ -6143,6 +6568,11 @@ class QueryPlanBuilder:
                             score = self._fuzzy_value_score(tokens, value_tokens)
                             if not score or (best is not None and score <= best[0]):
                                 continue
+                            # Una palabra genérica sola («general») no elige un
+                            # valor de varias palabras (HOSPITALIZACIÓN GENERAL)
+                            # salvo que el resto del valor esté en la pregunta.
+                            if self._generic_partial_value(tokens, value_tokens, question):
+                                continue
                             # La coincidencia por raíz no puede elegir el
                             # valor opuesto («de edad» de MAYORES DE EDAD
                             # cuando se pidió «menores de edad»).
@@ -6343,6 +6773,14 @@ class QueryPlanBuilder:
         # Palabras con que se eligió un indicador ya decidido (página nombrada:
         # «promedio» eligió PROM_PD): no son filtros pendientes.
         consumed_tokens.update((forced_resolution or {}).get("consumed_tokens") or ())
+        # «en el hospital», «ocupación general»: todo el hospital, sin filtro
+        # (ni exploración de valores ni «No pude aplicar»).
+        scope = self._scope_words(dimension_question, metric)
+        if scope:
+            consumed_tokens.update(canonical_token(word) for word in scope)
+            self._note(
+                f"«{' '.join(dict.fromkeys(scope))}» se refiere a todo el hospital (sin filtro)"
+            )
         implicit_decisions = []
         if ranking:
             consumed_tokens.update(ranking["tokens"])
