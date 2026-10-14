@@ -222,6 +222,12 @@ _VERB_ENDINGS = {
 }
 
 
+# Final «y cuáles son» / «y en qué camas»: petición de lista (answer_shape).
+_TRAILING_DETAIL_RE = re.compile(
+    r"(?<![a-z0-9])y\s+(?:en\s+|de\s+|a\s+)?(?:cuales|que|donde)(?:\s+[a-z0-9]+){0,2}\s*$"
+)
+
+
 def _derived_noun_match(left, right):
     """Sustantivo en -miento y una forma conjugada de su verbo: «vencen» ->
     VENCIMIENTO, «crecen» -> CRECIMIENTO, «seguir» -> SEGUIMIENTO."""
@@ -879,6 +885,11 @@ class QueryPlanBuilder:
 
     def _metric_business_question(self, question, source_context):
         text = normalize_text(question)
+        # «… y en qué camas» / «… y cuáles son» pide el listado de lo contado
+        # («cuántos pacientes de sanitas…»): no nombra el indicador.
+        trailing = _TRAILING_DETAIL_RE.search(text)
+        if trailing and re.search(r"(?<![a-z0-9])cuant[oa]s\s", text[:trailing.start()]):
+            text = text[:trailing.start()].strip()
 
         removals = [
             source_context.get("report"),
@@ -1453,7 +1464,7 @@ class QueryPlanBuilder:
         for item in groups:
             if item is best or not item["metric"].get("appearances"):
                 continue
-            if best["score"] - item["score"] >= 2 * self.ambiguity_margin:
+            if best["score"] - item["score"] >= 3 * self.ambiguity_margin:
                 continue
             if item["business_score"] < self.min_metric_score:
                 continue
@@ -1801,6 +1812,12 @@ class QueryPlanBuilder:
     _AMOUNT_FUNCTION_RE = re.compile(
         r"\b(?:SUM|SUMX|COUNT|COUNTA|COUNTX|COUNTAX|COUNTROWS|DISTINCTCOUNT|DISTINCTCOUNTNOBLANK)\s*\(",
         re.IGNORECASE,
+    )
+
+    # Nombres de indicadores de cosas aún pendientes: «sin respuesta», «en espera»...
+    _PENDING_LABEL_RE = re.compile(
+        r"(?<![a-z0-9])(?:sin\s+(?:respuesta|responder|atender|atencion|cerrar|cierre|resolver|asignar|gestion"
+        r"|entregar|entrega)|en\s+espera|por\s+(?:responder|atender|entregar|asignar))(?![a-z0-9])"
     )
 
     def _metric_measure_kinds(self, metric):
@@ -3112,7 +3129,12 @@ class QueryPlanBuilder:
                 removals.update(page_tokens)
 
         result = []
-        for word in normalize_text(question).split():
+        text = normalize_text(question)
+        # «… y en qué camas»: la entidad del listado pedido no es un filtro.
+        trailing = _TRAILING_DETAIL_RE.search(text)
+        if trailing and re.search(r"(?<![a-z0-9])cuant[oa]s\s", text[:trailing.start()]):
+            text = text[:trailing.start()]
+        for word in text.split():
             token = canonical_token(word)
             if (
                 token in removals or re.fullmatch(r"20\d{2}", token)
@@ -4808,6 +4830,11 @@ class QueryPlanBuilder:
         compuesta); una parte que no se resuelve se declara.
         """
         normalized = normalize_text(question)
+        # «cuántas camas ocupadas hay en uci y cuáles son»: la «y» pide el
+        # listado del mismo indicador (answer_shape), no otra medida.
+        request = detail_request(question)
+        if request is not None and request.get("cue") == "y cuales":
+            return None
         protected = [
             (m["start"], m["end"])
             for m in self._mentioned_metrics(normalized, source_context)
@@ -7074,7 +7101,8 @@ class QueryPlanBuilder:
         # Sin las palabras de indicadores hermanos («realizadas» junto a
         # CIRUGÍAS PROGRAMADAS es otra medida aunque la documentación la nombre).
         remaining = [word for word in candidates_words if canonical_token(word) not in filtered]
-        for word, evidence in self._documented_qualifiers(question, metric, remaining):
+        skip = set(consumed_tokens) | filtered
+        for word, evidence in self._documented_qualifiers(question, metric, remaining, skip_tokens=skip):
             result["consumed"].add(canonical_token(word))
             self._note(
                 f"«{word}» describe al propio indicador {metric.get('label')} según su documentación "
@@ -7187,7 +7215,7 @@ class QueryPlanBuilder:
                 return other
         return metric
 
-    def _documented_qualifiers(self, question, metric, words):
+    def _documented_qualifiers(self, question, metric, words, skip_tokens=()):
         """[(palabra, evidencia)] de las palabras que la documentación del
         indicador usa y que en la pregunta califican a una palabra del propio
         indicador (vecina inmediata, saltando conectores): «compras con
@@ -7215,7 +7243,10 @@ class QueryPlanBuilder:
             canonical_token(word) for synonyms in DIMENSION_SYNONYMS.values() for word in synonyms
         } | {canonical_token(word) for word in self.PLAUSIBLE_VALUE_COLUMN_WORDS}
         vocabulary = self._metric_vocabulary_tokens(metric)
-        connectors = {"de", "del", "la", "el", "los", "las", "con", "en", "y", "a", "al", "por"}
+        connectors = {
+            "de", "del", "la", "el", "los", "las", "con", "en", "y", "a", "al", "por",
+            "estan", "esta", "estaban", "estuvieron", "hay", "son", "es", "fueron",
+        }
         question_words = normalize_text(question).split()
         found = []
         for word in words:
@@ -7231,7 +7262,10 @@ class QueryPlanBuilder:
                     continue
                 for step in (-1, 1):
                     position = index + step
-                    while 0 <= position < len(question_words) and question_words[position] in connectors:
+                    while 0 <= position < len(question_words) and (
+                        question_words[position] in connectors
+                        or canonical_token(question_words[position]) in skip_tokens
+                    ):
                         position += step
                     if 0 <= position < len(question_words) and self._explains(
                         canonical_token(question_words[position]), vocabulary,
@@ -7795,6 +7829,25 @@ class QueryPlanBuilder:
                 sibling = self._group_sibling_plan(question, intent_result, [metric], group_tail, source_context)
                 if sibling is not None:
                     return sibling
+            # Antes de decir que ESTE indicador no se desglosa, ¿la pregunta
+            # nombra otro? («tiempo promedio de TRIAGE por eps» eligió TIEMPO
+            # GESTION FACTURACION por «promedio de tiempo»).
+            if exploring:
+                vocabulary = self._metric_vocabulary_tokens(metric)
+                tail_tokens = set(canonical_tokens(group_tail))
+                pending = [
+                    word for word in self._question_content_words(
+                        self._metric_business_question(question, source_context)
+                    )
+                    if canonical_token(word) not in tail_tokens
+                    and not self._explains(canonical_token(word), vocabulary)
+                ]
+                if pending:
+                    switched_plan = self._qualifier_metric_switch(
+                        question, intent_result, metric, metric_result, source_context, pending,
+                    )
+                    if switched_plan is not None:
+                        return switched_plan
             if unrelated_group is not None:
                 self._note(
                     f"«{group_tail}» solo está en {unrelated_group.get('table')}[{unrelated_group.get('column')}], "
@@ -7867,11 +7920,18 @@ class QueryPlanBuilder:
             word for word in self._measure_type_words(dimension_question, metric)
             if canonical_token(word) not in consumed_tokens
         ]
+        # «interconsultas pendientes» con INTERCONSULTAS SIN RESPUESTA: el
+        # estado pendiente ya es el del indicador.
+        if re.search(r"(?<![a-z0-9])pendientes?(?![a-z0-9])", normalize_text(dimension_question)) and (
+            self._PENDING_LABEL_RE.search(normalize_text(f"{metric.get('label')} {metric.get('measure') or ''}"))
+        ):
+            measure_words.append("pendientes")
+            consumed_tokens.update({"pendiente", "pendientes"})
         if measure_words:
             consumed_tokens.update(canonical_token(word) for word in measure_words)
             self._note(
-                f"«{' '.join(dict.fromkeys(measure_words))}» dice el tipo de dato que da "
-                f"{metric.get('label')}: no es un filtro"
+                f"«{' '.join(dict.fromkeys(measure_words))}» ya lo dice el indicador "
+                f"{metric.get('label')} (tipo de dato o estado): no es un filtro"
             )
         implicit_decisions = []
         if ranking:
