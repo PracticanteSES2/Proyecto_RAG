@@ -3748,9 +3748,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "ya va a Power BI y lista las camas de UCI ADULTOS, pero sin ESTADOS_CAM = DISPONIBLE (lista las 10; el filtro es de agente/hospital-indicador)"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3806,9 +3803,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "ya responde %OCUPACION sin contrapreguntar, pero agrupa por el SERVICIO de otra tabla que no filtra CAMAS DISPONIBLES (mismo valor en todas las filas) y aplica «hoy» con la fecha de ATENCIONES_SERVICIO"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3985,9 +3979,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "contrapregunta «no entendí «hospital» como un filtro de ese tablero»"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «en el hospital» es el alcance institucional, no un filtro: un solo valor (tiempo promedio de triage) sin contrapreguntar ni declarar «No pude aplicar: hospital». Línea base: contrapregunta «no entendí «hospital» como un filtro».",
       "turns": [
         {
@@ -4019,9 +4010,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«general» se aplica como GEEDESCRI = CIRUGIA GENERAL"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «en general» es el total, no un valor de columna: no debe filtrar GEEDESCRI = CIRUGIA GENERAL (ni ningún valor con GENERAL). Línea base: «Con geedescri CIRUGIA GENERAL, hay 459 solicitudes».",
       "turns": [
         {
