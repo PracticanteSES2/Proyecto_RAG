@@ -19,7 +19,9 @@ Configuración (backend.config):
               `cost_detail`; la espera (solo si latency_ms > 0) dura ese coste, y un
               AdomdCommand.CommandTimeout menor que el coste cancela la consulta con el error de
               tiempo de ADOMD (también sin dormir: así tests/perf/medir_consultas reproduce las
-              consultas canceladas sin esperar).
+              consultas canceladas sin esperar). Con SIM_DAX_APERTURA_MS > 0 abrir la conexión de
+              un modelo cuesta ese tiempo: se anota como `apertura_ms` en la primera consulta tras
+              Open() (fuera del CommandTimeout, como en ADOMD) y se duerme si latency_ms > 0.
 """
 import os
 import time
@@ -56,6 +58,7 @@ class SimulatorBackend:
                        "latency_ms": float(latency_ms), "cost_model": bool(cost_model)}
         self.costs = CostModel(simulator)
         self.log = {"dax": []}
+        self._opening = {}   # modelo -> ms de la apertura aún no anotada en una consulta
 
     def reset_log(self):
         self.log["dax"] = []
@@ -69,6 +72,11 @@ class SimulatorBackend:
             raise AdomdErrorResponseException(
                 f"The database '{catalog}' was not found in the workspace, or you do not have permission to "
                 f"access it.")
+        opening = self.costs.params.get("apertura_ms") or 0.0
+        if self.config.get("cost_model") and opening > 0:
+            self._opening[str(catalog or "").casefold()] = opening
+            if self.config.get("latency_ms"):
+                time.sleep(opening / 1000.0)
 
     def catalogs(self):
         return self.sim.list_models()
@@ -82,6 +90,9 @@ class SimulatorBackend:
         self.log["dax"].append(entry)
         if timeout_s:
             entry["timeout_s"] = float(timeout_s)
+        opening = self._opening.pop(str(catalog or "").casefold(), None)
+        if opening:
+            entry["apertura_ms"] = opening
         latency = self.config.get("latency_ms") or 0.0
         modeled = bool(self.config.get("cost_model"))
         if latency and not modeled:
