@@ -4047,9 +4047,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«porcentaje» no se reconoce como el % del nombre: «no entendí» y luego «No pude aplicar: porcentaje»"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «porcentaje de inasistencia institucional»: «porcentaje» es el «%» del nombre (%INASISTENCIA) e «institucional» el alcance. Si contrapregunta (p. ej. entre tableros), al elegir el de inasistencia responde un solo valor sin «No pude aplicar». Línea base: «no entendí «porcentaje» como un filtro» y, al consultar sin él, «No pude aplicar: porcentaje».",
       "turns": [
         {
@@ -4098,9 +4095,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "contrapregunta «no entendí «hospitalizados hospital» como un filtro»"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -4382,9 +4376,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "elige CAMAS_DISPONIBLES (capacidad × días) de TABLERO DE ATENCIONES: 2 filas"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -4709,9 +4700,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "al elegir la tarjeta 0-30 DÍAS ya lista los productos, pero da 6 (no aplica su filtro mes <= 1) y «No pude aplicar: vencen proximos» (agente/hospital-indicador2)"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). Total + listado con el filtro propio de la tarjeta: «cuántos se vencen en los próximos 30 días y cuáles» = MEDICAMENTOS EN VENCIMIENTO 0-30 DÍAS (mes <= 1): 3 productos (SALBUTAMOL, ENOXAPARINA, METOCLOPRAMIDA) y su lista, sin los de 30-120 días. Si contrapregunta, se elige esa tarjeta. Línea base: contrapregunta de una sola opción y, al elegirla, 6 (sin el filtro mes <= 1 de la tarjeta), «No pude aplicar: vencen proximos» y sin listado.",
       "turns": [
         {
@@ -4781,9 +4769,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "ya lista las interconsultas de MEDICINA INTERNA (INTERCONSULTAS SIN RESPUESTA, sin documento ni paciente), pero declara «No pude aplicar: pendientes» (pendientes = sin respuesta)"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -4833,9 +4818,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "elige «Camas ocupadas» de GESTIÓN CAMAS y contrapregunta «no entendí «uci»» (indicador: agente/hospital-indicador2); la petición «y cuáles son» ya se detecta como listado"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -4907,7 +4889,7 @@
         "realistic"
       ],
       "xfail": {
-        "realistic": "contrapregunta CAMAS / NUMERO CAMAS: «de sanitas» no se usa como filtro de PACIENTES X ASEGURADORA (agente/hospital-indicador2); «y en qué camas» ya se detecta como listado"
+        "realistic": "TERNOMCOM = SANITAS EPS y el total 7 ya salen (TOTAL PACIENTES), pero el listado trae SERVICIO/CANTIDAD y no la columna de cama (HCACODIGO) que pide «en qué camas»"
       },
       "arnes_opciones": {
         "excluir_sintetico": [
@@ -5103,6 +5085,257 @@
             ],
             "models_any": [
               "citas"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2_tarjeta_filtro_visual_vencen_30",
+      "category": "a_kpi_simple",
+      "tablero": "Farmacia",
+      "fuente": {
+        "docx": "36 DOCUMENTACION TABLERO FARMACIA/1 Documentacion Tablero Inicio Farmacia.docx",
+        "seccion": "Medicamentos en vencimiento 0-30 días"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "descripcion": "Ronda 2 (indicador). La tarjeta «MEDICAMENTOS EN VENCIMIENTO 0-30 DÍAS» tiene el filtro de visual mes <= 1: «próximos 30 días» la nombra (sin contrapreguntar con una sola opción) y el valor es 3 (filas fijas), no 6. Línea base: «¿Te refieres a ...?» y luego 6 con «No pude aplicar: vencen proximos».",
+      "turns": [
+        {
+          "user": "cuantos medicamentos se vencen en los proximos 30 dias",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "metrics_any": [
+              "0-30"
+            ],
+            "numbers": [
+              3
+            ],
+            "answer_none": [
+              "No pude aplicar",
+              "Te refieres",
+              "LOSARTAN",
+              "HIDROCORTISONA"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2_triage_por_eps_no_es_facturacion",
+      "category": "c_kpi_filtro",
+      "tablero": "Tiempos Urgencias",
+      "fuente": {
+        "docx": "32 DOCUMENTACION TABLERO TIEMPOS DE URGENCIAS/1 Documentacion Tablero Resumen Dia.docx",
+        "seccion": "Tiempo promedio para atención en triage"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "descripcion": "Ronda 2 (indicador). «tiempo promedio de triage por eps»: el indicador que explica «triage» (TIEMPO PROMEDIO PARA ATENCIÓN EN TRIAGE) gana al que solo coincide con «promedio de tiempo» (TIEMPO GESTION FACTURACION); «por eps» no nombra el TABLERO EPS. Si no se puede desglosar por EPS se dice con el indicador de triage. Línea base: «Identifiqué el indicador Tiempo gestion facturacion, pero no entendí «triage»».",
+      "turns": [
+        {
+          "user": "tiempo promedio de triage por eps",
+          "expect": {
+            "route": [
+              "powerbi",
+              "unsupported_filter",
+              "clarification"
+            ],
+            "answer_any": [
+              "TRIAGE"
+            ],
+            "answer_none": [
+              "FACTURACION",
+              "no entendí «triage»"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2_opciones_mismo_nombre_distinto_calculo",
+      "category": "i_multiturno",
+      "tablero": "Asignación de Citas",
+      "fuente": {
+        "docx": "2 DOCUMENTACION TABLERO ASIGNACION DE CITAS/3 Documentacion Tablero Detalle en Espera.docx",
+        "seccion": "Consultas en espera"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "descripcion": "Ronda 2 (indicador). Dos tarjetas «CONSULTAS EN ESPERA» con distinto cálculo (DISTINCTCOUNT de OID_CITA y SUM de PENDIENTES): las opciones dicen qué calcula cada una; la misma medida en varias páginas sería una sola opción. Línea base: dos botones «CONSULTAS EN ESPERA — ASIGNACION DE CITAS — <página>» con la misma descripción.",
+      "turns": [
+        {
+          "user": "cuantas consultas en espera hay",
+          "expect": {
+            "route": [
+              "clarification"
+            ],
+            "options_all": [
+              "conteo de OID_CITA",
+              "suma de PENDIENTES"
+            ]
+          }
+        },
+        {
+          "button": {
+            "label_any": [
+              "suma de PENDIENTES"
+            ]
+          },
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "scalar",
+            "metrics_any": [
+              "EN ESPERA"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2_monto_facturacion_en_pesos",
+      "category": "a_kpi_simple",
+      "tablero": "Control Facturación",
+      "fuente": {
+        "docx": "16 DOCUMENTACION TABLERO CONTROL FACTURACION/5 Documentacion Tablero de Facturadores.docx",
+        "seccion": "Monto facturado"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "descripcion": "Ronda 2 (indicador). Una suma de MONTO_FACTURADO es un monto: «**TOTAL FACTURACION**: **$ ...**», no un conteo. «del hospital» es el alcance. Línea base: «Hay **4.952.786.591** facturacion.»",
+      "turns": [
+        {
+          "user": "dame el total de facturacion del hospital",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "scalar",
+            "metrics_any": [
+              "FACTURACION"
+            ],
+            "answer_all": [
+              "$"
+            ],
+            "answer_none": [
+              "Hay **",
+              "No pude aplicar"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2_nombre_exacto_pide_el_dato",
+      "category": "e_ambiguo",
+      "tablero": "Farmacia",
+      "fuente": {
+        "docx": "36 DOCUMENTACION TABLERO FARMACIA/1 Documentacion Tablero Inicio Farmacia.docx",
+        "seccion": "Productos vencidos"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "descripcion": "Ronda 2 (indicador). «medicamentos vencidos» a secas es el nombre de una página con indicadores: pide el dato (ofrece sus indicadores o responde), no la documentación. Línea base: descripción del tablero (RAG).",
+      "turns": [
+        {
+          "user": "medicamentos vencidos",
+          "expect": {
+            "route": [
+              "clarification",
+              "powerbi"
+            ],
+            "options_any": [
+              "VENCI"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2_tablero_nombrado_sin_el_indicador",
+      "category": "e_ambiguo",
+      "tablero": "Perfil de Morbilidad",
+      "fuente": {
+        "docx": "30 DOCUMENTACION TABLERO PERFIL DE MORBILIDAD/1 Documentacion Tablero Perfil de Morbilidad - Inicio.docx",
+        "seccion": "Descripción del tablero"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "descripcion": "Ronda 2 (indicador). «valor facturado ... en el perfil de morbilidad»: el tablero nombrado no tiene ese indicador; se dice y se ofrecen los parecidos de otros tableros, sin responder con uno de ellos. Línea base: «¿Te refieres a MONTO?» sin decir que es de otro tablero.",
+      "turns": [
+        {
+          "user": "valor facturado por servicio en el perfil de morbilidad",
+          "expect": {
+            "route": [
+              "clarification",
+              "not_found",
+              "metric_not_resolved"
+            ],
+            "prompt_any": [
+              "PERFIL DE MORBILIDAD"
+            ],
+            "forbid": [
+              "powerbi_answer"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2_camas_ocupadas_en_uci",
+      "category": "c_kpi_filtro",
+      "tablero": "Briefing Hospitalario",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/2. Documentacion Tablero Detalle Gestion Camas.docx",
+        "seccion": "Estado de las camas por servicio"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "arnes_opciones": {
+        "excluir_sintetico": [
+          "tablero_gestion_camas"
+        ]
+      },
+      "descripcion": "Ronda 2 (indicador). «cuántas camas ocupadas hay en uci»: CAMAS OCUPADAS (GESTIÓN CAMAS) no tiene servicio; CAMAS (tabla CAMAS DISPONIBLES) sí aplica ESTADOS_CAM = OCUPADA y SERVICIOS = UCI ADULTOS: 8. Línea base: «no entendí «uci» como un filtro».",
+      "turns": [
+        {
+          "user": "cuantas camas ocupadas hay en uci",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "models_any": [
+              "briefing"
+            ],
+            "filters": [
+              {
+                "column": "ESTADOS_CAM",
+                "value": "OCUPADA"
+              },
+              {
+                "column": "SERVICIOS",
+                "value": "UCI"
+              }
+            ],
+            "allow_declared_filters": false,
+            "numbers": [
+              8
+            ],
+            "answer_none": [
+              "No pude aplicar",
+              "no entendí"
             ]
           }
         }
