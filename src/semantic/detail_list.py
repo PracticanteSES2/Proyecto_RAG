@@ -318,19 +318,44 @@ def metric_expression(metric):
     return str(metric.get("model_expression") or metric.get("expression") or metric.get("dax_expression") or "")
 
 
-def listable_entity(metric, builder=None):
-    """Entidad identificable que cuenta el indicador ({"function", "table",
-    "column"}), o None si la medida no cuenta registros identificables."""
-    entity = counted_entity(metric_expression(metric))
+_SUM_RE = re.compile(
+    r"^\s*SUM\s*\(\s*(?:'(?P<qtable>(?:[^']|'')+)'|(?P<table>[A-Za-z_][\w ]*?))\s*\[(?P<column>[^\]]+)\]\s*\)\s*$",
+    re.IGNORECASE,
+)
+COUNT_FUNCTIONS = {"COUNT", "COUNTA", "DISTINCTCOUNT", "DISTINCTCOUNTNOBLANK", "COUNTROWS"}
+
+
+def listable_entity(metric, builder=None, counting_only=False):
+    """Entidad que permite listar el indicador, o None.
+
+    - Conteo de un código (COUNT/DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO])):
+      {"function", "table", "column"}; la columna se muestra.
+    - Conteo de un identificador técnico (DISTINCTCOUNT(T[OID_SOLICITUD])) o
+      COUNTROWS(T): cuenta registros de T, pero el identificador no se muestra
+      ("hidden": True); las columnas visibles salen de la tabla de detalle del
+      catálogo.
+    - SUM(T[c]) simple (PRODUCTOS VENCIDOS = SUM(cantidad)): con
+      ``counting_only=False`` es listable por filas de T con su cantidad
+      ("aggregate": True); solo con una lista pedida explícitamente y con tabla
+      de detalle en el catálogo (lo decide plan_detail).
+    """
+    expression = metric_expression(metric)
+    entity = counted_entity(expression)
     if not entity:
-        return None
+        match = None if counting_only else _SUM_RE.match(expression)
+        if not match:
+            return None
+        table = (match.group("qtable") or match.group("table") or "").replace("''", "'").strip()
+        return {"function": "SUM", "table": table or metric.get("table"), "column": None,
+                "value_column": match.group("column").strip(), "aggregate": True}
     model = metric.get("semantic_model")
     table = entity.get("table") or metric.get("table")
     entity = {**entity, "table": table}
     if entity["column"] is None:
         return entity
     if is_technical_column(entity["column"]):
-        return None
+        # OID / consecutivo técnico: identifica cada registro aunque no se muestre.
+        return {**entity, "hidden": True} if entity["function"].startswith("DISTINCTCOUNT") else None
     if not identifier_like(entity["column"], _column_type(builder, model, table, entity["column"]),
                            entity.get("function")):
         return None
@@ -376,7 +401,7 @@ def _pick_catalog_table(tables, entity):
     for item in tables:
         columns = item.get("columns") or []
         same_table = [c for c in columns if _same(c.get("table"), entity["table"])]
-        if entity.get("column"):
+        if entity.get("column") and not entity.get("hidden"):
             if not any(_same(c.get("column"), entity["column"]) for c in same_table):
                 continue
         score = len(same_table) * 2 - (len(columns) - len(same_table))
@@ -399,6 +424,9 @@ def plan_detail(plan, builder=None, visual_catalog=None, question=None):
         return {"status": "not_requested", "reason": "grouped"}
     metric = plan.get("metric") or {}
     entity = listable_entity(metric, builder)
+    if entity and entity.get("aggregate") and request.get("strength") != "explicit":
+        # «¿Cuántas unidades … hay?» con una suma: el total basta.
+        return {"status": "not_requested", "reason": "sum_without_explicit_list"}
     if not entity:
         return {"status": "not_listable", "reason": "measure_without_entity", "request": request}
     model = plan.get("semantic_model") or metric.get("semantic_model")
@@ -408,7 +436,7 @@ def plan_detail(plan, builder=None, visual_catalog=None, question=None):
     excluded = []
     columns = []
 
-    def add(table, column, role, header=None):
+    def add(table, column, role, header=None, hidden=False):
         if not table or not column:
             return
         if any(_same(c["table"], table) and _same(c["column"], column) for c in columns):
@@ -418,9 +446,13 @@ def plan_detail(plan, builder=None, visual_catalog=None, question=None):
             if header not in excluded:
                 excluded.append(str(header))
             return
-        if is_technical_column(column, header):
+        if is_technical_column(column, header) and not hidden:
             return
-        columns.append({"table": table, "column": column, "header": str(header).strip(), "role": role})
+        item = {"table": table, "column": column, "header": str(header).strip(), "role": role}
+        if hidden:
+            # Identificador técnico: una fila por registro, pero no se muestra.
+            item["hidden"] = True
+        columns.append(item)
 
     filters = _filter_columns(plan, entity["table"])
     source, visual = "reglas", None
@@ -440,10 +472,10 @@ def plan_detail(plan, builder=None, visual_catalog=None, question=None):
             if len(item["_values"]) > 1:
                 add(item["table"], item["column"], "filter", item.get("concept"))
         if entity.get("column"):
-            add(entity["table"], entity["column"], "entity")
+            add(entity["table"], entity["column"], "entity", hidden=bool(entity.get("hidden")))
     else:
-        if entity.get("column") is None:
-            return {"status": "not_listable", "reason": "countrows_without_detail_visual", "request": request}
+        if entity.get("column") is None or entity.get("hidden"):
+            return {"status": "not_listable", "reason": "entity_without_detail_visual", "request": request}
         location = next((
             item for item in filters
             if _is_location(item["column"], readable_header(item["table"], item["column"], names, item.get("concept")))
@@ -466,7 +498,7 @@ def plan_detail(plan, builder=None, visual_catalog=None, question=None):
             if len(item["_values"]) > 1:
                 add(item["table"], item["column"], "filter", item.get("concept"))
         add(entity["table"], entity["column"], "entity")
-    if not any(c["role"] in ("entity", "visual") for c in columns) and not columns:
+    if not any(not c.get("hidden") for c in columns):
         return {"status": "not_listable", "reason": "only_private_columns", "excluded_private": excluded,
                 "request": request}
     entity_header = None
@@ -476,7 +508,8 @@ def plan_detail(plan, builder=None, visual_catalog=None, question=None):
         "status": "ready", "request": request, "entity": {**entity, "header": entity_header},
         "columns": columns, "source": source, "visual": visual, "excluded_private": excluded,
         "entity_shown": any(
-            _same(c["table"], entity["table"]) and _same(c["column"], entity.get("column")) for c in columns
+            _same(c["table"], entity["table"]) and _same(c["column"], entity.get("column")) and not c.get("hidden")
+            for c in columns
         ),
     }
 

@@ -86,6 +86,8 @@ def detail_lead(result, value_text, scope_period=""):
     question = (result.get("query_plan") or {}).get("question") or result.get("question") or ""
     if not entity or detail.get("status") not in ("ok", "too_long", "empty"):
         return None
+    if (detail.get("entity") or {}).get("aggregate"):
+        return None  # una suma (unidades), no un conteo de «productos»: frase normal
     tokens = _tokens(question)
     position = next((i for i, (_, norm) in enumerate(tokens) if norm == entity), None)
     if position is None:
@@ -146,13 +148,14 @@ def detail_table(detail):
     columns = detail.get("columns") or []
     if detail.get("status") != "ok" or not rows or not columns:
         return ""
-    headers = [str(c.get("header") or c.get("column")) for c in columns]
+    visible = [i for i, c in enumerate(columns) if not c.get("hidden")]
+    headers = [str(columns[i].get("header") or columns[i].get("column")) for i in visible]
     counts = detail.get("counts") or []
     if detail.get("show_counts"):
-        headers.append("CANTIDAD")
+        headers.append(str(detail.get("value_header") or "CANTIDAD"))
     lines = ["| " + " | ".join(headers) + " |", "| " + " | ".join("---" for _ in headers) + " |"]
     for index, row in enumerate(rows):
-        cells = [_cell(value) for value in row]
+        cells = [_cell(row[i]) if i < len(row) else "" for i in visible]
         if detail.get("show_counts"):
             cells.append(_cell(counts[index] if index < len(counts) else None))
         lines.append("| " + " | ".join(cells) + " |")

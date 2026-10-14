@@ -14,7 +14,9 @@ lista con detalles de ese filtro». Tres formas:
 
   - fuerza ``explicit`` (la lista se muestra siempre, cortada al tope):
     «cuáles», «cuáles son las <entidad>», «qué <entidad> (hay|están|quedan)…»,
-    «lista/listado de <entidad>», «lístame…», «detalle de las <entidad>»;
+    «lista/listado de <entidad>», «lístame…», «detalle de las <entidad>» y el
+    total con la lista al final («cuántas <entidad> … y cuáles son», «… y en
+    qué camas»);
   - fuerza ``soft`` (la lista solo si el total filtrado es corto):
     «muéstrame las <entidad>», «cuántas/cuántos <entidad> hay|están|quedan…»
     (estado actual, sin periodo). Con un total mayor que el tope se da el total
@@ -98,6 +100,10 @@ _SOFT_PATTERNS = (
         r"(?<![a-z0-9])cuant[oa]s\s+" + _ENTITY + r"(?:\s+[a-z0-9]+){0,3}?\s+" + _STATE_VERBS
         + r"(?![a-z0-9])")),
 )
+_TRAILING_RE = re.compile(
+    r"(?<![a-z0-9])y\s+(?:en\s+|de\s+|a\s+)?(?:cuales|que|donde)(?:\s+[a-z0-9]+){0,2}\s*$"
+)
+_COUNTED_RE = re.compile(r"(?<![a-z0-9])cuant[oa]s\s+" + _ENTITY)
 # Agrupaciones: «por X», «por cada X», «de cada X», «distribución», «desglose»,
 # «según X». Con ellas la forma es grouped (la decide el Query Plan).
 _GROUPING_RE = re.compile(
@@ -141,6 +147,15 @@ def detail_request(question):
     text = normalize_question(question)
     if not text or grouping_requested(text) or _RANKING_RE.search(text) or descriptive_phrase(text):
         return None
+    words = text.split()
+    # Total y lista en la misma pregunta: «cuántas camas ocupadas hay en uci y
+    # cuáles son», «cuántos pacientes de sanitas están hospitalizados y en qué
+    # camas»: la entidad es la contada («camas», «pacientes»).
+    trailing = _TRAILING_RE.search(text)
+    counted = _COUNTED_RE.search(text)
+    if trailing and counted and _entity(counted):
+        return {"strength": "explicit", "cue": "y cuales", "phrase": trailing.group(0).strip(),
+                "entity": _entity(counted), "question_words": words}
     for strength, patterns in (("explicit", _EXPLICIT_PATTERNS), ("soft", _SOFT_PATTERNS)):
         for cue, pattern in patterns:
             match = pattern.search(text)
@@ -151,7 +166,8 @@ def detail_request(question):
                 continue
             if cue == "cuantas" and _PAST_RE.search(text):
                 return None
-            return {"strength": strength, "cue": cue, "phrase": match.group(0).strip(), "entity": entity}
+            return {"strength": strength, "cue": cue, "phrase": match.group(0).strip(), "entity": entity,
+                    "question_words": words}
     return None
 
 

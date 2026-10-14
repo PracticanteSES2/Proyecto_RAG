@@ -130,6 +130,9 @@ def test_shape_rules():
         "listado de pacientes en UCI": ("detail", "explicit"),
         "cuáles son las camas disponibles": ("detail", "explicit"),
         "detalle de las camas bloqueadas": ("detail", "explicit"),
+        "cuantas camas ocupadas hay en uci y cuales son": ("detail", "explicit"),
+        "cuantos pacientes de sanitas estan hospitalizados y en que camas": ("detail", "explicit"),
+        "que interconsultas estan pendientes en medicina interna": ("detail", "explicit"),
         "muéstrame las camas disponibles": ("detail", "soft"),
         "cuántas camas hay disponibles en hospitalización general": ("detail", "soft"),
         "cuantas camas bloqueadas hay": ("detail", "soft"),
@@ -165,7 +168,14 @@ def test_counted_entity_and_listable():
     assert counted_entity("SUM('SOLICITUD_CAMAS'[DEMANDA_INS])") is None
     builder = FakeBuilder()
     assert listable_entity(CAMAS_METRIC, builder)["column"] == "HCACODIGO"
-    assert listable_entity({**CAMAS_METRIC, "model_expression": "SUM('SOLICITUD_CAMAS'[DEMANDA_INS])"}, builder) is None
+    suma = {**CAMAS_METRIC, "model_expression": "SUM('SOLICITUD_CAMAS'[DEMANDA_INS])"}
+    assert listable_entity(suma, builder, counting_only=True) is None
+    # Una suma simple solo se lista por filas (con su cantidad) si la lista se pide explícitamente.
+    assert listable_entity(suma, builder) == {"function": "SUM", "table": "SOLICITUD_CAMAS", "column": None,
+                                              "value_column": "DEMANDA_INS", "aggregate": True}
+    # Un identificador técnico (OID) cuenta registros pero no se muestra.
+    assert listable_entity({**CAMAS_METRIC, "model_expression": "DISTINCTCOUNT('INTERCONSULTAS'[OID_SOLICITUD])"},
+                           builder)["hidden"] is True
     # Un conteo de una cifra (no un código) no identifica registros.
     assert listable_entity({**CAMAS_METRIC, "model_expression": "COUNT('CAMAS DISPONIBLES'[MOSTRAR_6TO])"},
                            builder) is None
@@ -186,11 +196,25 @@ def test_listable_choice_only_for_explicit_lists():
         {"metric": suma, "score": 1.21}, {"metric": CAMAS_METRIC, "score": 1.19},
         {"metric": filtradas, "score": 0.43}]}}
     engine = _engine(FakeProvider({}))
-    assert engine._listable_choice("lista de camas bloqueadas", plan)["metric_id"] == "c1"
-    assert engine._listable_choice("cuántas camas hay disponibles en UCI", plan) is None
+    engine.query_plan_builder.metrics = [suma, CAMAS_METRIC, filtradas]
+    chosen, verify = engine._listable_choice("lista de camas bloqueadas", plan)
+    assert [m["metric_id"] for m in chosen] == ["c1"] and not verify
+    assert engine._listable_choice("cuántas camas hay disponibles en UCI", plan) == ([], False)
     close = json.loads(json.dumps(plan))
     close["metric_resolution"]["candidates"][2]["score"] = 1.2
-    assert engine._listable_choice("lista de camas bloqueadas", close) is None, "dos listables: se pregunta"
+    assert engine._listable_choice("lista de camas bloqueadas", close) == ([], False), "dos listables: se pregunta"
+    # Ninguna opción cuenta la entidad: tabla nombrada por la entidad con un único conteo (se verifica el plan).
+    inter = {**CAMAS_METRIC, "metric_id": "i1", "label": "INTERCONSULTAS SIN RESPUESTA", "table": "INTERCONSULTAS",
+             "model_expression": "DISTINCTCOUNT('INTERCONSULTAS'[OID_SOLICITUD])"}
+    pct = {"metric_id": "p1", "label": "%PENDIENTE", "table": "EN_ESPERA",
+           "model_expression": "DIVIDE([A], [B])"}
+    engine.query_plan_builder.metrics = [inter, pct, suma]
+    other = {"status": "ambiguous", "metric_resolution": {"candidates": [
+        {"metric": pct, "score": 0.56}, {"metric": suma, "score": 0.55}]}}
+    chosen, verify = engine._listable_choice("que interconsultas estan pendientes en medicina interna", other)
+    assert [m["metric_id"] for m in chosen] == ["i1"] and verify
+    assert engine._plan_explains_question({"status": "ready", "unapplied_terms": ["pendientes"]})
+    assert not engine._plan_explains_question({"status": "ready", "unapplied_terms": ["sanitas hospitalizados"]})
 
 
 def test_private_columns_policy():
@@ -262,6 +286,40 @@ def test_not_listable_and_not_requested():
                              mode="grouped"), builder)["status"] == "not_requested"
     suma = {**CAMAS_METRIC, "model_expression": "SUM('SOLICITUD_CAMAS'[DEMANDA_INS])"}
     assert plan_detail(_plan("lista de camas", suma), builder)["status"] == "not_listable"
+
+
+FARMACIA = {"reports": [{"report": "TABLERO FARMACIA", "semantic_model": MODEL, "pages": [
+    {"page_display_name": "MEDICAMENTOS VENCIDOS", "visuals": [{"visual_type": "tableEx", "fields": [
+        _field("PRODUCTOS_VENCIDOS", "IPRCODIGO", "CODIGO"), _field("PRODUCTOS_VENCIDOS", "iprdescor", "PRODUCTO"),
+        _field("PRODUCTOS_VENCIDOS", "IDFECDOC", "FECHA VENCIMIENTO")]}]},
+    {"page_display_name": "INTERCONSULTAS", "visuals": [{"visual_type": "tableEx", "fields": [
+        _field("INTERCONSULTAS", "DOCUMENTO", "DOCUMENTO"), _field("INTERCONSULTAS", "HCACODIGO", "CAMA"),
+        _field("INTERCONSULTAS", "GEEDESCRI", "ESPECIALIDAD")]}]},
+]}]}
+
+
+def test_sum_and_hidden_identifier_listed_from_catalog_table():
+    builder = FakeBuilder(visual_catalog=FARMACIA, technical={})
+    vencidos = {**CAMAS_METRIC, "label": "PRODUCTOS VENCIDOS", "table": "PRODUCTOS_VENCIDOS",
+                "model_expression": "SUM('PRODUCTOS_VENCIDOS'[iddcantid])"}
+    spec = plan_detail(_plan("lista de productos vencidos en farmacia", vencidos), builder)
+    assert spec["status"] == "ready" and spec["entity"]["aggregate"], spec
+    assert [c["header"] for c in spec["columns"]] == ["CODIGO", "PRODUCTO", "FECHA VENCIMIENTO"]
+    # «¿Cuántos … hay?» con una suma: solo el total.
+    assert plan_detail(_plan("cuantos productos vencidos hay", vencidos), builder)["status"] == "not_requested"
+    inter = {**CAMAS_METRIC, "label": "INTERCONSULTAS SIN RESPUESTA", "table": "INTERCONSULTAS",
+             "model_expression": "DISTINCTCOUNT('INTERCONSULTAS'[OID_SOLICITUD])"}
+    spec = plan_detail(_plan("que interconsultas estan pendientes", inter), builder)
+    assert [(c["header"], bool(c.get("hidden"))) for c in spec["columns"]] == [
+        ("CAMA", False), ("ESPECIALIDAD", False), ("OID SOLICITUD", True)], spec["columns"]
+    assert spec["excluded_private"] == ["DOCUMENTO"]
+    detail = {"status": "ok", "entity_word": "interconsultas", "rows": [["401", "MEDICINA INTERNA", "OID-1"]],
+              "counts": [1], "columns": spec["columns"], "consistency": "ok", "show_counts": False,
+              "excluded_private": []}
+    result = {"status": "success", "metric": "INTERCONSULTAS SIN RESPUESTA", "value": 1, "detail": detail,
+              "filters": [], "query_plan": _plan("que interconsultas estan pendientes", inter)}
+    text = format_query_plan_answer(result)
+    assert "| CAMA | ESPECIALIDAD |" in text and "OID-1" not in text, text
 
 
 # ============================================================
