@@ -1525,6 +1525,16 @@ class PBIRVisualCatalogBuilder:
             - approved
         )
 
+        # Tablas de detalle (tableEx/table): columnas simples con su nombre
+        # de negocio (nativeQueryRef). Campo nuevo y opcional: los
+        # consumidores actuales lo ignoran; el listado de detalle lo usa
+        # (src/semantic/detail_list.py) y, si falta, lo deriva de "pages".
+        detail_tables = (
+            self._detail_tables(
+                pages
+            )
+        )
+
         return {
             "semantic_model":
                 self.semantic_model,
@@ -1548,6 +1558,10 @@ class PBIRVisualCatalogBuilder:
                     approved,
                 "needs_review":
                     needs_review,
+                "detail_tables":
+                    len(
+                        detail_tables
+                    ),
             },
             "report_filters":
                 report_filters,
@@ -1555,7 +1569,42 @@ class PBIRVisualCatalogBuilder:
                 pages,
             "metrics":
                 all_metrics,
+            "detail_tables":
+                detail_tables,
         }
+
+    def _detail_tables(
+        self,
+        pages,
+    ):
+        """[{página, visual, columns: [{table, column, header, private}]}].
+
+        `private` marca columnas que identifican personas (documento,
+        nombre de paciente...): el listado las excluye por defecto; mostrarlas
+        es decisión del propietario (POWERBI_DETAIL_ALLOWED_COLUMNS).
+        """
+        from src.semantic.detail_list import (
+            detail_tables_from_pages,
+            is_private_column,
+        )
+
+        tables = detail_tables_from_pages(
+            pages
+        )
+
+        for table in tables:
+            for column in table[
+                "columns"
+            ]:
+                column["private"] = (
+                    is_private_column(
+                        column.get("column"),
+                        column.get("header"),
+                        column.get("table"),
+                    )
+                )
+
+        return tables
 
     def save(
         self,
