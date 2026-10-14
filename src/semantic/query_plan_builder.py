@@ -7264,7 +7264,10 @@ class QueryPlanBuilder:
                     position = index + step
                     while 0 <= position < len(question_words) and (
                         question_words[position] in connectors
-                        or canonical_token(question_words[position]) in skip_tokens
+                        or (
+                            canonical_token(question_words[position]) in skip_tokens
+                            and not self._explains(canonical_token(question_words[position]), vocabulary)
+                        )
                     ):
                         position += step
                     if 0 <= position < len(question_words) and self._explains(
