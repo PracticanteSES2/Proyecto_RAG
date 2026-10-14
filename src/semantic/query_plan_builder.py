@@ -157,7 +157,7 @@ FILLER_WORDS = {
 
 DIMENSION_SYNONYMS = {
     "servicio": {"servicio", "servicios", "unidad", "unidades", "area", "areas"},
-    "aseguradora": {"asegurador", "aseguradora", "aseguradoras", "eps", "pagador", "pagadores"},
+    "aseguradora": {"asegurador", "aseguradora", "aseguradoras", "aseguradores", "eps", "pagador", "pagadores"},
     "especialidad": {"especialidad", "especialidades"},
     "cirujano": {"cirujano", "cirujanos", "medico", "medicos"},
     "estado": {"estado", "estados", "situacion"},
@@ -296,6 +296,24 @@ def _tokens_match_loosely(left, right):
     if left == right or _token_similarity(left, right) >= 0.88:
         return True
     return min(len(left), len(right)) >= 5 and _stem_token(left) == _stem_token(right)
+
+
+def _alias_prefix(text, alias):
+    """Parte inicial de `text` que nombra `alias` palabra por palabra, admitiendo
+    plural/género/derivación («aseguradores» = ASEGURADORA, «servicios» =
+    SERVICIO); None si no empieza por él. Las palabras cortas (≤ 4 letras)
+    deben ser iguales o tener la misma forma canónica."""
+    text_words = normalize_text(text).split()
+    alias_words = normalize_text(alias).split()
+    if not alias_words or len(text_words) < len(alias_words):
+        return None
+    for word, other in zip(text_words, alias_words):
+        if word == other or canonical_token(word) == canonical_token(other):
+            continue
+        if min(len(word), len(other)) >= 5 and _stem_token(word) == _stem_token(other):
+            continue
+        return None
+    return " ".join(text_words[:len(alias_words)])
 
 
 # Frases equivalentes con la MISMA polaridad («sin responder» = «sin
@@ -1679,9 +1697,88 @@ class QueryPlanBuilder:
                             "column": column,
                             "level": field.get("level"),
                             "query_ref": field.get("query_ref"),
+                            "display_name": field.get("display_name"),
+                            "native_query_ref": field.get("native_query_ref"),
                             "aliases": self._field_aliases(field),
                         })
+        # Campo sin nombre de negocio (la dona «HSUNOMBRE» de DETALLE OCUPACIÓN):
+        # hereda los nombres con que otros visuales del modelo muestran esa
+        # columna (HSUNOMBRE -> «SERVICIO»). Funciona con catálogos ya construidos.
+        self._business_names_index = self._build_business_names_index(fields)
+        for field in fields:
+            names = [field.get("display_name"), field.get("native_query_ref")]
+            if any(self._business_column_name(name, field.get("column")) for name in names):
+                continue
+            for name in self._column_business_names(
+                field.get("semantic_model"), field.get("column"), field.get("table"),
+            ):
+                field["aliases"] = _unique_strings([*field["aliases"], *self._field_aliases({"display_name": name})])
         return fields
+
+    @staticmethod
+    def _business_column_name(name, column):
+        """Nombre de negocio de una columna en un visual («ASEGURADORA» para
+        TERNOMCOM), normalizado y sin dígitos finales («SERVICIO1»); None si es
+        el nombre técnico, una agregación («Recuento de X», «Sum(T.C)») o vacío."""
+        text = re.sub(r"\s*\d+$", "", str(name or "")).strip()
+        norm = normalize_text(text)
+        if (
+            not norm or len(norm) < 3 or len(norm.split()) > 3 or "(" in text or "." in text
+            or norm == normalize_text(column)
+            or re.match(r"^(?:recuento|conteo|count|suma|sum|promedio|average|total)\b", norm)
+        ):
+            return None
+        return text
+
+    def _build_business_names_index(self, fields):
+        index = {}
+        for field in fields:
+            key = (normalize_text(field.get("semantic_model")), normalize_text(field.get("column")))
+            for name in (field.get("display_name"), field.get("native_query_ref")):
+                business = self._business_column_name(name, field.get("column"))
+                item = (normalize_text(field.get("table")), business)
+                if business and item not in index.setdefault(key, []):
+                    index[key].append(item)
+                # Por nombre técnico en cualquier modelo (misma base de datos).
+                if business and business not in index.setdefault(("*", key[1]), []):
+                    index[("*", key[1])].append(business)
+        return index
+
+    @staticmethod
+    def _technical_code_column(column):
+        """Nombre técnico de una sola palabra que no es una palabra de negocio
+        ni de tiempo (TERNOMCOM, HSUNOMBRE, HCACODIGO, GEEDESCRI): significa lo
+        mismo en todas las tablas del modelo. FECHA o ESTADO no (cada tabla le
+        da su propio sentido: «FECHA INGRESO», «ESTADO TRÁMITE»)."""
+        norm = normalize_text(column)
+        if not norm or " " in norm or len(norm) < 6 or norm in TEMPORAL_WORDS:
+            return False
+        return not any(norm in synonyms for synonyms in DIMENSION_SYNONYMS.values())
+
+    def _column_business_names(self, semantic_model, column, table=None):
+        """Nombres de negocio con que los visuales del modelo muestran una
+        columna: los de la misma tabla y, si es un código técnico, los de
+        cualquier tabla (TERNOMCOM -> «ASEGURADOR», «ASEGURADORA»; HSUNOMBRE
+        -> «SERVICIO»). Sirve de alias en tiempo de ejecución sin reconstruir
+        los catálogos (el catálogo visual ya guarda displayName/nativeQueryRef
+        de cada columna)."""
+        index = self.__dict__.get("_business_names_index")
+        if index is None:
+            index = self._business_names_index = self._build_business_names_index(self.dimension_fields or [])
+        anywhere = self._technical_code_column(column)
+        table = normalize_text(table)
+        names = _unique_strings(
+            name for owner, name in index.get((normalize_text(semantic_model), normalize_text(column)), [])
+            if anywhere or not table or owner == table
+        )
+        if not names and anywhere:
+            # Código técnico que este modelo nunca renombra (GEEDESCRI de
+            # REFERENCIA): los nombres que le dan los visuales de otros modelos
+            # («ESPECIALIDAD» en BRIEFING), si son pocos y coinciden.
+            others = index.get(("*", normalize_text(column)), [])
+            if 0 < len({normalize_text(name) for name in others}) <= 2:
+                names = _unique_strings(others)
+        return names
 
     def _iter_filters(self, value):
         if isinstance(value, list):
@@ -1833,9 +1930,14 @@ class QueryPlanBuilder:
     def _expression_fact_table(self, semantic_model, metric):
         """Única tabla (que no sea calendario/medidas) que la expresión de la
         medida referencia como 'TABLA'[columna] o TABLA[columna], o None."""
+        used = self._expression_tables(semantic_model, metric)
+        return next(iter(used)) if len(used) == 1 else None
+
+    def _expression_tables(self, semantic_model, metric):
+        """Tablas (que no sean calendario/medidas) que nombra la expresión de la medida."""
         expression = str(self._measure_expression(semantic_model, metric) or "")
         if not expression:
-            return None
+            return set()
         tables = {
             table.get("name") for table in self._technical_catalog(semantic_model).get("tables", []) or []
             if table.get("name") and not self._CALENDAR_TABLE_RE.match(normalize_text(table.get("name")))
@@ -1847,7 +1949,7 @@ class QueryPlanBuilder:
             or re.search(r"(?:COUNTROWS|RELATEDTABLE|VALUES|ALL|FILTER)\s*\(\s*'?" + re.escape(name) + r"'?\s*[),]",
                          expression, re.IGNORECASE)
         }
-        return next(iter(used)) if len(used) == 1 else None
+        return used
 
     def _with_technical_dimensions(self, metric, candidates):
         """Dimensiones del catálogo técnico para métricas SIN visual.
@@ -1904,7 +2006,7 @@ class QueryPlanBuilder:
             if key in seen:
                 continue
             seen.add(key)
-            aliases = self._technical_field_aliases(name)
+            aliases = self._technical_column_aliases(semantic_model, table.get("name"), name)
             if column_type == "date" and not words & TEMPORAL_WORDS:
                 aliases.append("fecha")  # «FechaParto»: es la fecha de la tabla
             technical.append({
@@ -1918,6 +2020,211 @@ class QueryPlanBuilder:
         result = adjusted + technical
         result.sort(key=lambda item: item.get("relevance_score", 0), reverse=True)
         return result
+
+    def _group_label(self, field):
+        """Encabezado de la agrupación: su primer alias o, si es el nombre
+        técnico (GEEDESCRI, TERNOMCOM), el nombre de negocio de los visuales."""
+        label = (field.get("aliases") or [field.get("column")])[0]
+        if normalize_text(label) == normalize_text(field.get("column")):
+            names = self._column_business_names(field.get("semantic_model"), field.get("column"), field.get("table"))
+            if names:
+                return names[0]
+        return label
+
+    def _technical_column_aliases(self, semantic_model, table, column):
+        """Alias de una columna del catálogo técnico: su nombre, sus sinónimos
+        y los nombres de negocio con que la muestran los visuales del modelo."""
+        aliases = self._technical_field_aliases(column)
+        for name in self._column_business_names(semantic_model, column, table):
+            aliases.extend(self._field_aliases({"display_name": name}))
+        return _unique_strings(aliases)
+
+    # ---------------- relación de una columna con el indicador ----------------
+    # Una columna solo sirve para agrupar, ordenar o filtrar un indicador si su
+    # tabla lo filtra. Regla (`_dimension_relation`):
+    # - «own»: la tabla del campo es la tabla de hechos del indicador. Siempre vale.
+    # - «related»: la expresión del indicador nombra esa tabla, o las relaciones
+    #   activas del modelo la conectan con la tabla de hechos (dimensión y
+    #   dimensión de la dimensión, como `_related_tables`).
+    # - «unrelated»: (a) el modelo declara sus relaciones (catálogo técnico con
+    #   tablas y la clave «relationships», aunque la lista esté vacía:
+    #   INFO.VIEW.RELATIONSHIPS las devuelve todas; BRIEFING no tiene ninguna y
+    #   sus tablas son independientes) y ninguna conecta esa tabla; o (b) sin
+    #   relaciones declaradas, la tabla de hechos tiene su PROPIA columna con el
+    #   mismo significado (mismo alias de negocio, p. ej. ASEGURADOR frente al
+    #   TERNOMCOM «ASEGURADOR» de otra tabla, o una fecha propia frente a la
+    #   fecha de otra tabla): se prefiere la propia. Un calendario/tabla de
+    #   fechas nunca se descarta en este caso (se supone conectado).
+    # - «unknown»: falta información (tabla de hechos desconocida o de medidas,
+    #   expresión que no la nombra, sin relaciones ni columna equivalente): el
+    #   campo se conserva como antes, para no dejar sin dimensiones a los
+    #   modelos sin metadata de relaciones.
+    def _has_relationship_metadata(self, semantic_model):
+        catalog = self._technical_catalog(semantic_model)
+        return bool(catalog.get("tables")) and "relationships" in catalog
+
+    def _fact_table_entry(self, metric):
+        """Tabla de hechos del indicador en el catálogo técnico (o None)."""
+        table_name = self._metric_fact_table(metric)
+        if not table_name or self._CALENDAR_TABLE_RE.match(normalize_text(table_name)):
+            return None
+        return next(
+            (item for item in self._technical_catalog(metric.get("semantic_model")).get("tables", []) or []
+             if normalize_text(item.get("name")) == normalize_text(table_name)),
+            None,
+        )
+
+    def _own_column_profiles(self, metric):
+        """[(alias normalizados, es_temporal)] de las columnas de la tabla de
+        hechos del indicador: las del catálogo técnico y las de los visuales."""
+        model = metric.get("semantic_model")
+        table_name = normalize_text(self._metric_fact_table(metric))
+        profiles = []
+        entry = self._fact_table_entry(metric)
+        for column in (entry or {}).get("columns", []) or []:
+            name = column.get("name")
+            if not name:
+                continue
+            aliases = {normalize_text(a) for a in self._technical_column_aliases(model, entry.get("name"), name)}
+            temporal = (
+                self._classify_data_type(column.get("data_type")) == "date"
+                or bool(set(normalize_text(name).split()) & TEMPORAL_WORDS)
+            )
+            profiles.append((aliases - {""}, temporal))
+        for field in self.dimension_fields or []:
+            if (
+                normalize_text(field.get("semantic_model")) == normalize_text(model)
+                and normalize_text(field.get("table")) == table_name
+            ):
+                aliases = {normalize_text(a) for a in field.get("aliases") or []}
+                profiles.append((aliases - {""}, self._is_temporal_field(field)))
+        return profiles
+
+    def _own_equivalent_column(self, metric, field):
+        """¿La tabla del indicador tiene su propia columna con el significado
+        de `field` (otra tabla)? Fechas con fechas; el resto por alias común."""
+        temporal = self._is_temporal_field(field)
+        aliases = {normalize_text(alias) for alias in field.get("aliases") or []} - {""}
+        aliases.discard(normalize_text(field.get("table")))
+        for own_aliases, own_temporal in self._own_column_profiles(metric):
+            if temporal or own_temporal:
+                if temporal and own_temporal:
+                    return True
+                continue
+            if aliases & own_aliases:
+                return True
+        return False
+
+    def _dimension_relation(self, metric, field):
+        """«own» | «related» | «unrelated» | «unknown» (ver la regla arriba)."""
+        model = metric.get("semantic_model")
+        table = self._metric_fact_table(metric)
+        field_table = normalize_text(field.get("table"))
+        if not table or not field_table or self._CALENDAR_TABLE_RE.match(normalize_text(table)):
+            return "unknown"
+        if field_table == normalize_text(table):
+            return "own"
+        cache = self.__dict__.setdefault("_dimension_relation_cache", {})
+        metric_key = (self._logical_key(metric), normalize_text(metric.get("label")))
+        if metric_key not in cache:
+            # Por indicador: tablas de su expresión y, si el modelo declara sus
+            # relaciones, las que filtran su tabla (None = sin esa metadata o
+            # expresión que no nombra la tabla: se decide por columna).
+            if len(cache) > 5000:
+                cache.clear()
+            used = {normalize_text(name) for name in self._expression_tables(model, metric)}
+            related = None
+            if self._has_relationship_metadata(model):
+                if self._expression_uses_table(self._measure_expression(model, metric), table):
+                    related = set()
+                    for name in {normalize_text(table)} | used:
+                        related |= self._related_tables(model, name)
+                else:
+                    related = "unknown"
+            cache[metric_key] = {"used": used, "related": related, "columns": {}}
+        info = cache[metric_key]
+        if field_table in info["used"]:
+            return "related"
+        if info["related"] == "unknown":
+            return "unknown"
+        if info["related"] is not None:
+            return "related" if field_table in info["related"] else "unrelated"
+        # Sin relaciones declaradas, un calendario (Calendario[AÑO]) se supone
+        # conectado: es la forma habitual de filtrar por periodo.
+        if self._CALENDAR_TABLE_RE.match(field_table):
+            return "unknown"
+        column_key = (field_table, normalize_text(field.get("column")))
+        if column_key not in info["columns"]:
+            info["columns"][column_key] = (
+                "unrelated" if self._own_equivalent_column(metric, field) else "unknown"
+            )
+        return info["columns"][column_key]
+
+    def _own_table_fallback_fields(self, metric, existing):
+        """Columnas de la tabla de hechos de un indicador CON visuales que no
+        están entre sus campos visuales (ASEGURADOR de CONSULTAS PRIORITARIAS
+        solo aparece agregado): respaldo para «por X», rankings, filtros
+        explícitos. Van al final (relevancia baja), marcadas `own_fallback`;
+        los valores implícitos no las recorren. Las fechas no se agregan: si
+        los visuales del indicador no usan ninguna, la tabla es de estado
+        actual para el tablero (FechaSalida de PACIENTES X ASEGURADORA no es
+        la fecha de un periodo; ver `_snapshot_table`)."""
+        entry = self._fact_table_entry(metric)
+        if not entry:
+            return []
+        model = metric.get("semantic_model")
+        seen = {(normalize_text(f.get("table")), normalize_text(f.get("column"))) for f in existing}
+        result = []
+        for column in entry.get("columns", []) or []:
+            name = column.get("name")
+            lowered = str(name or "").lower()
+            if not name or any(part in lowered for part in self._PRIVATE_COLUMN_PARTS):
+                continue
+            column_type = self._classify_data_type(column.get("data_type"))
+            words = set(normalize_text(name).split())
+            if column_type in ("number", "date") or words & TEMPORAL_WORDS:
+                continue
+            key = (normalize_text(entry.get("name")), normalize_text(name))
+            if key in seen:
+                continue
+            seen.add(key)
+            aliases = self._technical_column_aliases(model, entry.get("name"), name)
+            result.append({
+                "semantic_model": model, "report": None, "source_group": None,
+                "page": None, "visual_id": None, "visual_type": "technical_catalog",
+                "role": None, "kind": "column", "table": entry.get("name"), "column": name,
+                "level": None, "query_ref": f"{entry.get('name')}.{name}",
+                "aliases": aliases, "relevance_score": 8, "own_fallback": True,
+            })
+        return result
+
+    def _metric_dimensions(self, metric, dropped=None):
+        """Dimensiones candidatas del indicador para agrupar, ordenar, filtrar
+        y elegir la fecha del periodo: las de sus visuales o del catálogo
+        técnico (`_with_technical_dimensions`) SIN las de tablas que no lo
+        filtran («unrelated»: un SUMMARIZECOLUMNS por EGRESOS_POR_SERVICIO
+        [TERNOMCOM] repite el total de CONSULTAS PRIORITARIAS en cada fila) y,
+        si tiene visuales, con las columnas de su propia tabla como respaldo.
+        `dropped` (lista) recibe los campos descartados. Con caché por
+        indicador (los catálogos no cambian durante la vida del planificador)."""
+        cache = self.__dict__.setdefault("_metric_dimensions_cache", {})
+        key = (self._logical_key(metric), normalize_text(metric.get("label")),
+               tuple(sorted(self._metric_visual_ids(metric))), tuple(self._metric_pages(metric)),
+               tuple(self._metric_reports(metric)))
+        if key not in cache:
+            if len(cache) > 2000:
+                cache.clear()
+            candidates = self._with_technical_dimensions(metric, self._relevant_dimensions(metric))
+            kept, unrelated = [], []
+            for field in candidates:
+                (unrelated if self._dimension_relation(metric, field) == "unrelated" else kept).append(field)
+            if metric.get("appearances"):
+                kept.extend(self._own_table_fallback_fields(metric, kept))
+            cache[key] = (kept, unrelated)
+        kept, unrelated = cache[key]
+        if dropped is not None:
+            dropped.extend(unrelated)
+        return list(kept)
 
     def _period_in_metric_note(self, question, temporal, metric, metric_result):
         """Nota visible cuando el periodo pedido forma parte del nombre del
@@ -2344,6 +2651,15 @@ class QueryPlanBuilder:
             if alias_norm and (tail == alias_norm or tail.startswith(alias_norm + " ")):
                 matched_alias = alias_norm
                 break
+        # Plural/género del nombre («por aseguradores» = ASEGURADORA/ASEGURADOR;
+        # «por areas de servicio» = AREA DE SERVICIO entero, no «areas» + valor
+        # «de servicio»): gana la coincidencia que cubre más palabras.
+        loose = max(
+            (prefix for prefix in (_alias_prefix(tail, alias) for alias in aliases) if prefix),
+            key=lambda prefix: len(prefix.split()), default=None,
+        )
+        if loose and (not matched_alias or len(loose.split()) > len(matched_alias.split())):
+            matched_alias = loose
         if not matched_alias:
             return {"group_by": [], "explicit_filters": []}
 
@@ -2355,10 +2671,10 @@ class QueryPlanBuilder:
                 f"«{matched_alias} {remainder}»: «{remainder}» nombra el tablero; "
                 f"se agrupa por {best.get('table')}[{best.get('column')}] (no es un valor del filtro)"
             )
-            return {"group_by": [best], "explicit_filters": []}
+            return {"group_by": [best], "explicit_filters": [], "phrase": matched_alias}
         remainder = re.sub(r"^(?:de|del|en|igual a|=)\s+", "", remainder).strip()
         if not remainder:
-            return {"group_by": [best], "explicit_filters": []}
+            return {"group_by": [best], "explicit_filters": [], "phrase": matched_alias}
         return {"group_by": [], "explicit_filters": [{"field": best, "value_hint": remainder, "from_group": True}]}
 
     def _remove_metric_and_report_phrases(self, question, metric, source_context):
@@ -2614,7 +2930,7 @@ class QueryPlanBuilder:
         unrelated = []
         for field in candidates:
             key = (normalize_text(field.get("table")), normalize_text(field.get("column")))
-            if key in used_fields or not self._implicit_eligible(field, semantic_model):
+            if key in used_fields or field.get("own_fallback") or not self._implicit_eligible(field, semantic_model):
                 continue
             if not self._field_filters_metric(metric, field):
                 if field.get("table") not in unrelated:
@@ -2677,17 +2993,9 @@ class QueryPlanBuilder:
         trae las relaciones del modelo y la tabla del campo no es esa tabla ni
         una de las que la filtran (p. ej. BRIEFING: tablas independientes, un
         SERVICIO de la página SEGUIMIENTO RECEPCIÓN no filtra INTERCONSULTAS).
-        Con información incompleta se asume que sí (no se descarta)."""
-        table = self._metric_fact_table(metric)
-        model = metric.get("semantic_model")
-        if not table or self._CALENDAR_TABLE_RE.match(normalize_text(table)):
-            return True
-        catalog = self._technical_catalog(model)
-        if not catalog.get("tables") or "relationships" not in catalog:
-            return True
-        if not self._expression_uses_table(self._measure_expression(model, metric), table):
-            return True
-        return normalize_text(field.get("table")) in self._related_tables(model, table)
+        Con información incompleta se asume que sí (no se descarta). Misma
+        regla que la agrupación y el periodo (`_dimension_relation`)."""
+        return self._dimension_relation(metric, field) != "unrelated"
 
     _OWN_FIELD_LIMIT = 8
 
@@ -3268,7 +3576,31 @@ class QueryPlanBuilder:
         period["label"] = f"{period['label']} (años con datos)"
         return period
 
-    def _apply_temporal(self, analysis, candidates, semantic_model, group_by):
+    def _current_state_period(self, period):
+        """¿El periodo incluye el día de hoy («hoy», «este mes», «este año»)?"""
+        start, end = as_date(period.get("start")), as_date(period.get("end"))
+        today = self._today()
+        return bool(start and end and start <= today < end)
+
+    def _snapshot_table(self, metric, candidates):
+        """(tabla, tiene_fechas) de un indicador sin ninguna columna temporal
+        válida (propia o relacionada) entre las candidatas: su tabla refleja el
+        estado actual (CAMAS DISPONIBLES no tiene fechas; PACIENTES X
+        ASEGURADORA tiene FechaSalida, que no es la fecha de un periodo). None
+        si queda alguna fecha válida o no se conoce la tabla del indicador."""
+        if metric is None or any(self._is_temporal_field(field) for field in candidates):
+            return None
+        entry = self._fact_table_entry(metric)
+        if not entry or not entry.get("columns"):
+            return None
+        dated = any(
+            self._classify_data_type(column.get("data_type")) == "date"
+            or set(normalize_text(column.get("name")).split()) & TEMPORAL_WORDS
+            for column in entry.get("columns") or []
+        )
+        return entry.get("name"), dated
+
+    def _apply_temporal(self, analysis, candidates, semantic_model, group_by, metric=None):
         """Filtros del periodo + agrupación temporal («por mes») del plan.
 
         Devuelve {"filters", "unapplied", "notes", "unsupported_period",
@@ -3276,6 +3608,9 @@ class QueryPlanBuilder:
         (`buckets`, uno por mes/trimestre/año...) que el generador DAX evalúa
         con los mismos filtros de periodo: funciona igual con columna de fecha
         o con columnas AÑO/MES enteras. Si no se puede agrupar, se declara.
+        Las fechas de tablas que no filtran el indicador ya no están en
+        `candidates` (`_metric_dimensions`): «hoy» sobre una tabla sin fecha
+        (estado actual, p. ej. CAMAS DISPONIBLES) responde el valor actual.
         """
         result = {
             "filters": [], "unapplied": [], "notes": [], "unsupported_period": None,
@@ -3285,10 +3620,28 @@ class QueryPlanBuilder:
         granularity = analysis.get("granularity")
         if period:
             filters, unapplied, notes = self._period_filters(period, candidates, semantic_model)
-            if not filters:
+            snapshot = None if filters else self._snapshot_table(metric, candidates)
+            phrase = _original_phrase(analysis.get("question") or "", period.get("phrase")) or period.get("label")
+            if not filters and snapshot and self._current_state_period(period):
+                table, dated = snapshot
+                why = (
+                    "el tablero no usa ninguna de sus fechas como periodo" if dated
+                    else "la tabla refleja el momento presente, sin histórico por fechas"
+                )
+                result["notes"].append(f"«{phrase}»: se muestra el estado actual de {table} ({why}).")
+                result["current_state"] = True
+                period = None
+            elif not filters:
                 result["unsupported_period"] = period
                 result["unapplied"] = unapplied
+                if snapshot:
+                    # Un periodo pasado en una tabla de estado actual: se dice por qué.
+                    result["explanation"] = (
+                        f"{metric.get('label')} muestra el estado actual de {snapshot[0]}: no tiene "
+                        f"una fecha con la que filtrar «{phrase}»."
+                    )
                 return result
+        if period:
             result["filters"].extend(filters)
             result["unapplied"].extend(unapplied)
             result["notes"].extend(notes)
@@ -4389,6 +4742,226 @@ class QueryPlanBuilder:
         )
         return alternative
 
+    # ---------------- «M por X» con un indicador que no se desglosa por X ----------------
+    _GROUP_TAIL_RE = re.compile(
+        r"(?<![a-z0-9])(?:por|segun|agrupad[oa]s?\s+por|desglosad[oa]s?\s+por)\s+"
+        r"(?:(?:el|la|los|las|cada)\s+)?(.+)$"
+    )
+
+    def _requested_group_tail(self, question):
+        """Lo que sigue a «por/según» en la pregunta, sin el periodo («ocupación
+        por servicio hoy» -> «servicio»), o None."""
+        text = self._analyze_periods(question)["clean_question"]
+        match = self._GROUP_TAIL_RE.search(text)
+        tail = match.group(1).strip() if match else ""
+        return tail or None
+
+    def _group_field_in(self, tail, fields):
+        """Campo de `fields` que nombra el comienzo de `tail` («aseguradores» ->
+        TERNOMCOM «ASEGURADORA»), sin columnas temporales; o None."""
+        if not tail:
+            return None
+        # Primero el filtro barato (algún alias abre `tail`); luego el mejor
+        # de esos por coincidencia y relevancia, como `_best_dimension`.
+        named = [
+            field for field in fields
+            if any(_alias_prefix(tail, alias) for alias in field.get("aliases") or [])
+        ]
+        return self._best_dimension(tail, named, exclude_temporal=True) if named else None
+
+    def _group_topic_words(self, question, source_context, tail):
+        """Palabras del tema de «detalle de ocupación por aseguradores»
+        («ocupacion»): sin la agrupación, unidades ni palabras de página genéricas."""
+        ignored = {canonical_token(word) for word in self._OPTION_UNIT_WORDS
+                   | self._PAGE_IGNORED_NAME_WORDS | GENERIC_PAGE_WORDS}
+        ignored |= set(canonical_tokens(tail))
+        return [word for word in self._option_words(question, source_context) if word not in ignored]
+
+    def _table_pages(self, semantic_model, table):
+        """Páginas del informe que usan la tabla (columnas en visuales o
+        indicadores de esa tabla): PACIENTES X ASEGURADORA -> DETALLE OCUPACIÓN."""
+        index = self.__dict__.get("_table_pages_index")
+        if index is None:
+            index = {}
+            for field in self.dimension_fields or []:
+                key = (normalize_text(field.get("semantic_model")), normalize_text(field.get("table")))
+                if field.get("page") and field["page"] not in index.setdefault(key, []):
+                    index[key].append(field["page"])
+            for metric in self.metrics:
+                key = (normalize_text(metric.get("semantic_model")), normalize_text(metric.get("table")))
+                for page in self._metric_pages(metric):
+                    if page not in index.setdefault(key, []):
+                        index[key].append(page)
+            self._table_pages_index = index
+        return list(index.get((normalize_text(semantic_model), normalize_text(table)), []))
+
+    def _metric_topic_page(self, metric, words):
+        """Página (de sus visuales o de su tabla) cuyo nombre explica TODAS las
+        palabras del tema («ocupacion» -> DETALLE OCUPACIÓN); "" si las explica
+        el nombre/tabla del indicador; None si nada las explica."""
+        if not words:
+            return None
+        pages = _unique_strings([
+            *self._metric_pages(metric),
+            *self._table_pages(metric.get("semantic_model"), self._metric_fact_table(metric)),
+        ])
+        for page in pages:
+            tokens = self._page_name_tokens(page)
+            if tokens and all(self._explains(word, tokens) for word in words):
+                return page
+        vocabulary = self._metric_vocabulary_tokens(metric, with_pages=False)
+        if all(self._explains(word, vocabulary) for word in words):
+            return ""
+        return None
+
+    def _groupable_on_topic(self, metric, tail, words):
+        """¿El indicador se desglosa por `tail` y su página/nombre trata el tema?"""
+        return (
+            self._metric_topic_page(metric, words) is not None
+            and self._group_field_in(tail, self._metric_dimensions(metric)) is not None
+        )
+
+    def _group_siblings(self, question, source_context, tail, models, exclude=()):
+        """Indicadores de esos modelos que SÍ se desglosan por `tail` y cuya
+        página o nombre trata el tema de la pregunta («detalle de ocupación por
+        aseguradores»: %OCUPACION no tiene aseguradora, pero la página DETALLE
+        OCUPACIÓN cuenta los pacientes de PACIENTES X ASEGURADORA por
+        TERNOMCOM). Uno por expresión (TOTAL PACIENTES = PACIENTES por
+        ASEGURADORA): el de la página del tema, tarjeta, nombre más corto."""
+        words = self._group_topic_words(question, source_context, tail)
+        if not words or not tail:
+            return []
+        models = {normalize_text(model) for model in models if model}
+        excluded = {self._logical_key(metric) for metric in exclude}
+        groups = {}
+        for metric in self.metrics:
+            model = metric.get("semantic_model")
+            if (
+                metric.get("validation_status") != "approved" or normalize_text(model) not in models
+                or self._logical_key(metric) in excluded
+            ):
+                continue
+            page = self._metric_topic_page(metric, words)
+            if page is None:
+                continue
+            field = self._group_field_in(tail, self._metric_dimensions(metric))
+            if field is None:
+                continue
+            key = (normalize_text(model), normalize_text(self._measure_expression(model, metric)))
+            groups.setdefault(key, []).append({"metric": metric, "page": page, "field": field, "words": words})
+
+        def rank(item):
+            metric = item["metric"]
+            on_page = [a for a in metric.get("appearances") or []
+                       if normalize_text(a.get("page_display_name")) == normalize_text(item["page"])]
+            generic = bool(re.match(r"^(?:recuento|conteo|count|suma|sum)\b", normalize_text(metric.get("label"))))
+            return (
+                0 if on_page else 1,
+                0 if any(normalize_text(a.get("visual_type")) == "card" for a in on_page) else 1,
+                1 if generic else 0,
+                len(str(metric.get("label") or "")),
+            )
+
+        return [sorted(members, key=rank)[0] for members in groups.values()]
+
+    def _ungroupable_text(self, metrics, tail, question):
+        """«%OCUPACION no se puede desglosar por aseguradores: su tabla CAMAS
+        DISPONIBLES no tiene esa columna ni se relaciona con una que la tenga.»"""
+        labels = _unique_strings(metric.get("label") for metric in metrics)
+        tables = _unique_strings(self._metric_fact_table(metric) for metric in metrics)
+        dimension = _original_phrase(question, tail.split()[0]) if tail else "esa dimensión"
+        if len(labels) == 1:
+            where = f"su tabla {tables[0]}" if tables else "su tabla"
+            return (
+                f"{labels[0]} no se puede desglosar por {dimension}: {where} no tiene esa columna "
+                "ni se relaciona con una que la tenga."
+            )
+        listed = ", ".join(labels[:-1]) + " y " + labels[-1]
+        return f"{listed} no se pueden desglosar por {dimension}: sus tablas no tienen esa columna."
+
+    def _group_sibling_note(self, originals, sibling, tail, question):
+        """Nota visible: qué no se pudo desglosar y qué se muestra en su lugar."""
+        metric = sibling["metric"]
+        field = sibling["field"]
+        topic = " ".join(_original_phrase(question, word) for word in sibling.get("words") or [])
+        where = metric.get("report") or metric.get("semantic_model")
+        if sibling.get("page"):
+            where = f"{where} › página {sibling['page']}"
+        name = (field.get("aliases") or [field.get("column")])[0]
+        lead = f"Para ver «{topic}» por {name.lower()}" if topic else "En su lugar"
+        return (
+            f"{self._ungroupable_text(originals, tail, question)} {lead} se muestra "
+            f"{metric.get('label')} ({where}), que sí se desglosa por {name}."
+        )
+
+    def _group_sibling_plan(self, question, intent_result, originals, tail, source_context, why_prefix=""):
+        """Plan con el único indicador hermano que se desglosa por `tail`, o None."""
+        models = _unique_strings(metric.get("semantic_model") for metric in originals)
+        siblings = self._group_siblings(question, source_context, tail, models, exclude=originals)
+        if len(siblings) != 1:
+            if siblings:
+                self._note(
+                    f"varios indicadores se desglosan por «{tail}» y tratan el tema: "
+                    + ", ".join(str(item["metric"].get("label")) for item in siblings[:5])
+                )
+            return None
+        sibling = siblings[0]
+        note = self._group_sibling_note(originals, sibling, tail, question)
+        item = {"metric": sibling["metric"], "matched_name": sibling["metric"].get("label"), "score": None}
+        return self._forced_plan(
+            question, intent_result, item,
+            f"{why_prefix}{self._ungroupable_text(originals, tail, question)} Se usa el indicador del "
+            f"mismo tablero que sí se desglosa por «{tail}» y trata el tema de la pregunta",
+            consumed_tokens=self._option_words(question, source_context),
+            visible_note=note, group_sibling=True,
+        )
+
+    def _group_feasible_options(self, question, intent_result, plan):
+        """Contrapregunta de «M por X» (sin opción elegida): las opciones que no
+        se pueden desglosar por X no responden la pregunta.
+        - Algunas sí y otras no: quedan solo las que sí (una -> se responde).
+        - Ninguna: el indicador hermano del mismo tablero que sí se desglosa
+          por X y trata el tema (página DETALLE OCUPACIÓN), si es uno solo.
+        Devuelve un plan o None (sin cambios)."""
+        if plan.get("status") != "ambiguous" or plan.get("reason") is not None:
+            return None
+        tail = self._requested_group_tail(question)
+        resolution = plan.get("metric_resolution") or {}
+        items = list(resolution.get("candidates") or [])
+        if not tail or len(items) < 2:
+            return None
+        groupable = [
+            item for item in items
+            if self._group_field_in(tail, self._metric_dimensions(item.get("metric") or {})) is not None
+        ]
+        source_context = plan.get("source_context") or {}
+        if not groupable:
+            return self._group_sibling_plan(
+                question, intent_result, [item["metric"] for item in items], tail, source_context,
+            )
+        if len(groupable) == len(items):
+            return None
+        others = [item["metric"] for item in items if item not in groupable]
+        text = self._ungroupable_text(others, tail, question)
+        self._note(f"opciones depuradas: {text}")
+        if len({self._logical_key(item["metric"]) for item in groupable}) == 1:
+            chosen = groupable[0]
+            words = self._group_topic_words(question, source_context, tail)
+            page = self._metric_topic_page(chosen["metric"], words)
+            note = self._group_sibling_note(
+                others, {"metric": chosen["metric"], "page": page,
+                         "field": self._group_field_in(tail, self._metric_dimensions(chosen["metric"])),
+                         "words": words},
+                tail, question,
+            )
+            return self._forced_plan(
+                question, intent_result, chosen,
+                f"única opción que se desglosa por «{tail}»; {text}",
+                consumed_tokens=self._option_words(question, source_context),
+                visible_note=note, group_sibling=True,
+            )
+        return {**plan, "metric_resolution": {**resolution, "candidates": groupable}}
+
     # ---------------- ranking («top 5», «el servicio con más peso») ----------------
     _RANKING_WORDS = {"top", "mas", "mayor", "mayores", "menos", "menor", "menores", "ranking"}
     # «con más de 3 días» / «más que» comparan con una cifra: no son ranking.
@@ -4854,7 +5427,12 @@ class QueryPlanBuilder:
         """Sustantivo principal: primera palabra con contenido de la pregunta
         sin el nombre del tablero («cuánto PESO hay en lavandería»)."""
         words = self._question_content_words(self._metric_business_question(question, source_context))
+        # «detalle de pacientes ...»: «detalle» pide la forma de la respuesta,
+        # no es el sustantivo del indicador.
+        words = [word for word in words if canonical_token(word) not in self._SHAPE_WORDS]
         return canonical_token(words[0]) if words else None
+
+    _SHAPE_WORDS = {"detalle", "desglose"}
 
     def _board_named_explicitly(self, question, source_context):
         """¿La pregunta nombra de verdad el tablero al que se enrutó? Sí si dice
@@ -5153,6 +5731,12 @@ class QueryPlanBuilder:
             return metric_result
         units = {canonical_token(word) for word in self._OPTION_UNIT_WORDS}
         core = [word for word in words if word not in units] or words
+        # «detalle de ocupación por aseguradores»: una opción que se desglosa
+        # por la dimensión pedida y cuya página/nombre trata el tema (PACIENTES
+        # por ASEGURADORA, tabla de la página DETALLE OCUPACIÓN) no se descarta
+        # por no compartir una palabra con «detalle ocupacion».
+        tail = self._requested_group_tail(question)
+        topic = self._group_topic_words(question, source_context, tail) if tail else []
         result = dict(metric_result)
         for key in ("candidates", "suggestions"):
             items = list(result.get(key) or [])
@@ -5164,6 +5748,18 @@ class QueryPlanBuilder:
                 continue  # nada comparte palabras: lo decide otra regla
             full = [index for index in related if len(covered[index]) == len(core)]
             keep = full or related
+            if topic and len(keep) < len(items):
+                protected = [
+                    index for index in range(len(items))
+                    if index not in keep and self._groupable_on_topic(items[index].get("metric") or {}, tail, topic)
+                ]
+                if protected:
+                    self._note(
+                        "se conservan (se desglosan por «" + tail + "» y su página trata «"
+                        + " ".join(topic) + "»): "
+                        + ", ".join(str((items[i].get("metric") or {}).get("label")) for i in protected)
+                    )
+                    keep = sorted(set(keep) | set(protected))
             if len(keep) == len(items):
                 continue
             dropped = [
@@ -5415,6 +6011,15 @@ class QueryPlanBuilder:
             mentions = mentions_for(question, ignored_words=ignored) or []
         except Exception:
             return []
+        # «pacientes por especialidad»: la agrupación no nombra la página
+        # DETALLE ESPECIALIDADES (sí «atenciones por asegurador» entera).
+        tail = self._requested_group_tail(question)
+        if tail:
+            tail_tokens = set(canonical_tokens(tail))
+            mentions = [
+                mention for mention in mentions
+                if not set(canonical_tokens(mention.get("phrase"))) <= tail_tokens
+            ]
         pages = [
             {"semantic_model": item.get("semantic_model"), "page": item.get("dashboard"),
              "report": item.get("report"), "phrase": mention.get("phrase")}
@@ -5893,9 +6498,12 @@ class QueryPlanBuilder:
             "metric_resolution": {"status": "ambiguous", "candidates": items},
         }
 
-    def _forced_plan(self, question, intent_result, item, why, consumed_tokens=()):
+    def _forced_plan(self, question, intent_result, item, why, consumed_tokens=(),
+                     visible_note=None, group_sibling=False):
         """Plan con un indicador ya decidido (única opción razonable).
-        `consumed_tokens`: palabras de la pregunta que ya explicó la elección."""
+        `consumed_tokens`: palabras de la pregunta que ya explicó la elección.
+        `visible_note`: nota que se muestra con la respuesta. `group_sibling`:
+        indicador elegido porque el pedido no se podía desglosar (no se repite)."""
         metric = item["metric"]
         interpretation = f"{metric.get('label')}: {why}"
         self._note(interpretation)
@@ -5907,6 +6515,8 @@ class QueryPlanBuilder:
             "interpretation": interpretation,
             "final": True,
             "consumed_tokens": set(consumed_tokens or ()),
+            "visible_note": visible_note,
+            "group_sibling": bool(group_sibling),
         }
         return self._build_plan(question, intent_result, forced_resolution=forced)
 
@@ -5997,6 +6607,13 @@ class QueryPlanBuilder:
 
         resolution = self._prune_unrelated_options(question, source_context, resolution)
         plan = {**plan, "metric_resolution": resolution}
+        # «M por X»: fuera las opciones que no se desglosan por X.
+        grouped = self._group_feasible_options(question, intent_result, plan)
+        if grouped is not None:
+            if grouped.get("status") != "ambiguous":
+                return grouped
+            plan = grouped
+            resolution = plan["metric_resolution"]
         candidates = resolution.get("candidates") or []
         if (
             status == "ambiguous" and plan.get("reason") is None and len(candidates) == 1
@@ -6524,7 +7141,7 @@ class QueryPlanBuilder:
         fields = []
         for field in candidates:
             key = (normalize_text(field.get("table")), normalize_text(field.get("column")))
-            if key in used or not self._implicit_eligible(field, semantic_model):
+            if key in used or field.get("own_fallback") or not self._implicit_eligible(field, semantic_model):
                 continue
             if any(key == (normalize_text(f.get("table")), normalize_text(f.get("column"))) for f in fields):
                 continue
@@ -6683,7 +7300,8 @@ class QueryPlanBuilder:
         semantic_model = metric.get("semantic_model")
         reports = metric.get("reports", []) or []
         report = metric.get("report") or (reports[0] if reports else source_context.get("report"))
-        candidates = self._with_technical_dimensions(metric, self._relevant_dimensions(metric))
+        dropped_dimensions = []
+        candidates = self._metric_dimensions(metric, dropped_dimensions)
         # Periodo («entre enero y marzo», «este año») y agrupación temporal
         # («por mes»): sus palabras no son valores ni dimensiones.
         temporal = self._periods_for_metric(question, metric, metric_result.get("matched_name"))
@@ -6710,7 +7328,8 @@ class QueryPlanBuilder:
             semantic_model = metric.get("semantic_model")
             reports = metric.get("reports", []) or []
             report = metric.get("report") or (reports[0] if reports else source_context.get("report"))
-            candidates = self._with_technical_dimensions(metric, self._relevant_dimensions(metric))
+            dropped_dimensions = []
+            candidates = self._metric_dimensions(metric, dropped_dimensions)
             temporal = self._periods_for_metric(question, metric, metric_result.get("matched_name"))
             dimension_question, board_tokens = self._strip_board_mentions(
                 temporal["clean_question"], source_context,
@@ -6730,14 +7349,30 @@ class QueryPlanBuilder:
         requested_group = re.search(
             r"\b(?:por|segun|agrupad[oa] por|desglosad[oa] por)\s+"
             r"(?:el|la|los|las)?\s*"
-            r"(servicio|servicios|especialidad|especialidades|aseguradora|asegurador|sexo|estado|tipo)\b",
+            r"(servicio|servicios|especialidad|especialidades|asegurador(?:a|as|es)?|eps|sexo|estados?|tipos?)\b",
             normalize_text(question),
         )
-        if requested_group and not group_by and not group_detection["explicit_filters"]:
+        # «por X» que solo nombra columnas de tablas que no filtran el
+        # indicador: tampoco se agrupa en silencio por ellas.
+        group_tail = self._requested_group_tail(question)
+        unrelated_group = self._group_field_in(group_tail, dropped_dimensions) if group_tail else None
+        if (requested_group or unrelated_group) and not group_by and not group_detection["explicit_filters"]:
+            # Otro indicador del mismo tablero que sí se desglosa por X y trata
+            # el tema («detalle de ocupación por aseguradores»).
+            if not (forced_resolution or {}).get("group_sibling"):
+                sibling = self._group_sibling_plan(question, intent_result, [metric], group_tail, source_context)
+                if sibling is not None:
+                    return sibling
+            if unrelated_group is not None:
+                self._note(
+                    f"«{group_tail}» solo está en {unrelated_group.get('table')}[{unrelated_group.get('column')}], "
+                    f"tabla que no filtra {self._metric_fact_table(metric)}: no se agrupa por ella"
+                )
             return {
                 "status": "unsupported_filter", "stage": "dimensions",
                 "reason": "requested_dimension_not_found_in_report",
-                "requested_dimension": requested_group.group(1),
+                "requested_dimension": requested_group.group(1) if requested_group else group_tail,
+                "explanation": self._ungroupable_text([metric], group_tail, question) if group_tail else None,
                 "question": question, "semantic_model": semantic_model,
                 "source_context": source_context, "metric_resolution": metric_result,
             }
@@ -6753,12 +7388,21 @@ class QueryPlanBuilder:
         )
         explicit_specs.extend(
             self._detect_explicit_dimension_filters(
-                dimension_question, candidates, already_fields=used_fields,
+                # La frase de la agrupación ya está explicada: «por areas de
+                # servicio» no es además el filtro SERVICIO = «servicio».
+                re.sub(
+                    r"(?<![a-z0-9])(?:por|segun|agrupad[oa]s?\s+por|desglosad[oa]s?\s+por)\s+"
+                    r"(?:(?:el|la|los|las|cada)\s+)?" + re.escape(group_detection["phrase"]) + r"(?![a-z0-9])",
+                    " ", dimension_question,
+                ) if group_by and group_detection.get("phrase") else dimension_question,
+                candidates, already_fields=used_fields,
                 metric=metric, source_context=source_context,
             )
         )
 
-        if selected_metric_id is None:
+        # Un indicador hermano elegido porque el pedido no se desglosaba por X
+        # ya se justificó por el tema de la pregunta (su página).
+        if selected_metric_id is None and not (forced_resolution or {}).get("group_sibling"):
             rejection = self._metric_evidence_rejection(
                 question, metric, metric_result, group_by, explicit_specs, source_context,
             )
@@ -6768,8 +7412,13 @@ class QueryPlanBuilder:
         filters = []
         unapplied_terms = []
         notes = []
+        if (forced_resolution or {}).get("visible_note"):
+            notes.append(forced_resolution["visible_note"])
         consumed_tokens = set(temporal["tokens"])
         consumed_tokens.update(board_tokens)
+        if group_by:
+            # «detalle de X por Y»: «detalle» pide la tabla que ya se arma.
+            consumed_tokens.update(self._SHAPE_WORDS)
         # Palabras con que se eligió un indicador ya decidido (página nombrada:
         # «promedio» eligió PROM_PD): no son filtros pendientes.
         consumed_tokens.update((forced_resolution or {}).get("consumed_tokens") or ())
@@ -6866,19 +7515,31 @@ class QueryPlanBuilder:
             used_fields.add((normalize_text(field["table"]), normalize_text(field["column"])))
             consumed_tokens.update(implicit.get("tokens", ()))
 
-        temporal_result = self._apply_temporal(temporal, candidates, semantic_model, group_by)
+        temporal_result = self._apply_temporal(temporal, candidates, semantic_model, group_by, metric=metric)
         requested_period = temporal_result["unsupported_period"]
         if requested_period:
-            return {
+            rejection = {
                 "status": "unsupported_filter", "stage": "temporal_filters",
                 "reason": "date_dimension_not_found_in_report",
                 "requested_year": requested_period.get("year"),
                 "requested_month": requested_period.get("month"),
                 "requested_period": requested_period.get("label"),
                 "unapplied_terms": temporal_result["unapplied"],
+                "explanation": temporal_result.get("explanation"),
                 "question": question, "semantic_model": semantic_model,
                 "source_context": source_context, "metric_resolution": metric_result,
             }
+            # Antes de rendirse por el periodo, un calificativo puede nombrar
+            # otro indicador que sí tiene fecha («triages pediátricos en 2025»:
+            # TRIAGES de BRIEFING no tiene fecha, TRIAGES_PEDIATRICOS_2025 sí).
+            if exploring:
+                qualifier = self._resolve_qualifiers(
+                    question, intent_result, metric, metric_result, source_context, candidates,
+                    group_by, used_fields, consumed_tokens, allow_switch=True,
+                )
+                if qualifier.get("plan") is not None and qualifier["plan"].get("status") == "ready":
+                    return qualifier["plan"]
+            return rejection
         filters.extend(temporal_result["filters"])
         unapplied_terms.extend(temporal_result["unapplied"])
         notes.extend(temporal_result["notes"])
@@ -6945,12 +7606,14 @@ class QueryPlanBuilder:
                 }
             unapplied_terms.append(" ".join(significant))
 
+        # Nunca se agrupa por una columna de una tabla que no filtra el
+        # indicador (repetiría el total en cada fila).
         normalized_group_by = [{
             "table": field["table"],
             "column": field["column"],
-            "label": (field.get("aliases") or [field["column"]])[0],
+            "label": self._group_label(field),
             "source": "query_plan_group_by",
-        } for field in group_by]
+        } for field in group_by if self._dimension_relation(metric, field) != "unrelated"]
         if temporal_result["group"]:
             normalized_group_by = [temporal_result["group"]]
 
@@ -6984,7 +7647,8 @@ class QueryPlanBuilder:
                 if ranking and normalized_group_by else None
             ),
             "temporal_buckets": temporal_result["buckets"],
-            "period": self._period_summary(temporal),
+            # Estado actual: la respuesta no se presenta como «en lo que va de ...».
+            "period": None if temporal_result.get("current_state") else self._period_summary(temporal),
             "dimension_candidates_checked": min(len(candidates), 20),
         }
 
