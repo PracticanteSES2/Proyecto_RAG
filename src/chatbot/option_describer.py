@@ -1,5 +1,6 @@
 import re
 import time
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from difflib import SequenceMatcher
 
@@ -27,8 +28,10 @@ cuenta o calcula, para que el usuario lo distinga de otros parecidos.
 REGLAS OBLIGATORIAS:
 1. Empieza con un verbo en presente: Cuenta, Suma, Calcula, Mide, Promedia o Muestra.
 2. No escribas el nombre del indicador ni el del tablero o la página (ya se muestran aparte).
-3. Básate en la expresión DAX y la descripción dadas. No inventes cifras, filtros ni periodos.
-4. Español, sin markdown ni comillas. Responde solo la frase.
+3. Básate en la tabla, la expresión DAX y la descripción dadas. No inventes cifras, filtros ni periodos.
+4. Lo que se cuenta o se suma es lo que dicen la tabla y sus columnas (tabla CAMAS: camas).
+   No menciones personas, personal ni otros conceptos que no aparezcan en esos datos.
+5. Español, sin markdown ni comillas. Responde solo la frase.
 
 EJEMPLOS
 Indicador: % CANCELACIÓN · DAX: DIVIDE([Canceladas], [Programadas])
@@ -57,18 +60,76 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
             text = text[:limit].rsplit(" ", 1)[0] + "…"
         return f"   {label}: {text}"
 
+    @staticmethod
+    def _aggregated_columns(expression, limit=3):
+        """Columnas que la expresión cuenta, suma o promedia
+        («'CAMAS DISPONIBLES'[OCUPADAS]»), sin repetir."""
+        found = []
+        for table, column in re.findall(
+            r"\b(?:COUNT|COUNTA|COUNTX|COUNTROWS|DISTINCTCOUNT|DISTINCTCOUNTNOBLANK|SUM|SUMX|AVERAGE|"
+            r"AVERAGEX|MIN|MAX|MEDIAN)\s*\(\s*'?([^'(),\[\]]*?)'?\s*\[([^\]]+)\]",
+            str(expression or ""), flags=re.IGNORECASE,
+        ):
+            item = f"{table.strip()}[{column.strip()}]" if table.strip() else f"[{column.strip()}]"
+            if item not in found:
+                found.append(item)
+        return ", ".join(found[:limit])
+
     def build_prompt(self, option):
         lines = [f"1. Indicador: {option.get('label')}"]
-        for label, key in (
-            ("Medida", "measure"),
-            ("Expresión DAX", "dax_expression"),
-            ("Descripción del catálogo", "description"),
-            ("Visuales donde aparece", "visuals"),
+        dax = str(option.get("dax_expression") or "").strip()
+        model_expression = str(option.get("model_expression") or "").strip()
+        # «[%OCUPACION]» solo repite el nombre: la expresión real es la del modelo.
+        if model_expression and (not dax or re.fullmatch(r"\[[^\]]+\]", dax)):
+            dax = model_expression
+        for label, value in (
+            ("Medida", option.get("measure")),
+            ("Tabla", option.get("table")),
+            ("Expresión DAX", dax),
+            ("Cuenta o agrega", self._aggregated_columns(dax)),
+            ("Descripción del catálogo", option.get("description")),
+            ("Visuales donde aparece", option.get("visuals")),
         ):
-            line = self._field(label, option.get(key))
+            line = self._field(label, value)
             if line:
                 lines.append(line)
         return "OPCIONES A DESCRIBIR:\n" + "\n".join(lines) + "\n\nResponde solo la frase."
+
+    # Conceptos (personas, entidades, objetos del hospital) que una descripción
+    # no puede traer si no están en el nombre, la tabla, la expresión o la
+    # documentación del indicador: MedGemma describía %OCUPACION (camas de la
+    # tabla CAMAS DISPONIBLES) como «ocupación del personal». Raíces.
+    CONCEPT_STEMS = (
+        "personal", "empleado", "trabajador", "funcionari", "colaborador", "medico", "enfermer",
+        "profesional", "especialista", "paciente", "usuario", "cama", "cirugi", "cita", "consulta",
+        "factura", "medicament", "egreso", "urgencia", "triage", "habitacion", "quirofano",
+        "laboratorio", "imagen", "remision", "interconsulta", "aseguradora", "insumo", "producto",
+        "prenda", "ropa", "salario", "nomina", "venta", "dinero",
+    )
+
+    @staticmethod
+    def _plain(text):
+        text = unicodedata.normalize("NFD", str(text or "").lower())
+        text = "".join(char for char in text if unicodedata.category(char) != "Mn")
+        return re.sub(r"[^a-z0-9]+", " ", text)
+
+    def invented_concepts(self, text, option):
+        """Conceptos de CONCEPT_STEMS que la descripción menciona y que no
+        aparecen en el nombre, la medida, la tabla, la expresión, la
+        descripción del catálogo ni los visuales/página de la opción."""
+        context = " ".join(
+            self._plain(option.get(key)) for key in (
+                "label", "measure", "table", "dax_expression", "model_expression",
+                "description", "visuals", "page", "report",
+            )
+        )
+        context_words = context.split()
+        invented = []
+        for word in self._plain(text).split():
+            stem = next((item for item in self.CONCEPT_STEMS if word.startswith(item)), None)
+            if stem and stem not in invented and not any(other.startswith(stem) for other in context_words):
+                invented.append(stem)
+        return invented
 
     def _clean(self, text, label):
         text = re.sub(r"[*_`#]+", "", str(text or ""))
@@ -174,7 +235,7 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
             responses = list(pool.map(self._describe_one, options))
         elapsed = round(time.perf_counter() - started, 2)
 
-        descriptions, raw, errors, model = {}, [], [], None
+        descriptions, raw, errors, model, rejected = {}, [], [], None, {}
         for option, response in zip(options, responses):
             model = model or response.get("model")
             answer = response.get("answer")
@@ -183,6 +244,12 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
                 continue
             raw.append(f"[{option['id']}] {answer}")
             text = self.parse(answer, option.get("label"))
+            invented = self.invented_concepts(text, option) if text else []
+            if invented:
+                # Habla de algo que el indicador no tiene («personal» en una
+                # medida de camas): se usa la descripción del catálogo.
+                rejected[option["id"]] = invented
+                continue
             if text:
                 descriptions[option["id"]] = text
         descriptions = self._disambiguate(options, descriptions)
@@ -196,4 +263,5 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
             "status": status, "descriptions": descriptions,
             "raw": "\n".join(raw) or None, "elapsed_s": elapsed,
             "error": "; ".join(errors) or None, "model": model,
+            "rejected": rejected,
         }

@@ -462,6 +462,43 @@ def test_option_describer_prompt_and_parsing():
     assert down["status"] == "ollama_error" and down["descriptions"] == {}
 
 
+def test_option_describer_gets_table_and_rejects_invented_concepts():
+    """%OCUPACION cuenta camas de CAMAS DISPONIBLES: el prompt lleva la tabla,
+    la expresión real (no «[%OCUPACION]») y lo que agrega; una frase que habla
+    del «personal» (que el indicador no tiene) se descarta y queda la del catálogo."""
+    from src.chatbot.option_describer import OptionDescriber
+
+    class Provider:
+        def __init__(self, answer):
+            self.answer, self.prompts = answer, []
+
+        def chat(self, messages, **kwargs):
+            self.prompts.append(messages[-1]["content"])
+            return {"status": "success", "answer": self.answer, "model": "fake"}
+
+    ocupacion = {
+        "id": "o", "label": "%OCUPACION", "measure": "%OCUPACION", "dax_expression": "[%OCUPACION]",
+        "table": "CAMAS DISPONIBLES",
+        "model_expression": "DIVIDE(SUM('CAMAS DISPONIBLES'[OCUPADAS]), "
+                            "DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]))",
+        "description": "Porcentaje de ocupación de las camas habilitadas.",
+    }
+    provider = Provider("Calcula el porcentaje de ocupación del personal.")
+    describer = OptionDescriber(provider)
+    outcome = describer.describe("ocupación general", [ocupacion])
+    prompt = provider.prompts[0]
+    assert "Tabla: CAMAS DISPONIBLES" in prompt, prompt
+    assert "Expresión DAX: DIVIDE(SUM('CAMAS DISPONIBLES'[OCUPADAS])" in prompt, prompt
+    assert "Cuenta o agrega: CAMAS DISPONIBLES[OCUPADAS], CAMAS DISPONIBLES[HCACODIGO]" in prompt, prompt
+    assert outcome["descriptions"] == {} and outcome["rejected"] == {"o": ["personal"]}, outcome
+    # Una frase fiel a la tabla se acepta.
+    good = OptionDescriber(Provider("Calcula el porcentaje de camas ocupadas.")).describe("x", [ocupacion])
+    assert good["descriptions"] == {"o": "Calcula el porcentaje de camas ocupadas."}, good
+    # Conceptos presentes en el contexto (cirugías en el nombre) no se rechazan.
+    assert describer.invented_concepts("Cuenta las cirugías del mes.", {"label": "Total cirugías"}) == []
+    assert describer.invented_concepts("Cuenta los pacientes.", {"label": "CAMAS"}) == ["paciente"]
+
+
 # ---------------------------------------------------------------------------
 # Razonamiento visible
 # ---------------------------------------------------------------------------

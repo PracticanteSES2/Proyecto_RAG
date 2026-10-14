@@ -1841,6 +1841,10 @@ class QueryEngine:
                 "label": metric.get("label") or choice["label"],
                 "measure": metric.get("measure"),
                 "dax_expression": metric.get("dax_expression"),
+                # La tabla y la expresión real de la medida: sin ellas MedGemma
+                # adivinaba qué se cuenta («ocupación del personal» para camas).
+                "table": metric.get("table"),
+                "model_expression": metric.get("model_expression"),
                 "description": metric.get("description"),
                 "report": report, "page": page,
                 "visuals": ", ".join(visuals[:4]),
@@ -1864,6 +1868,9 @@ class QueryEngine:
             + (" (las demás usan la descripción del catálogo)"
                if len(descriptions) < len(choices) else ""),
             f"error: {outcome.get('error')}" if outcome.get("error") else None,
+            "descripciones descartadas por mencionar algo que el indicador no tiene: " + "; ".join(
+                f"{key} ({', '.join(words)})" for key, words in outcome["rejected"].items()
+            ) if outcome.get("rejected") else None,
             f"respuesta del modelo: {short(outcome.get('raw'), 900)}" if outcome.get("raw") else None,
         )
 
