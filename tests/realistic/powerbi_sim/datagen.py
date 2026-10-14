@@ -12,6 +12,8 @@ Reglas principales:
     columnas AÑO/MES coherentes con la fecha principal, ~1.5 % de blancos.
   - Columnas calculadas: se evalúa su expresión DAX fila a fila si es "barata"
     (sin CALCULATE, iteradores ni medidas); si no, valores por tipo (aproximado).
+  - Tablas con filas fijas (<slug>/_sim_tables.json, ver metadata.py): se usan tal cual,
+    para que un detalle (lista de camas) y su conteo filtrado sean comprobables.
 """
 import datetime as dt
 import hashlib
@@ -155,6 +157,9 @@ class DataGenerator:
     def generate(self, tkey):
         kind = self.kind(tkey)
         table = self.schema.tables[tkey]
+        fixed = self.schema.fixed_tables.get(tkey)
+        if fixed is not None:
+            return self._fixed(tkey, fixed)
         if table.expression.strip():
             store = self._from_expression(tkey)
             if store is not None:
@@ -197,6 +202,49 @@ class DataGenerator:
                 continue
             data[key(column.name)] = [r[index] for r in rows]
         return TableStore(self.rt, table, len(rows), data)
+
+    # ---------- tablas con filas fijas (_sim_tables.json) ----------
+    def _fixed(self, tkey, spec):
+        """Filas dadas: un detalle (SUMMARIZECOLUMNS de sus columnas) y un conteo filtrado coinciden.
+
+        Las columnas de datos ausentes se generan como en un hecho; las calculadas se evalúan
+        con su DAX al usarse (p. ej. ESTADOS_CAM a partir de ESTADO)."""
+        table = self.schema.tables[tkey]
+        names = [key(name) for name in spec.get("columns") or []]
+        rows = spec.get("rows") or []
+        unknown = [name for name in names if name not in table.columns]
+        if unknown:
+            self.rt.generation_notes.append(f"tabla fija {table.name}: columnas inexistentes {unknown} (ignoradas)")
+        data = {}
+        for column in self._data_columns(tkey):
+            ckey = key(column.name)
+            if ckey in names:
+                index = names.index(ckey)
+                data[ckey] = [self._fixed_value(column, row[index] if index < len(row) else None) for row in rows]
+            else:
+                rng = random.Random(seed_int(self.seed, self.schema.name, table.name, column.name, "fixed"))
+                data[ckey] = [self._value(table, column, rng, i + 1, None) for i in range(len(rows))]
+        return TableStore(self.rt, table, len(rows), data)
+
+    def _fixed_value(self, column, raw):
+        if raw is None or raw == "":
+            return None
+        if column.dtype == "date":
+            text = str(raw).strip()
+            if text.lower().startswith("today"):
+                offset = text[5:].replace(" ", "")
+                today = self.rt.today
+                return today + dt.timedelta(days=int(offset) if offset else 0)
+            return dt.datetime.fromisoformat(text)
+        if column.dtype == "int":
+            return int(raw)
+        if column.dtype == "float":
+            return float(raw)
+        if column.dtype == "decimal":
+            return Decimal(str(raw))
+        if column.dtype == "text":
+            return str(raw)
+        return raw
 
     # ---------- calendario ----------
     def _calendar(self, tkey):

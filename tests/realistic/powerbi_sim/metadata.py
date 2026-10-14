@@ -7,6 +7,9 @@ SSMS / DAX Studio (punto y coma). Varias raíces se fusionan (p. ej. data/model_
 real + el overlay versionado tests/realistic/synthetic_models); si un slug se repite,
 gana la primera raíz.
 
+Opcional: <slug>/_sim_tables.json fija las filas de algunas tablas (detalle y conteos
+coherentes para casos del banco de preguntas; ver tests/realistic/catalog_patches.py).
+
 Nombre del modelo semántico, por prioridad:
   1. data/catalog/model_registry.json  (semantic_model_key -> semantic_model)
   2. <slug>/_metadata_sync.json        ("semantic_model")
@@ -20,6 +23,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 CSV_FILES = ("tables.csv", "columns.csv", "measures.csv", "relationships.csv")
+# Filas fijas de algunas tablas (opcional): {"tables": {"TABLA": {"columns": [...], "rows": [[...], ...]}}}.
+# Las columnas de datos que no estén en "columns" se generan como siempre y las calculadas se evalúan
+# con su DAX. Fechas: "AAAA-MM-DD" o relativas a hoy ("today", "today-3", "today+2").
+FIXED_TABLES_FILE = "_sim_tables.json"
 
 
 def normalize_text(value):
@@ -161,6 +168,8 @@ class ModelSchema:
     measures: dict = field(default_factory=dict)   # key -> Measure
     relationships: list = field(default_factory=list)
     info_rows: dict = field(default_factory=dict)  # "tables" -> (headers, rows) para INFO.VIEW.*
+    # Tablas con filas fijas (<slug>/_sim_tables.json): key(tabla) -> {"columns": [...], "rows": [[...]]}
+    fixed_tables: dict = field(default_factory=dict)
 
     def table(self, name):
         return self.tables.get(key(name))
@@ -245,6 +254,12 @@ def load_model(path, name=None, slug=None, origin="real"):
             active=_bool(_first(row, "IsActive") or "True"),
             cross=_first(row, "CrossFilteringBehavior") or "OneDirection",
         ))
+
+    fixtures = path / FIXED_TABLES_FILE
+    if fixtures.exists():
+        payload = json.loads(fixtures.read_text(encoding="utf-8"))
+        for tname, spec in (payload.get("tables") or {}).items():
+            schema.fixed_tables[key(tname)] = spec
     return schema
 
 
