@@ -1332,6 +1332,9 @@ class QueryPlanBuilder:
                 item = (normalize_text(field.get("table")), business)
                 if business and item not in index.setdefault(key, []):
                     index[key].append(item)
+                # Por nombre técnico en cualquier modelo (misma base de datos).
+                if business and business not in index.setdefault(("*", key[1]), []):
+                    index[("*", key[1])].append(business)
         return index
 
     @staticmethod
@@ -1357,10 +1360,18 @@ class QueryPlanBuilder:
             index = self._business_names_index = self._build_business_names_index(self.dimension_fields or [])
         anywhere = self._technical_code_column(column)
         table = normalize_text(table)
-        return _unique_strings(
+        names = _unique_strings(
             name for owner, name in index.get((normalize_text(semantic_model), normalize_text(column)), [])
             if anywhere or not table or owner == table
         )
+        if not names and anywhere:
+            # Código técnico que este modelo nunca renombra (GEEDESCRI de
+            # REFERENCIA): los nombres que le dan los visuales de otros modelos
+            # («ESPECIALIDAD» en BRIEFING), si son pocos y coinciden.
+            others = index.get(("*", normalize_text(column)), [])
+            if 0 < len({normalize_text(name) for name in others}) <= 2:
+                names = _unique_strings(others)
+        return names
 
     def _iter_filters(self, value):
         if isinstance(value, list):
@@ -1602,6 +1613,16 @@ class QueryPlanBuilder:
         result = adjusted + technical
         result.sort(key=lambda item: item.get("relevance_score", 0), reverse=True)
         return result
+
+    def _group_label(self, field):
+        """Encabezado de la agrupación: su primer alias o, si es el nombre
+        técnico (GEEDESCRI, TERNOMCOM), el nombre de negocio de los visuales."""
+        label = (field.get("aliases") or [field.get("column")])[0]
+        if normalize_text(label) == normalize_text(field.get("column")):
+            names = self._column_business_names(field.get("semantic_model"), field.get("column"), field.get("table"))
+            if names:
+                return names[0]
+        return label
 
     def _technical_column_aliases(self, semantic_model, table, column):
         """Alias de una columna del catálogo técnico: su nombre, sus sinónimos
@@ -2223,11 +2244,15 @@ class QueryPlanBuilder:
             if alias_norm and (tail == alias_norm or tail.startswith(alias_norm + " ")):
                 matched_alias = alias_norm
                 break
-        if not matched_alias:
-            # Plural/género del nombre («por aseguradores» = ASEGURADORA/ASEGURADOR).
-            matched_alias = next(
-                (prefix for prefix in (_alias_prefix(tail, alias) for alias in aliases) if prefix), None,
-            )
+        # Plural/género del nombre («por aseguradores» = ASEGURADORA/ASEGURADOR;
+        # «por areas de servicio» = AREA DE SERVICIO entero, no «areas» + valor
+        # «de servicio»): gana la coincidencia que cubre más palabras.
+        loose = max(
+            (prefix for prefix in (_alias_prefix(tail, alias) for alias in aliases) if prefix),
+            key=lambda prefix: len(prefix.split()), default=None,
+        )
+        if loose and (not matched_alias or len(loose.split()) > len(matched_alias.split())):
+            matched_alias = loose
         if not matched_alias:
             return {"group_by": [], "explicit_filters": []}
 
@@ -2239,10 +2264,10 @@ class QueryPlanBuilder:
                 f"«{matched_alias} {remainder}»: «{remainder}» nombra el tablero; "
                 f"se agrupa por {best.get('table')}[{best.get('column')}] (no es un valor del filtro)"
             )
-            return {"group_by": [best], "explicit_filters": []}
+            return {"group_by": [best], "explicit_filters": [], "phrase": matched_alias}
         remainder = re.sub(r"^(?:de|del|en|igual a|=)\s+", "", remainder).strip()
         if not remainder:
-            return {"group_by": [best], "explicit_filters": []}
+            return {"group_by": [best], "explicit_filters": [], "phrase": matched_alias}
         return {"group_by": [], "explicit_filters": [{"field": best, "value_hint": remainder, "from_group": True}]}
 
     def _remove_metric_and_report_phrases(self, question, metric, source_context):
@@ -4991,7 +5016,12 @@ class QueryPlanBuilder:
         """Sustantivo principal: primera palabra con contenido de la pregunta
         sin el nombre del tablero («cuánto PESO hay en lavandería»)."""
         words = self._question_content_words(self._metric_business_question(question, source_context))
+        # «detalle de pacientes ...»: «detalle» pide la forma de la respuesta,
+        # no es el sustantivo del indicador.
+        words = [word for word in words if canonical_token(word) not in self._SHAPE_WORDS]
         return canonical_token(words[0]) if words else None
+
+    _SHAPE_WORDS = {"detalle", "desglose"}
 
     def _board_named_explicitly(self, question, source_context):
         """¿La pregunta nombra de verdad el tablero al que se enrutó? Sí si dice
@@ -5570,6 +5600,15 @@ class QueryPlanBuilder:
             mentions = mentions_for(question, ignored_words=ignored) or []
         except Exception:
             return []
+        # «pacientes por especialidad»: la agrupación no nombra la página
+        # DETALLE ESPECIALIDADES (sí «atenciones por asegurador» entera).
+        tail = self._requested_group_tail(question)
+        if tail:
+            tail_tokens = set(canonical_tokens(tail))
+            mentions = [
+                mention for mention in mentions
+                if not set(canonical_tokens(mention.get("phrase"))) <= tail_tokens
+            ]
         pages = [
             {"semantic_model": item.get("semantic_model"), "page": item.get("dashboard"),
              "report": item.get("report"), "phrase": mention.get("phrase")}
@@ -6919,7 +6958,14 @@ class QueryPlanBuilder:
         )
         explicit_specs.extend(
             self._detect_explicit_dimension_filters(
-                dimension_question, candidates, already_fields=used_fields,
+                # La frase de la agrupación ya está explicada: «por areas de
+                # servicio» no es además el filtro SERVICIO = «servicio».
+                re.sub(
+                    r"(?<![a-z0-9])(?:por|segun|agrupad[oa]s?\s+por|desglosad[oa]s?\s+por)\s+"
+                    r"(?:(?:el|la|los|las|cada)\s+)?" + re.escape(group_detection["phrase"]) + r"(?![a-z0-9])",
+                    " ", dimension_question,
+                ) if group_by and group_detection.get("phrase") else dimension_question,
+                candidates, already_fields=used_fields,
                 metric=metric, source_context=source_context,
             )
         )
@@ -6940,6 +6986,9 @@ class QueryPlanBuilder:
             notes.append(forced_resolution["visible_note"])
         consumed_tokens = set(temporal["tokens"])
         consumed_tokens.update(board_tokens)
+        if group_by:
+            # «detalle de X por Y»: «detalle» pide la tabla que ya se arma.
+            consumed_tokens.update(self._SHAPE_WORDS)
         # Palabras con que se eligió un indicador ya decidido (página nombrada:
         # «promedio» eligió PROM_PD): no son filtros pendientes.
         consumed_tokens.update((forced_resolution or {}).get("consumed_tokens") or ())
@@ -7124,7 +7173,7 @@ class QueryPlanBuilder:
         normalized_group_by = [{
             "table": field["table"],
             "column": field["column"],
-            "label": (field.get("aliases") or [field["column"]])[0],
+            "label": self._group_label(field),
             "source": "query_plan_group_by",
         } for field in group_by if self._dimension_relation(metric, field) != "unrelated"]
         if temporal_result["group"]:

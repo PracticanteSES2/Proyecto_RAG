@@ -248,6 +248,19 @@ def test_group_by_plural_and_business_name():
     assert b._column_business_names(HOSP, "TERNOMCOM") == ["ASEGURADORA"]
 
 
+def test_business_names_of_technical_codes_and_group_label():
+    b = builder()
+    # Un código técnico que este modelo no renombra toma los nombres de otros modelos.
+    assert sorted(b._column_business_names(VENT, "TERNOMCOM")) == ["ASEGURADOR", "ASEGURADORA"]
+    # FECHA/SEDE no son códigos técnicos: no heredan nombres de otras tablas.
+    assert not b._technical_code_column("FECHA") and not b._technical_code_column("SERVICIO")
+    field = {"semantic_model": HOSP, "table": "PACIENTES X ASEGURADORA", "column": "TERNOMCOM",
+             "aliases": ["TERNOMCOM"]}
+    assert b._group_label(field) == "ASEGURADORA"
+    # «por areas de servicio»: la coincidencia más larga (AREA DE SERVICIO entero).
+    assert _alias_prefix("areas de servicio", "AREA DE SERVICIO") == "areas de servicio"
+
+
 def test_unrelated_dimension_is_never_grouped_silently():
     # Sin relaciones declaradas, OTRA[SEDE] no se usa: VENTAS tiene su propia SEDE.
     plan = builder().build("valor ventas por sede")

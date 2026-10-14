@@ -4511,9 +4511,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "agrupa por SOLICITUD_CAMAS[aseguradora] (sin relación con TRIAGES): 2.223 en cada fila"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). La aseguradora de los triages no atendidos es TRIAGES[TERNOMCOM] (visual del tablero); SOLICITUD_CAMAS[aseguradora] no filtra TRIAGES. Línea base: agrupa por SOLICITUD_CAMAS[aseguradora] y repite 2.223 en cada fila.",
       "turns": [
         {
@@ -4600,9 +4597,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«no pude verificar la dimensión solicitada» sin nombrar la dimensión (aseguradora) ni el indicador"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). LAVANDERIA no tiene aseguradora: la respuesta dice que el peso no se puede ver por aseguradora (nombrándola), nunca una tabla con el mismo valor por fila. Línea base: «no pude verificar la dimensión solicitada» sin decir cuál.",
       "turns": [
         {
@@ -4633,9 +4627,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«no pude verificar la dimensión solicitada» sin nombrar la dimensión (servicio) ni el indicador"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). PENDIENTES_FARMACIA no tiene servicio y el modelo no tiene relaciones (TIEMPOS_DISPENSACIÓN[gasnombre] no la filtra): debe decir que no se puede ver por servicio, sin tabla con valores repetidos. Línea base: «no pude verificar la dimensión solicitada» sin decir cuál.",
       "turns": [
         {
@@ -4666,9 +4657,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«no pude verificar la dimensión solicitada» sin nombrar la dimensión (servicio) ni el indicador"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «remisiones por servicio»: REMISIONES (BRIEFING) sí tiene SERVICIO; «Total de remisiones registradas» (DETALLE_REMISIONES) no. Si contrapregunta y se elige esta última, la respuesta dice que no se puede ver por servicio (nombrándolo), sin tabla repetida. Línea base: «no pude verificar la dimensión solicitada».",
       "turns": [
         {
