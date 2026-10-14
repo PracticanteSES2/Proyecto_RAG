@@ -10,6 +10,7 @@ from pathlib import Path
 
 from src.providers.domain_cache import connection_open, domain_cache_for, identifier_column
 from src.semantic.question_kind import descriptive_phrase
+from src.semantic.answer_shape import DETAIL_REQUEST_WORDS, detail_request
 from src.semantic.period_parser import (
     GRANULARITY_LABELS,
     MONTH_NAMES as PERIOD_MONTH_NAMES,
@@ -82,6 +83,8 @@ COMMON_VERB_WORDS = {
     "top", "ranking",
 }
 STOPWORDS |= COMMON_VERB_WORDS
+# Forma de pedir una lista («lista de», «qué camas están…»): no es filtro.
+STOPWORDS |= DETAIL_REQUEST_WORDS
 
 # Demostrativos y pronombres que remiten a la respuesta anterior («de esos»,
 # «de ellas»): nunca son el indicador, un filtro ni el sustantivo principal.
@@ -2981,6 +2984,10 @@ class QueryPlanBuilder:
             for term in NUMERIC_TERM_PATTERNS
         ):
             return True
+        # «qué camas están disponibles en UCI», «lista de camas bloqueadas»:
+        # piden el listado de un indicador (src/semantic/answer_shape.py).
+        if self._detail_list_question(question, dashboard):
+            return True
 
         has_verb = any(
             re.search(r"(?<![a-z0-9])(?:" + verb + r")(?![a-z0-9])", normalized)
@@ -3004,6 +3011,16 @@ class QueryPlanBuilder:
             [] if source_context.get("board_mentions") else self._topic_pages(question)
         )
         return any(self._page_members(page) for page in pages)
+
+    def _detail_list_question(self, question, dashboard=None):
+        """Pregunta de listado («qué <entidad> hay/están», «lista de …») cuya
+        entidad resuelve a un indicador: es una pregunta de datos, no de
+        documentación."""
+        if detail_request(question) is None:
+            return False
+        source_context = self._source_context(question, dashboard=dashboard)
+        metric_result = self._resolve_metric_flexible(question, source_context)
+        return metric_result.get("status") in ("resolved", "ambiguous")
 
     _NOMINAL_MAX_WORDS = 8
 
