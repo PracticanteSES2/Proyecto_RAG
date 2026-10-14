@@ -321,6 +321,9 @@ def get_display_answer(result, formatter):
         if reason == "requested_value_not_found":
             return "Identifiqué la métrica, pero no pude verificar el valor del filtro solicitado."
         if reason == "date_dimension_not_found_in_report":
+            if details.get("explanation"):
+                # «CANTIDAD DE PACIENTES muestra el estado actual de ...»
+                return details["explanation"]
             period = details.get("requested_period")
             if period:
                 return (
@@ -328,6 +331,9 @@ def get_display_answer(result, formatter):
                     f"aplicar el período «{period}». Prueba con un año o un mes."
                 )
             return "Identifiqué la métrica, pero no encontré una fecha validada para aplicar ese período."
+        if reason == "requested_dimension_not_found_in_report" and details.get("explanation"):
+            # «%OCUPACION no se puede desglosar por aseguradores: su tabla ...»
+            return details["explanation"]
         return "Identifiqué la métrica, pero no pude verificar la dimensión solicitada en este tablero."
     if status == "powerbi_error":
         return "La métrica se identificó, pero Power BI rechazó la consulta. Revisa Modo diagnóstico."

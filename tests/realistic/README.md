@@ -49,6 +49,14 @@ Calibrado con el turno real del propietario (lote de 9 columnas = 20,8 s). Con `
 duerme ese coste (para ver el razonamiento en vivo); sin dormir, `dax_log[i]["cost_ms"]` lo registra y
 `medir_consultas` lo suma. Un `CommandTimeout` menor que el coste cancela la consulta como ADOMD.
 
+Escenario del propietario del 2026-10-14 (la cardinalidad NO fue barata: 3 columnas en 6,40 s; 5 columnas canceladas
+«a los 13,48 s con límite de 8 s», que eran ~5,5 s abriendo la conexión + 8 s de consulta):
+`SIM_DAX_CONTEO_COLUMNA_MS` (coste fijo por columna de `COUNTROWS(VALUES())`) y `SIM_DAX_APERTURA_MS` (abrir la
+conexión de un modelo; se anota como `apertura_ms` en la primera consulta tras `Open()`, fuera del `CommandTimeout`).
+`python -m tests.perf.medir_consultas --escenario propietario_2026_10_14 [--reproducir | --solo-reproducir]` usa
+esa calibración (`cost.ESCENARIOS`) y repite la exploración de columnas de esos dos turnos reales (mismas columnas,
+búsqueda incremental, conexión recién abierta) en tres turnos: frío, siguiente y otras columnas del mismo modelo.
+
 Opciones del chat: `--then` (repetible: número de botón, `__none__`/`ninguna` o texto), `--dax`,
 `--no-reasoning`, `--no-synthetic`, `--no-patches`, `--excluir-sintetico SLUG`, `--powerbi-down`,
 `--data-root RUTA`, `--culture es-CO|en-US|invariant`.

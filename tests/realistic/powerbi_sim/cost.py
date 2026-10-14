@@ -11,7 +11,7 @@ Coste estimado de una consulta = base (latencia de ida y vuelta XMLA)
     + por cada rama `VALUES(T[c])` de dominio (TOPN/SELECTCOLUMNS):
           columna_ms + cardinalidad_real × valor_us + min(TOPN, cardinalidad_real) × fila_us
     + por cada `COUNTROWS(VALUES(T[c]))` / `DISTINCTCOUNT(T[c])` (cardinalidad):
-          cardinalidad_real × conteo_us        (motor de almacenamiento: barato)
+          conteo_columna_ms + cardinalidad_real × conteo_us   (motor de almacenamiento: barato)
     + filas devueltas de cualquier otra consulta × fila_us
 
 La cardinalidad «real» se estima desde los datos simulados:
@@ -31,7 +31,17 @@ el lote local equivalente al del propietario cueste ~20 s:
     SIM_DAX_VALOR_US       100    µs por valor distinto que TOPN/VALUES recorre y ordena
     SIM_DAX_FILA_US        100    µs por fila devuelta
     SIM_DAX_CONTEO_US      0.5    µs por valor distinto en COUNTROWS(VALUES())
+    SIM_DAX_CONTEO_COLUMNA_MS 0   coste fijo por columna de la consulta de cardinalidad
     SIM_DAX_ESCALA         50     filas reales por fila simulada (columnas que crecen con la tabla)
+    SIM_DAX_APERTURA_MS    0      abrir la conexión de un modelo (primera consulta tras Open();
+                                  fuera del CommandTimeout, como en ADOMD)
+
+Escenario del propietario del 2026-10-14 (Power BI real, BRIEFING HOSPITALARIO y
+DEMANDA INSATISFECHA): la consulta de cardinalidad NO fue barata (3 columnas en
+6,40 s; 5 columnas canceladas a los 13,48 s con límite de 8 s) y un lote de 4
+columnas de dominio tardó 2,84 s. Lo reproducen SIM_DAX_CONTEO_COLUMNA_MS=1800,
+SIM_DAX_COLUMNA_MS=550 y SIM_DAX_APERTURA_MS=5000 (`ESCENARIOS` abajo;
+`python -m tests.perf.medir_consultas --escenario propietario_2026_10_14`).
 
 Solo se usa cuando SIM_DAX_COST=1 (o `adomd.install(..., cost_model=True)`):
 entonces cada consulta del registro trae `cost_ms` (estimado total) y
@@ -62,7 +72,9 @@ DEFAULTS = {
     "valor_us": 100.0,
     "fila_us": 100.0,
     "conteo_us": 0.5,
+    "conteo_columna_ms": 0.0,
     "escala": 50.0,
+    "apertura_ms": 0.0,
 }
 _ENV = {
     "base_ms": "SIM_DAX_BASE_MS",
@@ -70,7 +82,19 @@ _ENV = {
     "valor_us": "SIM_DAX_VALOR_US",
     "fila_us": "SIM_DAX_FILA_US",
     "conteo_us": "SIM_DAX_CONTEO_US",
+    "conteo_columna_ms": "SIM_DAX_CONTEO_COLUMNA_MS",
     "escala": "SIM_DAX_ESCALA",
+    "apertura_ms": "SIM_DAX_APERTURA_MS",
+}
+
+# Calibraciones con turnos reales del propietario (variables de entorno).
+ESCENARIOS = {
+    # 2026-10-13: lote de 9 columnas (con identificadores) = 20,8 s. Los valores por defecto.
+    "propietario_2026_10_13": {},
+    # 2026-10-14: cardinalidad cara (≈1,8 s por columna), dominio ≈0,55 s por columna y
+    # ≈5 s para abrir la conexión del modelo (el «13,48 s con límite de 8 s»).
+    "propietario_2026_10_14": {"SIM_DAX_CONTEO_COLUMNA_MS": "1800", "SIM_DAX_COLUMNA_MS": "550",
+                               "SIM_DAX_APERTURA_MS": "5000"},
 }
 
 
@@ -162,7 +186,7 @@ class CostModel:
             card = self.real_cardinality(model, table, column)
             before = text[:match.start()].rstrip().upper()
             if before.endswith("COUNTROWS("):
-                ms = card * p["conteo_us"] / 1000.0
+                ms = p["conteo_columna_ms"] + card * p["conteo_us"] / 1000.0
                 detail.append(("cardinalidad", match.group(1), card, round(ms, 1)))
                 continue
             tops = _TOPN_RE.findall(text[:match.start()])
@@ -176,7 +200,7 @@ class CostModel:
             if table is None or "__card" not in text:
                 continue   # solo la consulta de cardinalidad; en medidas es parte del cálculo
             card = self.real_cardinality(model, table, column)
-            ms = card * p["conteo_us"] / 1000.0
+            ms = p["conteo_columna_ms"] + card * p["conteo_us"] / 1000.0
             detail.append(("cardinalidad", match.group(1), card, round(ms, 1)))
         extra_rows = 0 if branch_rows else int(rows_returned or 0)
         total = base + sum(item[3] for item in detail) + extra_rows * p["fila_us"] / 1000.0

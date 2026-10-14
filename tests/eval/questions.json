@@ -3234,7 +3234,7 @@
       "tablero": "Briefing Hospitalario",
       "fuente": {"docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/Documentacion Tablero Detalle Ocupación.docx", "seccion": "Cantidad de pacientes"},
       "arneses": ["realistic"],
-      "descripcion": "Caso real del propietario (tests/eval/out/transcripts/conversacion_20261013_133012.md): tras la tabla de pacientes por especialidad, «Y en el mes pasado?» es la misma consulta con septiembre 2026 (antes: «nombra un indicador (pasado)» y respondía con la documentación de cancelaciones). Luego «eso mismo pero de agosto» y «ok, y el total?».",
+      "descripcion": "Caso real del propietario (tests/eval/out/transcripts/conversacion_20261013_133012.md): tras la tabla de pacientes por especialidad, «Y en el mes pasado?» es la misma consulta con septiembre 2026 (antes: «nombra un indicador (pasado)» y respondía con la documentación de cancelaciones). Luego «eso mismo pero de agosto» y «ok, y el total?». CANTIDAD DE PACIENTES (PACIENTES X ASEGURADORA) es el estado actual de los pacientes hospitalizados: ninguna fecha que filtre esa tabla se usa como periodo en el tablero (antes se filtraba por ATENCIONES_SERVICIO[FECHA], tabla sin relación, y cada mes daba lo mismo). «este mes» responde el estado actual y lo dice; septiembre/agosto se reconocen como seguimiento de CANTIDAD DE PACIENTES pero no se aplican y se explica por qué. El flujo de contexto con una fecha real lo cubren i_sim_ctx_propietario_boton_mes_pasado e i_sim_ctx_mes_pasado_antes_del_boton.",
       "turns": [
         {
           "user": "De urgencias se me ha solicitado saber la cantidad de pacientes que tiene cada una de las especialidades en hospitalizacion en este mes",
@@ -3242,15 +3242,15 @@
         },
         {
           "user": "Y en el mes pasado?",
-          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "table", "group_by_any": ["especialidad"], "filters": [{"month": "anterior"}], "answer_none": ["cancelacion"]}
+          "expect": {"route": ["unsupported_filter", "powerbi"], "answer_any": ["CANTIDAD DE PACIENTES"], "answer_all": ["estado actual"], "answer_none": ["cancelacion"]}
         },
         {
           "user": "necesito eso mismo pero de agosto",
-          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "table", "filters": [{"month": 8}]}
+          "expect": {"route": ["unsupported_filter", "powerbi"], "answer_all": ["CANTIDAD DE PACIENTES", "agosto"]}
         },
         {
           "user": "ok, y el total?",
-          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "scalar", "filters": [{"month": 8}]}
+          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "scalar"}
         }
       ]
     },
@@ -3508,9 +3508,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "contrapregunta %OCUPACION/CamasFiltradas/%OCUPACIONALC; las opciones por aseguradora se depuran por no compartir «detalle ocupacion»"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3555,9 +3552,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "PACIENTES por ASEGURADORA no está entre las opciones (depurada)"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3619,9 +3613,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "el total ya es CAMAS con ESTADOS_CAM = DISPONIBLE y SERVICIOS = HOSPITALIZACIÓN GENERAL (6), pero la respuesta no trae la lista de camas (código y servicio)"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3757,9 +3748,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«qué camas» no se detecta como pregunta de datos: responde documentación (RAG)"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3815,9 +3803,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "ya responde %OCUPACION sin contrapreguntar, pero agrupa por el SERVICIO de otra tabla que no filtra CAMAS DISPONIBLES (mismo valor en todas las filas) y aplica «hoy» con la fecha de ATENCIONES_SERVICIO"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3865,9 +3850,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«lista de camas bloqueadas» no se detecta como pregunta de datos: responde documentación (RAG)"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3967,9 +3949,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "agrupa por EGRESOS_POR_SERVICIO[TERNOMCOM], tabla que no filtra CONSULTAS PRIORITARIAS (2.410 en cada fila)"
-      },
       "descripcion": "La agrupación debe usar una columna que filtre la tabla de la medida: PACIENTES OBSERVADOS POR MES = COUNT('CONSULTAS PRIORITARIAS'[ASEGURADOR]) se agrupa por 'CONSULTAS PRIORITARIAS'[ASEGURADOR] (o su TERNOMCOM), no por 'EGRESOS_POR_SERVICIO'[TERNOMCOM] (tabla sin relación: el mismo 2.410 en cada fila).",
       "turns": [
         {
@@ -4000,9 +3979,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "contrapregunta «no entendí «hospital» como un filtro de ese tablero»"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «en el hospital» es el alcance institucional, no un filtro: un solo valor (tiempo promedio de triage) sin contrapreguntar ni declarar «No pude aplicar: hospital». Línea base: contrapregunta «no entendí «hospital» como un filtro».",
       "turns": [
         {
@@ -4034,9 +4010,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«general» se aplica como GEEDESCRI = CIRUGIA GENERAL"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «en general» es el total, no un valor de columna: no debe filtrar GEEDESCRI = CIRUGIA GENERAL (ni ningún valor con GENERAL). Línea base: «Con geedescri CIRUGIA GENERAL, hay 459 solicitudes».",
       "turns": [
         {
@@ -4202,9 +4175,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«por areas de servicio» se busca como valor de filtro: unsupported_filter"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «por areas de servicio» (plural) agrupa MONTO_FACTURADO por FACTURADORES[AREA_SERVICIO] (columna de la tabla de detalle de FACTURADORES, «AREA DE SERVICIO»). Línea base: lo toma como un valor de filtro y responde «no pude verificar el valor del filtro solicitado».",
       "turns": [
         {
@@ -4239,9 +4209,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "no reconoce GEEDESCRI como especialidad: «no pude verificar la dimensión solicitada»"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «por especialidades» agrupa las solicitudes por REFERENCIA[GEEDESCRI] (la especialidad; tabla «Cantidad de solicitudes» por GEEDESCRI en REFERENCIA – INICIO). Línea base: «no pude verificar la dimensión solicitada».",
       "turns": [
         {
@@ -4277,9 +4244,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "no agrupa por PACIENTES X ASEGURADORA[ESPECIALIDAD]: «no pude verificar la dimensión solicitada»"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -4511,9 +4475,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "agrupa por SOLICITUD_CAMAS[aseguradora] (sin relación con TRIAGES): 2.223 en cada fila"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). La aseguradora de los triages no atendidos es TRIAGES[TERNOMCOM] (visual del tablero); SOLICITUD_CAMAS[aseguradora] no filtra TRIAGES. Línea base: agrupa por SOLICITUD_CAMAS[aseguradora] y repite 2.223 en cada fila.",
       "turns": [
         {
@@ -4548,15 +4509,12 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "agrupa por TercerosRelacionados y filtra con ATENCIONES_SERVICIO[FECHA]: 7 en cada fila"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
         ]
       },
-      "descripcion": "Variante de generalidad (hospital 2026-10-14). «egresos por eps en 2025»: si contrapregunta, al elegir EGRESOS (BRIEFING) la tabla por EPS debe usar una columna y una fecha que filtren EGRESOS. Línea base: agrupa por TercerosRelacionados[nombre_tercero] y filtra 2025 con ATENCIONES_SERVICIO[FECHA] (otra tabla): 7 en cada fila. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones), como los casos del hospital: el catálogo del propietario no lo tiene.",
+      "descripcion": "Variante de generalidad (hospital 2026-10-14). «egresos por eps en 2025»: si contrapregunta, al elegir EGRESOS (BRIEFING) la tabla por EPS debe usar una columna y una fecha que filtren EGRESOS. Línea base: agrupa por TercerosRelacionados[nombre_tercero] y filtra 2025 con ATENCIONES_SERVICIO[FECHA] (otra tabla): 7 en cada fila. EGRESOS (BRIEFING) no tiene ninguna columna de EPS que lo filtre (TercerosRelacionados no se relaciona con EGRESOS), así que ya no se ofrece para «por eps»: el botón elige la opción de egresos que quede y su tabla no puede repetir el mismo valor. Se ejecuta sin el modelo sintético TABLERO GESTION CAMAS (arnes_opciones), como los casos del hospital: el catálogo del propietario no lo tiene.",
       "turns": [
         {
           "user": "egresos por eps en 2025",
@@ -4573,7 +4531,8 @@
         {
           "button": {
             "label_any": [
-              "BRIEFING"
+              "BRIEFING",
+              "egresos"
             ]
           },
           "opcional": true,
@@ -4600,9 +4559,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«no pude verificar la dimensión solicitada» sin nombrar la dimensión (aseguradora) ni el indicador"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). LAVANDERIA no tiene aseguradora: la respuesta dice que el peso no se puede ver por aseguradora (nombrándola), nunca una tabla con el mismo valor por fila. Línea base: «no pude verificar la dimensión solicitada» sin decir cuál.",
       "turns": [
         {
@@ -4633,9 +4589,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«no pude verificar la dimensión solicitada» sin nombrar la dimensión (servicio) ni el indicador"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). PENDIENTES_FARMACIA no tiene servicio y el modelo no tiene relaciones (TIEMPOS_DISPENSACIÓN[gasnombre] no la filtra): debe decir que no se puede ver por servicio, sin tabla con valores repetidos. Línea base: «no pude verificar la dimensión solicitada» sin decir cuál.",
       "turns": [
         {
@@ -4666,9 +4619,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«no pude verificar la dimensión solicitada» sin nombrar la dimensión (servicio) ni el indicador"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «remisiones por servicio»: REMISIONES (BRIEFING) sí tiene SERVICIO; «Total de remisiones registradas» (DETALLE_REMISIONES) no. Si contrapregunta y se elige esta última, la respuesta dice que no se puede ver por servicio (nombrándolo), sin tabla repetida. Línea base: «no pude verificar la dimensión solicitada».",
       "turns": [
         {
@@ -4716,9 +4666,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«lista de» no se detecta como pregunta de datos: responde documentación (RAG)"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «lista de productos vencidos» es el detalle de PRODUCTOS_VENCIDOS (tabla «PRODUCTOS VENCIDOS»: código, producto, cantidad, fecha), no documentación. Filas fijas: 5 productos (79 unidades). Línea base: responde la documentación (RAG).",
       "turns": [
         {
@@ -4763,7 +4710,7 @@
         "realistic"
       ],
       "xfail": {
-        "realistic": "al elegir la tarjeta 0-30 DÍAS da 6 (no aplica su filtro mes <= 1), «No pude aplicar: vencen proximos» y no lista los productos"
+        "realistic": "al elegir la tarjeta 0-30 DÍAS ya lista los productos, pero da 6 (no aplica su filtro mes <= 1) y «No pude aplicar: vencen proximos» (agente/hospital-indicador2)"
       },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). Total + listado con el filtro propio de la tarjeta: «cuántos se vencen en los próximos 30 días y cuáles» = MEDICAMENTOS EN VENCIMIENTO 0-30 DÍAS (mes <= 1): 3 productos (SALBUTAMOL, ENOXAPARINA, METOCLOPRAMIDA) y su lista, sin los de 30-120 días. Si contrapregunta, se elige esa tarjeta. Línea base: contrapregunta de una sola opción y, al elegirla, 6 (sin el filtro mes <= 1 de la tarjeta), «No pude aplicar: vencen proximos» y sin listado.",
       "turns": [
@@ -4835,7 +4782,7 @@
         "realistic"
       ],
       "xfail": {
-        "realistic": "«qué ... están» no se detecta como pregunta de datos: responde documentación (RAG)"
+        "realistic": "ya lista las interconsultas de MEDICINA INTERNA (INTERCONSULTAS SIN RESPUESTA, sin documento ni paciente), pero declara «No pude aplicar: pendientes» (pendientes = sin respuesta)"
       },
       "arnes_opciones": {
         "excluir_sintetico": [
@@ -4887,7 +4834,7 @@
         "realistic"
       ],
       "xfail": {
-        "realistic": "elige «Camas ocupadas» de GESTIÓN CAMAS y contrapregunta «no entendí «uci»»"
+        "realistic": "elige «Camas ocupadas» de GESTIÓN CAMAS y contrapregunta «no entendí «uci»» (indicador: agente/hospital-indicador2); la petición «y cuáles son» ya se detecta como listado"
       },
       "arnes_opciones": {
         "excluir_sintetico": [
@@ -4960,7 +4907,7 @@
         "realistic"
       ],
       "xfail": {
-        "realistic": "contrapregunta CAMAS / NUMERO CAMAS: «de sanitas» no se usa como filtro de PACIENTES X ASEGURADORA"
+        "realistic": "contrapregunta CAMAS / NUMERO CAMAS: «de sanitas» no se usa como filtro de PACIENTES X ASEGURADORA (agente/hospital-indicador2); «y en qué camas» ya se detecta como listado"
       },
       "arnes_opciones": {
         "excluir_sintetico": [
@@ -5022,9 +4969,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«lista de» no se detecta como pregunta de datos: responde documentación (RAG)"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «lista de pacientes en espera de cita de cardiología»: detalle de EN_ESPERA con especialidad CARDIOLOGIA (fecha, especialidad, días en espera, médico, aseguradora...) sin documento, nombre, teléfono ni correo del paciente. Línea base: responde la documentación (RAG) de otro tablero.",
       "turns": [
         {

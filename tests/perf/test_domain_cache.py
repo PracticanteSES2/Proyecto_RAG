@@ -650,6 +650,225 @@ def test_simulator_cost_model_and_command_timeout():
         backend.costs = saved[1]
 
 
+# ----------------------------------------------------------------------------
+# Turnos del propietario del 2026-10-14: códigos, cardinalidad cara y apertura
+# ----------------------------------------------------------------------------
+
+CAMAS = {
+    ("SERVICIOS", "NOM_SERV"): ["HOSPITALIZACION GENERAL", "UCI ADULTOS"],
+    ("CAMAS DISPONIBLES", "ESTADOS_CAM"): ["DISPONIBLE", "OCUPADA", "BLOQUEADA"],
+    ("CAMAS DISPONIBLES", "SERVICIOS"): ["HOSPITALIZACION GENERAL", "UCI ADULTOS", "PEDIATRIA"],
+    ("CAMAS DISPONIBLES", "HCACODIGO"): ["403", "407", "UCI-06"],
+    ("SERVICIOS", "HSUNOMBRE"): ["HOSPITALIZACION", "UCI"],
+}
+CAMAS_COLUMNS = [(t, c, "Text") for t, c in CAMAS]
+
+
+def test_code_columns_and_code_like_tokens():
+    from src.providers.domain_cache import code_column, has_code_token
+    for name in ("HCACODIGO", "CODIGO", "codcama", "COD_SERV", "GDECODIGO", "NRO_CAMA", "CODIGO_CIE10"):
+        assert code_column(name), name
+    for name in ("ESTADOS_CAM", "SERVICIOS", "NOM_SERV", "HSUNOMBRE", "TERNOMCOM", "ESPECIALIDAD", "EPISODIO",
+                 "aseguradora", "MENORES"):
+        assert not code_column(name), name
+    for text in ("camas 403 y 407", "cama UCI-06", "triage III", "codigo A12"):
+        assert has_code_token(text), text
+    for text in ("necesito saber la ocupacion general hoy en el hospital", "egresos en 2025",
+                 "ultimos 3 meses", "top 10 servicios", "%OCUPACIÓN", None, ""):
+        assert not has_code_token(text), text
+
+
+def test_code_columns_are_not_probed_batched_nor_explored_without_a_code():
+    provider = CountingProvider(CAMAS)
+    cache = DomainCache(provider, ttl_s=0)
+    cache.begin_turn(question="necesito saber la ocupacion general hoy en el hospital")
+    cache.prefetch("M", CAMAS_COLUMNS, max_batches=1, lead=True)
+    assert provider.queries and not any("HCACODIGO" in q for q in provider.queries), \
+        "un código (cama, servicio...) no se cuenta ni entra a un lote"
+    before = len(provider.queries)
+    assert cache.get("M", "CAMAS DISPONIBLES", "HCACODIGO") == []
+    assert len(provider.queries) == before, "sin un código en la pregunta, ningún valor de un código coincide"
+    assert cache.turn_stats()["avoided"] == 1
+    assert cache.get("M", "CAMAS DISPONIBLES", "HCACODIGO", essential=True) == ["403", "407", "UCI-06"], \
+        "un filtro pedido con su columna sí se consulta"
+    cache.end_turn()
+    fresh = DomainCache(CountingProvider(CAMAS), ttl_s=0)
+    fresh.begin_turn(question="estado de las camas 403 y 407")
+    fresh.prefetch("M", CAMAS_COLUMNS)
+    assert not any("HCACODIGO" in q for q in fresh.provider.queries), "nunca en un lote"
+    assert fresh.get("M", "CAMAS DISPONIBLES", "HCACODIGO") == ["403", "407", "UCI-06"]
+    assert "HCACODIGO" in fresh.provider.queries[-1] and "UNION(" not in fresh.provider.queries[-1]
+    legacy = DomainCache(CountingProvider(CAMAS), ttl_s=0)
+    legacy.begin_turn()   # sin la pregunta (llamadores antiguos): sin cambios
+    assert legacy.get("M", "CAMAS DISPONIBLES", "HCACODIGO") == ["403", "407", "UCI-06"]
+
+
+class SlowProbeProvider(CountingProvider):
+    """La consulta de cardinalidad vence su tiempo límite (Power BI del 2026-10-14)."""
+
+    def __init__(self, domains):
+        super().__init__(domains)
+        self.timeouts = []
+
+    def execute_dax(self, dax, semantic_model=None, timeout_s=None):
+        self.timeouts.append((timeout_s, '"__card' in dax))
+        if '"__card' in dax and timeout_s:
+            self.queries.append(dax)
+            return {"status": "error", "error": "XML for Analysis request timed out before it was completed.",
+                    "error_type": "AdomdConnectionException", "timed_out": True}
+        return super().execute_dax(dax, semantic_model)
+
+
+def test_slow_probe_has_its_own_short_limit_and_is_not_paid_again():
+    provider = SlowProbeProvider({**CAMAS, ("T", "FECHA_TEXTO"): ["2026-01-01"]})
+    clock = Clock()
+    cache = DomainCache(provider, ttl_s=600, timeout_s=8, card_timeout_s=3, clock=clock)
+    cache.begin_turn(question="ocupacion general")
+    cache.prefetch("M", CAMAS_COLUMNS, max_batches=1, lead=True)
+    probes = [timeout for timeout, card in provider.timeouts if card]
+    assert probes == [3], "la consulta de cardinalidad debe ser barata: límite propio (3 s), no el de 8 s"
+    assert any("UNION(" in q for q in provider.queries), "se sigue con las reglas por nombre (como antes)"
+    lines = cache.describe_turn()
+    assert any("cardinalidad cancelada" in line for line in lines), lines
+    cache.end_turn()
+    # Turno siguiente, otras columnas del mismo modelo: no se vuelve a contar.
+    cache.begin_turn(question="ocupacion general")
+    cache.prefetch("M", [("T", "A", "Text"), ("T", "B", "Text"), ("T", "C", "Text")], max_batches=1)
+    assert sum(1 for _, card in provider.timeouts if card) == 1, "la cardinalidad de ese modelo no se paga otra vez"
+    assert cache.turn_stats()["card_skipped"] >= 1
+    assert any("sin consulta de cardinalidad" in line for line in cache.describe_turn())
+    # Sin poder contar barato, una fecha/hora en texto no se consulta sola para explorar.
+    before = len(provider.queries)
+    assert cache.get("M", "T", "FECHA_TEXTO") == [] and len(provider.queries) == before
+    assert cache.get("M", "T", "FECHA_TEXTO", essential=True) is not None and len(provider.queries) == before + 1
+    cache.end_turn()
+    # Otro modelo sí la intenta; y al vencer ttl_s el mismo modelo también.
+    cache.begin_turn()
+    cache.prefetch("OTRO", [("T", "A", "Text"), ("T", "B", "Text")])
+    assert sum(1 for _, card in provider.timeouts if card) == 2
+    cache.end_turn()
+    clock.now += 601
+    cache.begin_turn()
+    cache.prefetch("M", [("T", "D", "Text"), ("T", "E", "Text")])
+    assert sum(1 for _, card in provider.timeouts if card) == 3
+
+
+def test_slow_successful_probe_also_disables_it_for_the_model():
+    class Timer:
+        def __init__(self):
+            self.now, self.calls = 0.0, 0
+
+        def __call__(self):
+            self.calls += 1
+            if self.calls == 2:
+                self.now += 6.4   # la primera consulta (cardinalidad) tarda 6,4 s
+            return self.now
+    provider = CountingProvider(WIDE)
+    cache = DomainCache(provider, ttl_s=0, timer=Timer())
+    cache.begin_turn()
+    cache.prefetch("M", [("T", "A", "Text"), ("T", "B", "Text"), ("T", "BIG", "Text")])
+    assert '"__card' in provider.queries[0] and cache.classify("M", "T", "BIG") == "high", \
+        "el resultado se usa"
+    cache.prefetch("M", [("T", "C", "Text"), ("T", "D", "Text")])
+    assert sum('"__card' in q for q in provider.queries) == 1, "una consulta de cardinalidad lenta no se repite"
+
+
+class OpeningProvider(CountingProvider):
+    """Proveedor que informa el tiempo de abrir la conexión (PowerBIProvider)."""
+
+    def __init__(self, domains, connect_s=5.48, timed_out=()):
+        super().__init__(domains)
+        self.connect_s = connect_s
+        self.timed_out = set(timed_out)
+
+    def execute_dax(self, dax, semantic_model=None, timeout_s=None):
+        connect_s, self.connect_s = self.connect_s, 0.0
+        if any(f"'{t}'[{c}]" in dax for t, c in self.timed_out):
+            self.queries.append(dax)
+            return {"status": "error", "error": "XML for Analysis request timed out", "timed_out": True,
+                    "connect_s": connect_s, "wait_s": 0.0}
+        result = super().execute_dax(dax, semantic_model)
+        return {**result, "connect_s": connect_s, "wait_s": 0.0}
+
+
+def test_connection_opening_is_reported_apart_from_the_query_time():
+    class Timer:
+        def __init__(self, durations):
+            self.now, self.calls, self.durations = 0.0, 0, list(durations)
+
+        def __call__(self):
+            self.calls += 1
+            if self.calls % 2 == 0:
+                self.now += self.durations.pop(0)
+            return self.now
+    # 13,48 s = 5,48 s abriendo la conexión + 8 s de consulta (el límite).
+    provider = OpeningProvider(CAMAS, timed_out={("SERVICIOS", "NOM_SERV")})
+    cache = DomainCache(provider, ttl_s=0, timeout_s=8, card_probe=False, timer=Timer([13.48, 1.0]))
+    cache.begin_turn()
+    assert cache.get("M", "SERVICIOS", "NOM_SERV") is None
+    assert cache.get("M", "SERVICIOS", "HSUNOMBRE")
+    stats = cache.turn_stats()
+    assert round(stats["seconds"], 2) == 9.0 and round(stats["connect_seconds"], 2) == 5.48
+    lines = cache.describe_turn()
+    assert any("cancelada a los 8.00 s (límite 8 s)" in line and "5.48 s abriendo la conexión" in line
+               for line in lines), lines
+    # Una consulta que solo fue lenta por abrir la conexión no se lista como lenta.
+    quick = DomainCache(OpeningProvider(CAMAS, connect_s=4.0), ttl_s=0, card_probe=False, timer=Timer([4.5]))
+    quick.begin_turn()
+    assert quick.get("M", "SERVICIOS", "NOM_SERV") and quick.turn_stats()["slow"] == []
+    assert any("abrir la conexión" in line for line in quick.describe_turn())
+
+
+def test_powerbi_provider_reports_connection_and_wait_times():
+    provider, backend = simulated_provider()
+    dax = single_domain_dax("CIRUGIAS", "ESPECIALIDAD")
+    provider._invalidate_connection(CONSOLIDADO)
+    first = provider.execute_dax(dax, semantic_model=CONSOLIDADO)
+    second = provider.execute_dax(dax, semantic_model=CONSOLIDADO)
+    for result in (first, second):
+        assert result["status"] == "success"
+        assert result["connect_s"] >= 0 and result["wait_s"] >= 0 and result["exec_s"] >= 0
+    failed = provider.execute_dax("EVALUATE NOEXISTE()", semantic_model=CONSOLIDADO)
+    assert failed["status"] == "error" and "connect_s" in failed
+
+
+def test_engine_gives_the_turn_text_to_the_domain_cache():
+    from src.chatbot.query_engine import QueryEngine
+    provider = CountingProvider(CAMAS)
+    engine = QueryEngine.__new__(QueryEngine)
+    engine.powerbi_provider = provider
+    engine._trace = None
+    engine.last_reasoning = None
+    seen = {}
+
+    def runner():
+        seen["codes"] = domain_cache_for(provider).turn_has_code
+        return {"status": "success", "route": "powerbi"}
+
+    engine._traced("question", "estado de la cama 403", runner)
+    assert seen["codes"] is True
+    engine._traced("question", "ocupacion general hoy", runner)
+    assert seen["codes"] is False
+    engine._pending_query_plan = {"question": "camas UCI-06 y 407"}
+    engine._traced("option", "%OCUPACIÓN [761d17ce09971f3d]", runner)
+    assert seen["codes"] is True, "la pregunta pendiente cuenta; el id del botón no"
+    engine._pending_query_plan = {"question": "ocupacion general"}
+    engine._traced("option", "%OCUPACIÓN [761d17ce09971f3d]", runner)
+    assert seen["codes"] is False
+
+
+def test_cost_model_owner_2026_10_14_calibration():
+    from tests.realistic.powerbi_sim.cost import ESCENARIOS, CostModel
+    _, backend = simulated_provider()
+    params = {name.replace("SIM_DAX_", "").lower(): float(value)
+              for name, value in ESCENARIOS["propietario_2026_10_14"].items()}
+    model = CostModel(backend.sim, **params)
+    probe = model.estimate(CONSOLIDADO, "EVALUATE ROW(\"__card0\", COUNTROWS(VALUES('CIRUGIAS'[ESPECIALIDAD])),"
+                                        " \"__card1\", COUNTROWS(VALUES('CIRUGIAS'[ESTADO_CIRUGIA])))", 1)
+    assert probe["cost_ms"] >= 500 + 2 * 1800
+    assert model.params["apertura_ms"] == 5000
+
+
 def _run_all():
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     failed = 0
