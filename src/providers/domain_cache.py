@@ -68,8 +68,6 @@ INSATISFECHA): la consulta de cardinalidad NO fue barata (3 columnas en 6,40 s;
   tarda más de POWERBI_DOMAIN_SLOW_S, ese modelo no vuelve a contarse durante
   POWERBI_DOMAIN_TTL_S (ni en el turno siguiente) y sus columnas quedan con
   cardinalidad «desconocida» en la caché;
-- solo se cuentan las columnas de los próximos lotes de la búsqueda incremental
-  (2 × POWERBI_DOMAIN_BATCH por lote pedido), no las 24 primeras;
 - el tiempo de ABRIR la conexión del modelo (y de esperar el candado de la
   conexión) lo informa PowerBIProvider (`connect_s`, `wait_s`) y se descuenta:
   el «13,48 s con límite de 8 s» eran ~5,5 s abriendo la conexión (fuera del
@@ -732,11 +730,10 @@ class DomainCache:
             if len(pending) < 2:
                 return  # una sola columna: la consulta normal cuando se pida
             # Cardinalidad de las que no se conocen (una consulta barata para todas).
-            # Búsqueda incremental: solo las de los próximos lotes (se cuentan y
-            # se agrupan); las siguientes, en la próxima llamada.
-            window = pending if max_batches is None else pending[:self.batch_size * max_batches * 2]
+            # (Contar solo las de los próximos lotes se midió: más consultas en
+            # las búsquedas largas y ninguna ganancia en los turnos del 2026-10-14.)
             if self.card_probe and self._probe_failures < 2:
-                unknown = [(t, c) for t, c in window
+                unknown = [(t, c) for t, c in pending
                            if self.classify(semantic_model, t, c) == "unknown"
                            and not self._probe_unknown(semantic_model, t, c)]
                 if unknown:
@@ -745,7 +742,7 @@ class DomainCache:
                     else:
                         self._probe(semantic_model, unknown[:CARD_PROBE_MAX_COLUMNS])
             batchable = [
-                (t, c) for t, c in window
+                (t, c) for t, c in pending
                 if self.classify(semantic_model, t, c) == "low"
                 or (self.classify(semantic_model, t, c) == "unknown" and not likely_high_cardinality(c))
             ]

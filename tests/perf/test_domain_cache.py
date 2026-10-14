@@ -453,14 +453,11 @@ def test_cardinality_probe_keeps_high_columns_out_of_small_batches():
     assert "'T'[BIG]" not in batch and "PACNUMDOC" not in batch and "'T'[C]" not in batch, \
         "lote de 2 columnas de baja cardinalidad; max_batches=1 trae solo el siguiente"
     assert cache.classify("M", "T", "BIG") == "high" and cache.classify("M", "T", "PACNUMDOC") == "high"
-    assert cache.exceeds("M", "T", "BIG", 500) and not cache.exceeds("M", "T", "A", 500)
-    assert cache.classify("M", "T", "C") == "unknown", \
-        "max_batches=1: solo se cuentan las columnas de los próximos lotes (2 × 2), no las siguientes"
-    # Siguiente lote: lo ya contado no se vuelve a contar; C y D sí.
+    assert cache.classify("M", "T", "C") == "low" and cache.exceeds("M", "T", "BIG", 500)
+    assert not cache.exceeds("M", "T", "A", 500)
+    # Siguiente lote: la cardinalidad ya se conoce (no se vuelve a contar).
     cache.prefetch("M", columns)
-    probe2, batch2 = provider.queries[2:]
-    assert "'T'[C]" in probe2 and "'T'[D]" in probe2 and "'T'[A]" not in probe2 and "'T'[BIG]" not in probe2
-    assert "'T'[C]" in batch2 and "'T'[D]" in batch2 and cache.classify("M", "T", "C") == "low"
+    assert len(provider.queries) == 3 and "'T'[C]" in provider.queries[2] and "'T'[D]" in provider.queries[2]
     # lead=True: si la primera columna es de alta cardinalidad no se adelanta ningún lote.
     lead = DomainCache(CountingProvider(WIDE), ttl_s=0, batch_size=2)
     lead.prefetch("M", [("T", "BIG", "Text"), ("T", "A", "Text"), ("T", "B", "Text")], max_batches=1, lead=True)
@@ -770,16 +767,6 @@ def test_slow_successful_probe_also_disables_it_for_the_model():
         "el resultado se usa"
     cache.prefetch("M", [("T", "C", "Text"), ("T", "D", "Text")])
     assert sum('"__card' in q for q in provider.queries) == 1, "una consulta de cardinalidad lenta no se repite"
-
-
-def test_probe_is_limited_to_the_next_batches():
-    domains = {("T", f"C{i:02d}"): [f"V{i}"] for i in range(20)}
-    provider = CountingProvider(domains)
-    cache = DomainCache(provider, ttl_s=0, batch_size=4)
-    cache.prefetch("M", [(t, c, "Text") for t, c in domains], max_batches=1, lead=True)
-    probe = provider.queries[0]
-    assert '"__card' in probe and probe.count("COUNTROWS") == 8, "solo las columnas de los próximos lotes"
-    assert provider.queries[1].count("VALUES(") == 4
 
 
 class OpeningProvider(CountingProvider):
