@@ -7101,6 +7101,10 @@ class QueryPlanBuilder:
         # Sin las palabras de indicadores hermanos («realizadas» junto a
         # CIRUGÍAS PROGRAMADAS es otra medida aunque la documentación la nombre).
         remaining = [word for word in candidates_words if canonical_token(word) not in filtered]
+        # El sustantivo principal («LISTA DE PACIENTES en espera») no lo explica
+        # la documentación: si el indicador no lo nombra, cuenta otra cosa.
+        head = self._head_token(question, source_context)
+        remaining = [word for word in remaining if canonical_token(word) != head]
         skip = set(consumed_tokens) | filtered
         for word, evidence in self._documented_qualifiers(question, metric, remaining, skip_tokens=skip):
             result["consumed"].add(canonical_token(word))
