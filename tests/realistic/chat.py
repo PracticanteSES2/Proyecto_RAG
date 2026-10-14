@@ -96,6 +96,10 @@ def main(argv=None):
     parser.add_argument("--then", action="append", default=[], help="respuesta siguiente (número, __none__ o texto)")
     parser.add_argument("--data-root", default=None, help="carpeta data/ (por defecto la del repo principal)")
     parser.add_argument("--no-synthetic", action="store_true", help="sin los modelos sintéticos del overlay")
+    parser.add_argument("--no-patches", action="store_true",
+                        help="sin los parches de catálogo (tests/realistic/catalog_patches.py)")
+    parser.add_argument("--excluir-sintetico", action="append", default=[], metavar="SLUG",
+                        help="quita un modelo sintético (p. ej. tablero_gestion_camas); repetible")
     parser.add_argument("--powerbi-down", action="store_true", help="simula el endpoint XMLA caído")
     parser.add_argument("--dax", action="store_true", help="muestra las consultas DAX y su resultado")
     parser.add_argument("--no-reasoning", action="store_true", help="no imprime el razonamiento")
@@ -106,7 +110,9 @@ def main(argv=None):
     print("Construyendo el sistema (la primera vez se arma la caché del overlay)...", flush=True)
     engine, cm, formatter, llm_status, connection, _ = harness.build_engine(
         data_root=args.data_root, llm=args.llm, synthetic=not args.no_synthetic,
-        powerbi_up=not args.powerbi_down, culture=args.culture)
+        powerbi_up=not args.powerbi_down, culture=args.culture,
+        patches=False if args.no_patches else None,
+        synthetic_exclude=args.excluir_sintetico or None)
     _print_status(llm_status, connection, harness.STATE["simulator"])
 
     interactive = sys.stdin.isatty()

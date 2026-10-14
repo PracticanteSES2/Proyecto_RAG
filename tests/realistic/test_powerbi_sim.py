@@ -9,6 +9,7 @@ directorio temporal); no necesitan data/, Qdrant ni Ollama. Si existe data/model
 """
 import csv
 import datetime as dt
+import json
 import os
 import sys
 import tempfile
@@ -458,6 +459,183 @@ def test_real_metadata_if_present():
         out = s.execute(model, f'EVALUATE ROW("v", [{measure.name}])')
         approximate += bool(out["approximate"])
     assert approximate <= 10, f"demasiadas medidas aproximadas: {approximate}"
+
+
+# ----------------------------------------------------------------------------
+# Tablas con filas fijas (_sim_tables.json): detalle y conteo coherentes
+# ----------------------------------------------------------------------------
+
+_FILTRO_CAMAS = (
+    "NOT CONTAINSSTRING(LOWER('CAMAS DISPONIBLES'[HCACODIGO]), \"EXP\") && "
+    "NOT CONTAINSSTRING(LOWER('CAMAS DISPONIBLES'[HCACODIGO]), \"OH\") && "
+    "'CAMAS DISPONIBLES'[MOSTRAR] = \"MOSTRAR\" && 'CAMAS DISPONIBLES'[MOSTRAR_6TO] <> 0 && "
+    "'CAMAS DISPONIBLES'[HCACODIGO] <> \"321\" && 'CAMAS DISPONIBLES'[HCACODIGO] <> \"322\"")
+
+
+def briefing_root():
+    """Modelo mínimo con CAMAS DISPONIBLES y PACIENTES X ASEGURADORA como en BRIEFING HOSPITALARIO
+    (columnas calculadas y medidas reales) + las filas fijas de catalog_patches."""
+    if "briefing" in _CACHE:
+        return _CACHE["briefing"]
+    from tests.realistic import catalog_patches
+    root = Path(tempfile.mkdtemp(prefix="pbi_sim_briefing_"))
+    folder = root / "briefing_hospitalario"
+    folder.mkdir()
+
+    def write(name, headers, rows):
+        with open(folder / name, "w", encoding="utf-8-sig", newline="") as file:
+            writer = csv.writer(file, delimiter=";")
+            writer.writerow(headers)
+            writer.writerows(rows)
+
+    camas, pacientes = "CAMAS DISPONIBLES", "PACIENTES X ASEGURADORA"
+    write("tables.csv", ["ID", "Name", "IsHidden", "Expression"], [[1, camas, "False", ""], [2, pacientes, "False", ""]])
+    columns = [
+        [10, "HCACODIGO", camas, "Text", "Data", ""], [11, "SERVICIOS", camas, "Text", "Data", ""],
+        [12, "ESTADO", camas, "Number", "Data", ""], [13, "HCAESTADO", camas, "Number", "Data", ""],
+        [14, "MOSTRAR_6TO", camas, "Integer", "Data", ""], [15, "Orden", camas, "Text", "Data", ""],
+        [16, "RUTA_ACV", camas, "Text", "Data", ""],
+        [17, "MOSTRAR", camas, "Text", "Calculated",
+         "IF(SEARCH(\"EXP\",'CAMAS DISPONIBLES'[HCACODIGO],1,0)<>0 && ('CAMAS DISPONIBLES'[HCAESTADO]=2), "
+         "\"MOSTRAR\", IF(SEARCH(\"EXP\",'CAMAS DISPONIBLES'[HCACODIGO],1,0)=0, \"MOSTRAR\", \"NO MOSTRAR\"))"],
+        [18, "ESTADOS_CAM", camas, "Text", "Calculated",
+         "IF('CAMAS DISPONIBLES'[ESTADO]=1,\"DISPONIBLE\", IF('CAMAS DISPONIBLES'[ESTADO]=2,\"OCUPADA\", "
+         "IF('CAMAS DISPONIBLES'[ESTADO]=3,\"BLOQUEADA\", IF('CAMAS DISPONIBLES'[ESTADO]=5,\"EN TRANSICIÓN\", "
+         "IF('CAMAS DISPONIBLES'[ESTADO]=100,\"CAMA SOLICITADA\")))))"],
+        [19, "OCUPADAS", camas, "Integer", "Calculated",
+         "IF('CAMAS DISPONIBLES'[ESTADO]=2 || 'CAMAS DISPONIBLES'[ESTADO]=100, 1, 0)"],
+    ]
+    for index, name in enumerate(["PACNUMDOC", "GPANOMCOM", "HCACODIGO", "HSUNOMBRE", "TERNOMCOM", "GDENOMBRE",
+                                  "ESPECIALIDAD", "ADNINGRESO", "HSUCODIGO", "EGRESO_EFECTIVO_HOY"]):
+        columns.append([30 + index, name, pacientes, "Text", "Data", ""])
+    columns += [[45, "DIAS_ESTANCIA", pacientes, "Integer", "Data", ""],
+                [46, "FechaSalida", pacientes, "Date", "Data", ""],
+                [47, "FECHA_EPICRISIS", pacientes, "Date", "Data", ""],
+                [48, "FECHA_ORDEN_SALIDA", pacientes, "Date", "Data", ""]]
+    write("columns.csv", ["ID", "Name", "Table", "DataType", "Type", "Expression"], columns)
+    write("measures.csv", ["ID", "Name", "Table", "DataType", "Expression", "FormatString"], [
+        [60, "%OCUPACION", camas, "Number", "DIVIDE(SUM('CAMAS DISPONIBLES'[OCUPADAS]), CALCULATE("
+         "DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]), FILTER('CAMAS DISPONIBLES', " + _FILTRO_CAMAS + ")))", ""],
+        [61, "CamasFiltradas", camas, "Integer", "CALCULATE(DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]), "
+         "FILTER('CAMAS DISPONIBLES', " + _FILTRO_CAMAS + "))", ""],
+        [62, "CAMAS", camas, "Integer", "COUNT('CAMAS DISPONIBLES'[HCACODIGO])", "0"],
+    ])
+    write("relationships.csv", ["ID", "FromTable", "FromColumn", "ToTable", "ToColumn"], [])
+    (folder / "_sim_tables.json").write_text(
+        json.dumps(catalog_patches.briefing_sim_tables(), ensure_ascii=False), encoding="utf-8")
+    (folder / "_metadata_sync.json").write_text('{"semantic_model": "BRIEFING HOSPITALARIO"}', encoding="utf-8")
+    _CACHE["briefing"] = root
+    return root
+
+
+def briefing_sim():
+    if "briefing_sim" not in _CACHE:
+        _CACHE["briefing_sim"] = PowerBISimulator([briefing_root()], today=TODAY)
+    return _CACHE["briefing_sim"]
+
+
+BRIEFING = "BRIEFING HOSPITALARIO"
+
+
+def test_fixed_tables_bed_detail_matches_filtered_count():
+    from tests.realistic import catalog_patches
+    s = briefing_sim()
+    expected = sorted(c["HCACODIGO"] for c in catalog_patches.camas()
+                      if c["ESTADOS_CAM"] == "DISPONIBLE" and c["SERVICIOS"] == "HOSPITALIZACIÓN GENERAL")
+    assert expected == ["403", "407", "411", "415", "419", "422"]
+    # Detalle: camas disponibles con su servicio (sin medida, como una tabla de detalle).
+    detail = table(BRIEFING, "EVALUATE SUMMARIZECOLUMNS('CAMAS DISPONIBLES'[SERVICIOS], "
+                             "'CAMAS DISPONIBLES'[HCACODIGO], TREATAS({\"DISPONIBLE\"}, "
+                             "'CAMAS DISPONIBLES'[ESTADOS_CAM]))", s)
+    general = sorted(row[1] for row in detail["rows"] if row[0] == "HOSPITALIZACIÓN GENERAL")
+    assert general == expected, general
+    total_disponibles = sum(1 for c in catalog_patches.camas() if c["ESTADOS_CAM"] == "DISPONIBLE")
+    assert len(detail["rows"]) == total_disponibles == 18
+    # Conteo filtrado con la medida CAMAS y con COUNTROWS: igual a las filas del detalle.
+    count = value(BRIEFING, "CALCULATE([CAMAS], 'CAMAS DISPONIBLES'[ESTADOS_CAM] = \"DISPONIBLE\", "
+                            "'CAMAS DISPONIBLES'[SERVICIOS] = \"HOSPITALIZACIÓN GENERAL\")", s)
+    rows = value(BRIEFING, "COUNTROWS(FILTER('CAMAS DISPONIBLES', 'CAMAS DISPONIBLES'[ESTADOS_CAM] = \"DISPONIBLE\" "
+                           "&& 'CAMAS DISPONIBLES'[SERVICIOS] = \"HOSPITALIZACIÓN GENERAL\"))", s)
+    assert count == rows == len(expected) == 6
+    # Detalle con la medida (lo que generaría el chatbot): 1 por cama y suma = conteo.
+    per_bed = table(BRIEFING, "EVALUATE SUMMARIZECOLUMNS('CAMAS DISPONIBLES'[SERVICIOS], "
+                              "'CAMAS DISPONIBLES'[HCACODIGO], TREATAS({\"DISPONIBLE\"}, "
+                              "'CAMAS DISPONIBLES'[ESTADOS_CAM]), TREATAS({\"HOSPITALIZACIÓN GENERAL\"}, "
+                              "'CAMAS DISPONIBLES'[SERVICIOS]), \"__value\", [CAMAS])", s)
+    assert sorted(r[1] for r in per_bed["rows"]) == expected and {r[2] for r in per_bed["rows"]} == {1}
+    by_state = table(BRIEFING, "EVALUATE SUMMARIZECOLUMNS('CAMAS DISPONIBLES'[ESTADOS_CAM], \"n\", [CAMAS])", s)
+    assert {r[0] for r in by_state["rows"]} == set(catalog_patches.ESTADOS)
+    assert sum(r[1] for r in by_state["rows"]) == len(catalog_patches.camas())
+
+
+def test_fixed_tables_occupancy_and_patients_by_insurer():
+    from tests.realistic import catalog_patches
+    s = briefing_sim()
+    camas = catalog_patches.camas()
+    occupied = sum(1 for c in camas if c["ESTADO"] in (2, 100))
+    assert value(BRIEFING, "[CamasFiltradas]", s) == 62
+    assert abs(value(BRIEFING, "[%OCUPACION]", s) - occupied / 62) < 1e-9
+    grouped = table(BRIEFING, "EVALUATE SUMMARIZECOLUMNS('PACIENTES X ASEGURADORA'[TERNOMCOM], \"__value\", "
+                              "DISTINCTCOUNT('PACIENTES X ASEGURADORA'[ADNINGRESO])) ORDER BY [__value] DESC", s)
+    assert {r[0]: r[1] for r in grouped["rows"]} == {name: n for name, n, _ in catalog_patches.ASEGURADORAS}
+    total = value(BRIEFING, "DISTINCTCOUNT('PACIENTES X ASEGURADORA'[ADNINGRESO])", s)
+    assert sum(r[1] for r in grouped["rows"]) == total == 43
+    # Cada paciente está en una cama OCUPADA y cada cama OCUPADA tiene un paciente.
+    beds = table(BRIEFING, "EVALUATE CALCULATETABLE(VALUES('CAMAS DISPONIBLES'[HCACODIGO]), "
+                           "'CAMAS DISPONIBLES'[ESTADOS_CAM] = \"OCUPADA\")", s)
+    patients = table(BRIEFING, "EVALUATE VALUES('PACIENTES X ASEGURADORA'[HCACODIGO])", s)
+    assert {r[0] for r in beds["rows"]} == {r[0] for r in patients["rows"]}
+    # Columnas no fijadas: se generan (una por fila); fechas relativas a hoy.
+    codes = table(BRIEFING, "EVALUATE SELECTCOLUMNS('PACIENTES X ASEGURADORA', \"c\", "
+                            "'PACIENTES X ASEGURADORA'[HSUCODIGO], \"f\", 'PACIENTES X ASEGURADORA'[FechaSalida])", s)
+    assert len(codes["rows"]) == 43
+    assert all(r[1] is not None and r[1].date() > TODAY for r in codes["rows"])
+    assert all(str(name).startswith("PACIENTE SIMULADO") for name in
+               (r[0] for r in table(BRIEFING, "EVALUATE VALUES('PACIENTES X ASEGURADORA'[GPANOMCOM])", s)["rows"]))
+
+
+def test_catalog_patches_apply_on_copy():
+    """El parche agrega la medida, las filas fijas y las páginas/visuales al PBIR copiado (sin tocar el original)."""
+    import shutil
+    from tests.realistic import catalog_patches
+    base = Path(tempfile.mkdtemp(prefix="pbi_patch_"))
+    data_root = base / "orig" / "data"
+    shutil.copytree(briefing_root() / "briefing_hospitalario", data_root / "model_metadata" / "briefing_hospitalario")
+    report = data_root / "pbir" / "BRIEFING HOSPITALARIO.Report"
+    page = report / "definition" / "pages" / "p1"
+    (page / "visuals").mkdir(parents=True)
+    (page / "page.json").write_text(json.dumps({"name": "p1", "displayName": "GESTIÓN DE CAMAS"}), encoding="utf-8")
+    (report / ".pbi").mkdir()
+    (report / ".pbi" / "cache.abf").write_text("no copiar", encoding="utf-8")
+    raw = data_root / "raw" / "tablero_briefing_hospitalario"
+    raw.mkdir(parents=True)
+    raw.joinpath("manifest.json").write_text(json.dumps({
+        "report": "BRIEFING HOSPITALARIO", "semantic_model": "BRIEFING HOSPITALARIO",
+        "semantic_model_key": "briefing_hospitalario", "source_group": "tablero_briefing_hospitalario"}),
+        encoding="utf-8")
+    root = base / "cache" / "root"
+    shutil.copytree(data_root / "model_metadata", root / "data" / "model_metadata")
+    (root / "data" / "catalog").mkdir(parents=True)
+    patches = [p for p in catalog_patches.PATCHES if p["semantic_model_key"] == "briefing_hospitalario"]
+    done = catalog_patches.apply_patches(data_root, root, patches)
+    assert done[0]["status"] == "metadata+pbir", done
+    patched = PowerBISimulator([root / "data" / "model_metadata"], today=TODAY)
+    assert patched.models[BRIEFING].measure("CAMAS") is not None
+    assert value(BRIEFING, "[CAMAS]", patched) == len(catalog_patches.camas())
+    copy = root / "data" / "pbir" / "BRIEFING HOSPITALARIO.Report"
+    assert not (copy / ".pbi").exists(), "nunca se copia .pbi (cache.abf)"
+    names = {json.loads(p.read_text(encoding="utf-8"))["displayName"]
+             for p in (copy / "definition" / "pages").glob("*/page.json")}
+    assert names == {"GESTIÓN CAMAS", "INICIO"}, names
+    visuals = [json.loads(v.read_text(encoding="utf-8")) for v in (copy / "definition").rglob("visual.json")]
+    bars = [v for v in visuals if v["visual"]["visualType"] == "clusteredBarChart"]
+    y = bars[0]["visual"]["query"]["queryState"]["Y"]["projections"][0]["field"]
+    assert y["Aggregation"]["Function"] == 2, "DistinctCount en PBIR"
+    manifest = json.loads((root / "data" / "raw" / "tablero_briefing_hospitalario" / "manifest.json")
+                          .read_text(encoding="utf-8"))
+    assert manifest["pbir_path"] == "data/pbir/BRIEFING HOSPITALARIO.Report"
+    original = json.loads((page / "page.json").read_text(encoding="utf-8"))
+    assert original["displayName"] == "GESTIÓN DE CAMAS", "el PBIR original no cambia"
 
 
 def _run_all():

@@ -17,6 +17,9 @@ Datos (data_root):
 
 Modelos sintéticos (synthetic=True, por defecto): tests/realistic/synthetic_models se fusiona
 con data/ en una copia en caché (ver overlay.py); data_root nunca se modifica.
+Parches (patches=True, por defecto; SIM_PATCHES=0 los quita): tests/realistic/catalog_patches.py
+agrega a modelos reales lo que el catálogo del propietario tiene y el data/ local no.
+synthetic_exclude (o SIM_SYNTHETIC_EXCLUDE=tablero_gestion_camas,...) quita modelos sintéticos.
 
 LLM:
   llm="fake" -> Ollama falso de tests/sim (no lee .env; dotenv queda anulado).
@@ -189,9 +192,13 @@ def build_simulator(data_root=None, synthetic=True, today=None, tableros_root="a
     return PowerBISimulator(roots, registry_path=registry, tableros_root=tableros_root, today=today, seed=seed)
 
 
+def _env_flag(name, default="1"):
+    return os.getenv(name, default).strip().lower() not in ("0", "false", "no")
+
+
 def build_engine(data_root=None, llm="fake", powerbi_up=True, synthetic=None, ollama_up=True, quiet=True,
                  today=None, culture="es-CO", net_types=True, default_model=None, env_file=None,
-                 tableros_root="auto"):
+                 tableros_root="auto", patches=None, synthetic_exclude=None):
     """Construye el sistema real de app.py con Power BI simulado.
 
     Devuelve (engine, conversation_manager, formatter, llm_status, powerbi_connection, dax_log).
@@ -204,10 +211,15 @@ def build_engine(data_root=None, llm="fake", powerbi_up=True, synthetic=None, ol
     from tests.realistic.powerbi_sim import adomd
 
     if synthetic is None:   # SIM_SYNTHETIC=0 desactiva el overlay (p. ej. desde tests/eval/run.py)
-        synthetic = os.getenv("SIM_SYNTHETIC", "1").strip().lower() not in ("0", "false", "no")
+        synthetic = _env_flag("SIM_SYNTHETIC")
+    if patches is None:     # SIM_PATCHES=0 desactiva los parches de catalog_patches.py
+        patches = _env_flag("SIM_PATCHES")
+    if synthetic_exclude is None:
+        synthetic_exclude = [s for s in os.getenv("SIM_SYNTHETIC_EXCLUDE", "").split(",") if s.strip()]
     data_root = resolve_data_root(data_root)
     # Siempre sobre una copia en caché: data_root (p. ej. ROOT/data) nunca se modifica.
-    project_root = overlay.build_merged_root(data_root, quiet=quiet, synthetic=synthetic)
+    project_root = overlay.build_merged_root(data_root, quiet=quiet, synthetic=synthetic, patches=patches,
+                                             synthetic_exclude=synthetic_exclude)
 
     simulator = build_simulator(project_root / "data", synthetic=False, today=today,
                                 tableros_root=tableros_root)

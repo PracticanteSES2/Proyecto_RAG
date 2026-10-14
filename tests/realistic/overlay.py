@@ -17,6 +17,11 @@ Pasos (todo con código de src/):
   5. chunk_builder.build_chunks + embedding_indexer.build_vector_index sobre la copia de Qdrant
      (solo se reemplazan los source_group sintéticos).
 
+Parches (catalog_patches.py, patches=True / SIM_PATCHES=1 por defecto): antes del paso 3 se agregan
+a modelos REALES de la copia las medidas/visuales que tiene el catálogo del propietario y no el
+data/ local, con su PBIR copiado y parcheado; el paso 3 reconstruye también esos grupos.
+synthetic_exclude (SIM_SYNTHETIC_EXCLUDE=slug,slug) deja fuera modelos sintéticos concretos.
+
 La caché (por defecto %TEMP%/proyecto_rag_sim/<hash>) se reutiliza mientras no cambien los
 archivos de data/, el overlay ni este módulo.
 """
@@ -37,20 +42,29 @@ COPY_DIRS = ("catalog", "rag", "model_metadata", "vector_db", "semantic_document
 SKIP_FILES = {"knowledge_chunks.json", "semantic_knowledge.json"}   # grandes y no los usa app.py
 
 
-def synthetic_sources():
+def synthetic_sources(exclude=()):
     sources = []
     if not SYNTHETIC_DIR.exists():
         return sources
+    excluded = {str(slug).strip().casefold() for slug in exclude or () if str(slug).strip()}
     for folder in sorted(p for p in SYNTHETIC_DIR.iterdir() if p.is_dir()):
+        if folder.name.casefold() in excluded:
+            continue
         file = folder / "source.json"
         if file.exists():
             sources.append(json.loads(file.read_text(encoding="utf-8")))
     return sources
 
 
-def _fingerprint(data_root, synthetic=True):
+def _variant(synthetic=True, patches=True, synthetic_exclude=()):
+    """Texto que distingue las combinaciones de opciones (caché y huella)."""
+    exclude = ",".join(sorted(str(s).strip().casefold() for s in synthetic_exclude or () if str(s).strip()))
+    return f"synthetic={synthetic}|patches={patches}|exclude={exclude}"
+
+
+def _fingerprint(data_root, synthetic=True, patches=True, synthetic_exclude=()):
     digest = hashlib.sha1()
-    digest.update(f"{Path(data_root).resolve()}|synthetic={synthetic}".encode())
+    digest.update(f"{Path(data_root).resolve()}|{_variant(synthetic, patches, synthetic_exclude)}".encode())
     for name in COPY_DIRS:
         base = Path(data_root) / name
         if not base.exists():
@@ -59,14 +73,16 @@ def _fingerprint(data_root, synthetic=True):
             if path.is_file():
                 stat = path.stat()
                 digest.update(f"{path.relative_to(data_root)}|{stat.st_size}|{int(stat.st_mtime)}".encode())
-    for path in sorted(SYNTHETIC_DIR.rglob("*")) + [Path(__file__), HERE / "build_synthetic_models.py"]:
+    for path in sorted(SYNTHETIC_DIR.rglob("*")) + [Path(__file__), HERE / "build_synthetic_models.py",
+                                                    HERE / "catalog_patches.py"]:
         if path.is_file():
             digest.update(path.read_bytes())
     return digest.hexdigest()
 
 
-def default_cache_dir(data_root, synthetic=True):
-    key = hashlib.sha1(f"{Path(data_root).resolve()}|{synthetic}".encode()).hexdigest()[:10]
+def default_cache_dir(data_root, synthetic=True, patches=True, synthetic_exclude=()):
+    variant = "" if patches and not synthetic_exclude else "|" + _variant(synthetic, patches, synthetic_exclude)
+    key = hashlib.sha1(f"{Path(data_root).resolve()}|{synthetic}{variant}".encode()).hexdigest()[:10]
     return Path(os.getenv("SIM_CACHE_DIR") or Path(tempfile.gettempdir()) / "proyecto_rag_sim") / key
 
 
@@ -128,19 +144,21 @@ def _semantic_catalog(sources, root):
     return {"schema_version": 2, "workspace": "Gestion Clinica", "dashboards": dashboards}
 
 
-def build_merged_root(data_root, cache_dir=None, force=False, quiet=True, synthetic=True):
-    """Devuelve la raíz de proyecto (contiene data/) con data_root + modelos sintéticos.
+def build_merged_root(data_root, cache_dir=None, force=False, quiet=True, synthetic=True, patches=True,
+                      synthetic_exclude=()):
+    """Devuelve la raíz de proyecto (contiene data/) con data_root + modelos sintéticos + parches.
 
-    Con synthetic=False solo copia data_root: así Qdrant (que crea un .lock en su carpeta) y
-    cualquier escritura quedan en la caché y el data/ real no se toca.
+    Con synthetic=False y patches=False solo copia data_root: así Qdrant (que crea un .lock en su
+    carpeta) y cualquier escritura quedan en la caché y el data/ real no se toca.
     """
     from tests.realistic.build_synthetic_models import write_report
+    from tests.realistic import catalog_patches
 
     data_root = Path(data_root).resolve()
-    cache = Path(cache_dir) if cache_dir else default_cache_dir(data_root, synthetic)
+    cache = Path(cache_dir) if cache_dir else default_cache_dir(data_root, synthetic, patches, synthetic_exclude)
     root = cache / "root"
     stamp = cache / "fingerprint.txt"
-    fingerprint = _fingerprint(data_root, synthetic)
+    fingerprint = _fingerprint(data_root, synthetic, patches, synthetic_exclude)
     if not force and stamp.exists() and stamp.read_text().strip() == fingerprint and (root / "data").exists():
         return root
 
@@ -149,8 +167,9 @@ def build_merged_root(data_root, cache_dir=None, force=False, quiet=True, synthe
     data = root / "data"
     data.mkdir(parents=True)
     _copy_data(data_root, data)
-    sources = synthetic_sources() if synthetic else []
-    if not sources:
+    sources = synthetic_sources(synthetic_exclude) if synthetic else []
+    patched = catalog_patches.apply_patches(data_root, root) if patches else []
+    if not sources and not any(p["status"] == "metadata+pbir" for p in patched):
         cache.mkdir(parents=True, exist_ok=True)
         stamp.write_text(fingerprint)
         return root

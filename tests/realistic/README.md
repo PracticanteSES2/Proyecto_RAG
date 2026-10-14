@@ -50,7 +50,8 @@ duerme ese coste (para ver el razonamiento en vivo); sin dormir, `dax_log[i]["co
 `medir_consultas` lo suma. Un `CommandTimeout` menor que el coste cancela la consulta como ADOMD.
 
 Opciones del chat: `--then` (repetible: número de botón, `__none__`/`ninguna` o texto), `--dax`,
-`--no-reasoning`, `--no-synthetic`, `--powerbi-down`, `--data-root RUTA`, `--culture es-CO|en-US|invariant`.
+`--no-reasoning`, `--no-synthetic`, `--no-patches`, `--excluir-sintetico SLUG`, `--powerbi-down`,
+`--data-root RUTA`, `--culture es-CO|en-US|invariant`.
 
 ## API del arnés (igual que `tests/sim/harness.py`)
 
@@ -77,6 +78,8 @@ culture="es-CO", net_types=True, default_model=None, env_file=None, tableros_roo
   a `%TEMP%/proyecto_rag_sim/<hash>/root/data` (o `SIM_CACHE_DIR`); Qdrant local crea su `.lock` en la copia.
   La caché se reconstruye sola cuando cambian `data/`, el overlay o `overlay.py`.
 - **synthetic** (por defecto activado; `SIM_SYNTHETIC=0` lo desactiva): agrega los modelos sintéticos.
+  **synthetic_exclude** (`SIM_SYNTHETIC_EXCLUDE=tablero_gestion_camas,...`) quita algunos.
+- **patches** (por defecto activado; `SIM_PATCHES=0` lo desactiva): aplica `catalog_patches.py` (ver abajo).
 - **llm="real"**: el `.env` del checkout principal se carga ejecutando el bloque `try/load_dotenv`
   de `app.py`. Si no existe, `llm_status["sim_note"]` lo dice y MedGemma queda `unavailable`. Si el
   servidor no responde, `llm_status["status"] != "ready"` (y la app sigue sin descripciones LLM).
@@ -170,6 +173,35 @@ Si el `data/` real ya trae un modelo con el mismo slug, gana el real.
 
 Ejemplo: «¿Cuántos egresos hubo en 2025?» ofrece EGRESOS (BRIEFING HOSPITALARIO), Egresos (INFORMES EJECUTIVOS 2026),
 Egresos (TABLERO GESTION CAMAS), Total Egresos (CONSOLIDADO...) y «Ninguna de las anteriores».
+
+## Parches sobre modelos reales (`catalog_patches.py`)
+
+El `data/` local es una instantánea más antigua que la del propietario. Para reproducir sus pruebas con usuarios del
+hospital (2026-10-14) el overlay agrega a la COPIA de `data/` solo lo que su catálogo tiene y el local no:
+
+| Modelo | Qué se agrega |
+| --- | --- |
+| BRIEFING HOSPITALARIO | %OCUPACION y CamasFiltradas en INICIO (visual «%OCUPACIÓN»: CamasFiltradas coincide por ese alias), %OCUPACION y la medida CAMAS en GESTIÓN CAMAS (la página local «GESTIÓN DE CAMAS» se renombra; matriz SERVICIOS × ESTADOS_CAM supuesta), visual «PACIENTES por ASEGURADORA» (DISTINCTCOUNT(ADNINGRESO) por TERNOMCOM) en INICIO y **filas fijas** de CAMAS DISPONIBLES (72 camas: HOSPITALIZACIÓN GENERAL, HOSPITALIZACIÓN INTERMEDIOS, UCI ADULTOS, PEDIATRÍA, GINECOBSTETRICIA, URGENCIAS) y PACIENTES X ASEGURADORA (43 pacientes, uno por cama ocupada, con su EPS) |
+| DEMANDA INSATISFECHA | HOSPITALIZACIÓN = SUM(DEMANDA_INS) (CONSOLIDADO y SOLICITUD CAMAS), TOTAL_SOLICITUD_CAMAS, TERCEROS[TERNOMCOM] (la tabla local sigue llamándose SOLICITUD_CAMAS) |
+| TABLERO EPS | %OCUPACIONALC (tabla %OCUPACIONAL) en TRIAGES ATENDIDOS, tarjeta «Ocupación de urgencias» |
+
+Cómo: agrega filas a `model_metadata/<slug>/*.csv` de la copia, escribe `_sim_tables.json`, copia el PBIR original
+(sin `.pbi`) a la caché, le agrega/renombra páginas y visuales y escribe `raw/<grupo>/manifest.json`:
+`PowerBICatalogManager.run()` reconstruye los catálogos técnico/visual y las métricas maestras de esos grupos (el
+resto del catálogo queda igual). Lo hecho queda en `data/catalog/patches_report.json` de la caché.
+
+El modelo sintético TABLERO GESTION CAMAS («% Ocupación», «Camas disponibles») no existe en el catálogo del propietario
+y cambia sus contrapreguntas (ofrece «Camas disponibles» y desvía «qué camas...» a su documentación): los casos del
+hospital en `tests/eval/questions.json` lo quitan con `"arnes_opciones": {"excluir_sintetico": ["tablero_gestion_camas"]}`
+(en el chat: `--excluir-sintetico tablero_gestion_camas`).
+
+### Filas fijas en el simulador (`<slug>/_sim_tables.json`)
+
+`{"tables": {"TABLA": {"columns": [...], "rows": [[...], ...]}}}` junto a la metadata de un modelo: esas tablas usan
+exactamente esas filas (fechas `AAAA-MM-DD` o `today`, `today-3`, `today+2`); las columnas de datos que falten se
+generan como siempre y las calculadas se evalúan con su DAX (ESTADOS_CAM, OCUPADAS, MOSTRAR). Así un detalle
+(`SUMMARIZECOLUMNS('CAMAS DISPONIBLES'[SERVICIOS], 'CAMAS DISPONIBLES'[HCACODIGO], TREATAS({"DISPONIBLE"}, ...))`) y
+su conteo filtrado coinciden (6 camas disponibles en HOSPITALIZACIÓN GENERAL: 403, 407, 411, 415, 419, 422).
 
 ## Garantías
 
