@@ -256,6 +256,57 @@ def test_table_columns_and_min_rows_for_detail_tables():
     assert {"table_columns", "table_min_rows"} <= runner.KNOWN_EXPECT_KEYS
 
 
+def test_filters_none_rejects_scope_words_as_filters():
+    general = powerbi_result(filters=[{"column": "SERVICIOS", "value": "HOSPITALIZACIÓN GENERAL"}])
+    expect = {"filters_none": [{"value": "GENERAL"}, {"column": "SERVICIO"}]}
+    _, checks = ex.evaluate_turn(expect, general, "**%OCUPACION**: 72,58 %", [])
+    assert set(failed(checks)) == {"filter_none *=GENERAL", "filter_none SERVICIO=None"}, checks
+    _, checks = ex.evaluate_turn(expect, powerbi_result(filters=[{"year": 2025, "type": "date_range"}]), "x", [])
+    assert not failed(checks), checks
+    _, checks = ex.evaluate_turn(expect, clarification_result(), "¿Cuál?", [])
+    assert all(c["ok"] is None for c in checks if c["check"].startswith("filter_none")), checks
+    assert "filters_none" in runner.KNOWN_EXPECT_KEYS
+
+
+def test_constant_table_forbids_repeated_values_per_row():
+    # Agrupado por una columna que no filtra la medida: el mismo total en cada fila.
+    rows = [{"EGRESOS_POR_SERVICIO[TERNOMCOM]": eps, "[__value]": 2410} for eps in ("A", "B", "C")]
+    repeated = powerbi_result(result_type="table", rows=rows)
+    _, checks = ex.evaluate_turn({"forbid": ["constant_table"]}, repeated, "x", [])
+    assert "forbid constant_table" in failed(checks), checks
+    rows[1]["[__value]"] = 7
+    _, checks = ex.evaluate_turn({"forbid": ["constant_table"]}, powerbi_result(result_type="table", rows=rows), "x", [])
+    assert "forbid constant_table" not in failed(checks), checks
+    # Sin filas en el resultado: columnas numéricas de la tabla markdown (sin la de total).
+    ui = ("| EPS | PACIENTES |\n| --- | ---: |\n| NUEVA EPS | 2.410 |\n| SURA | 2.410 |\n| SANITAS | 2.410 |\n"
+          "| **Total** | **7.230** |")
+    _, checks = ex.evaluate_turn({"forbid": ["constant_table"]}, powerbi_result(), ui, [])
+    assert "forbid constant_table" in failed(checks), checks
+    ui_ok = ui.replace("| SURA | 2.410 |", "| SURA | 1.204 |")
+    _, checks = ex.evaluate_turn({"forbid": ["constant_table"]}, powerbi_result(), ui_ok, [])
+    assert "forbid constant_table" not in failed(checks), checks
+    # Un escalar, una tabla corta o una contrapregunta no aplican.
+    _, checks = ex.evaluate_turn({"forbid": ["constant_table"]}, powerbi_result(), "**PESO**: 488,3", [])
+    assert "forbid constant_table" not in failed(checks), checks
+    short = "| CAMA | N |\n| --- | --- |\n| 403 | 1 |\n| 407 | 1 |"
+    assert not ex.constant_table(powerbi_result(), short)
+    _, checks = ex.evaluate_turn({"forbid": ["constant_table"]}, clarification_result(), ui, [])
+    assert "forbid constant_table" not in failed(checks), checks
+
+
+def test_select_cases_accepts_id_patterns():
+    data = {"cases": [{"id": i, "category": "d_agrupado"} for i in
+                      ("b_hospital_x", "v_listado_a", "v_relacion_b", "d_pacientes_observados_por_aseguradora")]}
+    picked = runner.select_cases(data, case_ids=["*hospital*", "v_*", "d_pacientes_observados_por_aseguradora"])
+    assert [c["id"] for c in picked] == [c["id"] for c in data["cases"]], picked
+    assert [c["id"] for c in runner.select_cases(data, case_ids=["v_l*"])] == ["v_listado_a"]
+    try:
+        runner.select_cases(data, case_ids=["x_*"])
+        raise AssertionError("un patrón sin casos debe fallar")
+    except SystemExit as error:
+        assert "x_*" in str(error)
+
+
 def test_clarification_expectations_use_buttons():
     from src.chatbot.response_formatter import clarification_buttons
 

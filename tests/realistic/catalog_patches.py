@@ -22,6 +22,9 @@ el catálogo del propietario tiene y el local no:
   TABLERO EPS
     - %OCUPACIONALC (tabla %OCUPACIONAL) en la página TRIAGES ATENDIDOS, tarjeta «Ocupación de
       urgencias».
+  TABLERO FARMACIA (solo filas fijas, sin tocar el informe ni el catálogo)
+    - PRODUCTOS_VENCIDOS (5 productos) y VENCIMIENTO_PRODUCTOS (3 con mes <= 1, 3 con mes 2-4):
+      los casos v_ de «lista de...»/«cuáles...» verifican el total y el listado.
 
 Cómo se aplica (overlay.build_merged_root, nunca sobre data/):
   1. Agrega tablas/columnas/medidas/relaciones a la copia de model_metadata/<slug>/*.csv y escribe
@@ -134,6 +137,42 @@ def pacientes():
     return rows
 
 
+# ----------------------------------------------------------------------------
+# Datos fijos: productos vencidos y en vencimiento (TABLERO FARMACIA)
+# ----------------------------------------------------------------------------
+
+# (IPRCODIGO, producto, cantidad, fecha de vencimiento) — PRODUCTOS_VENCIDOS: tabla «PRODUCTOS
+# VENCIDOS» (código, producto, cantidad, fecha) y tarjeta «MEDICAMENTOS VENCIDOS» (suma de cantidad).
+PRODUCTOS_VENCIDOS = [
+    ("MV-1001", "ACETAMINOFEN 500 MG TABLETA", 12, "2026-08-31"),
+    ("MV-1002", "AMOXICILINA 500 MG CAPSULA", 30, "2026-09-15"),
+    ("MV-1003", "DIPIRONA 2.5 G/5 ML AMPOLLA", 8, "2026-09-30"),
+    ("MV-1004", "OMEPRAZOL 20 MG CAPSULA", 25, "2026-10-05"),
+    ("MV-1005", "CEFTRIAXONA 1 G VIAL", 4, "2026-10-10"),
+]
+
+# (IPRCODIGO, producto, meses para vencer, fecha, lote, zona, cantidad) — VENCIMIENTO_PRODUCTOS: la
+# tarjeta «MEDICAMENTOS EN VENCIMIENTO 0-30 DÍAS» y su tabla filtran mes <= 1 (3 productos); la de
+# 30-120 días, mes 2-4. ilsfecven es texto en el modelo.
+PRODUCTOS_EN_VENCIMIENTO = [
+    ("PV-2001", "SALBUTAMOL INHALADOR 100 MCG", 0, "2026-10-25", "L-5501", "BODEGA CENTRAL", 6),
+    ("PV-2002", "ENOXAPARINA 40 MG JERINGA", 1, "2026-11-08", "L-5502", "STOCK URGENCIAS", 15),
+    ("PV-2003", "METOCLOPRAMIDA 10 MG AMPOLLA", 1, "2026-11-12", "L-5503", "BODEGA CENTRAL", 20),
+    ("PV-2004", "LOSARTAN 50 MG TABLETA", 2, "2026-12-20", "L-5504", "BODEGA CENTRAL", 40),
+    ("PV-2005", "HIDROCORTISONA 100 MG VIAL", 3, "2027-01-18", "L-5505", "STOCK URGENCIAS", 9),
+    ("PV-2006", "RANITIDINA 50 MG AMPOLLA", 4, "2027-02-15", "L-5506", "BODEGA CENTRAL", 11),
+]
+
+
+def farmacia_sim_tables():
+    vencidos = [{"IPRCODIGO": code, "iprdescor": name, "iddcantid": qty, "IDFECDOC": fecha}
+                for code, name, qty, fecha in PRODUCTOS_VENCIDOS]
+    proximos = [{"IPRCODIGO": code, "IPRDESCOR": name, "mes": mes, "ilsfecven": fecha, "ILSCODIGO": lote,
+                 "NombreZona": zona, "IFICANTID": qty}
+                for code, name, mes, fecha, lote, zona, qty in PRODUCTOS_EN_VENCIMIENTO]
+    return {"tables": {"PRODUCTOS_VENCIDOS": _fixture(vencidos), "VENCIMIENTO_PRODUCTOS": _fixture(proximos)}}
+
+
 def _fixture(rows):
     columns = list(rows[0])
     return {"columns": columns, "rows": [[row.get(c) for c in columns] for row in rows]}
@@ -233,6 +272,12 @@ PATCHES = [
                 ["card", "Ocupación de urgencias", [["measure", "%OCUPACIONAL", "%OCUPACIONALC"]]],
             ]},
         ],
+    },
+    {
+        # Solo filas fijas (sin páginas): el catálogo de TABLERO FARMACIA queda igual.
+        "semantic_model_key": "tablero_farmacia",
+        "source_group": "tablero_farmacia",
+        "sim_tables": farmacia_sim_tables,
     },
 ]
 
@@ -412,6 +457,9 @@ def apply_patches(data_root, root, patches=None):
             continue
         patch_metadata(folder, patch)
         entry["status"] = "metadata"
+        if not (patch.get("pages") or patch.get("rename_pages")):
+            entry["reason"] = "sin cambios en el informe: no se reconstruye el catálogo"
+            continue
         manifest_path = Path(data_root) / "raw" / group / "manifest.json"
         manifest = _read_json(manifest_path) if manifest_path.exists() else {}
         original = _original_report(data_root, manifest) if manifest else None

@@ -31,6 +31,32 @@ python -m tests.eval.run --harness realistic --excluir-sintetico tablero_gestion
 python -m tests.eval.test_eval                               # pruebas del evaluador
 ```
 
+`--case` admite patrones (`fnmatch`): `--case "v_*"`, `--case "*hospital*,v_*"`.
+
+### Solo los casos del hospital y sus variantes (integración)
+
+Los casos de la prueba con usuarios del hospital (2026-10-14: ids con `hospital` más
+`d_pacientes_observados_por_aseguradora`) y sus variantes de generalidad (`v_*`, otros tableros con las mismas
+formas de respuesta) se ejecutan juntos en ~2 grupos de motor:
+
+```bash
+python -m tests.eval.run --harness realistic --llm fake --quiet \
+    --case "*hospital*,d_pacientes_observados_por_aseguradora,v_*" --out tests/eval/out/hospital
+```
+
+PowerShell: `python -m tests.eval.run --harness realistic --llm fake --quiet --case "*hospital*,d_pacientes_observados_por_aseguradora,v_*" --out tests/eval/out/hospital`.
+El resumen final cuenta pasan / XFAIL / XPASS: un XPASS es un arreglo que ya funciona (quita su `xfail`).
+Las variantes `v_*` se agrupan por forma de respuesta:
+
+| Prefijo | Qué prueba |
+| --- | --- |
+| `v_escalar_*` | Un solo valor con palabras de alcance («en el hospital», «general», «institucional», «todo el hospital»): no son filtros |
+| `v_agrupado_*` | «por X» / «detalle de M por X» con nombres en plural o flexionados (servicios, especialidades, aseguradoras) |
+| `v_relacion_*` | La única columna válida para agrupar está en otra tabla relacionada; nunca una tabla sin relación (mismo valor en cada fila) |
+| `v_sin_dimension_*` | La dimensión no existe para esa medida: debe decirlo nombrándola, sin tabla con valores repetidos |
+| `v_listado_*` | «cuántos… y cuáles», «lista de…», «qué… están/hay»: total + listado con columnas de negocio, sin datos personales |
+| `v_control_*` | Controles negativos: deben seguir siendo un solo valor aunque la tarjeta esté en una página «DETALLE…» |
+
 Salida por defecto: `tests/eval/out/<arnés>-<fecha>/` (ignorada por git). Con datos reales el informe puede
 contener cifras y nombres del modelo: no lo subas al repositorio ni lo compartas fuera.
 
@@ -99,6 +125,7 @@ Categorías: `a_kpi_simple`, `b_kpi_periodo`, `c_kpi_filtro`, `d_agrupado`, `e_a
 | `answer_any` / `answer_all` / `answer_none` | Textos en la respuesta mostrada |
 | `keywords`, `min_keyword_coverage` | Palabras clave del docx que debe cubrir una respuesta documental (por defecto 50 %) |
 | `options_any`, `options_all`, `min_options`, `has_none_option`, `prompt_any` | Contrapreguntas: algún botón contiene alguno de los textos / cada texto está en algún botón (p. ej. ofrece ambos tableros), nº de opciones, «Ninguna de las anteriores», texto de la pregunta |
+| `filters_none` | Filtros que NO deben aplicarse (`{"value": "GENERAL"}`, `{"column": "SERVICIOS"}`): palabras de alcance como «general» o «del hospital» no son valores de una columna |
 | `forbid` / `allow` | Agregar o quitar prohibiciones |
 
 Las comprobaciones que no aplican (p. ej. la métrica de un turno que terminó en contrapregunta) se marcan «no aplica»
@@ -110,7 +137,8 @@ Siempre activas: `none_text` (la UI muestra «None»), `exception`, `internal_te
 Ollama...), `empty_answer`, `invented_numbers` (solo RAG: cifras de la respuesta que no están en las fuentes
 recuperadas ni en la pregunta), `english` (respuestas largas que no parecen español) y `total_without_filter`
 (dio un dato de Power BI sin aplicar ni avisar un filtro esperado). Opcionales: `numbers` (no debe dar cifras),
-`powerbi_answer` (no debe responder con un dato), `generic_failure` (mensaje genérico de error).
+`powerbi_answer` (no debe responder con un dato), `generic_failure` (mensaje genérico de error) y `constant_table`
+(tabla de 3 o más filas con el mismo valor en todas: se agrupó por una columna que no filtra la tabla de la medida).
 
 ## Métricas de calidad
 
