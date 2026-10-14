@@ -239,7 +239,9 @@ class QueryEngine:
         self._trace = ReasoningTrace(kind, text, listener=getattr(self, "progress_listener", None))
         domains = domain_cache_for(getattr(self, "powerbi_provider", None))
         if domains is not None:
-            domains.begin_turn()
+            # Con el texto del turno: sin un código en él («403», «UCI-06») las
+            # columnas de códigos no se exploran (src/providers/domain_cache.py).
+            domains.begin_turn(question=self._exploration_text(kind, text))
         # Estado del servidor al empezar (queda en el razonamiento y en la
         # exportación): llamadas a MedGemma en curso, conexiones, hilos...
         before = self._server_snapshot()
@@ -275,6 +277,20 @@ class QueryEngine:
             self._trace = None
             if domains is not None:
                 domains.end_turn()
+
+    def _exploration_text(self, kind, text):
+        """Texto en el que puede venir un código que el usuario nombró: el del
+        turno y, si es un botón, la pregunta pendiente (sin el id de la opción,
+        «%OCUPACIÓN [761d17ce09971f3d]»: ese id no es un código del usuario)."""
+        parts = [str(text or "")]
+        if kind == "option":
+            parts[0] = re.sub(r"\s*\[[^\]]*\]\s*$", "", parts[0])
+            for name in ("_pending_query_plan", "_pending_dashboard_clarification", "_pending_master_metric"):
+                pending = getattr(self, name, None)
+                if isinstance(pending, dict):
+                    parts.extend(str(pending[key]) for key in ("question", "original_question")
+                                 if pending.get(key))
+        return " ".join(part for part in parts if part)
 
     def _server_snapshot(self):
         try:

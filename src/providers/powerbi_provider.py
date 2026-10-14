@@ -544,6 +544,12 @@ class PowerBIProvider:
         la cancela y se devuelve status="error" con timed_out=True. Lo usan
         las consultas de exploración de valores (src/providers/domain_cache.py);
         las consultas de las respuestas no tienen límite (como siempre).
+
+        El resultado (éxito o error) trae además `wait_s` (espera del candado
+        de la conexión: otra consulta en curso), `connect_s` (abrir la conexión
+        del modelo si no estaba abierta: Interactive Login, XMLA) y `exec_s`
+        (la consulta). CommandTimeout solo cuenta `exec_s`: quien mide el
+        total (src/providers/domain_cache.py) descuenta los otros dos.
         """
 
         model = (
@@ -564,18 +570,25 @@ class PowerBIProvider:
         connection = None
         started = None
         outcome = {"status": None, "timed_out": False}
+        timing = {"wait_s": 0.0, "connect_s": 0.0, "exec_s": 0.0}
         STATS.powerbi_query_begin(model)
+        requested = time.perf_counter()
 
         try:
 
             # Una sola operación por conexión al mismo tiempo.
             with self._connection_lock:
 
+                acquired = time.perf_counter()
+                timing["wait_s"] = round(acquired - requested, 3)
+
                 connection = (
                     self._get_connection(
                         model
                     )
                 )
+
+                timing["connect_s"] = round(time.perf_counter() - acquired, 3)
 
                 command = (
                     connection
@@ -632,6 +645,7 @@ class PowerBIProvider:
                     )
 
                 outcome["status"] = "success"
+                timing["exec_s"] = round(time.perf_counter() - started, 3)
                 return {
                     "status":
                         "success",
@@ -643,6 +657,7 @@ class PowerBIProvider:
                         rows,
                     "row_count":
                         len(rows),
+                    **timing,
                 }
 
         except Exception as error:
@@ -699,7 +714,15 @@ class PowerBIProvider:
                 # diagnóstico (si se pierde, la siguiente consulta la reabre
                 # y podría pedir inicio de sesión interactivo).
                 STATS.powerbi_timeout_connection(model, kept)
+            if started is not None:
+                timing["exec_s"] = round(time.perf_counter() - started, 3)
+            elif connection is None:
+                # Falló al abrir la conexión: todo el tiempo fue de la apertura.
+                timing["connect_s"] = round(
+                    max(0.0, time.perf_counter() - requested - timing["wait_s"]), 3
+                )
             return {
+                **timing,
                 "status":
                     "error",
                 "semantic_model":
