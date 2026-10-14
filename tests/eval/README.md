@@ -26,6 +26,7 @@ python -m tests.eval.run --category e_ambiguo --category i_multiturno
 python -m tests.eval.run --case i_opcion_por_boton,c_sim_lav_antifluidos_ene2026
 python -m tests.eval.run --list                              # lista casos (marca los xfail del arnés)
 python -m tests.eval.run --out C:/ruta/fuera/del/repo        # carpeta de salida
+python -m tests.eval.run --harness realistic --excluir-sintetico tablero_gestion_camas   # sin ese modelo sintético
 
 python -m tests.eval.test_eval                               # pruebas del evaluador
 ```
@@ -74,7 +75,12 @@ que `tests/sim/harness.py` (`build_engine(...)` → `(engine, cm, formatter, llm
 - `xfail`: comportamiento deseado que hoy falla por un bug real del chatbot (como en `tests/sim/test_smoke.py`).
   No cuenta para `--strict`; si empieza a pasar sale como **XPASS**: quita la marca.
 - Turnos: `{"user": "texto"}` o `{"button": ...}` con `1` (primer botón, 1-based), `"none"` («Ninguna de las
-  anteriores»), un texto contenido en la etiqueta o `{"label_any": [...]}` / `{"id": "..."}`.
+  anteriores»), un texto contenido en la etiqueta o `{"label_any": [...]}` / `{"id": "..."}`. Con `"opcional": true`
+  el botón solo se pulsa si el turno anterior contrapreguntó («si contrapregunta, al elegir X la respuesta es Y»);
+  si respondió directamente, el turno no aplica y no falla.
+- `arnes_opciones`: `{"excluir_sintetico": ["tablero_gestion_camas"]}` quita modelos sintéticos del arnés realista para
+  ese caso (los casos se agrupan por opciones y cada grupo construye su motor). Lo usan los casos del hospital
+  (2026-10-14) para reproducir el catálogo del propietario.
 
 Categorías: `a_kpi_simple`, `b_kpi_periodo`, `c_kpi_filtro`, `d_agrupado`, `e_ambiguo` (debe contrapreguntar),
 `f_documental`, `g_fuera_alcance`, `h_compuesta`, `i_multiturno`.
@@ -87,7 +93,8 @@ Categorías: `a_kpi_simple`, `b_kpi_periodo`, `c_kpi_filtro`, `d_agrupado`, `e_a
 | `status` | Estados crudos aceptables (`result["status"]`) |
 | `metrics_any` / `models_any` | Alguna etiqueta/id/medida, título de su visual, nombre con que coincidió o tabla de la medida (o modelo/informe/página) contiene alguno de los textos (sin tildes ni mayúsculas) |
 | `filters` | Lista de `{"column": "SERVICIO", "value": "ANTIFLUIDOS"}` (columna opcional) o `{"year": 2026, "month": 1}` (`"year": "actual"`/`"anterior"` = año en curso/pasado). Acepta `AÑO`/`MES` enteros, el mes en texto (`NOMBRE_MES = 'abril'`, `MES = 'ABRIL'`), `date_range` o el DAX. Un filtro no aplicado pero declarado en la respuesta («No pude aplicar: ...») cuenta como válido salvo `"allow_declared_filters": false` |
-| `group_by_any`, `result_type` | Agrupación (`servicio`, `turno`...) y `table`/`scalar` |
+| `group_by_any`, `result_type` | Agrupación (`servicio`, `turno`...; también la tabla de la columna) y `table`/`scalar` |
+| `table_columns`, `table_min_rows` | Tabla de detalle: cada elemento (texto o lista de alternativas, p. ej. `["cama", "HCACODIGO"]`) está en algún encabezado de una tabla de la respuesta (markdown) o en las columnas del resultado; nº mínimo de filas |
 | `numbers` | Cifras que deben aparecer en la respuesta (acepta 488,3 / 3.906,4 / 12,5 %) |
 | `answer_any` / `answer_all` / `answer_none` | Textos en la respuesta mostrada |
 | `keywords`, `min_keyword_coverage` | Palabras clave del docx que debe cubrir una respuesta documental (por defecto 50 %) |

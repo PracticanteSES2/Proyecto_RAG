@@ -89,6 +89,8 @@ def validate_questions(data):
         for number, turn in enumerate(turns, 1):
             if ("user" in turn) == ("button" in turn):
                 problems.append(f"{where} turno {number}: debe tener 'user' o 'button' (uno solo)")
+            if turn.get("opcional") and "button" not in turn:
+                problems.append(f"{where} turno {number}: 'opcional' solo aplica a un turno 'button'")
             unknown = set(turn.get("expect") or {}) - KNOWN_EXPECT_KEYS
             if unknown:
                 problems.append(f"{where} turno {number}: claves de expect desconocidas {sorted(unknown)}")
@@ -99,6 +101,9 @@ def validate_questions(data):
             problems.append(f"{where}: arneses desconocidos {sorted(unknown_harness)}")
         if case.get("xfail") is not None and not isinstance(case["xfail"], (str, dict)):
             problems.append(f"{where}: xfail debe ser texto o {{arnés: motivo}}")
+        unknown_options = set(case.get("arnes_opciones") or {}) - KNOWN_HARNESS_OPTIONS
+        if unknown_options:
+            problems.append(f"{where}: arnes_opciones desconocidas {sorted(unknown_options)}")
     return problems
 
 
@@ -106,8 +111,22 @@ KNOWN_EXPECT_KEYS = {
     "route", "status", "metrics_any", "models_any", "filters", "allow_declared_filters",
     "group_by_any", "result_type", "numbers", "answer_any", "answer_all", "answer_none",
     "keywords", "min_keyword_coverage", "options_any", "options_all", "min_options", "has_none_option",
-    "prompt_any", "forbid", "allow",
+    "prompt_any", "forbid", "allow", "table_columns", "table_min_rows",
 }
+
+
+# Opciones del arnés por caso («arnes_opciones»): los casos se agrupan por opciones y
+# cada grupo usa su propio motor. excluir_sintetico: modelos sintéticos del overlay
+# que se quitan (p. ej. ["tablero_gestion_camas"] para reproducir el catálogo del
+# propietario, que no tiene ese tablero); solo lo usa el arnés realista.
+KNOWN_HARNESS_OPTIONS = {"excluir_sintetico"}
+
+
+def harness_options(case, extra_exclude=()):
+    """Clave de configuración del arnés para un caso (tupla ordenada de sintéticos excluidos)."""
+    options = case.get("arnes_opciones") or {}
+    excluded = {str(s).strip() for s in [*(options.get("excluir_sintetico") or []), *extra_exclude] if str(s).strip()}
+    return tuple(sorted(excluded))
 
 
 def select_cases(data, categories=(), case_ids=(), harness_name=None, only_applicable=False):
@@ -147,10 +166,16 @@ def import_harness(name):
         raise
 
 
-def build_system(harness, name, llm):
+def build_system(harness, name, llm, synthetic_exclude=()):
     """Llama a harness.build_engine con los argumentos que acepte."""
     params = inspect.signature(harness.build_engine).parameters
     kwargs = {}
+    if synthetic_exclude:
+        if "synthetic_exclude" in params:
+            kwargs["synthetic_exclude"] = list(synthetic_exclude)
+        else:
+            print(f"[aviso] el arnés {name} no admite excluir modelos sintéticos: se ignora "
+                  f"{list(synthetic_exclude)}.", file=sys.stderr)
     if "llm" in params:
         kwargs["llm"] = llm
     elif llm == "real":
@@ -260,6 +285,15 @@ def run_case(case, system, harness, judge=None, harness_name="sim"):
         option = None
         if "button" in turn:
             option = resolve_button(turn["button"], buttons)
+            if option is None and turn.get("opcional") and not buttons:
+                # «Si hay contrapregunta, al elegir X...»: el turno anterior ya
+                # respondió sin contrapreguntar, así que este botón no aplica.
+                turns_out.append({
+                    "index": index, "input": f"[botón] {turn['button']}", "input_type": "button",
+                    "skipped": True, "passed": True,
+                    "reason": "turno opcional: el turno anterior no contrapreguntó (no aplica)",
+                })
+                continue
             if option is None:
                 aborted = f"el turno {index} pide el botón {turn['button']!r} y no estaba disponible"
                 turns_out.append({
@@ -397,6 +431,9 @@ def parse_args(argv=None):
     parser.add_argument("--strict", action="store_true",
                         help="código de salida 1 si falla algún caso aplicable a este arnés")
     parser.add_argument("--judge", help="juez LLM opcional 'modulo:funcion' (desactivado por defecto)")
+    parser.add_argument("--excluir-sintetico", action="append", metavar="SLUG",
+                        help="quita un modelo sintético del arnés realista en todos los casos "
+                             "(además de los de 'arnes_opciones' de cada caso); repetible o separado por coma")
     parser.add_argument("--list", action="store_true", help="lista los casos y termina")
     parser.add_argument("--quiet", action="store_true", help="sin progreso por caso")
     return parser.parse_args(argv)
@@ -416,6 +453,8 @@ def main(argv=None):
             first = case["turns"][0].get("user") or case["turns"][0].get("button")
             tags = ",".join(case.get("arneses") or ["realistic"])
             known = " (xfail)" if xfail_reason(case, args.harness) else ""
+            options = harness_options(case)
+            known += f" (sin {','.join(options)})" if options else ""
             print(f"{case['category']:16s} {case['id']:42s} [{tags}]{known} {first}")
         print(f"\n{len(cases)} casos")
         return 0
@@ -423,11 +462,28 @@ def main(argv=None):
     harness = import_harness(args.harness)
     judge = quality.load_judge(args.judge)
     started = time.perf_counter()
-    system = build_system(harness, args.harness, args.llm)
-    llm_status = system[3] if len(system) > 3 else None
-    build_s = time.perf_counter() - started
-    results = run_cases(cases, system, harness, judge=judge, harness_name=args.harness,
-                        progress=not args.quiet)
+    extra_exclude = _split(args.excluir_sintetico)
+    groups = {}
+    for case in cases:
+        groups.setdefault(harness_options(case, extra_exclude), []).append(case)
+    by_id = {}
+    llm_status = None
+    build_s = 0.0
+    for options, group in groups.items():
+        if len(groups) > 1 and not args.quiet:
+            print(f"-- {len(group)} caso(s) " + (f"sin {', '.join(options)}" if options else "con el arnés completo"),
+                  flush=True)
+        build_started = time.perf_counter()
+        system = build_system(harness, args.harness, args.llm, synthetic_exclude=options)
+        build_s += time.perf_counter() - build_started
+        if llm_status is None:
+            llm_status = system[3] if len(system) > 3 else None
+        for outcome in run_cases(group, system, harness, judge=judge, harness_name=args.harness,
+                                 progress=not args.quiet):
+            if options:
+                outcome["arnes_opciones"] = {"excluir_sintetico": list(options)}
+            by_id[outcome["id"]] = outcome
+    results = [by_id[case["id"]] for case in cases]
     elapsed = time.perf_counter() - started
 
     out_dir = Path(args.out) if args.out else (

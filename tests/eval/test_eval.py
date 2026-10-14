@@ -237,6 +237,25 @@ def test_group_by_and_result_type():
     assert set(failed(checks)) == {"group_by", "result_type"}, checks
 
 
+def test_table_columns_and_min_rows_for_detail_tables():
+    ui = ("**CAMAS** disponibles: **2**\n\n| CAMA | SERVICIO |\n| --- | --- |\n| 403 | HOSPITALIZACIÓN GENERAL |\n"
+          "| 407 | HOSPITALIZACIÓN GENERAL |\n| **Total** | **2** |")
+    result = powerbi_result(metric="CAMAS", model="BRIEFING HOSPITALARIO")
+    expect = {"table_columns": [["cama", "HCACODIGO"], "servicio"], "table_min_rows": 2}
+    _, checks = ex.evaluate_turn(expect, result, ui, [])
+    assert not failed(checks), checks
+    # Encabezados desde las filas del resultado (tabla agrupada) sin markdown.
+    grouped = powerbi_result(result_type="table", rows=[{"CAMAS DISPONIBLES[HCACODIGO]": "403", "[__value]": 1}])
+    _, checks = ex.evaluate_turn({"table_columns": ["hcacodigo"], "table_min_rows": 1}, grouped, "x", [])
+    assert not failed(checks), checks
+    # Un escalar no es una tabla de detalle.
+    _, checks = ex.evaluate_turn(expect, result, "**CAMAS**: 26", [])
+    assert set(failed(checks)) == {"table_columns", "table_min_rows"}, checks
+    _, checks = ex.evaluate_turn(expect, clarification_result(), "¿Cuál?", [])
+    assert all(c["ok"] is None for c in checks if c["check"].startswith("table_")), checks
+    assert {"table_columns", "table_min_rows"} <= runner.KNOWN_EXPECT_KEYS
+
+
 def test_clarification_expectations_use_buttons():
     from src.chatbot.response_formatter import clarification_buttons
 
@@ -359,6 +378,8 @@ class _FakeEngine:
         self.last_reasoning = None
 
     def process(self, text):
+        if str(text).startswith("total"):   # respuesta directa, sin contrapregunta
+            return powerbi_result(metric="TOTAL CIRUGÍAS", model="Gestion Quirurgica")
         return clarification_result()
 
     def select_clarification_option(self, option_id, label=None):
@@ -402,6 +423,25 @@ def test_build_system_passes_only_supported_arguments():
     runner.build_system(SimpleNamespace(build_engine=sim_build_engine), "sim", "down")
     assert calls == [("realistic", "real", True), ("sim", False, True)], calls
 
+    # Modelos sintéticos excluidos: solo si el arnés lo admite.
+    def realistic_with_exclude(llm="fake", quiet=True, synthetic_exclude=None):
+        calls.append(("exclude", synthetic_exclude))
+        return ("engine", "cm", "formatter", {"status": "ready"}, {}, [])
+
+    runner.build_system(SimpleNamespace(build_engine=realistic_with_exclude), "realistic", "fake",
+                        synthetic_exclude=("tablero_gestion_camas",))
+    runner.build_system(SimpleNamespace(build_engine=sim_build_engine), "sim", "fake",
+                        synthetic_exclude=("tablero_gestion_camas",))
+    assert calls[-2] == ("exclude", ["tablero_gestion_camas"]) and calls[-1][0] == "sim", calls
+    case = {"arnes_opciones": {"excluir_sintetico": ["b", "a"]}}
+    assert runner.harness_options(case) == ("a", "b")
+    assert runner.harness_options({}, ["c"]) == ("c",)
+    problems = runner.validate_questions({"cases": [{
+        "id": "x", "category": "a_kpi_simple", "fuente": {"docx": "a.docx"}, "arnes_opciones": {"otra": 1},
+        "turns": [{"user": "a", "opcional": True}]}]})
+    assert any("arnes_opciones desconocidas" in p for p in problems), problems
+    assert any("'opcional' solo aplica" in p for p in problems), problems
+
 
 def test_run_case_presses_buttons_and_scores():
     harness = _fake_harness()
@@ -426,6 +466,20 @@ def test_run_case_presses_buttons_and_scores():
     case["turns"].append({"user": "otra", "expect": {}})
     out = runner.run_case(case, system, harness, harness_name="sim")
     assert not out["passed"] and out["turns"][1]["skipped"] and out["turns"][2]["skipped"], out["turns"]
+
+    # Botón opcional: si el turno anterior respondió sin contrapregunta, no aplica (el caso no falla);
+    # si hubo contrapregunta y la opción no está, falla como siempre.
+    optional = {
+        "id": "opcional", "category": "i_multiturno", "fuente": {"docx": "x.docx"},
+        "turns": [{"user": "total de cirugías", "expect": {}},
+                  {"button": {"label_any": ["realizadas"]}, "opcional": True, "expect": {"route": ["powerbi"]}}],
+    }
+    out = runner.run_case(optional, system, harness, harness_name="sim")
+    assert out["passed"] and out["turns"][1]["skipped"] and out["turns"][1]["passed"], out["turns"]
+    optional["turns"][0]["user"] = "¿Cuántas cirugías realizadas hubo en 2024?"
+    optional["turns"][1]["button"] = {"label_any": ["no existe"]}
+    out = runner.run_case(optional, system, harness, harness_name="sim")
+    assert not out["passed"] and out["turns"][1]["skipped"] and not out["turns"][1]["passed"], out["turns"]
 
 
 def test_summary_and_reports_are_written():

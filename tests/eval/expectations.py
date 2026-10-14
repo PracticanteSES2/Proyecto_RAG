@@ -182,6 +182,40 @@ def group_by_texts(result):
     return [str(t) for t in texts if t]
 
 
+def table_headers(result, ui):
+    """Encabezados de las tablas de la respuesta: los de las tablas markdown de la UI
+    («| CAMA | SERVICIO |» seguida de «| --- |») y las columnas de las filas del resultado
+    ('CAMAS DISPONIBLES[HCACODIGO]')."""
+    headers = []
+    lines = [line.strip() for line in str(ui or "").splitlines()]
+    for index, line in enumerate(lines[:-1]):
+        separator = lines[index + 1]
+        if line.startswith("|") and re.fullmatch(r"\|(?:\s*:?-{3,}:?\s*\|)+", separator):
+            headers += [cell.strip() for cell in line.strip("|").split("|") if cell.strip()]
+    extra = [item.get("rows") for item in as_list(result.get("tables")) if isinstance(item, dict)]
+    for rows in [result.get("rows"), *extra]:
+        first = (rows or [None])[0] if isinstance(rows, list) else None
+        if isinstance(first, dict):
+            headers += [str(k) for k in first if k not in headers]
+    return headers
+
+
+def table_row_count(result, ui):
+    """Filas de la tabla de la respuesta (resultado; si no, filas markdown sin la de total)."""
+    rows = result.get("rows")
+    if isinstance(rows, list) and rows and result.get("result_type") == "table":
+        return len(rows)
+    count = 0
+    lines = [line.strip() for line in str(ui or "").splitlines()]
+    for index, line in enumerate(lines):
+        if not line.startswith("|") or re.fullmatch(r"\|(?:\s*:?-{3,}:?\s*\|)+", line):
+            continue
+        is_header = index + 1 < len(lines) and re.fullmatch(r"\|(?:\s*:?-{3,}:?\s*\|)+", lines[index + 1])
+        if not is_header and "**total**" not in line.lower():
+            count += 1
+    return count
+
+
 def number_in(text, number):
     """True si `number` aparece en el texto (488.3, 488,3, 3.906,4, 12,5 %...)."""
     try:
@@ -400,6 +434,33 @@ def evaluate_turn(expect, result, ui, buttons, question="", forbid=(), allow=())
             checks.append(_check(
                 "result_type", result.get("result_type") == expect["result_type"],
                 f"obtenido={result.get('result_type')} · esperado={expect['result_type']}",
+            ))
+
+    # --- tabla de detalle («qué camas»: columnas CAMA y SERVICIO) -----------
+    # Cada elemento es un texto o una lista de alternativas que debe estar en
+    # algún encabezado de la tabla mostrada (o en las columnas del resultado).
+    table_columns = as_list(expect.get("table_columns"))
+    if table_columns:
+        if not is_data:
+            checks.append(_check("table_columns", None, "sin dato de Power BI (no aplica)"))
+        else:
+            headers = table_headers(result, ui)
+            missing = [
+                alternatives for alternatives in (as_list(item) for item in table_columns)
+                if not any(contains(header, needle) for header in headers for needle in alternatives)
+            ]
+            checks.append(_check(
+                "table_columns", not missing,
+                f"encabezados={headers[:8]} · faltan={missing}" if missing else f"encabezados={headers[:8]}",
+            ))
+    if expect.get("table_min_rows") is not None:
+        if not is_data:
+            checks.append(_check("table_min_rows", None, "sin dato de Power BI (no aplica)"))
+        else:
+            count = table_row_count(result, ui)
+            checks.append(_check(
+                "table_min_rows", count >= int(expect["table_min_rows"]),
+                f"{count} filas (mín {expect['table_min_rows']})",
             ))
 
     # --- cifras esperadas ----------------------------------------------------
