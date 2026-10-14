@@ -1745,6 +1745,10 @@ class QueryEngine:
         elif rows:
             value = self._row_value(rows[0])
 
+        # «Total + listado»: solo después de un total correcto y con una sola
+        # consulta extra (src/semantic/detail_list.py).
+        detail = self._detail_listing(plan, value) if mode == "scalar" and value is not None else None
+
         metric = plan.get("metric", {})
         return {
             "status": "success",
@@ -1773,7 +1777,304 @@ class QueryEngine:
             "powerbi": powerbi_result,
             "query_plan": plan,
             "source_context": plan.get("source_context"),
+            **({"detail": detail} if detail else {}),
         }
+
+    # ========================================================
+    # LISTADO DE DETALLE («TOTAL + LISTADO»)
+    # ========================================================
+
+    def _listable_choice(self, question, plan):
+        """Pregunta de listado explícita («lista de camas bloqueadas», «qué
+        camas están disponibles») con varios indicadores posibles: si exactamente
+        uno cuenta registros identificables de la entidad nombrada (CAMAS =
+        COUNT(HCACODIGO) frente a HOSPITALIZACIÓN = SUM(DEMANDA_INS) o
+        NUMERO_CAMAS, un número fijo por servicio), se usa ese sin
+        contrapreguntar. Devuelve ([métricas en orden], verificar): con
+        verificar=True (rescate por nombre de tabla) el plan con cada métrica
+        debe explicar la pregunta para usarse."""
+        from src.semantic.answer_shape import detail_request
+        from src.semantic.detail_list import entity_matches_metric, listable_entity
+
+        if not isinstance(plan, dict) or plan.get("status") not in ("ambiguous", "not_found"):
+            return [], False
+        request = detail_request(question)
+        # Solo con una lista pedida de forma explícita («lista de», «qué
+        # camas están…»): un indicador que no cuenta registros no puede
+        # responderla. «¿Cuántas … hay?» también se responde con un total, así
+        # que la contrapregunta entre indicadores se mantiene.
+        if not request or request.get("strength") != "explicit":
+            return [], False
+        if plan.get("status") == "not_found":
+            return self._listable_by_table(request), True
+        resolution = plan.get("metric_resolution") or {}
+        items = [
+            item for item in (resolution.get("candidates") or resolution.get("suggestions") or [])
+            if (item.get("metric") or {}).get("metric_id")
+        ]
+        # Solo las opciones que se ofrecerían (dentro del margen de la contrapregunta).
+        scores = [item.get("score") for item in items if isinstance(item.get("score"), (int, float))]
+        if scores:
+            floor = max(scores) - self._CLARIFICATION_MARGIN
+            items = [
+                item for item in items
+                if not isinstance(item.get("score"), (int, float)) or item["score"] >= floor
+            ]
+        candidates = [item["metric"] for item in items]
+        if len(candidates) < 2:
+            return [], False
+        listable = []
+        for metric in candidates:
+            try:
+                entity = listable_entity(metric, self.query_plan_builder, counting_only=True)
+            except Exception:
+                entity = None
+            if entity and entity_matches_metric(request["entity"], metric):
+                listable.append(metric)
+        if not listable:
+            # Ninguna opción cuenta la entidad: «qué interconsultas están
+            # pendientes» ofrecía %PENDIENTE / PENDIENTES1; la tabla
+            # INTERCONSULTAS tiene un único conteo.
+            return self._listable_by_table(request), True
+        if len(listable) != 1:
+            return [], False
+        chosen = listable[0]
+        self._think(
+            "Pregunta de listado: indicador que permite listar",
+            f"«{request['phrase']}» pide la lista de {request['entity']}; de las opciones "
+            f"({', '.join(str(m.get('label')) for m in candidates)}) solo {chosen.get('label')} "
+            f"cuenta {request['entity']} identificables ({chosen.get('model_expression') or chosen.get('dax_expression')}): "
+            "se usa sin contrapreguntar",
+        )
+        return [chosen], False
+
+    def _drop_listed_entity(self, question, plan):
+        """«lista de PACIENTES en espera…» con EN_ESPERA: «pacientes» es lo que
+        se lista (cada fila de la tabla), no un filtro sin aplicar."""
+        from src.semantic.answer_shape import detail_request
+        from src.semantic.request_phrases import singular
+
+        entity = str((detail_request(question) or {}).get("entity") or "")
+        forms = {entity, singular(entity)}
+        kept, dropped = [], []
+        for term in plan.get("unapplied_terms") or []:
+            words = [w for w in str(term).split() if self._normalize_text(w) not in forms]
+            (kept.append(" ".join(words)) if words else dropped.append(term))
+            if words and len(words) < len(str(term).split()):
+                dropped.append(entity)
+        if dropped:
+            plan["unapplied_terms"] = [term for term in kept if term]
+            self._think(
+                "Pregunta de listado",
+                f"«{entity}» es lo que se lista (cada fila de {(plan.get('metric') or {}).get('table')}): "
+                "no es un filtro sin aplicar",
+            )
+
+    @staticmethod
+    def _plan_explains_question(plan):
+        """El plan con el indicador rescatado explica la pregunta: está listo
+        y deja a lo sumo una palabra sin aplicar («pendientes» frente a «SIN
+        RESPUESTA»). Con más («sanitas hospitalizados camas») era otra tabla."""
+        if not isinstance(plan, dict) or plan.get("status") != "ready":
+            return False
+        words = " ".join(str(term) for term in plan.get("unapplied_terms") or []).split()
+        return len(words) <= 1
+
+    def _listable_by_table(self, request):
+        """La entidad de la lista nombra una tabla del modelo («interconsultas»
+        -> INTERCONSULTAS) que tiene un único conteo de registros (mismo modelo,
+        tabla y expresión aunque se publique con varios nombres): ese indicador.
+        None si no hay ninguno o hay varios (se mantiene la contrapregunta)."""
+        from src.semantic.detail_list import compact, listable_entity, words
+        from src.semantic.request_phrases import singular
+
+        builder = self.query_plan_builder
+        entity_word = str(request.get("entity") or "")
+        forms = {entity_word, singular(entity_word)}
+        question_words = set(request.get("question_words") or ())
+        question_words |= {singular(word) for word in question_words}
+        # La pregunta nombra la tabla con todas sus palabras («interconsultas»
+        # -> INTERCONSULTAS; «pacientes en ESPERA» -> EN_ESPERA). Primero las
+        # que además son la entidad de la lista; si varias cumplen, ninguna.
+        by_entity, by_words = {}, {}
+        for metric in getattr(builder, "metrics", None) or []:
+            if metric.get("validation_status") not in (None, "approved") or not metric.get("metric_id"):
+                continue
+            table_words = {singular(word) for word in words(metric.get("table"))} | words(metric.get("table"))
+            content = {word for word in words(metric.get("table")) if len(word) >= 4}
+            covered = bool(content) and all(
+                word in question_words or singular(word) in question_words for word in content
+            )
+            if not covered:
+                continue
+            try:
+                entity = listable_entity(metric, builder, counting_only=True)
+            except Exception:
+                entity = None
+            if not entity:
+                continue
+            key = (compact(metric.get("semantic_model")), compact(entity.get("table")),
+                   compact(entity.get("function")), compact(entity.get("column")))
+            target = by_entity if forms & table_words else by_words
+            target.setdefault(key, metric)
+        # Candidatos en orden (tabla de la entidad, luego tabla nombrada con
+        # sus palabras); cada grupo solo cuenta si tiene un único conteo. Quien
+        # llama arma el plan y lo descarta si deja la pregunta sin explicar.
+        chosen = [next(iter(group.values())) for group in (by_entity, by_words) if len(group) == 1]
+        for metric in chosen:
+            self._think(
+                "Pregunta de listado: indicador que permite listar",
+                f"«{request['phrase']}» pide la lista de {entity_word}; ninguna opción la cuenta, pero la tabla "
+                f"{metric.get('table')} ({metric.get('semantic_model')}) tiene un único conteo de registros: "
+                f"{metric.get('label')} ({metric.get('model_expression') or metric.get('dax_expression')}); "
+                "se usa si el plan con ese indicador explica la pregunta",
+            )
+        return chosen
+
+    def _detail_listing(self, plan, total):
+        """Lista de las entidades que cuenta el indicador («qué camas están
+        disponibles», «lista de camas bloqueadas», «cuántas camas hay
+        disponibles en ...» con pocas camas). None si la pregunta no la pide;
+        si no se puede traer, el total se responde igual y se dice por qué."""
+        from src.semantic.detail_list import (
+            consistency, detail_max_rows, detail_rows, detail_timeout_s, plan_detail,
+        )
+
+        try:
+            spec = plan_detail(plan, self.query_plan_builder)
+        except Exception as error:
+            self._think("Listado de detalle", f"no se pudo planear: {type(error).__name__}: {error}")
+            return None
+        if spec.get("status") == "not_requested":
+            return None
+        request = spec.get("request") or {}
+        strength = request.get("strength")
+        cap = detail_max_rows()
+        base = {
+            "strength": strength, "entity_word": request.get("entity"), "cue": request.get("phrase"),
+            "cap": cap, "total": total,
+        }
+        if spec.get("status") != "ready":
+            self._think(
+                "Listado de detalle",
+                f"la pregunta pide una lista («{request.get('phrase')}»), pero el indicador "
+                f"{(plan.get('metric') or {}).get('label')} no cuenta registros identificables "
+                f"({spec.get('reason')}): se responde solo el total",
+            )
+            # Pedida de forma explícita («lista de…»): se dice por qué no hay lista.
+            return {**base, "status": "not_listable", "reason": spec.get("reason")} if strength == "explicit" else None
+        columns = spec["columns"]
+        detail = {
+            **base, "columns": columns, "source": spec.get("source"), "visual": spec.get("visual"),
+            "excluded_private": spec.get("excluded_private") or [],
+            "entity": spec.get("entity"), "entity_shown": spec.get("entity_shown"),
+        }
+        header_text = ", ".join(
+            c["header"] + (" (oculta: identificador técnico)" if c.get("hidden") else "") for c in columns
+        )
+        origin = (
+            f"tabla de detalle del tablero ({spec.get('visual')})" if spec.get("source") == "catalogo"
+            else "reglas (entidad contada, ubicación y filtros)"
+        )
+        private_line = (
+            "columnas con datos de personas excluidas: " + ", ".join(detail["excluded_private"])
+            + " (mostrarlas es decisión del propietario: POWERBI_DETAIL_ALLOWED_COLUMNS)"
+            if detail["excluded_private"] else None
+        )
+        from src.chatbot.response_formatter import _to_number
+
+        number = _to_number(total)
+        if number is not None and number <= 0:
+            self._think("Listado de detalle", "el total es 0: no hay filas que listar")
+            return {**detail, "status": "empty", "rows": []}
+        if strength == "soft" and number is not None and number > cap:
+            self._think(
+                "Listado de detalle",
+                f"columnas: {header_text} · origen: {origin}",
+                f"el total ({number:g}) supera el tope de {cap} filas (POWERBI_DETAIL_MAX_ROWS) y la "
+                "pregunta no pide la lista de forma explícita: se da el total y se ofrece filtrar "
+                "(sin consulta extra)",
+                private_line,
+            )
+            return {**detail, "status": "too_long", "rows": []}
+
+        generator = getattr(self.query_plan_dax_generator, "generate_detail", None)
+        if not callable(generator):
+            return None
+        limit = cap + 1
+        dax_result = generator(plan, columns, limit)
+        if dax_result.get("status") != "generated":
+            self._think("Listado de detalle", f"no se generó la consulta: {dax_result.get('reason')}")
+            return {**detail, "status": "error", "error": dax_result.get("reason"), "rows": []}
+        validator = getattr(self.dax_validator, "validate_detail_query", None)
+        if callable(validator):
+            try:
+                validation = validator(
+                    dax_result["dax"], columns, limit, semantic_model=plan.get("semantic_model"),
+                )
+            except Exception as error:
+                validation = {"valid": False, "errors": [f"{type(error).__name__}: {error}"]}
+            if not validation.get("valid"):
+                self._think(
+                    "Listado de detalle", "consulta rechazada por el validador DAX",
+                    *[str(e) for e in validation.get("errors") or []],
+                )
+                return {**detail, "status": "error", "error": "dax_rejected", "rows": [],
+                        "dax": dax_result["dax"]}
+        self._activity("Trayendo la lista de detalle de Power BI")
+        try:
+            powerbi_result = self.powerbi_provider.execute_dax(
+                dax=dax_result["dax"], semantic_model=plan.get("semantic_model"),
+                timeout_s=detail_timeout_s(),
+            )
+        except TypeError:
+            powerbi_result = self.powerbi_provider.execute_dax(
+                dax=dax_result["dax"], semantic_model=plan.get("semantic_model"),
+            )
+        except Exception as error:
+            powerbi_result = {"status": "error", "error": f"{type(error).__name__}: {error}"}
+        detail["dax"] = dax_result["dax"]
+        if powerbi_result.get("status") != "success":
+            reason = "tiempo agotado" if powerbi_result.get("timed_out") else "error de Power BI"
+            self._think(
+                "Listado de detalle",
+                f"columnas: {header_text} · tope {cap} filas · origen: {origin}",
+                f"la consulta del listado falló ({reason}): se responde el total sin la lista",
+                "DAX: " + " ".join(str(dax_result["dax"]).split()),
+                f"error: {short(powerbi_result.get('error') or powerbi_result.get('message'), 300)}",
+            )
+            return {**detail, "status": "error", "error": reason, "rows": []}
+        cells, counts, truncated, all_counts = detail_rows(powerbi_result.get("rows") or [], columns, cap)
+        check = consistency(total, all_counts, truncated, (spec.get("entity") or {}).get("function"))
+        detail.update({
+            "status": "ok", "rows": cells, "counts": counts, "truncated": truncated,
+            "consistency": check,
+            # Varias filas iguales (la entidad no se muestra o se repite): se
+            # agrega la cantidad de cada fila. Con una suma (PRODUCTOS
+            # VENCIDOS = SUM(cantidad)) la cantidad de cada fila es el dato.
+            "show_counts": bool((spec.get("entity") or {}).get("aggregate"))
+            or any(c is not None and c != 1 for c in counts),
+            "value_header": (
+                str((plan.get("metric") or {}).get("label") or "CANTIDAD")
+                if (spec.get("entity") or {}).get("aggregate") else "CANTIDAD"
+            ),
+        })
+        if check == "constant":
+            detail.update({"status": "inconsistent", "rows": [], "counts": []})
+        self._think(
+            "Listado de detalle",
+            f"columnas: {header_text} · origen: {origin}",
+            f"filas: {len(cells)}{' (recortada: hay más)' if truncated else ''} · tope {cap} "
+            "(POWERBI_DETAIL_MAX_ROWS)",
+            {
+                "ok": "coincide con el total", "mismatch": "las filas NO suman el total (se avisa)",
+                "constant": "la medida da el mismo valor en cada fila (no responde al detalle): no se muestra la lista",
+                "unknown": "no se puede comparar con el total (lista recortada o total no numérico)",
+            }[check],
+            private_line,
+            "DAX: " + " ".join(str(dax_result["dax"]).split()),
+        )
+        return detail
 
     # ========================================================
     # ACLARACIONES DE MÉTRICAS EN QUERY PLAN
@@ -3385,6 +3686,25 @@ class QueryEngine:
                 question=question, intent_result=intent_result,
             )
             self._trace_plan(plan, f"Query Plan ({stage})")
+            listable, verify = self._listable_choice(question, plan)
+            for metric in listable:
+                trial = self.query_plan_builder.build(
+                    question=question, intent_result=intent_result,
+                    selected_metric_id=metric["metric_id"],
+                )
+                if verify and not self._plan_explains_question(trial):
+                    self._think(
+                        "Pregunta de listado: indicador descartado",
+                        f"con {metric.get('label')} ({metric.get('semantic_model')}) quedan sin aplicar: "
+                        + (", ".join(str(t) for t in trial.get("unapplied_terms") or []) or str(trial.get("status")))
+                        + "; no es la tabla que pide la pregunta",
+                    )
+                    continue
+                plan = trial
+                if verify:
+                    self._drop_listed_entity(question, plan)
+                self._trace_plan(plan, "Query Plan con el indicador que permite listar")
+                break
         except Exception as error:
             self._think("El Query Plan lanzó un error", f"{type(error).__name__}: {error}")
             return {

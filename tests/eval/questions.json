@@ -3613,9 +3613,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "el total ya es CAMAS con ESTADOS_CAM = DISPONIBLE y SERVICIOS = HOSPITALIZACIÓN GENERAL (6), pero la respuesta no trae la lista de camas (código y servicio)"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3752,7 +3749,7 @@
         "realistic"
       ],
       "xfail": {
-        "realistic": "«qué camas» no se detecta como pregunta de datos: responde documentación (RAG)"
+        "realistic": "ya va a Power BI y lista las camas de UCI ADULTOS, pero sin ESTADOS_CAM = DISPONIBLE (lista las 10; el filtro es de agente/hospital-indicador)"
       },
       "arnes_opciones": {
         "excluir_sintetico": [
@@ -3859,9 +3856,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«lista de camas bloqueadas» no se detecta como pregunta de datos: responde documentación (RAG)"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -4684,9 +4678,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«lista de» no se detecta como pregunta de datos: responde documentación (RAG)"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «lista de productos vencidos» es el detalle de PRODUCTOS_VENCIDOS (tabla «PRODUCTOS VENCIDOS»: código, producto, cantidad, fecha), no documentación. Filas fijas: 5 productos (79 unidades). Línea base: responde la documentación (RAG).",
       "turns": [
         {
@@ -4731,7 +4722,7 @@
         "realistic"
       ],
       "xfail": {
-        "realistic": "al elegir la tarjeta 0-30 DÍAS da 6 (no aplica su filtro mes <= 1), «No pude aplicar: vencen proximos» y no lista los productos"
+        "realistic": "al elegir la tarjeta 0-30 DÍAS ya lista los productos, pero da 6 (no aplica su filtro mes <= 1) y «No pude aplicar: vencen proximos» (agente/hospital-indicador2)"
       },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). Total + listado con el filtro propio de la tarjeta: «cuántos se vencen en los próximos 30 días y cuáles» = MEDICAMENTOS EN VENCIMIENTO 0-30 DÍAS (mes <= 1): 3 productos (SALBUTAMOL, ENOXAPARINA, METOCLOPRAMIDA) y su lista, sin los de 30-120 días. Si contrapregunta, se elige esa tarjeta. Línea base: contrapregunta de una sola opción y, al elegirla, 6 (sin el filtro mes <= 1 de la tarjeta), «No pude aplicar: vencen proximos» y sin listado.",
       "turns": [
@@ -4803,7 +4794,7 @@
         "realistic"
       ],
       "xfail": {
-        "realistic": "«qué ... están» no se detecta como pregunta de datos: responde documentación (RAG)"
+        "realistic": "ya lista las interconsultas de MEDICINA INTERNA (INTERCONSULTAS SIN RESPUESTA, sin documento ni paciente), pero declara «No pude aplicar: pendientes» (pendientes = sin respuesta)"
       },
       "arnes_opciones": {
         "excluir_sintetico": [
@@ -4855,7 +4846,7 @@
         "realistic"
       ],
       "xfail": {
-        "realistic": "elige «Camas ocupadas» de GESTIÓN CAMAS y contrapregunta «no entendí «uci»»"
+        "realistic": "elige «Camas ocupadas» de GESTIÓN CAMAS y contrapregunta «no entendí «uci»» (indicador: agente/hospital-indicador2); la petición «y cuáles son» ya se detecta como listado"
       },
       "arnes_opciones": {
         "excluir_sintetico": [
@@ -4928,7 +4919,7 @@
         "realistic"
       ],
       "xfail": {
-        "realistic": "contrapregunta CAMAS / NUMERO CAMAS: «de sanitas» no se usa como filtro de PACIENTES X ASEGURADORA"
+        "realistic": "contrapregunta CAMAS / NUMERO CAMAS: «de sanitas» no se usa como filtro de PACIENTES X ASEGURADORA (agente/hospital-indicador2); «y en qué camas» ya se detecta como listado"
       },
       "arnes_opciones": {
         "excluir_sintetico": [
@@ -4990,9 +4981,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "«lista de» no se detecta como pregunta de datos: responde documentación (RAG)"
-      },
       "descripcion": "Variante de generalidad (hospital 2026-10-14). «lista de pacientes en espera de cita de cardiología»: detalle de EN_ESPERA con especialidad CARDIOLOGIA (fecha, especialidad, días en espera, médico, aseguradora...) sin documento, nombre, teléfono ni correo del paciente. Línea base: responde la documentación (RAG) de otro tablero.",
       "turns": [
         {
