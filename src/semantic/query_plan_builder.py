@@ -3137,7 +3137,30 @@ class QueryPlanBuilder:
         period["label"] = f"{period['label']} (años con datos)"
         return period
 
-    def _apply_temporal(self, analysis, candidates, semantic_model, group_by):
+    def _current_state_period(self, period):
+        """¿El periodo es «hoy» (el día en curso)?"""
+        start, end = as_date(period.get("start")), as_date(period.get("end"))
+        today = self._today()
+        return bool(start and end and start == today and end == today + timedelta(days=1))
+
+    def _snapshot_table(self, metric, candidates):
+        """Tabla de hechos sin ninguna fecha (CAMAS DISPONIBLES): refleja el
+        estado actual. Solo si se conoce su tabla y ninguna columna temporal
+        válida (propia o relacionada) quedó entre las candidatas."""
+        if metric is None or any(self._is_temporal_field(field) for field in candidates):
+            return None
+        entry = self._fact_table_entry(metric)
+        if not entry or not entry.get("columns"):
+            return None
+        for column in entry.get("columns") or []:
+            if (
+                self._classify_data_type(column.get("data_type")) == "date"
+                or set(normalize_text(column.get("name")).split()) & TEMPORAL_WORDS
+            ):
+                return None
+        return entry.get("name")
+
+    def _apply_temporal(self, analysis, candidates, semantic_model, group_by, metric=None):
         """Filtros del periodo + agrupación temporal («por mes») del plan.
 
         Devuelve {"filters", "unapplied", "notes", "unsupported_period",
@@ -3145,6 +3168,9 @@ class QueryPlanBuilder:
         (`buckets`, uno por mes/trimestre/año...) que el generador DAX evalúa
         con los mismos filtros de periodo: funciona igual con columna de fecha
         o con columnas AÑO/MES enteras. Si no se puede agrupar, se declara.
+        Las fechas de tablas que no filtran el indicador ya no están en
+        `candidates` (`_metric_dimensions`): «hoy» sobre una tabla sin fecha
+        (estado actual, p. ej. CAMAS DISPONIBLES) responde el valor actual.
         """
         result = {
             "filters": [], "unapplied": [], "notes": [], "unsupported_period": None,
@@ -3154,10 +3180,19 @@ class QueryPlanBuilder:
         granularity = analysis.get("granularity")
         if period:
             filters, unapplied, notes = self._period_filters(period, candidates, semantic_model)
-            if not filters:
+            snapshot = None if filters else self._snapshot_table(metric, candidates)
+            if not filters and snapshot and self._current_state_period(period):
+                phrase = _original_phrase(analysis.get("question") or "", period.get("phrase")) or "hoy"
+                result["notes"].append(
+                    f"«{phrase}»: se muestra el estado actual de {snapshot} "
+                    "(la tabla refleja el momento presente, sin histórico por fechas)."
+                )
+                period = None
+            elif not filters:
                 result["unsupported_period"] = period
                 result["unapplied"] = unapplied
                 return result
+        if period:
             result["filters"].extend(filters)
             result["unapplied"].extend(unapplied)
             result["notes"].extend(notes)
@@ -6710,7 +6745,7 @@ class QueryPlanBuilder:
             used_fields.add((normalize_text(field["table"]), normalize_text(field["column"])))
             consumed_tokens.update(implicit.get("tokens", ()))
 
-        temporal_result = self._apply_temporal(temporal, candidates, semantic_model, group_by)
+        temporal_result = self._apply_temporal(temporal, candidates, semantic_model, group_by, metric=metric)
         requested_period = temporal_result["unsupported_period"]
         if requested_period:
             return {
