@@ -178,6 +178,49 @@ class QueryPlanDAXGenerator:
         )
         return {"status": "generated", "mode": "scalar", "dax": dax}
 
+    # ---------------- listado de detalle («total + listado») ----------------
+    def generate_detail(self, plan, columns, limit):
+        """Filas de detalle coherentes con el total del plan escalar.
+
+        Una fila por combinación de `columns` (p. ej. SERVICIOS, HCACODIGO) con
+        los MISMOS filtros del total y la medida en "__value": SUMMARIZECOLUMNS
+        quita las filas en las que la medida queda en blanco, así que el
+        listado respeta también los filtros internos de la medida (CamasFiltradas
+        excluye EXP/OH/321/322 y esas camas no salen). TOPN(limit) acota las
+        filas (se pide el tope + 1 para saber si la lista se recortó).
+        """
+        if plan.get("status") != "ready":
+            return {"status": "rejected", "reason": "query_plan_not_ready"}
+        metric = plan.get("metric", {})
+        expression = metric.get("dax_expression")
+        if not expression:
+            return {"status": "rejected", "reason": "metric_without_dax_expression"}
+        if metric.get("validation_status") != "approved":
+            return {"status": "rejected", "reason": "metric_not_approved"}
+        refs = [
+            self._column_expression(item["table"], item["column"])
+            for item in columns or [] if item.get("table") and item.get("column")
+        ]
+        if not refs:
+            return {"status": "rejected", "reason": "detail_without_columns"}
+        arguments = [*refs, *self._filter_expressions(plan), '"__value"', expression]
+        summarize = (
+            "SUMMARIZECOLUMNS(\n        "
+            + ",\n        ".join(arguments)
+            + "\n    )"
+        )
+        order = ", ".join(f"{ref} ASC" for ref in refs)
+        dax = (
+            "EVALUATE\n"
+            "TOPN(\n"
+            f"    {int(limit)},\n"
+            f"    {summarize},\n"
+            f"    {', '.join(f'{ref}, ASC' for ref in refs)}\n"
+            ")\n"
+            f"ORDER BY {order}"
+        )
+        return {"status": "generated", "mode": "detail", "dax": dax, "limit": int(limit)}
+
     # ---------------- ranking (orden y límite) ----------------
     def generate_ranked(self, plan):
         """Agrupación ordenada y, si se pidió, limitada con TOPN.

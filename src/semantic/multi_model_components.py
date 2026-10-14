@@ -354,6 +354,19 @@ class MultiModelDAXValidator(
             semantic_model
         ]
 
+    def validate_detail_query(
+        self,
+        dax,
+        columns,
+        limit,
+        semantic_model=None,
+    ):
+        """Validación de la consulta del listado de detalle en su modelo."""
+        model = semantic_model or self.default_semantic_model
+        if not model:
+            return {"valid": False, "errors": ["No se pudo determinar el modelo semántico."]}
+        return self._validator(model).validate_detail_query(dax, columns, limit)
+
     def validate(
         self,
         dax_result,

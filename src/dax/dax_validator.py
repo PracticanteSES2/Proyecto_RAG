@@ -403,6 +403,22 @@ class DAXValidator:
 
 
     # ========================================================
+    # LISTADO DE DETALLE
+    # ========================================================
+
+    def validate_detail_query(
+        self,
+        dax,
+        columns,
+        limit,
+    ):
+        """Consulta del listado de detalle (TOPN + SUMMARIZECOLUMNS): columnas
+        del modelo, tope de filas y sin construcciones prohibidas."""
+        from src.semantic.detail_list import validate_detail_dax
+
+        return validate_detail_dax(dax, columns, self.catalog, limit)
+
+    # ========================================================
     # VALIDACIÓN PRINCIPAL
     # ========================================================
 
