@@ -3234,7 +3234,7 @@
       "tablero": "Briefing Hospitalario",
       "fuente": {"docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/Documentacion Tablero Detalle Ocupación.docx", "seccion": "Cantidad de pacientes"},
       "arneses": ["realistic"],
-      "descripcion": "Caso real del propietario (tests/eval/out/transcripts/conversacion_20261013_133012.md): tras la tabla de pacientes por especialidad, «Y en el mes pasado?» es la misma consulta con septiembre 2026 (antes: «nombra un indicador (pasado)» y respondía con la documentación de cancelaciones). Luego «eso mismo pero de agosto» y «ok, y el total?».",
+      "descripcion": "Caso real del propietario (tests/eval/out/transcripts/conversacion_20261013_133012.md): tras la tabla de pacientes por especialidad, «Y en el mes pasado?» es la misma consulta con septiembre 2026 (antes: «nombra un indicador (pasado)» y respondía con la documentación de cancelaciones). Luego «eso mismo pero de agosto» y «ok, y el total?». CANTIDAD DE PACIENTES (PACIENTES X ASEGURADORA) es el estado actual de los pacientes hospitalizados: ninguna fecha que filtre esa tabla se usa como periodo en el tablero (antes se filtraba por ATENCIONES_SERVICIO[FECHA], tabla sin relación, y cada mes daba lo mismo). «este mes» responde el estado actual y lo dice; septiembre/agosto se reconocen como seguimiento de CANTIDAD DE PACIENTES pero no se aplican y se explica por qué. El flujo de contexto con una fecha real lo cubren i_sim_ctx_propietario_boton_mes_pasado e i_sim_ctx_mes_pasado_antes_del_boton.",
       "turns": [
         {
           "user": "De urgencias se me ha solicitado saber la cantidad de pacientes que tiene cada una de las especialidades en hospitalizacion en este mes",
@@ -3242,15 +3242,15 @@
         },
         {
           "user": "Y en el mes pasado?",
-          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "table", "group_by_any": ["especialidad"], "filters": [{"month": "anterior"}], "answer_none": ["cancelacion"]}
+          "expect": {"route": ["unsupported_filter", "powerbi"], "answer_any": ["CANTIDAD DE PACIENTES"], "answer_all": ["estado actual"], "answer_none": ["cancelacion"]}
         },
         {
           "user": "necesito eso mismo pero de agosto",
-          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "table", "filters": [{"month": 8}]}
+          "expect": {"route": ["unsupported_filter", "powerbi"], "answer_all": ["CANTIDAD DE PACIENTES", "agosto"]}
         },
         {
           "user": "ok, y el total?",
-          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "scalar", "filters": [{"month": 8}]}
+          "expect": {"route": ["powerbi"], "metrics_any": ["cantidad de pacientes"], "result_type": "scalar"}
         }
       ]
     },
@@ -3514,9 +3514,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "contrapregunta %OCUPACION/CamasFiltradas/%OCUPACIONALC; las opciones por aseguradora se depuran por no compartir «detalle ocupacion»"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3561,9 +3558,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "PACIENTES por ASEGURADORA no está entre las opciones (depurada)"
-      },
       "arnes_opciones": {
         "excluir_sintetico": [
           "tablero_gestion_camas"
@@ -3976,9 +3970,6 @@
       "arneses": [
         "realistic"
       ],
-      "xfail": {
-        "realistic": "agrupa por EGRESOS_POR_SERVICIO[TERNOMCOM], tabla que no filtra CONSULTAS PRIORITARIAS (2.410 en cada fila)"
-      },
       "descripcion": "La agrupación debe usar una columna que filtre la tabla de la medida: PACIENTES OBSERVADOS POR MES = COUNT('CONSULTAS PRIORITARIAS'[ASEGURADOR]) se agrupa por 'CONSULTAS PRIORITARIAS'[ASEGURADOR] (o su TERNOMCOM), no por 'EGRESOS_POR_SERVICIO'[TERNOMCOM] (tabla sin relación: el mismo 2.410 en cada fila).",
       "turns": [
         {
