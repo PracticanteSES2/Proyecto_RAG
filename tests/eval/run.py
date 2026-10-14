@@ -20,6 +20,7 @@ El arnés se importa de forma perezosa: `--harness realistic` solo necesita que
 exista tests/realistic/harness.py con la misma API que tests/sim/harness.py.
 """
 import argparse
+import fnmatch
 import importlib
 import inspect
 import json
@@ -111,7 +112,7 @@ KNOWN_EXPECT_KEYS = {
     "route", "status", "metrics_any", "models_any", "filters", "allow_declared_filters",
     "group_by_any", "result_type", "numbers", "answer_any", "answer_all", "answer_none",
     "keywords", "min_keyword_coverage", "options_any", "options_all", "min_options", "has_none_option",
-    "prompt_any", "forbid", "allow", "table_columns", "table_min_rows",
+    "prompt_any", "forbid", "allow", "table_columns", "table_min_rows", "filters_none",
 }
 
 
@@ -134,10 +135,14 @@ def select_cases(data, categories=(), case_ids=(), harness_name=None, only_appli
     if categories:
         cases = [c for c in cases if c["category"] in categories]
     if case_ids:
-        missing = set(case_ids) - {c["id"] for c in cases}
+        # Un id con * o ? es un patrón (fnmatch): «v_*», «*hospital*».
+        def matches(case_id, wanted):
+            return fnmatch.fnmatchcase(case_id, wanted) if any(ch in wanted for ch in "*?[") else case_id == wanted
+
+        missing = {w for w in case_ids if not any(matches(c["id"], w) for c in cases)}
         if missing:
             raise SystemExit(f"Casos inexistentes (o fuera de la categoría pedida): {sorted(missing)}")
-        cases = [c for c in cases if c["id"] in case_ids]
+        cases = [c for c in cases if any(matches(c["id"], w) for w in case_ids)]
     if only_applicable and harness_name:
         cases = [c for c in cases if is_applicable(c, harness_name)]
     return cases
@@ -423,7 +428,8 @@ def parse_args(argv=None):
     parser.add_argument("--llm", choices=("fake", "real", "down"), default="fake",
                         help="LLM del arnés: falso, real (solo realistic) o caído")
     parser.add_argument("--category", action="append", help="categoría(s), repetible o separadas por coma")
-    parser.add_argument("--case", action="append", help="id(s) de caso, repetible o separados por coma")
+    parser.add_argument("--case", action="append",
+                        help="id(s) de caso, repetible o separados por coma; admite patrones (v_*, *hospital*)")
     parser.add_argument("--questions", default=str(DEFAULT_QUESTIONS))
     parser.add_argument("--out", help="carpeta de salida (por defecto tests/eval/out/<arnés>-<fecha>)")
     parser.add_argument("--solo-aplicables", action="store_true",

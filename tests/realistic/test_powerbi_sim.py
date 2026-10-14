@@ -638,6 +638,55 @@ def test_catalog_patches_apply_on_copy():
     assert original["displayName"] == "GESTIÓN DE CAMAS", "el PBIR original no cambia"
 
 
+FARMACIA = "TABLERO_FARMACIA"
+
+
+def test_fixed_tables_pharmacy_list_matches_card_filter():
+    """Parche solo de filas fijas (TABLERO FARMACIA): sin páginas no copia el PBIR; el listado con el
+    filtro de la tarjeta «0-30 DÍAS» (mes <= 1) coincide con su conteo."""
+    import shutil
+    from tests.realistic import catalog_patches
+    base = Path(tempfile.mkdtemp(prefix="pbi_farmacia_"))
+    folder = base / "orig" / "data" / "model_metadata" / "tablero_farmacia"
+    folder.mkdir(parents=True)
+
+    def write(name, headers, rows):
+        with open(folder / name, "w", encoding="utf-8-sig", newline="") as file:
+            writer = csv.writer(file, delimiter=";")
+            writer.writerow(headers)
+            writer.writerows(rows)
+
+    vencidos, proximos = "PRODUCTOS_VENCIDOS", "VENCIMIENTO_PRODUCTOS"
+    write("tables.csv", ["ID", "Name", "IsHidden", "Expression"], [[1, vencidos, "False", ""], [2, proximos, "False", ""]])
+    write("columns.csv", ["ID", "Name", "Table", "DataType", "Type", "Expression"], [
+        [10, "iddcantid", vencidos, "Integer", "Data", ""], [11, "IPRCODIGO", vencidos, "Text", "Data", ""],
+        [12, "iprdescor", vencidos, "Text", "Data", ""], [13, "IDFECDOC", vencidos, "Text", "Data", ""],
+        [20, "mes", proximos, "Integer", "Data", ""], [21, "IFICANTID", proximos, "Integer", "Data", ""],
+        [22, "ilsfecven", proximos, "Text", "Data", ""], [23, "IPRCODIGO", proximos, "Text", "Data", ""],
+        [24, "IPRDESCOR", proximos, "Text", "Data", ""], [25, "ILSCODIGO", proximos, "Text", "Data", ""],
+        [26, "NombreZona", proximos, "Text", "Data", ""]])
+    write("measures.csv", ["ID", "Name", "Table", "DataType", "Expression", "FormatString"], [])
+    write("relationships.csv", ["ID", "FromTable", "FromColumn", "ToTable", "ToColumn"], [])
+    (folder / "_metadata_sync.json").write_text('{"semantic_model": "TABLERO_FARMACIA"}', encoding="utf-8")
+    root = base / "cache" / "root"
+    shutil.copytree(folder.parent, root / "data" / "model_metadata")
+    (root / "data" / "catalog").mkdir(parents=True)
+    patches = [p for p in catalog_patches.PATCHES if p["semantic_model_key"] == "tablero_farmacia"]
+    done = catalog_patches.apply_patches(folder.parent.parent, root, patches)
+    assert done[0]["status"] == "metadata", done
+    assert not (root / "data" / "pbir").exists() and not (root / "data" / "raw").exists()
+    s = PowerBISimulator([root / "data" / "model_metadata"], today=TODAY)
+    assert value(FARMACIA, "SUM('PRODUCTOS_VENCIDOS'[iddcantid])", s) == sum(
+        p[2] for p in catalog_patches.PRODUCTOS_VENCIDOS) == 79
+    detail = table(FARMACIA, "EVALUATE CALCULATETABLE(SUMMARIZECOLUMNS('VENCIMIENTO_PRODUCTOS'[IPRDESCOR], "
+                             "'VENCIMIENTO_PRODUCTOS'[ilsfecven]), 'VENCIMIENTO_PRODUCTOS'[mes] <= 1)", s)
+    expected = sorted(p[1] for p in catalog_patches.PRODUCTOS_EN_VENCIMIENTO if p[2] <= 1)
+    assert sorted(r[0] for r in detail["rows"]) == expected and len(expected) == 3, detail["rows"]
+    count = value(FARMACIA, "CALCULATE(DISTINCTCOUNT('VENCIMIENTO_PRODUCTOS'[IPRCODIGO]), "
+                            "'VENCIMIENTO_PRODUCTOS'[mes] <= 1)", s)
+    assert count == 3
+
+
 def _run_all():
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     failed = 0
