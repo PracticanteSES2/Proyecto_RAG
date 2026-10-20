@@ -41,6 +41,7 @@ import io
 import json
 import os
 import shutil
+import sys
 import tempfile
 import threading
 import time
@@ -117,6 +118,25 @@ def cliente_qdrant_de_la_app(qdrant_path: str | Path | None = None):
     de abrir otro: Qdrant local rechaza un segundo cliente sobre la carpeta."""
     retriever = retriever_de_la_app(qdrant_path)
     return getattr(retriever, "client", None) if retriever is not None else None
+
+
+def _raiz_proyecto_de_la_app(retriever=None):
+    """Raíz de datos que usa la app en este proceso: RAG_PROJECT_ROOT o la que
+    se deduce del retriever abierto (<raíz>/data/vector_db/qdrant). Así la
+    reindexación escribe donde lee el chat aunque la app corra con otra raíz
+    (p. ej. el arnés tests/realistic). None si no se puede saber."""
+    env = os.getenv("RAG_PROJECT_ROOT", "").strip()
+    if env:
+        return Path(env)
+    if retriever is None:
+        modulo = sys.modules.get("src.rag.retriever")
+        retriever = modulo.active_retriever() if modulo is not None else None
+    ruta = getattr(retriever, "qdrant_path", None) if retriever is not None else None
+    if ruta:
+        qdrant = Path(ruta).resolve()
+        if qdrant.name == "qdrant" and qdrant.parent.name == "vector_db" and qdrant.parents[1].name == "data":
+            return qdrant.parents[2]
+    return None
 
 
 def _modelo_embeddings():
@@ -260,6 +280,13 @@ def reindexar_grupo(
     def terminar():
         resultado["segundos"] = round(time.perf_counter() - inicio, 3)
         return resultado
+
+    if project_root is None:
+        project_root = _raiz_proyecto_de_la_app(retriever)
+        if project_root is not None and md_root is None and os.getenv("DOCS_MD_ROOT", "").strip():
+            from .repositorio import raiz_documentos
+
+            md_root = raiz_documentos()
 
     salida = contextlib.nullcontext() if verbose else contextlib.redirect_stdout(io.StringIO())
     with _LOCK, salida:
