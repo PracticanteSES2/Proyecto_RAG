@@ -7,7 +7,7 @@ MedGemma propone el cambio sobre la sección exacta del .md; una persona lo apru
 ## Formato (un .md por página del tablero)
 
 Ubicación: `data/raw/<source_group>/md/` (el mismo `source_group` del `manifest.json`).
-`_general.md` describe el tablero completo (bloque `General`); cada página de Power BI tiene su archivo.
+`_general.md` describe el tablero completo (bloque `General`, `pagina: GENERAL`, título `# GENERAL`; la ingesta lo publica con el nombre del informe); cada página de Power BI tiene su archivo.
 La implementación de referencia es `formato.py` (`parsear`, `serializar`, `validar`, `aplicar_operaciones`).
 Ejemplo completo: `tests/docs_md/fixtures/tablero_tiempos_urgencias/md/consultas_dia.md`.
 
