@@ -1,0 +1,22 @@
+{
+  "workspace": "Gestion Clinica",
+  "report": "BRIEFING HOSPITALARIO",
+  "semantic_model": "BRIEFING HOSPITALARIO",
+  "semantic_model_key": "briefing_hospitalario",
+  "source_group": "tablero_briefing_hospitalario",
+  "default_dashboard": "BRIEFING HOSPITALARIO",
+  "aliases": [
+    "TABLERO BRIEFING HOSPITALARIO",
+    "BRIEFING HOSPITALARIO"
+  ],
+  "document_type": "dashboard_documentation",
+  "pbir_path": "C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\tableros\\BRIEFING HOSPITALARIO\\BRIEFING HOSPITALARIO.Report",
+  "import_metadata": {
+    "source_folder": "C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\Documentacion\\DOCUMENTACION TABLERO\\3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO",
+    "model_match_status": "matched",
+    "model_match_confidence": 1.0,
+    "report_match_status": "matched",
+    "report_match_confidence": 1.0,
+    "needs_review": false
+  }
+}

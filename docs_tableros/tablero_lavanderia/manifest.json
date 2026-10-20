@@ -1,0 +1,22 @@
+{
+  "workspace": "Gestion Clinica",
+  "report": "TABLERO LAVANDERIA",
+  "semantic_model": "TABLERO LAVANDERIA",
+  "semantic_model_key": "tablero_lavanderia",
+  "source_group": "tablero_lavanderia",
+  "default_dashboard": "TABLERO LAVANDERIA",
+  "aliases": [
+    "TABLERO LAVANDERIA",
+    "LAVANDERIA"
+  ],
+  "document_type": "dashboard_documentation",
+  "pbir_path": null,
+  "import_metadata": {
+    "source_folder": "C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\Documentacion\\DOCUMENTACION TABLERO\\39 DOCUMENTACION TABLERO LAVANDERIA",
+    "model_match_status": "matched",
+    "model_match_confidence": 1.0,
+    "report_match_status": "not_found",
+    "report_match_confidence": 0.5494,
+    "needs_review": false
+  }
+}
