@@ -58,3 +58,12 @@ Operaciones que devuelve MedGemma (JSON):
 
 `accion`: agregar | modificar | eliminar. `Propósito` solo admite `modificar` con el texto completo.
 El historial y la versión los actualiza `aplicar_operaciones`.
+
+## Interfaz (`pages/1_Documentación.py` + `interfaz.py`)
+
+`streamlit run app.py` muestra «Documentación» en la barra lateral (multipágina por carpeta `pages/`; app.py no cambia).
+Modos: **Ver** (tablero, página, ficha, historial e indicador de formato) y **Proponer un cambio**
+(nota + autor + página opcional + cambios PBIP → revisión con diff → Aprobar / Rechazar → reindexación).
+Al reindexar se reutiliza el cliente de Qdrant del chat (`src.rag.retriever.retriever_abierto()`); si el chat
+no está abierto, `reindexar_grupo` abre el suyo y debe cerrarlo al terminar.
+Pruebas sin MedGemma ni Qdrant: `DOCS_MD_SERVICIOS=tests.docs_md.fakes_interfaz` y `DOCS_MD_ROOT=<copia de fixtures>`.
