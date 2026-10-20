@@ -1,0 +1,22 @@
+{
+  "workspace": "Gestion Clinica",
+  "report": "TABLERO RECEPCION TECNICA",
+  "semantic_model": "TABLERO RECEPCION TECNICA",
+  "semantic_model_key": "tablero_recepcion_tecnica",
+  "source_group": "tablero_recepcion_tecnica",
+  "default_dashboard": "TABLERO RECEPCION TECNICA",
+  "aliases": [
+    "TABLERO RECEPCION TECNICA",
+    "RECEPCION TECNICA"
+  ],
+  "document_type": "dashboard_documentation",
+  "pbir_path": "C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\tableros\\TABLERO RECEPCION TECNICA\\TABLERO RECEPCION TECNICA.Report",
+  "import_metadata": {
+    "source_folder": "C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\Documentacion\\DOCUMENTACION TABLERO\\31 DOCUMENTACION TABLERO RECEPCION TECNICA",
+    "model_match_status": "matched",
+    "model_match_confidence": 1.0,
+    "report_match_status": "matched",
+    "report_match_confidence": 1.0,
+    "needs_review": false
+  }
+}
