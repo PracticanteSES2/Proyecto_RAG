@@ -1,0 +1,15 @@
+{
+  "workspace": "Gestion Clinica",
+  "report": "TABLERO FINANCIERA",
+  "semantic_model": "TABLERO FINANCIERA",
+  "semantic_model_key": "tablero_financiera",
+  "source_group": "tablero_financiera",
+  "default_dashboard": "TABLERO FINANCIERA",
+  "aliases": [
+    "TABLERO FINANCIERA",
+    "TABLERO FINANCIERO",
+    "FINANCIERA",
+    "TABLERO DE FINANCIERA"
+  ],
+  "document_type": "dashboard_documentation"
+}

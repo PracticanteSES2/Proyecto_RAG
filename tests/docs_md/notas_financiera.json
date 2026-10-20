@@ -1,0 +1,104 @@
+[
+  {
+    "id": "fin-01-filtro-anio-area",
+    "nota": "le quite el filtro de anio=2024 al grafico de area del comparativo, ahora deja 2024 y 2025",
+    "esperado": {
+      "pagina": "COMPARATIVO",
+      "seccion": "Reglas de negocio",
+      "entrada": "Filtro de año del gráfico",
+      "accion": "modificar",
+      "contiene": ["2025"]
+    }
+  },
+  {
+    "id": "fin-02-medida-ticket",
+    "nota": "meti una medida nueva en el inicio: ticket promedio = facturacion / # de ingresos del mes anterior, en pesos. la puse en tarjeta al lado de devoluciones",
+    "esperado": {
+      "pagina": "INICIO",
+      "seccion": "Indicadores",
+      "entrada": "Ticket promedio",
+      "accion": "agregar",
+      "contiene": ["ingresos"]
+    }
+  },
+  {
+    "id": "fin-03-borra-torta",
+    "nota": "borre la torta de abajo en refacturacion x eps, nadie la usaba",
+    "esperado": {
+      "pagina": "REFACTURACION X EPS",
+      "seccion": "Visuales",
+      "entrada": "Torta devoluciones por servicio",
+      "accion": "eliminar",
+      "contiene": []
+    }
+  },
+  {
+    "id": "fin-04-barras-costo-estimado",
+    "nota": "costo estimado: las barras de rentab vs costo y vs estimado ahora van de -500mil a 500mil y el verde lo cambie a #00B050, el rojo queda igual",
+    "esperado": {
+      "pagina": "COSTO ESTIMADO",
+      "seccion": "Reglas de negocio",
+      "entrada": "Barras de rentabilidad",
+      "accion": "modificar",
+      "contiene": ["500", "00B050"]
+    }
+  },
+  {
+    "id": "fin-05-renombra-pagina",
+    "nota": "renombre la pag REFACTURACION a DEVOLUCIONES pa q cuadre con el boton del inicio",
+    "esperado": {
+      "pagina": "REFACTURACION",
+      "seccion": "Observaciones",
+      "entrada": "Nombre de la página",
+      "accion": "modificar",
+      "contiene": ["DEVOLUCIONES"]
+    }
+  },
+  {
+    "id": "fin-06-nota-vaga",
+    "nota": "hice unos ajustes en lo de costos, revisar porfa",
+    "esperado": {
+      "aclaracion": true
+    }
+  },
+  {
+    "id": "fin-07-top-sin-pagina",
+    "nota": "el top de aseguradores ahora es top 15 no top 10",
+    "esperado": {
+      "pagina": "INICIO",
+      "seccion": "Reglas de negocio",
+      "entrada": "Top de aseguradores",
+      "accion": "modificar",
+      "contiene": ["15"]
+    }
+  },
+  {
+    "id": "fin-08-contradice-diaria",
+    "nota": "ojo la pag facturacion diaria siempre ha filtrado solo el dia de hoy, nunca el mes completo, la doc esta mal",
+    "esperado": {
+      "aclaracion": true
+    }
+  },
+  {
+    "id": "fin-09-fecha-costos",
+    "nota": "en costos x meses cambie el filtro de pag, ya no es desde sept 2024 sino desde ene 2025",
+    "esperado": {
+      "pagina": "COSTOS X MESES",
+      "seccion": "Reglas de negocio",
+      "entrada": "Fecha de inicio de costos",
+      "accion": "modificar",
+      "contiene": ["2025"]
+    }
+  },
+  {
+    "id": "fin-10-linea-promedio",
+    "nota": "analisis de rentab: la linea de promedio de los 3 graficos ahora es verde y le quite la etiqueta",
+    "esperado": {
+      "pagina": "ANALISIS DE RENTABILIDAD",
+      "seccion": "Reglas de negocio",
+      "entrada": "Líneas de promedio",
+      "accion": "modificar",
+      "contiene": ["verde"]
+    }
+  }
+]
