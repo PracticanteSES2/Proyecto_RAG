@@ -75,8 +75,12 @@ class InterfazTest(unittest.TestCase):
     def setUp(self):
         self._entorno = {v: os.environ.get(v) for v in VARIABLES}
         self.tmp = Path(tempfile.mkdtemp(prefix="docs_md_ui_"))
-        shutil.copytree(FIXTURES, self.tmp, dirs_exist_ok=True)
+        # Tablero mínimo propio (manifest + CONSULTAS DIA + general): las
+        # pruebas no dependen de cuántas páginas tenga el fixture completo.
         self.carpeta = self.tmp / GRUPO / "md"
+        self.carpeta.mkdir(parents=True)
+        shutil.copy(FIXTURES / GRUPO / "manifest.json", self.tmp / GRUPO / "manifest.json")
+        shutil.copy(FIXTURES / GRUPO / "md" / "consultas_dia.md", self.carpeta / "consultas_dia.md")
         (self.carpeta / "_general.md").write_text(GENERAL, encoding="utf-8")
         os.environ["DOCS_MD_ROOT"] = str(self.tmp)
         os.environ["DOCS_MD_SERVICIOS"] = "tests.docs_md.fakes_interfaz"
