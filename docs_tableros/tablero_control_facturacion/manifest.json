@@ -1,0 +1,22 @@
+{
+  "workspace": "Gestion Clinica",
+  "report": "TABLERO CONTROL FACTURACION",
+  "semantic_model": "Tablero Control Facturacion",
+  "semantic_model_key": "tablero_control_facturacion",
+  "source_group": "tablero_control_facturacion",
+  "default_dashboard": "TABLERO CONTROL FACTURACION",
+  "aliases": [
+    "TABLERO CONTROL FACTURACION",
+    "CONTROL FACTURACION"
+  ],
+  "document_type": "dashboard_documentation",
+  "pbir_path": "C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\tableros\\Tablero Control de Facturacion\\Tablero Control Facturacion.Report",
+  "import_metadata": {
+    "source_folder": "C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\Documentacion\\DOCUMENTACION TABLERO\\16 DOCUMENTACION TABLERO CONTROL FACTURACION",
+    "model_match_status": "matched",
+    "model_match_confidence": 1.0,
+    "report_match_status": "matched",
+    "report_match_confidence": 1.0,
+    "needs_review": false
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "workspace": "Gestion Clinica",
+  "report": "DEMANDA INSATISFECHA",
+  "semantic_model": "DEMANDA INSATISFECHA",
+  "semantic_model_key": "demanda_insatisfecha",
+  "source_group": "tablero_demanda_insatisfecha",
+  "default_dashboard": "DEMANDA INSATISFECHA",
+  "aliases": [
+    "TABLERO DEMANDA INSATISFECHA",
+    "DEMANDA INSATISFECHA"
+  ],
+  "document_type": "dashboard_documentation",
+  "pbir_path": null,
+  "import_metadata": {
+    "source_folder": "C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\Documentacion\\DOCUMENTACION TABLERO\\7 DOCUMENTACION TABLERO DEMANDA INSATISFECHA",
+    "model_match_status": "matched",
+    "model_match_confidence": 1.0,
+    "report_match_status": "not_found",
+    "report_match_confidence": 0.2239,
+    "needs_review": false
+  }
+}
