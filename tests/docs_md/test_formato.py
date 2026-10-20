@@ -18,7 +18,7 @@ EJEMPLO = FIXTURES / "tablero_tiempos_urgencias" / "md" / "consultas_dia.md"
 
 class FormatoTest(unittest.TestCase):
     def setUp(self):
-        self.texto = EJEMPLO.read_text(encoding="utf-8")
+        self.texto = EJEMPLO.read_text(encoding="utf-8").replace("\r\n", "\n")
         self.doc = F.parsear(self.texto)
 
     def test_ejemplo_valido_y_canonico(self):
