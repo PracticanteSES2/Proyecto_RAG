@@ -54,41 +54,52 @@ TECHNICAL_CHUNK_TYPES = {"sql_query", "table_context"}
 # RETRIEVER ABIERTO EN EL PROCESO
 # ============================================================
 
-# Qdrant en modo local admite un solo cliente por carpeta. Quien necesite
-# Qdrant dentro de la app (p. ej. la página de Documentación al reindexar un
-# tablero) reutiliza el cliente del retriever que ya abrió build_system.
-_RETRIEVERS_ABIERTOS = weakref.WeakValueDictionary()
-
-
-def _clave_ruta(qdrant_path):
-    return str(Path(qdrant_path).resolve())
-
-
-def _registrar_abierto(retriever, qdrant_path):
-    _RETRIEVERS_ABIERTOS[_clave_ruta(qdrant_path)] = retriever
-
-
-def retriever_abierto(qdrant_path=None):
-    """HybridRetriever abierto en este proceso (el de la app), o None.
-
-    Con qdrant_path solo devuelve el de esa carpeta. Su `.client` es el
-    QdrantClient que se debe reutilizar en lugar de abrir otro."""
-    if qdrant_path is not None:
-        candidatos = [_RETRIEVERS_ABIERTOS.get(_clave_ruta(qdrant_path))]
-    else:
-        candidatos = list(reversed(list(_RETRIEVERS_ABIERTOS.values())))
-    for retriever in candidatos:
-        if retriever is not None and getattr(retriever, "client", None) is not None:
-            return retriever
-    return None
-
-
 def _as_list(value):
     if value is None:
         return []
     if isinstance(value, list):
         return value
     return [value]
+
+
+# ============================================================
+# RETRIEVERS ABIERTOS (Qdrant local admite un solo cliente por carpeta)
+# ============================================================
+
+# {carpeta Qdrant resuelta: retriever}. Referencias débiles: no alargan la
+# vida del retriever (la app lo guarda con st.cache_resource).
+_ACTIVE_RETRIEVERS = weakref.WeakValueDictionary()
+
+
+def _path_key(qdrant_path):
+    try:
+        return str(Path(qdrant_path).resolve()).casefold()
+    except Exception:
+        return str(qdrant_path).casefold()
+
+
+def active_retriever(qdrant_path=None):
+    """Retriever de este proceso con el cliente Qdrant abierto sobre esa
+    carpeta (o el único abierto si no se indica carpeta); None si no hay.
+
+    Sirve para reutilizar el cliente de la app (p. ej. al reindexar desde una
+    página de Streamlit) en vez de abrir un segundo cliente, que Qdrant local
+    rechaza."""
+    if qdrant_path is not None:
+        retriever = _ACTIVE_RETRIEVERS.get(_path_key(qdrant_path))
+        if retriever is not None and getattr(retriever, "client", None) is not None:
+            return retriever
+        return None
+    open_retrievers = [
+        retriever
+        for retriever in list(_ACTIVE_RETRIEVERS.values())
+        if getattr(retriever, "client", None) is not None
+    ]
+    return open_retrievers[0] if len(open_retrievers) == 1 else None
+
+
+# Nombre que usa la página de Documentación (mismo registro).
+retriever_abierto = active_retriever
 
 
 # ============================================================
@@ -133,6 +144,8 @@ class HybridRetriever:
     ):
         self.model = SentenceTransformer(MODEL_NAME)
         self.client = QdrantClient(path=str(qdrant_path))
+        self.qdrant_path = Path(qdrant_path)
+        _ACTIVE_RETRIEVERS[_path_key(qdrant_path)] = self
 
         preferred = collection_name or COLLECTION_NAME
 
@@ -153,8 +166,6 @@ class HybridRetriever:
             )
 
         self._load_corpus()
-        self._qdrant_path = qdrant_path
-        _registrar_abierto(self, qdrant_path)
 
     # --------------------------------------------------------
     # HELPERS DE PAYLOAD
@@ -882,14 +893,17 @@ class HybridRetriever:
     def close(self):
         client = getattr(self, "client", None)
 
+        qdrant_path = getattr(self, "qdrant_path", None)
+        if qdrant_path is not None:
+            key = _path_key(qdrant_path)
+            if _ACTIVE_RETRIEVERS.get(key) is self:
+                del _ACTIVE_RETRIEVERS[key]
+
         if client is not None:
             try:
                 client.close()
             finally:
                 self.client = None
-                ruta = getattr(self, "_qdrant_path", None)
-                if ruta is not None and _RETRIEVERS_ABIERTOS.get(_clave_ruta(ruta)) is self:
-                    del _RETRIEVERS_ABIERTOS[_clave_ruta(ruta)]
 
 
 # ============================================================

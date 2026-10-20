@@ -41,10 +41,22 @@ Secciones y orden (las vacías se omiten, salvo Propósito e Historial):
 | `formato.py` | parsear / serializar / validar / aplicar_operaciones / diferencias | base (hecho) |
 | `repositorio.py` | listar_tableros / listar_paginas / leer_pagina / guardar_pagina | base (hecho) |
 | `actualizador.py` | proponer_cambio(nota, source_group, pagina=None, llm=None, cambios_pbip=None) -> Propuesta; aplicar_propuesta(propuesta, autor) | agente actualizador |
-| `indexacion.py` | reindexar_grupo(source_group, qdrant_client=None) -> dict | agente ingesta |
-| `pbip.py` | extraer_hechos / comparar / esqueleto (+ guardar_instantanea / cambios_desde_instantanea; acepta PBIP o .pbix PBIR) | agente pbip |
+| `indexacion.py` | reindexar_grupo(source_group, qdrant_client=None, *, project_root=None, md_root=None, embedder=None, incremental=True) -> dict; cliente_qdrant_de_la_app() | agente ingesta (hecho) |
+| `pbip.py` | extraer_hechos / comparar / esqueleto (+ guardar_instantanea / cambios_desde_instantanea; acepta PBIP o .pbix PBIR) | agente pbip (hecho) |
 | `src/ingestion` | leer `md/` y producir el JSON normalizado del RAG | agente ingesta |
 | `pages/` (Streamlit) | ver documentación, proponer cambio, aprobar, reindexar | agente interfaz |
+
+## Ingesta en el RAG (`ingesta.py`, `src/ingestion/document_parser.py`)
+
+- Un grupo con páginas en `<raíz md>/<grupo>/md/*.md` se ingiere desde el .md y sus .docx
+  (en `data/raw/<grupo>/`) se ignoran con aviso en consola. Los demás grupos siguen con .docx.
+- Raíz md: `md_root` explícito, si no `DOCS_MD_ROOT` (`repositorio.raiz_documentos`), si no `data/raw`.
+  El `manifest.json` se busca junto a los .md y si no en `data/raw/<grupo>/`.
+- Cada .md es un tablero del JSON normalizado (sin las heurísticas de los .docx): una cadena
+  «Nombre: texto» por entrada, el historial en `other_sections` y las medidas citadas como `[Medida]`
+  en Indicadores/Visuales como medidas documentadas. `_general.md` toma el nombre del informe del
+  manifest (nunca «GENERAL») y sus alias.
+- `reindexar_grupo` regenera solo los derivados del grupo y solo embebe los chunks que cambiaron.
 
 Operaciones que devuelve MedGemma (JSON):
 
@@ -64,6 +76,6 @@ El historial y la versión los actualiza `aplicar_operaciones`.
 `streamlit run app.py` muestra «Documentación» en la barra lateral (multipágina por carpeta `pages/`; app.py no cambia).
 Modos: **Ver** (tablero, página, ficha, historial e indicador de formato) y **Proponer un cambio**
 (nota + autor + página opcional + cambios PBIP → revisión con diff → Aprobar / Rechazar → reindexación).
-Al reindexar se reutiliza el cliente de Qdrant del chat (`src.rag.retriever.retriever_abierto()`); si el chat
+Al reindexar se reutiliza el cliente de Qdrant del chat (`src.rag.retriever.active_retriever()`, alias `retriever_abierto`); si el chat
 no está abierto, `reindexar_grupo` abre el suyo y debe cerrarlo al terminar.
 Pruebas sin MedGemma ni Qdrant: `DOCS_MD_SERVICIOS=tests.docs_md.fakes_interfaz` y `DOCS_MD_ROOT=<copia de fixtures>`.

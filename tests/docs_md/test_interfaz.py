@@ -360,8 +360,8 @@ class RetrieverAbiertoTest(unittest.TestCase):
         r = modulo.HybridRetriever.__new__(modulo.HybridRetriever)
         r.client = types.SimpleNamespace(close=lambda: None)
         ruta = Path(tempfile.gettempdir()) / "qdrant_prueba_docs"
-        r._qdrant_path = ruta
-        modulo._registrar_abierto(r, ruta)
+        r.qdrant_path = ruta
+        modulo._ACTIVE_RETRIEVERS[modulo._path_key(ruta)] = r
         self.assertIs(modulo.retriever_abierto(), r)
         self.assertIs(modulo.retriever_abierto(ruta), r)
         r.close()
