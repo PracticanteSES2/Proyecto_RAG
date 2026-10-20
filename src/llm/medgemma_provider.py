@@ -152,10 +152,14 @@ class MedGemmaProvider:
         max_tokens=450,
         think=False,
         timeout=None,
+        format=None,
     ):
         """`timeout` (s, opcional): tiempo límite de ESTA llamada a nivel HTTP;
         al vencer se cierra la conexión (el servidor deja de generar) y se
-        devuelve status="llm_timeout". Sin él rige MEDGEMMA_TIMEOUT."""
+        devuelve status="llm_timeout". Sin él rige MEDGEMMA_TIMEOUT.
+
+        `format` (opcional): "json" o un JSON schema (dict) para forzar una
+        salida estructurada (Ollama restringe la generación a esa forma)."""
         client = self._client_for(timeout)
         request = {
             "model": self.model,
@@ -167,6 +171,8 @@ class MedGemmaProvider:
                 "num_predict": max_tokens,
             },
         }
+        if format:
+            request["format"] = format
 
         try:
             try:
