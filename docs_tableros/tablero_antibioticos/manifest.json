@@ -1,0 +1,22 @@
+{
+  "workspace": "Gestion Clinica",
+  "report": "TABLERO ANTIBIOTICOS",
+  "semantic_model": "TABLERO ANTIBIOTICOS",
+  "semantic_model_key": "tablero_antibioticos",
+  "source_group": "tablero_antibioticos",
+  "default_dashboard": "TABLERO ANTIBIOTICOS",
+  "aliases": [
+    "TABLERO ANTIBIOTICOS",
+    "ANTIBIOTICOS"
+  ],
+  "document_type": "dashboard_documentation",
+  "pbir_path": null,
+  "import_metadata": {
+    "source_folder": "C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\Documentacion\\DOCUMENTACION TABLERO\\34 DOCUMENTACION TABLERO ANTIBIOTICOS",
+    "model_match_status": "matched",
+    "model_match_confidence": 1.0,
+    "report_match_status": "not_found",
+    "report_match_confidence": 0.4622,
+    "needs_review": false
+  }
+}

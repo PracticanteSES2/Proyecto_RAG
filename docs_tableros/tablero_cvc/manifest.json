@@ -1,0 +1,22 @@
+{
+  "workspace": "Gestion Clinica",
+  "report": "TABLERO CVC",
+  "semantic_model": "TABLERO CVC",
+  "semantic_model_key": "tablero_cvc",
+  "source_group": "tablero_cvc",
+  "default_dashboard": "TABLERO CVC",
+  "aliases": [
+    "TABLERO CVC",
+    "CVC"
+  ],
+  "document_type": "dashboard_documentation",
+  "pbir_path": null,
+  "import_metadata": {
+    "source_folder": "C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\Documentacion\\DOCUMENTACION TABLERO\\35 DOCUMENTACION TABLERO CVC",
+    "model_match_status": "matched",
+    "model_match_confidence": 1.0,
+    "report_match_status": "not_found",
+    "report_match_confidence": 0.5267,
+    "needs_review": false
+  }
+}
