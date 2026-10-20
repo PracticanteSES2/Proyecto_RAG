@@ -1,0 +1,23 @@
+{
+  "workspace": "Gestion Clinica",
+  "report": "TABLERO TIEMPOS URGENCIAS",
+  "semantic_model": "TABLERO TIEMPOS URGENCIAS",
+  "semantic_model_key": "tablero_tiempos_urgencias",
+  "source_group": "tablero_tiempos_urgencias",
+  "default_dashboard": "TABLERO TIEMPOS URGENCIAS",
+  "aliases": [
+    "TABLERO TIEMPOS DE URGENCIAS",
+    "TIEMPOS DE URGENCIAS",
+    "TABLERO TIEMPOS URGENCIAS"
+  ],
+  "document_type": "dashboard_documentation",
+  "pbir_path": "C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\tableros\\TABLERO TIEMPOS URGENCIAS\\TABLERO TIEMPOS URGENCIAS.Report",
+  "import_metadata": {
+    "source_folder": "C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\Documentacion\\DOCUMENTACION TABLERO\\32 DOCUMENTACION TABLERO TIEMPOS DE URGENCIAS",
+    "model_match_status": "review",
+    "model_match_confidence": 0.8622,
+    "report_match_status": "matched",
+    "report_match_confidence": 1.0,
+    "needs_review": true
+  }
+}
