@@ -1,0 +1,22 @@
+{
+  "workspace": "Gestion Clinica",
+  "report": "TABLERO NAOS",
+  "semantic_model": "TABLERO NAOS",
+  "semantic_model_key": "tablero_naos",
+  "source_group": "tablero_naos",
+  "default_dashboard": "TABLERO NAOS",
+  "aliases": [
+    "TABLERO NAOS",
+    "NAOS"
+  ],
+  "document_type": "dashboard_documentation",
+  "pbir_path": null,
+  "import_metadata": {
+    "source_folder": "C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\Documentacion\\DOCUMENTACION TABLERO\\28 DOCUMENTACION TABLERO NAOS",
+    "model_match_status": "matched",
+    "model_match_confidence": 1.0,
+    "report_match_status": "not_found",
+    "report_match_confidence": 0.5129,
+    "needs_review": false
+  }
+}
