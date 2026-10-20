@@ -1,4 +1,5 @@
 import os
+import weakref
 from pathlib import Path
 
 from sentence_transformers import SentenceTransformer
@@ -58,6 +59,42 @@ def _as_list(value):
 
 
 # ============================================================
+# RETRIEVERS ABIERTOS (Qdrant local admite un solo cliente por carpeta)
+# ============================================================
+
+# {carpeta Qdrant resuelta: retriever}. Referencias débiles: no alargan la
+# vida del retriever (la app lo guarda con st.cache_resource).
+_ACTIVE_RETRIEVERS = weakref.WeakValueDictionary()
+
+
+def _path_key(qdrant_path):
+    try:
+        return str(Path(qdrant_path).resolve()).casefold()
+    except Exception:
+        return str(qdrant_path).casefold()
+
+
+def active_retriever(qdrant_path=None):
+    """Retriever de este proceso con el cliente Qdrant abierto sobre esa
+    carpeta (o el único abierto si no se indica carpeta); None si no hay.
+
+    Sirve para reutilizar el cliente de la app (p. ej. al reindexar desde una
+    página de Streamlit) en vez de abrir un segundo cliente, que Qdrant local
+    rechaza."""
+    if qdrant_path is not None:
+        retriever = _ACTIVE_RETRIEVERS.get(_path_key(qdrant_path))
+        if retriever is not None and getattr(retriever, "client", None) is not None:
+            return retriever
+        return None
+    open_retrievers = [
+        retriever
+        for retriever in list(_ACTIVE_RETRIEVERS.values())
+        if getattr(retriever, "client", None) is not None
+    ]
+    return open_retrievers[0] if len(open_retrievers) == 1 else None
+
+
+# ============================================================
 # RETRIEVER HÍBRIDO
 # ============================================================
 
@@ -99,6 +136,8 @@ class HybridRetriever:
     ):
         self.model = SentenceTransformer(MODEL_NAME)
         self.client = QdrantClient(path=str(qdrant_path))
+        self.qdrant_path = Path(qdrant_path)
+        _ACTIVE_RETRIEVERS[_path_key(qdrant_path)] = self
 
         preferred = collection_name or COLLECTION_NAME
 
@@ -845,6 +884,12 @@ class HybridRetriever:
 
     def close(self):
         client = getattr(self, "client", None)
+
+        qdrant_path = getattr(self, "qdrant_path", None)
+        if qdrant_path is not None:
+            key = _path_key(qdrant_path)
+            if _ACTIVE_RETRIEVERS.get(key) is self:
+                del _ACTIVE_RETRIEVERS[key]
 
         if client is not None:
             try:
