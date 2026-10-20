@@ -16,7 +16,9 @@ RAIZ = Path(__file__).resolve().parents[2] / "docs_tableros"
 # Patrones de datos personales obvios (documentos, teléfonos, correos).
 PII = [
     re.compile(r"\b\d{7,}\b"),
-    re.compile(r"\b\d{1,3}(?:\.\d{3}){2,}\b"),
+    # Números con separador de miles que parecen documentos; los montos
+    # redondos (1.000.000, 500.000.000) son umbrales o rangos, no personas.
+    re.compile(r"\b\d{1,3}(?:\.\d{3})+\.(?!000\b)\d{3}\b"),
     re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+"),
     re.compile(r"\b(?:CC|TI|RC|CE)\s*[:#]?\s*\d{5,}\b"),
 ]
