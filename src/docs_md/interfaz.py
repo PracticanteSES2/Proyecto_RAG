@@ -266,6 +266,34 @@ def lineas_cambiadas(antes: str, despues: str) -> tuple[int, int]:
     return agregadas, eliminadas
 
 
+def metodo_pagina_texto(propuesta) -> str:
+    """Cómo se eligió la página, en palabras sencillas (vacío si no se sabe)."""
+    metodo = getattr(propuesta, "metodo_pagina", "") or ""
+    if metodo == "indicada":
+        return "la elegiste tú en el formulario"
+    if metodo == "reglas":
+        return "la nota la nombra o usa palabras que solo están en esa página"
+    if metodo == "medgemma":
+        otras = [c for c in (getattr(propuesta, "candidatas", None) or []) if c != propuesta.pagina]
+        if otras:
+            return "MedGemma la eligió entre varias parecidas (también: " + ", ".join(otras[:4]) + ")"
+        return "MedGemma la eligió entre varias parecidas"
+    return ""
+
+
+def tiempos_texto(segundos, tiempos_llm) -> str:
+    """«preparada en 9.8 s · 2 llamadas a MedGemma (4.1 s + 5.2 s)»."""
+    partes = []
+    if segundos is not None:
+        partes.append(f"preparada en {float(segundos):.1f} s")
+    tiempos = [float(t) for t in (tiempos_llm or [])]
+    if tiempos:
+        llamadas = "1 llamada" if len(tiempos) == 1 else f"{len(tiempos)} llamadas"
+        detalle = " + ".join(f"{t:.1f} s" for t in tiempos)
+        partes.append(f"{llamadas} a MedGemma ({detalle})")
+    return " · ".join(partes)
+
+
 def mensaje_error(exc: BaseException, que: str) -> str:
     if isinstance(exc, NotImplementedError):
         return f"{que}: esta función todavía no está disponible en esta versión ({exc})."
@@ -467,6 +495,7 @@ def _revisar_lista(propuesta, servicios: Servicios, n: int):
                 st.session_state.docs_aviso = ("success", "Vista previa actualizada con tu corrección.", None)
                 st.rerun()
 
+    _mostrar_avisos(propuesta)
     _mostrar_diff(propuesta)
 
     errores_resultado = validar(propuesta.despues) if propuesta.despues else ["La propuesta no trae el texto nuevo."]
@@ -493,6 +522,17 @@ def _revisar_lista(propuesta, servicios: Servicios, n: int):
             st.warning("Escribe quién aprueba el cambio.")
             return
         _aprobar(propuesta, autor.strip(), servicios)
+
+
+def _mostrar_avisos(propuesta):
+    """Avisos del actualizador (cifras que no vienen de la nota, cláusulas
+    perdidas, entradas relacionadas sin tocar...): la red de seguridad para
+    los errores de sentido de MedGemma, junto al diff."""
+    avisos = list(getattr(propuesta, "avisos", None) or [])
+    if not avisos:
+        return
+    st.warning(f"**⚠️ Revisa esto antes de aprobar ({len(avisos)})**\n\n"
+               + "\n".join(f"- {a}" for a in avisos))
 
 
 def _mostrar_diff(propuesta):
@@ -594,13 +634,16 @@ def _revisar(propuesta, servicios: Servicios, paginas: list[dict]):
     n = st.session_state.docs_propuesta_n
     st.divider()
     st.markdown("### Revisión de la propuesta")
-    if st.session_state.docs_segundos is not None:
-        st.caption(f"Nota: «{propuesta.nota}» · preparada en {st.session_state.docs_segundos:.1f} s")
+    tiempos = tiempos_texto(st.session_state.docs_segundos, getattr(propuesta, "tiempos_llm", None))
+    st.caption(f"Nota: «{propuesta.nota}»" + (f" · {tiempos}" if tiempos else ""))
 
     if propuesta.estado == "lista":
         nombre_funcional = next((p.get("nombre_funcional") for p in paginas
                                  if p["pagina"] == propuesta.pagina), "")
         st.markdown(f"**Página:** {propuesta.pagina}" + (f" — {nombre_funcional}" if nombre_funcional else ""))
+        como = metodo_pagina_texto(propuesta)
+        if como:
+            st.caption(f"🔎 Cómo se eligió la página: {como}.")
         if propuesta.resumen:
             st.markdown(f"**Resumen:** {propuesta.resumen}")
         if propuesta.dudas:
@@ -616,6 +659,8 @@ def _revisar(propuesta, servicios: Servicios, paginas: list[dict]):
 def _aclarar(propuesta, servicios: Servicios, paginas: list[dict], n: int):
     st.warning("**Hace falta una aclaración.** MedGemma no quiso adivinar:\n\n"
                + "\n".join(f"- {d}" for d in (propuesta.dudas or ["La nota es ambigua."])))
+    if getattr(propuesta, "avisos", None):
+        st.info("Además:\n\n" + "\n".join(f"- {a}" for a in propuesta.avisos))
     nombres = [p["pagina"] for p in paginas]
     candidatas = [c for c in propuesta.candidatas if c in nombres] or nombres
     etiquetas = {p["pagina"]: etiqueta_pagina(p) for p in paginas}

@@ -187,6 +187,25 @@ class InterfazTest(unittest.TestCase):
         self.assertIn("se reindexó **TABLERO TIEMPOS URGENCIAS**", _textos(self.at.info))
         self.assertIsNone(self.at.session_state["docs_propuesta"])
 
+    def test_muestra_avisos_metodo_y_tiempos(self):
+        self._proponer("le subí el verde del semáforo de triage II a 20 minutos")
+        avisos = _textos(self.at.warning)
+        self.assertIn("Revisa esto antes de aprobar (1)", avisos)
+        self.assertIn("«Leyenda de oportunidad» también tiene la cifra 15", avisos)
+        leyendas = _textos(self.at.caption)
+        self.assertIn("Cómo se eligió la página: la nota la nombra", leyendas)
+        self.assertIn("1 llamada a MedGemma (1.5 s)", leyendas)
+        # Los avisos van junto al diff: antes del bloque «Antes y después».
+        bloques = [str(m.value) for m in self.at.main if hasattr(m, "value")]
+        posicion_aviso = next(i for i, v in enumerate(bloques) if "Revisa esto antes de aprobar" in v)
+        posicion_diff = next(i for i, v in enumerate(bloques) if "Antes y después" in v)
+        self.assertLess(posicion_aviso, posicion_diff)
+
+    def test_pagina_indicada_se_explica(self):
+        self._proponer("agregué una tarjeta", pagina="CONSULTAS DIA")
+        self.assertIn("la elegiste tú en el formulario", _textos(self.at.caption))
+        self.assertNotIn("Revisa esto antes de aprobar", _textos(self.at.warning))
+
     def test_pagina_elegida_y_cambios_pbip(self):
         self._proponer("agregué una tarjeta", pagina="CONSULTAS DIA",
                        pbip="Página CONSULTAS DIA: nueva tarjeta.\n\nOtro cambio.")
@@ -345,6 +364,16 @@ class LogicaTest(unittest.TestCase):
         self.assertGreaterEqual(eliminadas, 2)
         with self.assertRaises(ValueError):
             I.reaplicar(propuesta, [Operacion("modificar", "Reglas de negocio", "No existe", "x")])
+
+    def test_textos_de_metodo_y_tiempos(self):
+        p = Propuesta(nota="n", source_group=GRUPO, pagina="EGRESOS DIA", metodo_pagina="medgemma",
+                      candidatas=["EGRESOS DIA", "TIEMPO EGRESO"])
+        self.assertIn("MedGemma la eligió", I.metodo_pagina_texto(p))
+        self.assertIn("TIEMPO EGRESO", I.metodo_pagina_texto(p))
+        self.assertEqual(I.metodo_pagina_texto(Propuesta(nota="n", source_group=GRUPO)), "")
+        self.assertEqual(I.tiempos_texto(9.84, [4.1, 5.2]),
+                         "preparada en 9.8 s · 2 llamadas a MedGemma (4.1 s + 5.2 s)")
+        self.assertEqual(I.tiempos_texto(None, []), "")
 
     def test_diff_html_escapa(self):
         self.assertIn("&lt;b&gt;", I.diff_html("a", "<b>"))
