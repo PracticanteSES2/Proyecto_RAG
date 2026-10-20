@@ -42,7 +42,7 @@ Secciones y orden (las vacías se omiten, salvo Propósito e Historial):
 | `repositorio.py` | listar_tableros / listar_paginas / leer_pagina / guardar_pagina | base (hecho) |
 | `actualizador.py` | proponer_cambio(nota, source_group, pagina=None, llm=None, cambios_pbip=None) -> Propuesta; aplicar_propuesta(propuesta, autor) | agente actualizador |
 | `indexacion.py` | reindexar_grupo(source_group, qdrant_client=None) -> dict | agente ingesta |
-| `pbip.py` | extraer_hechos / comparar / esqueleto | agente pbip |
+| `pbip.py` | extraer_hechos / comparar / esqueleto (+ guardar_instantanea / cambios_desde_instantanea; acepta PBIP o .pbix PBIR) | agente pbip |
 | `src/ingestion` | leer `md/` y producir el JSON normalizado del RAG | agente ingesta |
 | `pages/` (Streamlit) | ver documentación, proponer cambio, aprobar, reindexar | agente interfaz |
 
