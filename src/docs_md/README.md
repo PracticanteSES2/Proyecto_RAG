@@ -70,6 +70,29 @@ Operaciones que devuelve MedGemma (JSON):
 
 `accion`: agregar | modificar | eliminar. `Propósito` solo admite `modificar` con el texto completo.
 El historial y la versión los actualiza `aplicar_operaciones`.
+En la llamada real cada operación trae además `antes` (copia del texto actual de la entrada): obliga al
+modelo a distinguir el texto viejo del nuevo; el código lo ignora al aplicar.
+
+## Actualizador (`actualizador.py`)
+
+`proponer_cambio(nota, source_group, pagina=None, llm=None, cambios_pbip=None, raiz=None)` devuelve una
+`Propuesta` con `estado`:
+
+- **lista**: hay operaciones válidas; `despues` y `diff` muestran el resultado. Se aprueba con
+  `aplicar_propuesta(propuesta, autor, raiz=None)`, que falla (`ErrorActualizacion`) si el archivo cambió
+  desde la propuesta.
+- **requiere_aclaracion**: `dudas` trae las preguntas (nota sin contenido, página dudosa con `candidatas`,
+  valor anterior que no coincide con el documento, algo que la página no documenta, dudas del modelo).
+  Si había operaciones, el `diff` sirve de vista previa, pero no se aplica.
+- **error**: `errores` (MedGemma no respondió o no devolvió JSON válido tras un reintento).
+
+`avisos` (no bloquean) le dicen a quien aprueba qué revisar: cifras que no están en la nota, textos que
+pierden contenido, entradas relacionadas que no se tocaron y correcciones hechas por el código.
+`llm_raw` guarda las respuestas crudas; `metodo_pagina` dice cómo se eligió la página.
+
+Pruebas sin red: `python -m unittest tests.docs_md.test_actualizador`.
+Evaluación con MedGemma real: `python -X utf8 -m tests.docs_md.eval_actualizador` (informe en
+`tests/docs_md/out/`).
 
 ## Interfaz (`pages/1_Documentación.py` + `interfaz.py`)
 
