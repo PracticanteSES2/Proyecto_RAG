@@ -1,14 +1,14 @@
 ---
 tablero: TABLERO DE ATENCIONES INSTITUCIONALES
-pagina: AREA DE SERVICIO IMAGENES
+pagina: ESPECIALIDAD IMAGENES
 nombre_funcional: Imágenes diagnósticas por área de servicio
 bloque: Histórico
 tablas: [CONSOLIDADO_IMAGENES_2025, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
-# AREA DE SERVICIO IMAGENES
+# ESPECIALIDAD IMAGENES
 
 ## Propósito
 Muestra cuántas imágenes diagnósticas se realizan en cada área (rayos X, escanografía, ecografía, resonancia, etc.), con el total y el promedio mensual. Se llega con el botón DETALLE APOYO DIAGNOSTICO de la página IMAGENES.
@@ -34,10 +34,11 @@ Muestra cuántas imágenes diagnósticas se realizan en cada área (rayos X, esc
 - **Año por defecto**: Sin año elegido, el total y el promedio muestran el año cerrado.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar; la documentación la titula «TABLERO DE AREA DE SERVICIO IMAGENES».
+- **Nombre de página**: En Power BI la página se llama ESPECIALIDAD IMAGENES; la documentación del propietario la titula «AREA DE SERVICIO IMAGENES». La correspondencia es probable (por el botón de llegada y el contenido, porque la página del PBIP no trae visuales); por confirmar.
 - **Descripción del documento**: Dice que el visual de áreas es un gráfico de barras; la captura muestra un mapa de árbol.
 - **Copia en laboratorio**: El documento de LABORATORIO CLÍNICO incluye una sección «IMAGENES POR AREA» con la misma captura de esta página.
 - **Mapa de árbol sin año**: En la captura el mapa de árbol coincide con el total del año cerrado; por confirmar si sigue al segmentador de Año.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

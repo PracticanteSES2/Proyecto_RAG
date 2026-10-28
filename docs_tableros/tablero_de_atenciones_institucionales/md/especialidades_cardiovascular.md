@@ -1,14 +1,14 @@
 ---
 tablero: TABLERO DE ATENCIONES INSTITUCIONALES
-pagina: ESPECIALIDADES UNIDAD CARDIONEUROVASCULAR
+pagina: ESPECIALIDADES CARDIOVASCULAR
 nombre_funcional: Atenciones de la Unidad Cardioneurovascular por especialidad y servicio
 bloque: Histórico
 tablas: [UNIDAD_CARDIOVASCULAR, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
-# ESPECIALIDADES UNIDAD CARDIONEUROVASCULAR
+# ESPECIALIDADES CARDIOVASCULAR
 
 ## Propósito
 Muestra cómo se reparten las atenciones de la Unidad Cardioneurovascular entre especialidades (hemodinamia, cirugía vascular, electrofisiología, etc.) y cuáles servicios se hacen con más frecuencia. Se llega desde el botón ESPECIALIDAD de UNIDAD CARDIONEUROVASCULAR y se vuelve con la flecha.
@@ -31,10 +31,11 @@ Muestra cómo se reparten las atenciones de la Unidad Cardioneurovascular entre 
 - **Especialidad por CUPS**: La especialidad se asigna por listas de códigos CUPS: Cirugía Vascular, Cirugía Cardiovascular, Electrofisiología, Hemodinamia, Neurointervencionismo, Procedimiento de Imágenes y Radiología intervencionista; los demás códigos quedan como OTRO.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar; la documentación la titula «TABLERO DE ESPECIALIDADES UNIDAD CARDIONEUROVASCULAR».
+- **Nombre de página**: En Power BI la página se llama ESPECIALIDADES CARDIOVASCULAR; la documentación del propietario la titula «ESPECIALIDADES UNIDAD CARDIONEUROVASCULAR».
 - **Rótulos distintos a la consulta**: El treemap muestra «Cx vascular» mientras la consulta documentada asigna «Cirugía Vascular»; la consulta puede estar desactualizada.
 - **Código CUPS sospechoso**: La lista de Radiología intervencionista incluye '3720102', de 7 dígitos; los CUPS tienen 6. Por confirmar.
 - **Tarjeta con nombre técnico**: La tarjeta de promedio muestra el nombre de la medida en lugar de un rótulo para el usuario.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

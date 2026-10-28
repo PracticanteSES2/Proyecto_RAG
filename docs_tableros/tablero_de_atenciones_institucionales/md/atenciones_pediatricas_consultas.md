@@ -4,8 +4,8 @@ pagina: ATENCIONES PEDIÁTRICAS CONSULTAS
 nombre_funcional: Consultas pediátricas de urgencias por mes y clasificación
 bloque: Histórico
 tablas: [CONSULTA_URGENCIAS, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # ATENCIONES PEDIÁTRICAS CONSULTAS
@@ -33,10 +33,11 @@ Muestra cuántas consultas pediátricas de urgencias se atienden cada mes, compa
 - **Clasificación**: Se agrupa igual que en TRIAGE (IIIU en III; IIP e IIS en II; UA excluido).
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar; la documentación la titula «ATENCIONES PEDIÁTRICAS – CONSULTAS».
+- **Nombre de página**: El PBIP actual no trae una página con este nombre; la página existe en la documentación del propietario («ATENCIONES PEDIÁTRICAS – CONSULTAS»). Por confirmar su nombre en Power BI.
 - **Gráfico vacío**: En la captura el gráfico de líneas aparece sin datos.
 - **Medidas desactualizadas**: Las medidas documentadas cuentan OID_TRIAGE, columna que ya no existe en CONSULTA_URGENCIAS, y su nombre (PRIORITARIAS) no corresponde a consultas pediátricas.
 - **Consulta desactualizada**: La consulta documentada es la anterior de urgencias (desde 2023); el modelo actual carga desde 2025-01-01 y excluye la causa de ingreso 4 (enfermedad general pediatría). Por confirmar cómo afecta a esta página.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

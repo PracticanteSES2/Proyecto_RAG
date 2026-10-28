@@ -4,8 +4,8 @@ pagina: CONSULTAS AMBULATORIAS
 nombre_funcional: Volumen y oportunidad de las consultas ambulatorias
 bloque: Histórico
 tablas: [CONSULTAS_AMBULATORIAS, CONSULTA_AMBULATORIAS, Calendario, MostrarProyeccion]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # CONSULTAS AMBULATORIAS
@@ -30,7 +30,7 @@ Muestra cuántas consultas ambulatorias (consulta externa) se atienden cada mes,
 - **Medidores de oportunidad**: Tres medidores en días: «OPORTUNIDAD CONSULTA GENERAL» (máximo 20), «OPORTUNIDAD CONSULTA CONTROL» (máximo 20) y «OPORTUNIDAD CONSULTA PRIMERA VEZ» (máximo 15).
 - **Tabla de detalle anual**: Matriz de consultas por año (filas) y mes (columnas).
 - **Tarjetas de consultas**: «TOTAL CONSULTAS AÑO ANTERIOR» y «PROMEDIO MENSUAL AÑO ANTERIOR».
-- **Botón Detalle especialidades**: Lleva a la página DETALLE ESPECIALIDADES; el botón de casa vuelve a INICIO.
+- **Botón Detalle especialidades**: Lleva a la página DETALLE ESPECIALIDADES; el botón de casa vuelve a INDICADORES.
 
 ## Reglas de negocio
 - **Metas de oportunidad**: Columnas fijas GENERAL = 20, CONTROL = 20 y CONSULTA_PRA = 15 días; se usan como máximo de los medidores.
@@ -42,7 +42,7 @@ Muestra cuántas consultas ambulatorias (consulta externa) se atienden cada mes,
 - **Una cita por día**: Si hay varios folios para el mismo asegurador, especialidad, paciente y fecha de cita, se toma el último.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: Coincide con la página CONSULTAS AMBULATORIAS del PBIP.
 - **Columna OID_CITA**: AMB_ANT y AMB_ACT cuentan OID_CITA, que no existe en el modelo; el modelo cuenta IDENTIFICACION.
 - **Proyección con bases distintas**: Proyeccion_Amb toma el año anterior de CONSULTAS_AMBULATORIAS (solo cumplidas) y el de hace dos años de CONSULTA_AMBULATORIAS (totales históricos); por confirmar si son comparables.
 - **Regla de obstetricia**: La agrupación OBSTETRICIA compara el nombre de la actividad con 'OBST' sin comodines, así que casi nunca aplica.
@@ -51,3 +51,4 @@ Muestra cuántas consultas ambulatorias (consulta externa) se atienden cada mes,
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

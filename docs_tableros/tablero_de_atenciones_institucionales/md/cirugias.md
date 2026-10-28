@@ -4,14 +4,14 @@ pagina: CIRUGÍAS
 nombre_funcional: Volumen mensual de cirugías realizadas y oportunidad quirúrgica
 bloque: Histórico
 tablas: [CIRUGIAS, OPORTUNIDAD CIRUGIA, Calendario, MostrarProyeccion]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # CIRUGÍAS
 
 ## Propósito
-Muestra cuántas cirugías se realizan cada mes, compara los años y permite ver una proyección del año. Incluye el tiempo de oportunidad de la cirugía ambulatoria en días. Desde esta página se llega a CANCELACIONES, PENDIENTES y al detalle por especialidad (CIRUGÍAS ESPECIALIDADES).
+Muestra cuántas cirugías se realizan cada mes, compara los años y permite ver una proyección del año. Incluye el tiempo de oportunidad de la cirugía ambulatoria en días. Desde esta página se llega a CANCELACIONES, PENDIENTES y al detalle por especialidad (ESPECIALIDADES CIRUGIA).
 
 ## Fuentes de datos
 - **CIRUGIAS**: Cirugías realizadas (vista CIRUGIAS_DWSES) con su ingreso, aseguradora y EPS; FECHA es la fecha de la cirugía sin hora. La consulta no tiene filtro de fechas (el filtro está comentado).
@@ -32,7 +32,7 @@ Muestra cuántas cirugías se realizan cada mes, compara los años y permite ver
 - **Medidor de oportunidad**: Medidor «OPORTUNIDAD DE CIRUGÍA AMBULATORIA (DÍAS)» con el promedio de días de oportunidad.
 - **Tabla de detalle anual**: Matriz de cirugías por año (filas) y mes (columnas).
 - **Tarjetas de cirugías**: «CIRUGÍAS REALIZADAS» (total del periodo) y «PROMEDIO MENSUAL».
-- **Botones de navegación**: CANCELACIONES, PENDIENTES y DETALLE ESPECIALIDADES; el botón de casa vuelve a INICIO.
+- **Botones de navegación**: CANCELACIONES, PENDIENTES y DETALLE ESPECIALIDADES; el botón de casa vuelve a INDICADORES.
 
 ## Reglas de negocio
 - **Base de la proyección**: La proyección necesita datos del mismo mes en los dos años anteriores al año seleccionado; si falta alguno o el de hace dos años es 0, no se calcula.
@@ -40,7 +40,7 @@ Muestra cuántas cirugías se realizan cada mes, compara los años y permite ver
 - **Médico de la solicitud**: Si el médico registrado es el código genérico 5000, se usa el nombre del médico que solicita.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: Coincide con la página CIRUGÍAS del PBIP.
 - **Proyección sin año seleccionado**: PROYECCION_CIRUGIAS toma el año con SELECTEDVALUE; si no hay un único año seleccionado el año queda vacío y la proyección no aparece. Por confirmar si es intencional.
 - **Promedio mensual entre años**: PROM_CIRUGÍAS divide por el mes actual el conteo de todos los años filtrados; sin filtro de año mezcla varios años.
 - **DAX con texto dañado**: En la documentación el DAX de PROYECCION_CIRUGIAS aparece con el nombre partido («_CIRUGIAS =», «Capturam PROYECCION os»); el del modelo está completo.
@@ -48,3 +48,4 @@ Muestra cuántas cirugías se realizan cada mes, compara los años y permite ver
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

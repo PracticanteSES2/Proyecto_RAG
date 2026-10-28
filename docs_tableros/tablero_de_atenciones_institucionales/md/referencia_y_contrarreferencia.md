@@ -4,8 +4,8 @@ pagina: REFERENCIA Y CONTRARREFERENCIA
 nombre_funcional: Solicitudes de referencia por mes y estado de aceptación
 bloque: Histórico
 tablas: [REFERENCIA, ASEGURADORAS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # REFERENCIA Y CONTRARREFERENCIA
@@ -25,7 +25,7 @@ Muestra cuántas solicitudes de referencia y contrarreferencia recibe el hospita
 - **Gráfico de solicitudes por mes**: Columnas «SOLICITUDES por Mes, Año y ESTADO» agrupadas por mes y año, con una columna por estado (Aceptado, Con Ingreso, Es Urgencia Vital, No Aceptado y Tramite Por SES).
 - **Tabla de detalle anual**: Matriz con año y, debajo, cada estado en filas, meses en columnas y totales.
 - **Gráfico por estado**: Torta «SOLICITUDES por ESTADO» con el porcentaje de cada estado.
-- **Botón Motivos no aceptación**: Abre MOTIVOS DE NO ACEPTACIÓN; el botón de casa vuelve a INICIO.
+- **Botón Motivos no aceptación**: Abre MOTIVOS DE NO ACEPTACIÓN; el botón de casa vuelve a INDICADORES.
 
 ## Reglas de negocio
 - **Estados de aceptación**: Aceptado, Con Ingreso, Es Urgencia Vital, No Aceptado y Tramite Por SES (catálogo DIM_ESTADOS_ACEPTACION).
@@ -33,10 +33,11 @@ Muestra cuántas solicitudes de referencia y contrarreferencia recibe el hospita
 - **Agrupación de aseguradoras**: NUEVA EPS, SURA (sin ARL SURA, seguros de vida ni Suramericana), SANITAS (sin Colsanitas ni Medisanitas) y MALLAMAS; el resto conserva su nombre.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: El PBIP actual no trae una página con este nombre; la página existe en la documentación del propietario. Por confirmar su nombre en Power BI.
 - **Posibles duplicados**: La consulta une cada solicitud con todas sus causas; una solicitud con varias causas aparece varias veces y puede contarse de más si se cuentan filas. Por confirmar.
 - **Aseguradora por documento**: La aseguradora se busca por el documento del paciente en la tabla de pacientes, no por la solicitud; es la aseguradora actual del paciente.
 - **Sin relación con el Calendario**: La tabla no se une al Calendario; los segmentadores Año y Mes deben salir de la fecha de la propia tabla. Por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

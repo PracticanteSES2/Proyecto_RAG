@@ -4,8 +4,8 @@ pagina: CONSULTAS SIN TRIAGE
 nombre_funcional: Ingresos de urgencias atendidos sin triage
 bloque: Histórico
 tablas: [CONSULTAS SIN TRIAGE, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # CONSULTAS SIN TRIAGE
@@ -33,7 +33,7 @@ Muestra los ingresos de urgencias que se atienden sin clasificación de triage, 
 - **Ingresos excluidos**: No entran las cirugías programadas (causa de ingreso 11) ni los ingresos con AINESTADO 2 o 4.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: Coincide con la página CONSULTAS SIN TRIAGE del PBIP.
 - **Medidas no documentadas**: Ninguno de los dos documentos lista las medidas; las de las tarjetas salen del catálogo del modelo.
 - **Gráfico frente a porcentaje**: En la captura el promedio mensual coincide con la suma del año del gráfico dividida entre los meses transcurridos, mientras el porcentaje sin triage es 17,59 %; eso sugiere que el gráfico cuenta todos los ingresos de urgencias y no solo los sin triage. Por confirmar.
 - **Descripción distinta**: Un documento describe la página como consultas «con cita previa o en orden de llegada» sin revisión de gravedad; la consulta solo trae ingresos de urgencias.
@@ -41,3 +41,4 @@ Muestra los ingresos de urgencias que se atienden sin clasificación de triage, 
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

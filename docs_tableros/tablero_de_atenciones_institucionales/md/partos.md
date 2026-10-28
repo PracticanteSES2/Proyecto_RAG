@@ -4,8 +4,8 @@ pagina: PARTOS
 nombre_funcional: Partos atendidos por mes y relación vaginales/cesáreas
 bloque: Histórico
 tablas: [PARTOS_DRIVE, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # PARTOS
@@ -33,7 +33,7 @@ Muestra los partos atendidos cada mes en los últimos tres años, por tipo de pa
 - **Año por defecto**: Sin año seleccionado, las tarjetas de total y promedio muestran el año anterior cerrado.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: Coincide con la página PARTOS del PBIP.
 - **Página documentada dos veces**: La documentación describe esta página en dos secciones («TABLERO PARTOS» y «TABLERO DE PARTOS») con la misma captura; aquí se unen.
 - **Visuales rotos**: En las capturas tres visuales de la parte superior muestran «Corregir esto» (error de campo); por la documentación serían los filtros de aseguradora, año y mes. Por confirmar.
 - **Tipos que no son parto**: El mismo archivo trae ABORTO e IVE, que se ven en la página ABORTOS. Por confirmar si el total de partos los excluye.
@@ -41,3 +41,4 @@ Muestra los partos atendidos cada mes en los últimos tres años, por tipo de pa
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
