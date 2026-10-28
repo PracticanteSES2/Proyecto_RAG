@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [UNIDAD_CARDIOVASCULAR]
 actualizado: 2026-10-28
 version: 2
-id_pagina: 6564ba1c63ef479f6c08
 ---
 
 # DISTRIBUCION DE ATENCIONES EN UNIDAD NEUROCARDIOVASCULAR

@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [CONSULTA_URGENCIAS, Calendario, TERCERO]
 actualizado: 2026-10-28
 version: 2
-id_pagina: ReportSectionb919cdcc9bca70a29826
 ---
 
 # OPORTUNIDAD URGENCIAS

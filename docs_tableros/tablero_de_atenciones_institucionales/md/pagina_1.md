@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [DIM_SERVICIO]
 actualizado: 2026-10-28
 version: 2
-id_pagina: 673caf6bbc62385e7bb4
 ---
 
 # Página 1

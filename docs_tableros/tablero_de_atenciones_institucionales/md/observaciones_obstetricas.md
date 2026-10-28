@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [OBSERVADOS, Calendario, TERCERO]
 actualizado: 2026-10-28
 version: 2
-id_pagina: 1fd61719423b0853ee24
 ---
 
 # OBSERVACIONES OBSTETRICAS

@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [FACT_EGRESOS, FACT_ESTANCIA, PORCENTAJE_OCUPACIONAL, DIM_SERVICIO, TERCERO, Calendario]
 actualizado: 2026-10-28
 version: 2
-id_pagina: 6c03bc7bd793eda6c68a
 ---
 
 # INDICADORES
@@ -28,7 +27,7 @@ Página principal del tablero. Muestra mes a mes, comparando los dos últimos a�
 - **Giro cama**: Egresos por cama. Medida GIRO_CAMA1 (confirmada en el PBIP): ingresos distintos con egreso tipo PUERTA o TRASLADO divididos entre la suma de camas de los servicios (NUM_CAM_EGRESOS).
 
 ## Visuales
-- **Segmentadores**: ASEGURADOR (TERCERO[TERNOMCOM]), Año, Mes y SERVICIO (DIM_SERVICIO[SERVICIO_HOMOLOGADO]).
+- **Segmentadores**: ASEGURADOR (TERCERO[TERNOMCOM]), Año, Mes y SERVICIO (DIM_SERVICIO[SERVICIO_HOMOLOGADO]). El segmentador de mes usa el campo «Date Mes» de Calendario[Date] (jerarquía de fechas) en lista desplegable de selección múltiple.
 - **Tarjetas de egresos y camas**: «EGRESOS» y «CAPACIDAD INSTALADA».
 - **Botones de vista**: INSTITUCIONAL, URGENCIAS, GINECO, NEONATOS, HOSPITALIZACIÓN, UCI/UCIN, UCI y UCIN; son marcadores que cambian la vista de los gráficos de esta misma página.
 - **Botón PUERTA**: Botón sobre el gráfico de egresos. Función por confirmar.
@@ -41,18 +40,19 @@ Página principal del tablero. Muestra mes a mes, comparando los dos últimos a�
 ## Reglas de negocio
 - **Servicios ocultos en el segmentador**: SERVICIO no ofrece ATENCION DOMICILIARIA, BLOQUEADO, BLOQUEAR-CUIDADO INTERMEDIO ADULTO, BLOQUEAR-UNIDAD POLIVALENTE, CAMAS MAL CREADAS EN EL SISTEMA, CIRUGIA GENERAL, CUIDADO ESPECIAL, ENDOSCOPIA TERAPEUTICA, HOSPITALIZACIÓN CUIDADO ESPECIAL (3 SUR), IMAGENES, QUIROFANO, SERVICIOS DE HOSPITALIZACIÓN EN EL DOMICILIO, UNIDAD RECIEN NACIDOS, UNIDAD CARDIO NEURO VASCULAR ni el valor vacío.
 - **Servicios fuera del giro cama**: El gráfico de giro cama excluye CIRUGIA GENERAL, HOSPITALIZACION PARCIAL, SERVICIOS DE HOSPITALIZACIÓN EN EL DOMICILIO, URGENCIAS 2 SUR y el servicio vacío.
-- **Camas para giro cama**: BOTON AZUL 3 PISO 6, HOSP 2 SUR 21, HOSP 4 NORTE 23, HOSP 4 SUR 21, HOSP 5 NORTE 12, HOSP 5 SUR 19, HOSPITALIZACION 6 PISO 16, HOSPITALIZACION NEONATOS 16, HOSPITALIZACION PARCIAL 8, CUIDADO INTERMEDIO NORTE 21, CUIDADO INTERMEDIO SUR 17, OBSTETRICIA CRITICA 4, UNIDAD OBSTETRICIA 26, UNIDAD DE CUIDADO INTENSIVO 20, URGENCIAS 54 y URGENCIAS SALA AZUL 9 (medida NUM_CAM_EGRESOS; por confirmar).
-- **Camas para ocupación**: CUARTO PISO NORTE 23, CUARTO PISO SUR 21, CUIDADO INTERMEDIO NORTE 21, CUIDADO INTERMEDIO SUR 17, HOSPITALIZACION NEONATOS 16, OBSTETRICIA 26, OBSTETRICIA CRITICO 4, QUINTO PISO NORTE 12, QUINTO PISO SUR 19, SEGUNDO PISO SUR 21, SEXTO PISO 16, UNIDAD DE CUIDADO INTENSIVO 20, URGENCIAS EXPANSION 27, URGENCIAS 54 y URGENCIAS BOTON AZUL 9 (medida NUMERO_CAMAS; por confirmar).
-- **Egresos para giro cama**: Solo cuentan los egresos con EGRESO_PUERTA igual a PUERTA o TRASLADO.
+- **Camas para giro cama**: Camas fijas por servicio escritas en la medida [NUM_CAM_EGRESOS]: BOTON AZUL 3 PISO 6, HOSP 2 SUR 0, HOSP 4 NORTE 23, HOSP 4 SUR 21, HOSP 5 NORTE 12, HOSP 5 SUR 20, HOSPITALIZACION 6 PISO 16, HOSPITALIZACION NEONATOS 16, CUIDADO INTERMEDIO NORTE 21, CUIDADO INTERMEDIO SUR 17, OBSTETRICIA CRITICO 4, UNIDAD OBSTETRICIA 26, UNIDAD DE CUIDADO INTENSIVO 20, URGENCIAS 46, URGENCIAS EXPANSION 8, URGENCIAS 2 PISO 24 y URGENCIAS SALA AZUL 0 (280 camas).
+- **Camas para ocupación**: La medida [NUMERO_CAMAS] usa la misma lista fija de camas que [NUM_CAM_EGRESOS] (280 camas), sobre los nombres homologados de servicio.
+- **Egresos para giro cama**: La documentación anterior decía que solo cuentan egresos PUERTA o TRASLADO; [GIRO_CAMA1] hoy cuenta todos los ingresos con egreso (epicrisis) del año. Por confirmar la regla vigente.
+- **Giro cama del gráfico**: La medida [GIRO_CAMA1] divide los egresos del año (el actual, o el anterior si el año elegido no es el actual) entre las camas fijas de los servicios visibles; la fórmula actual no filtra el tipo de egreso.
 
 ## Observaciones
 - **Nombre de página**: En Power BI la página se llama INDICADORES; la documentación del propietario la titula «INICIO».
-- **PBIP incompleto**: El PBIP solo trae el gráfico de giro cama, los segmentadores y algunos botones; las medidas de los demás gráficos y tarjetas salen del catálogo del modelo. Por confirmar.
-- **Capacidad instalada sin cuadrar**: Las camas de NUM_CAM_EGRESOS suman 293 y las de NUMERO_CAMAS 306; ninguna coincide con el valor de la tarjeta en la captura (308). Por confirmar.
+- **PBIP incompleto**: El PBIP solo trae el gráfico GIRO CAMA, los segmentadores y algunos botones de esta página; los demás gráficos y tarjetas salen de la documentación del propietario y del catálogo del modelo. Por confirmar.
+- **Capacidad instalada sin cuadrar**: Las camas de [NUM_CAM_EGRESOS] y de [NUMERO_CAMAS] suman 280 en el modelo actual; ninguna coincide con el valor de 308 de la tarjeta CAPACIDAD INSTALADA de la captura. Por confirmar de dónde sale la tarjeta.
 - **Unidad del promedio de estancia**: En la captura el gráfico muestra valores entre 118 y 148, que no parecen días por egreso. Por confirmar la unidad.
 - **Ocupación sobre 100 %**: En la captura el porcentaje ocupacional supera 100 % en varios meses y cae en el mes en curso por estar incompleto.
 - **Filtro sobrante**: El segmentador SERVICIO tiene un filtro oculto sobre CONSULTA_URGENCIAS[ASEGURADORA] que no corresponde a esta página.
-- **Listas de camas distintas**: Giro cama y ocupación usan listas de camas con nombres de servicio diferentes (HOSP 4 NORTE frente a CUARTO PISO NORTE).
+- **Listas de camas distintas**: En el modelo actual las listas de camas de giro cama y de ocupación son idénticas; las listas con nombres distintos (HOSP 4 NORTE frente a CUARTO PISO NORTE) y las cifras 293 y 306 son de la documentación anterior.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.

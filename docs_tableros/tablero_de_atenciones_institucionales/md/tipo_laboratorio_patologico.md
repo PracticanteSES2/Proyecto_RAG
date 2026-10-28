@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [LABORATORIOS_PATOLOGICOS, Calendario]
 actualizado: 2026-10-28
 version: 2
-id_pagina: 0f187ab57a0c1cbaf5df
 ---
 
 # TIPO LABORATORIO PATOLOGICO

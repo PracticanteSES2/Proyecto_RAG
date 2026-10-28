@@ -24,7 +24,7 @@ Muestra cuántas consultas prioritarias (citas de atención prioritaria efectiva
 ## Visuales
 - **Segmentadores**: ASEGURADOR (columna EGRESOS_POR_SERVICIO[TERNOMCOM]), Año y Mes.
 - **Gráfico de consultas por mes**: Líneas tituladas «PACIENTES OBSERVADOS POR MES» que muestran las consultas prioritarias por mes, una línea por año.
-- **Tabla de detalle anual**: Matriz de consultas por año (filas) y mes (columnas); excluye 2023 y el año vacío.
+- **Tabla de detalle anual**: Matriz de consultas por año (filas) y mes (columnas); excluye 2023 y el año vacío. Usa los campos «Date Año» y «Date Mes» de Calendario[Date] y el recuento de CONSULTAS PRIORITARIAS[IDENTIFICACION].
 - **Tarjetas de consultas**: «TOTAL CONSULTAS PRIORITARIAS» y «PROMEDIO MENSUAL» (PROMEDIO_MENSUAL).
 - **Botón de regreso**: Flecha que vuelve a la página anterior.
 

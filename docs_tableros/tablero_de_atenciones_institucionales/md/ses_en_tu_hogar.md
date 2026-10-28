@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [ATENCION DOMICILIARIA, Calendario, MostrarProyeccion]
 actualizado: 2026-10-28
 version: 2
-id_pagina: df2c3d5ccbe6b3a9a075
 ---
 
 # SES EN TU HOGAR

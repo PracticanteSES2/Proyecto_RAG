@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [OBSERVADOS]
 actualizado: 2026-10-28
 version: 2
-id_pagina: c96317e2131b50427607
 ---
 
 # ATENCIONES PEDIATRICAS OBSERVACIONES

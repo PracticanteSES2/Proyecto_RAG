@@ -47,12 +47,13 @@ Tablero histórico de la actividad asistencial del hospital: egresos, estancia, 
 - **Navegación**: El botón de casa vuelve a INDICADORES y la flecha vuelve a la página anterior del grupo.
 
 ## Observaciones
-- **PBIP parcial**: El PBIP disponible solo trae cinco páginas (INDICADORES sin page.json, CONSULTAS PRIORITARIAS, IMAGENES, LABORATORIO PATOLOGICO y DETALLE ESPECIALIDADES), todas ocultas en modo lectura; los nombres del resto de páginas salen de la documentación.
+- **PBIP parcial**: El PBIP trae las 37 páginas del informe, pero solo INDICADORES, CONSULTAS PRIORITARIAS, DETALLE ESPECIALIDADES y LABORATORIO PATOLOGICO tienen visuales; en las demás solo existe la página con sus filtros. Todas están ocultas en modo lectura salvo INDICADORES y Página 1. Sus visuales salen de la documentación del propietario.
 - **Medidas con año fijo**: Muchas medidas tienen el año escrito en la fórmula (TRIAGES_2025, OBSERVADOS_2025, IMG_2025, ATEN_DOM2025, ATEHP2025, ATE2025) y no siguen al segmentador de Año.
 - **Nombres de medida engañosos**: PRIORITARIAS_2024 usa YEAR(TODAY()-1), que da el año en curso; PROMEDIO_TRIAGE_2024 filtra 2025 en el modelo.
 - **Consultas desactualizadas**: Varias consultas SQL de la documentación no coinciden con las columnas del modelo (por ejemplo CONSULTA_URGENCIAS ya no tiene OID_TRIAGE ni TIEMPO_PARA_CONSULTA).
 - **Documentos mal titulados**: El documento «SES en tu Hogar» se titula HOSPITALIZACIÓN PARCIAL y muestra esa página, pero su consulta y medidas son de atención domiciliaria; el de laboratorio clínico describe «imágenes».
 - **Catálogo local**: Las fórmulas de medidas que no trae la documentación se tomaron del catálogo del modelo y se marcan «Por confirmar».
+- **Nombres de página**: Las páginas se renombraron como en el PBIP (por ejemplo INDICADORES antes INICIO, QUIMIOTERAPIA, RADIOTERAPIA, OPORTUNIDAD URGENCIAS, SES EN TU HOGAR, LABORATORIO). Las páginas GINECO, REFERENCIA Y CONTRARREFERENCIA, MOTIVOS DE NO ACEPTACIÓN, PORCENTAJE OCUPACIONAL, PACIENTES OBSERVADOS y ATENCIONES PEDIÁTRICAS (CONSULTAS y TRIAGE) solo existen en la documentación del propietario.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.

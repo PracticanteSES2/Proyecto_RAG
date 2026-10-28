@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [UNIDAD_CARDIOVASCULAR, Calendario]
 actualizado: 2026-10-28
 version: 2
-id_pagina: d5b068453a3d65dc5aff
 ---
 
 # ESPECIALIDADES CARDIOVASCULAR

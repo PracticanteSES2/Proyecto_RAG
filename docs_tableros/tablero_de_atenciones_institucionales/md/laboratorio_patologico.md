@@ -22,9 +22,9 @@ Muestra cuántos reportes de patología se generan cada mes, compara los años y
 - **Reportes por mes**: Count(LABORATORIOS_PATOLOGICOS[Consecutivo]) en el gráfico y la tabla.
 
 ## Visuales
-- **Segmentadores**: ASEGURADORA, Año, Mes y TIPO DE PATOLOGIA (TipoLaboratorio).
+- **Segmentadores**: ASEGURADORA, Año, Mes y TIPO DE PATOLOGIA (TipoLaboratorio). El segmentador de año usa el campo «Date Año» de Calendario[Date] en lista desplegable de selección múltiple.
 - **Gráfico de reportes por mes**: Líneas «TOTAL DE REPORTES DE PATOLOGÍA EN EL PERIODO», una línea por año.
-- **Tabla de reportes**: Matriz de reportes por año (filas) y mes (columnas).
+- **Tabla de reportes**: Matriz de reportes por año (filas) y mes (columnas). Usa los campos «Date Año» y «Date Mes» de Calendario[Date] y el recuento de LABORATORIOS_PATOLOGICOS[Consecutivo].
 - **Tarjetas de reportes**: «PROMEDIO MENSUAL» y «TOTAL LABORATORIOS ANUAL».
 - **Botón Asegurador**: Botón «ASEGURADOR» que abre TIPO LABORATORIO PATOLOGICO; el botón de casa vuelve a INDICADORES.
 

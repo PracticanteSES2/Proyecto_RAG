@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [CONSOLIDADO_IMAGENES_2025, Calendario]
 actualizado: 2026-10-28
 version: 2
-id_pagina: 2520d321a54478208c11
 ---
 
 # ESPECIALIDAD IMAGENES

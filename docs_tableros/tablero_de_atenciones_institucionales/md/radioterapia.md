@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [RADIOTERAPIA]
 actualizado: 2026-10-28
 version: 2
-id_pagina: be4464ba6bf6152e2e1a
 ---
 
 # RADIOTERAPIA

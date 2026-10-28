@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [PROMEDIO_ESTANCIA, CAMAS, Calendario]
 actualizado: 2026-10-28
 version: 2
-id_pagina: 2bff56cf4e4628770643
 ---
 
 # PROMEDIO ESTANCIA

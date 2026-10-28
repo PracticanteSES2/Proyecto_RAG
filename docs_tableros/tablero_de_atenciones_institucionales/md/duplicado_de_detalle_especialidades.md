@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [CONSULTAS_AMBULATORIAS]
 actualizado: 2026-10-28
 version: 2
-id_pagina: 96a3efc00e3b297820ed
 ---
 
 # Duplicado de DETALLE ESPECIALIDADES

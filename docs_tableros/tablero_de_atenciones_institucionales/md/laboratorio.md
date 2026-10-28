@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [LABORATORIOS, Calendario]
 actualizado: 2026-10-28
 version: 2
-id_pagina: fffb5a516b88d93d2e75
 ---
 
 # LABORATORIO

@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [LABORATORIOS]
 actualizado: 2026-10-28
 version: 2
-id_pagina: 5e83bb741786a5878c28
 ---
 
 # TIPO LABORATORIO

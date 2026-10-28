@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [QUIMIOTERAPIA]
 actualizado: 2026-10-28
 version: 2
-id_pagina: 0f20083153ec6f643297
 ---
 
 # QUIMIOTERAPIA

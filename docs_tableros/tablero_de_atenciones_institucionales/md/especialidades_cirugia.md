@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [CIRUGIAS, Calendario]
 actualizado: 2026-10-28
 version: 2
-id_pagina: 299298ef6a5fd49aaefd
 ---
 
 # ESPECIALIDADES CIRUGIA
