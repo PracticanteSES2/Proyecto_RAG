@@ -4,8 +4,8 @@ pagina: GENERAL
 nombre_funcional: Peso de ropa hospitalaria recibida en lavandería por servicio, turno y colaborador
 bloque: General
 tablas: [LAVANDERIA]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # GENERAL
@@ -30,6 +30,8 @@ Tablero de una página para el área de lavandería. Mide el peso de ropa hospit
 ## Observaciones
 - **Unidad del peso**: La documentación no indica si el peso está en kilogramos o libras. Por confirmar.
 - **Medidas que son columnas**: La documentación lista NOMBRE_COMPLETO y TURNO_OK como medidas, pero son columnas calculadas.
+- **PBIP sin visuales**: El PBIP local solo trae una página («Página 1») sin visuales; el detalle de visuales sale de la documentación del propietario.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
