@@ -4,14 +4,14 @@ pagina: TRIAGES
 nombre_funcional: Triages no atendidos
 bloque: Histórico
 tablas: [TRIAGE]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # TRIAGES
 
 ## Propósito
-Analiza los triages no atendidos: turnos de triage registrados en urgencias que nunca tuvieron triage realizado. Muestra el total, el promedio mensual, la tendencia por mes y los aseguradores con más casos. Es de análisis histórico; se llega desde el botón TRIAGES de CONSOLIDADO. Nombre de página en Power BI por confirmar.
+Analiza los triages no atendidos: turnos de triage registrados en urgencias que nunca tuvieron triage realizado. Muestra el total, el promedio mensual, la tendencia por mes y los aseguradores con más casos. Es de análisis histórico; se llega desde el botón TRIAGES de CONSOLIDADO. Página oculta en Power BI (solo CONSOLIDADO es visible).
 
 ## Fuentes de datos
 - **TRIAGE**: Turnos de triage (HCNCONTRDT) desde el 1 de enero de 2025 hasta hoy, con clasificación HCNCONCOTRI de 1 a 7 y sin registro en HCNTRIAGE. Trae turno, fecha del turno (HCCFECTUR), estado, asegurador (TERNOMCOM) y la fecha sin hora (FECHA).
@@ -22,13 +22,14 @@ Analiza los triages no atendidos: turnos de triage registrados en urgencias que 
 
 ## Visuales
 - **Tarjetas**: TRIAGES NO ATENDIDOS y PROMEDIO MENSUAL.
-- **Gráfico de líneas por mes**: Titulado «TRIAGES NO REALIZADOS por Mes»; cantidad mensual de triages no atendidos.
-- **Treemap por asegurador**: Titulado «TRIAGES NO REALIZADOS por ASEGURADOR»; distribución de los casos por asegurador.
-- **Filtros**: Segmentadores de Año, Mes y ASEGURADOR, y botón de inicio que vuelve a CONSOLIDADO.
+- **Gráfico de líneas por mes**: Gráfico de líneas «Date Mes» con la serie TRIAGES NO REALIZADOS: cantidad mensual de triages no atendidos, DISTINCTCOUNT(TRIAGE[OID])
+- **Treemap por asegurador**: Treemap con ASEGURADOR (TRIAGE[TERNOMCOM], sin vacíos) y la serie TRIAGES NO REALIZADOS; distribución de los casos por asegurador.
+- **Filtros**: Segmentadores «Date Año» y «Date Mes» (CALENDARIO[Date]) y «ASEGURADOR» (TRIAGE[TERNOMCOM]), y botón de inicio que vuelve a CONSOLIDADO.
 
 ## Reglas de negocio
 - **Triage no atendido**: Un turno cuenta si no existe ningún registro en HCNTRIAGE ligado a él (unión izquierda con HCNTRIAGE vacía).
 - **Clasificaciones incluidas**: Solo turnos con HCNCONCOTRI entre 1 y 7. El significado de cada código está por confirmar.
+- **Filtro de página**: TRIAGE[HCCESTADO] = 2; el significado del código de estado está por confirmar.
 
 ## Observaciones
 - **Asegurador por documento**: El asegurador se obtiene uniendo el turno con el paciente por número de documento (PlanillaUsuario AdmisionTriage); turnos sin documento quedan sin asegurador.
@@ -36,3 +37,4 @@ Analiza los triages no atendidos: turnos de triage registrados en urgencias que 
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
