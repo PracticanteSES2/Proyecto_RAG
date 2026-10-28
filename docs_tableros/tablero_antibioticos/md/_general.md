@@ -4,8 +4,8 @@ pagina: GENERAL
 nombre_funcional: Uso de antibióticos en pacientes hospitalizados
 bloque: General
 tablas: [ANTIBIOTICOS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # GENERAL
@@ -29,7 +29,10 @@ Tablero de dos páginas para monitorear el uso de antibióticos en los pacientes
 
 ## Observaciones
 - **Significado de códigos**: Qué representan HCAESTADO = 6 y HCRESPUES = 0 no está documentado. Por confirmar.
-- **Estado ACTIVO por despacho**: El estado ACTIVO se infiere de la diferencia entre unidades despachadas y aplicadas, no de una orden médica vigente. Por confirmar con farmacia.
+- **Estado ACTIVO por despacho**: El estado ACTIVO se infiere de la diferencia entre unidades despachadas (HCSCANDESP) y aplicadas, no de una orden médica vigente. Por confirmar con farmacia.
+- **Medida distinta de la documentación**: La documentación describe TOTAL ATB (conteo de paciente, antibiótico y día); las tarjetas usan TOTAL DOSIS SUMINISTRADAS = SUM(HCCANTIDAD), que suma cantidades.
+- **Calendario**: La tabla Calendario (de 2023-01-01 a hoy) se relaciona con la fecha de aplicación y alimenta los segmentadores de año y mes.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
