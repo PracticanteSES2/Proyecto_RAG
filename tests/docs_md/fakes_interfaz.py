@@ -8,7 +8,8 @@ Mismo contrato que actualizador.proponer_cambio / aplicar_propuesta e
 indexacion.reindexar_grupo. Comportamiento según la nota:
 - contiene «falla»               -> estado «error» (JSON incompleto del modelo)
 - contiene «ambigua» sin página  -> estado «requiere_aclaracion» con candidatas
-- menciona «semáforo»            -> modifica «Semáforo triage II» (si existe)
+- menciona «semáforo»            -> modifica «Semáforo triage II» (si existe), con un aviso
+                                    simulado, la página «por reglas» y una llamada de 1.5 s
 - cualquier otra                 -> agrega «Nota del equipo» en Observaciones
 Variables: DOCS_MD_FAKE_REINDEX_FALLA=1 hace fallar la reindexación;
 DOCS_MD_FAKE_DEMORA=<segundos> simula la espera de MedGemma.
@@ -52,6 +53,7 @@ def proponer_cambio(nota, source_group, pagina=None, llm=None, cambios_pbip=None
                          dudas=["La nota no dice en qué página está el cambio."],
                          candidatas=[p["pagina"] for p in paginas])
 
+    metodo = "indicada" if pagina else "reglas"
     pagina = pagina or next(p["pagina"] for p in paginas if p["archivo"] != repositorio.ARCHIVO_GENERAL)
     antes = repositorio.leer_texto(source_group, pagina)
     doc = parsear(antes)
@@ -59,15 +61,18 @@ def proponer_cambio(nota, source_group, pagina=None, llm=None, cambios_pbip=None
         op = Operacion("modificar", "Reglas de negocio", "Semáforo triage II",
                        "Verde de 0 a 20 minutos, amarillo de 21 a 30 y rojo de 31 o más.")
         resumen = "Se amplió el verde del semáforo de triage II a 20 minutos."
+        avisos = ["(simulado) «Leyenda de oportunidad» también tiene la cifra 15 del texto anterior; "
+                  "revise si también cambia."]
     else:
         op = Operacion("agregar", "Observaciones", "Nota del equipo", nota)
         resumen = "Se agregó una observación del equipo."
+        avisos = []
     nuevo = aplicar_operaciones(doc, [op], resumen)
     despues = serializar(nuevo)
     return Propuesta(nota=nota, source_group=source_group, pagina=doc.pagina, operaciones=[op],
                      resumen=resumen, estado="lista", antes=antes, despues=despues,
                      diff=diferencias(antes, despues, repositorio.archivo_para(doc)),
-                     llm_raw='{"simulado": true}')
+                     llm_raw='{"simulado": true}', avisos=avisos, metodo_pagina=metodo, tiempos_llm=[1.5])
 
 
 def aplicar_propuesta(propuesta, autor, raiz=None):
