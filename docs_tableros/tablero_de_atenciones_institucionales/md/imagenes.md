@@ -4,14 +4,14 @@ pagina: IMAGENES
 nombre_funcional: Imágenes diagnósticas realizadas por mes
 bloque: Histórico
 tablas: [CONSOLIDADO_IMAGENES_2025, Calendario, MostrarProyeccion]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # IMAGENES
 
 ## Propósito
-Muestra cuántas imágenes diagnósticas se realizan cada mes, compara los años y proyecta el año en curso, con el total anual y el promedio mensual. Se llega con el botón IMAGENES de INICIO y desde aquí se abre AREA DE SERVICIO IMAGENES. Página oculta en modo lectura.
+Muestra cuántas imágenes diagnósticas se realizan cada mes, compara los años y proyecta el año en curso, con el total anual y el promedio mensual. Se llega con el botón IMAGENES de INDICADORES y desde aquí se abre ESPECIALIDAD IMAGENES. Página oculta en modo lectura.
 
 ## Fuentes de datos
 - **CONSOLIDADO_IMAGENES_2025**: Vista CONSOLIDADO_IMAGENES_DWSES con cédula, cantidad, entidad, fecha, código y nombre del examen, área de servicio, grupo, tipo de ingreso, valor facturado e ingreso, más la edad del paciente a la fecha del examen y la columna MAYORES (grupo de edad). Se une al Calendario por FECHA.
@@ -29,7 +29,7 @@ Muestra cuántas imágenes diagnósticas se realizan cada mes, compara los años
 - **Gráfico de imágenes por mes**: Líneas «TOTAL DE IMÁGENES POR AÑO» con las imágenes por mes, una línea por año y una de PROYECCION.
 - **Tarjetas de imágenes**: «PROMEDIO IMÁGENES» y «TOTAL ANUAL DE IMÁGENES».
 - **Tabla de detalle**: Matriz de imágenes por año (filas) y mes (columnas).
-- **Botón Detalle Apoyo Diagnóstico**: Abre AREA DE SERVICIO IMAGENES; el botón de casa vuelve a INICIO.
+- **Botón Detalle Apoyo Diagnóstico**: Abre ESPECIALIDAD IMAGENES; el botón de casa vuelve a INDICADORES.
 
 ## Reglas de negocio
 - **Unidad de conteo**: Se suma la columna CANTIDAD (estudios), no se cuentan filas.
@@ -37,7 +37,7 @@ Muestra cuántas imágenes diagnósticas se realizan cada mes, compara los años
 - **Grupo de edad**: MENORES DE EDAD si la edad a la fecha del examen es menor de 18 años.
 
 ## Observaciones
-- **Nombre de página**: IMAGENES según el PBIP; el PBIP solo trae page.json sin visuales.
+- **Nombre de página**: Coincide con la página IMAGENES del PBIP; el PBIP solo trae la página sin visuales.
 - **TOTAL_ESTUDIOS distinto**: La documentación define TOTAL_ESTUDIOS con COUNTROWS (filas); en el modelo suma CANTIDAD.
 - **IMG_2023 con error**: La documentación define IMG_2023 sobre [ATE_IMAGENES], medida que no existe; en el modelo usa [IMAGENES].
 - **Proyección distinta al modelo**: La documentación toma el mes con MAX(Calendario[Mes]); el modelo calcula mes a mes. Ambas solo funcionan para 2025 y 2026.
@@ -45,3 +45,4 @@ Muestra cuántas imágenes diagnósticas se realizan cada mes, compara los años
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

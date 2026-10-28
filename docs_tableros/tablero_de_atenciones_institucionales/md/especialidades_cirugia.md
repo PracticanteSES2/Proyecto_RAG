@@ -1,14 +1,15 @@
 ---
 tablero: TABLERO DE ATENCIONES INSTITUCIONALES
-pagina: CIRUGÍAS ESPECIALIDADES
+pagina: ESPECIALIDADES CIRUGIA
 nombre_funcional: Cirugías realizadas por especialidad
 bloque: Histórico
 tablas: [CIRUGIAS, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
+id_pagina: 299298ef6a5fd49aaefd
 ---
 
-# CIRUGÍAS ESPECIALIDADES
+# ESPECIALIDADES CIRUGIA
 
 ## Propósito
 Muestra cómo se distribuyen las cirugías realizadas entre las especialidades médicas, para ver cuáles concentran más procedimientos. Incluye el tiempo de oportunidad de la cirugía ambulatoria. Se llega desde el botón DETALLE ESPECIALIDADES de la página CIRUGÍAS.
@@ -26,14 +27,15 @@ Muestra cómo se distribuyen las cirugías realizadas entre las especialidades m
 - **Tarjetas de cirugías**: «CIRUGÍAS REALIZADAS» y «PROMEDIO MENSUAL».
 - **Mapa de árbol por especialidad**: Treemap «CIRUGÍAS REALIZADAS POR ESPECIALIDAD» con el número de cirugías de cada especialidad (por ejemplo ginecología-obstetricia, cirugía general, ortopedia).
 - **Medidor de oportunidad**: Medidor «OPORTUNIDAD DE CIRUGÍA AMBULATORIA (DÍAS)» con el promedio de días.
-- **Botón de inicio**: Botón de casa que vuelve a INICIO.
+- **Botón de inicio**: Botón de casa que vuelve a INDICADORES.
 
 ## Reglas de negocio
 - **Especialidad**: Se usa la especialidad registrada en la cirugía (CIRUGIAS[ESPECIALIDAD]), sin agrupaciones adicionales.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar. El botón que lleva a esta página dice «DETALLE ESPECIALIDADES», igual que la página de detalle de consultas ambulatorias.
+- **Nombre de página**: En Power BI la página se llama ESPECIALIDADES CIRUGIA; la documentación del propietario la titula «CIRUGÍAS ESPECIALIDADES».
 - **Medida de oportunidad no documentada**: La documentación no indica la medida del medidor de oportunidad. Por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

@@ -4,8 +4,8 @@ pagina: PENDIENTES
 nombre_funcional: Cirugías pendientes por mes, asegurador y causa
 bloque: Histórico
 tablas: [CIRUGIAS_PENDIENTES, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # PENDIENTES
@@ -25,7 +25,7 @@ Muestra las cirugías programadas que siguen pendientes, por mes, por asegurador
 - **Tabla de cirugías pendientes**: Matriz de pendientes por año (filas) y mes (columnas).
 - **Gráfico de pendientes por asegurador**: Barras «CIRUGÍAS PENDIENTES POR ASEGURADOR» con el conteo por asegurador.
 - **Gráfico de pendientes por causa**: Barras «CIRUGÍAS PENDIENTES POR CAUSA» con el conteo por estado actual, por ejemplo espera preanestésico, espera programación, paciente para junta, trámite clínico/ADM, documentación entregada, por autorizar y consulta externa.
-- **Botón de inicio**: Botón de casa que vuelve a INICIO.
+- **Botón de inicio**: Botón de casa que vuelve a INDICADORES.
 
 ## Reglas de negocio
 - **Causa de pendiente**: La causa es el estado actual de la solicitud (ESTADO ACTUAL, nombre del estado en Qx_EstadosQuirofano).
@@ -33,9 +33,10 @@ Muestra las cirugías programadas que siguen pendientes, por mes, por asegurador
 - **Periodo**: Solo entran solicitudes planeadas desde el 2025-01-01 (fecha fija en la consulta).
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: Coincide con la página PENDIENTES del PBIP.
 - **Definición de pendiente**: La documentación no dice qué estados cuentan como pendientes ni qué filtro aplica la página. Por confirmar.
 - **Estados de causa**: Algunas causas de la captura (paciente para junta, paciente autorizado) no están entre los 14 estados cuya fecha guarda la consulta; vienen del estado actual.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

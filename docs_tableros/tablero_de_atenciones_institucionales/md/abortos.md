@@ -4,8 +4,8 @@ pagina: ABORTOS
 nombre_funcional: Abortos e IVE registrados por mes
 bloque: Histórico
 tablas: [PARTOS_DRIVE, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # ABORTOS
@@ -31,9 +31,10 @@ Muestra cuántos abortos se registran cada mes en los últimos tres años, separ
 - **Tipos de aborto**: IVE es interrupción voluntaria del embarazo; ABORTO corresponde al aborto no seguro.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: Coincide con la página ABORTOS del PBIP.
 - **Medidas no documentadas**: La documentación no lista medidas para esta página.
 - **Visuales rotos**: En la captura tres visuales de la parte superior muestran «Corregir esto» (error de campo). Por confirmar cuáles son.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

@@ -4,8 +4,8 @@ pagina: HOSPITALIZACIÓN PARCIAL
 nombre_funcional: Atenciones mensuales en hospitalización parcial
 bloque: Histórico
 tablas: [HOSPITALIZACION_PARCIAL, Calendario, MostrarProyeccion]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # HOSPITALIZACIÓN PARCIAL
@@ -29,15 +29,16 @@ Muestra cuántas atenciones de hospitalización parcial hay cada mes en los últ
 - **Tabla de detalle anual**: Matriz de atenciones por año (filas) y mes (columnas).
 - **Tabla de aseguradoras**: Tabla con ASEGURADORA y ATENCIONES (total de pacientes atendidos por aseguradora), ordenada de mayor a menor, con total.
 - **Tarjetas de atenciones**: «TOTAL ATENCIONES» y «PROMEDIO ATENCIONES».
-- **Botón de inicio**: Botón de casa que vuelve a INICIO.
+- **Botón de inicio**: Botón de casa que vuelve a INDICADORES.
 
 ## Reglas de negocio
 - **Unidad de conteo**: Cada fila de la vista cuenta como una atención; un paciente con varias estancias en el periodo cuenta varias veces.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: Coincide con la página HOSPITALIZACIÓN PARCIAL del PBIP.
 - **Medidas no documentadas**: La documentación lista solo ATENCION_HP y ATEHP2024/2025/2026; las medidas de promedio y proyección de las tarjetas y del gráfico no aparecen. Por confirmar.
 - **Campo del filtro de diagnóstico**: No se documenta qué columna usa el segmentador DIAGNOSTICO (CIE10, CMD o GRD). Por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

@@ -1,17 +1,18 @@
 ---
 tablero: TABLERO DE ATENCIONES INSTITUCIONALES
-pagina: ATENCIÓN DOMICILIARIA
+pagina: SES EN TU HOGAR
 nombre_funcional: Atenciones domiciliarias (SES en tu Hogar) por mes y aseguradora
 bloque: Histórico
 tablas: [ATENCION DOMICILIARIA, Calendario, MostrarProyeccion]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
+id_pagina: df2c3d5ccbe6b3a9a075
 ---
 
-# ATENCIÓN DOMICILIARIA
+# SES EN TU HOGAR
 
 ## Propósito
-Muestra cuántas atenciones domiciliarias (programa SES en tu Hogar) hay cada mes, compara los años con proyección opcional y muestra su distribución por aseguradora. Se llega, según parece, con el botón SES EN TU HOGAR de INICIO (por confirmar).
+Muestra cuántas atenciones domiciliarias (programa SES en tu Hogar) hay cada mes, compara los años con proyección opcional y muestra su distribución por aseguradora. Se llega, según parece, con el botón SES EN TU HOGAR de INDICADORES (por confirmar).
 
 ## Fuentes de datos
 - **ATENCION DOMICILIARIA**: Todas las filas de la vista ATC_DOMICILIARIA (estancias en camas de hospitalización en casa con ingreso, cama, servicio, fechas de ingreso y egreso de cama, días de estancia, aseguradora, plan, diagnóstico CIE10, CMD, GRD y municipio), más FECHA = fecha de egreso final sin hora. Se une al Calendario por FECHA.
@@ -29,14 +30,14 @@ Muestra cuántas atenciones domiciliarias (programa SES en tu Hogar) hay cada me
 - **Tabla de aseguradoras**: Tabla ASEGURADORA y ATENCIONES ordenada de mayor a menor, con total.
 - **Tabla de detalle anual**: Matriz de atenciones por año (filas) y mes (columnas), con totales.
 - **Tarjetas de atenciones**: «ATENCIONES» y «PROMEDIO ATENCIONES», cada una con una pequeña línea de tendencia.
-- **Botón de inicio**: Botón de casa que vuelve a INICIO.
+- **Botón de inicio**: Botón de casa que vuelve a INDICADORES.
 
 ## Reglas de negocio
 - **Unidad de conteo**: Cada fila de la vista cuenta como una atención; un paciente con varias estancias cuenta varias veces.
 - **Fecha de la atención**: La atención se ubica en el mes de su egreso final.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: En Power BI la página se llama SES EN TU HOGAR; la documentación del propietario la titula «ATENCIÓN DOMICILIARIA».
 - **Documento mal titulado**: El documento «SES en tu Hogar» se titula HOSPITALIZACIÓN PARCIAL y sus capturas son de esa página, pero su consulta y medidas son de atención domiciliaria; aquí se tomó como fuente de esta página.
 - **Proyección siempre 2025 frente a 2024**: PROYECCION_ATD usa las medidas de año fijo ATEN_DOM2025 y ATEN_DOM2024, así que compara esos años sin importar el año elegido.
 - **Dos versiones de la proyección**: El documento de atención domiciliaria trae una versión anterior basada en MAX(Calendario[Año]); el modelo usa la del documento «SES en tu Hogar».
@@ -45,3 +46,4 @@ Muestra cuántas atenciones domiciliarias (programa SES en tu Hogar) hay cada me
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

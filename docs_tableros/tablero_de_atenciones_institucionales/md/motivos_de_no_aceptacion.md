@@ -4,8 +4,8 @@ pagina: MOTIVOS DE NO ACEPTACIÓN
 nombre_funcional: Causas de no aceptación de solicitudes de referencia
 bloque: Histórico
 tablas: [REFERENCIA, ASEGURADORAS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # MOTIVOS DE NO ACEPTACIÓN
@@ -32,10 +32,11 @@ Muestra por qué no se aceptan las solicitudes de referencia: cantidad y proporc
 - **Causas registradas**: Aceptado por otra institución, Supera la capacidad instalada, No disponibilidad de cama, No especialidad, No contratación, Es de menor complejidad, Menor de edad, No disponibilidad de equipos y NO HABILITADO (según la captura).
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: El PBIP actual no trae una página con este nombre; la página existe en la documentación del propietario. Por confirmar su nombre en Power BI.
 - **Tabla por servicio sin relación**: En la captura todos los servicios muestran la misma cantidad (el total general), así que la tabla de servicios no está relacionada con las solicitudes. Tabla de origen por confirmar.
 - **Causa mayoritaria**: «Aceptado por otra institución» es la causa más frecuente; por confirmar si debe tratarse como motivo de no aceptación.
 - **Totales distintos al estado No Aceptado**: El total de solicitudes con causa no coincide con el de solicitudes No Aceptado de la página principal. Por confirmar el filtro de la página.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

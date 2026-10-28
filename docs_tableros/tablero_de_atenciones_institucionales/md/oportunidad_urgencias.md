@@ -1,14 +1,15 @@
 ---
 tablero: TABLERO DE ATENCIONES INSTITUCIONALES
-pagina: OPORTUNIDAD CONSULTA URGENCIAS
+pagina: OPORTUNIDAD URGENCIAS
 nombre_funcional: Tiempo de espera para la consulta médica de urgencias
 bloque: Histórico
 tablas: [CONSULTA_URGENCIAS, Calendario, TERCERO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
+id_pagina: ReportSectionb919cdcc9bca70a29826
 ---
 
-# OPORTUNIDAD CONSULTA URGENCIAS
+# OPORTUNIDAD URGENCIAS
 
 ## Propósito
 Muestra el tiempo promedio, en minutos, hasta la consulta médica de urgencias, mes a mes y comparando años. Se llega con el botón OPORTUNIDAD CONSULTA de la página URGENCIAS.
@@ -36,10 +37,11 @@ Muestra el tiempo promedio, en minutos, hasta la consulta médica de urgencias, 
 - **Primer folio**: Se toma el primer folio del ingreso que tenga diagnóstico principal.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar; el botón dice OPORTUNIDAD CONSULTA.
+- **Nombre de página**: En Power BI la página se llama OPORTUNIDAD URGENCIAS; la documentación del propietario la titula «OPORTUNIDAD CONSULTA URGENCIAS».
 - **Dos consultas distintas**: «Tablero Urgencias» documenta una consulta anterior (desde 2023, tiempo desde el triage y, desde 2025-08-01, desde la admisión para triage II); «Oportunidad Consultas Urgencias» documenta la que coincide con el modelo actual.
 - **Medidas con nombre PRIORITARIAS**: Las medidas de tiempo se llaman TIEMPO_OPORTUNIDAD_PRIORITARIAS aunque miden todas las consultas de urgencias, y promedian tiempo_consulta (desde la admisión), no el tiempo calculado.
 - **Sin meta**: La documentación no define meta ni semáforo para este tiempo. Por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

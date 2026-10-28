@@ -4,8 +4,8 @@ pagina: DETALLE ESPECIALIDADES
 nombre_funcional: Consultas ambulatorias y oportunidad por especialidad
 bloque: Histórico
 tablas: [CONSULTAS_AMBULATORIAS, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # DETALLE ESPECIALIDADES
@@ -38,9 +38,10 @@ Muestra cómo se reparten las consultas ambulatorias entre las especialidades y 
 ## Observaciones
 - **PBIP parcial**: El PBIP de esta página solo trae los segmentadores ASEGURADOR y Año, los medidores de control y primera vez y el botón; las tarjetas, el treemap, el medidor general y los segmentadores Mes, ESTADO y ESPECIALIDAD salen de la documentación.
 - **Filtros de página sin valor**: La página tiene filtros sobre ESTADO_CITA y TIPO_ATENCION sin valores elegidos y uno oculto sobre CONSULTA_URGENCIAS[FECHA_FOLIO] sin valores; hoy no filtran nada.
-- **Destino del botón**: El botón con icono de inicio no apunta a la página que parece ser INICIO en el PBIP. Destino por confirmar.
-- **Nombre compartido**: El botón que lleva a CIRUGÍAS ESPECIALIDADES también dice «DETALLE ESPECIALIDADES»; son páginas distintas.
+- **Destino del botón**: El botón con icono de inicio no apunta a la página que parece ser INDICADORES en el PBIP. Destino por confirmar.
+- **Nombre compartido**: El botón que lleva a ESPECIALIDADES CIRUGIA también dice «DETALLE ESPECIALIDADES»; son páginas distintas.
 - **Medidor general**: La documentación no indica la medida ni los filtros del medidor de consulta general. Por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

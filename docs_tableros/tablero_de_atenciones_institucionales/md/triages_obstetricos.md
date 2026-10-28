@@ -4,14 +4,14 @@ pagina: TRIAGES OBSTÉTRICOS
 nombre_funcional: Volumen y clasificación de triages obstétricos
 bloque: Histórico
 tablas: [OPORTUNIDAD_TRIAGE, Calendario, TERCERO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # TRIAGES OBSTÉTRICOS
 
 ## Propósito
-Muestra cuántos triages obstétricos se hacen cada mes, compara los años y su distribución por clasificación. Es la entrada al grupo de páginas de obstetricia: desde aquí se llega a OPORTUNIDAD TRIAGE OBSTÉTRICO, CONSULTAS OBSTÉTRICAS, PACIENTES OBSERVADOS OBSTETRICIA, PARTOS y ABORTOS.
+Muestra cuántos triages obstétricos se hacen cada mes, compara los años y su distribución por clasificación. Es la entrada al grupo de páginas de obstetricia: desde aquí se llega a OPORTUNIDAD TRIAGE OBSTÉTRICO, CONSULTAS OBSTÉTRICAS, OBSERVACIONES OBSTETRICAS, PARTOS y ABORTOS.
 
 ## Fuentes de datos
 - **OPORTUNIDAD_TRIAGE**: Triages desde 2023-01-01 hasta hoy con clasificación, asegurador, fecha, hora, día de la semana, grupo de edad y minutos de espera; excluye el código UA. Es la misma tabla de la página TRIAGE general.
@@ -27,7 +27,7 @@ Muestra cuántos triages obstétricos se hacen cada mes, compara los años y su 
 - **Tarjetas de triages**: «TOTAL TRIAGES» y «PROMEDIO MENSUAL TRIAGES».
 - **Gráfico por clasificación**: Torta «TRIAGES por CLASIFICACIÓN» con la proporción de cada código obstétrico (I-G, II-G, III-G, IV-G y V-G).
 - **Tabla de detalle anual**: Matriz de triages por año (filas) y mes (columnas).
-- **Botones de navegación**: OPORTUNIDAD TRIAGE, CONSULTAS URGENCIAS, PACIENTES OBSERVADAS, PARTOS y ABORTOS; el botón de casa vuelve a INICIO.
+- **Botones de navegación**: OPORTUNIDAD TRIAGE, CONSULTAS URGENCIAS, PACIENTES OBSERVADAS, PARTOS y ABORTOS; el botón de casa vuelve a INDICADORES.
 
 ## Reglas de negocio
 - **Triage obstétrico**: Son los códigos con sufijo -G: I-G emergencia obstétrica, II-G urgencia médica obstétrica, III-G urgencia obstétrica, IV-G no urgente obstétrica y V-G consulta externa obstétrica.
@@ -35,10 +35,11 @@ Muestra cuántos triages obstétricos se hacen cada mes, compara los años y su 
 - **Agrupación de aseguradoras**: Nombres con NUEVA se agrupan como NUEVA EPS; SURA (sin seguros de vida ni Suramericana) como SURA; SANITAS (sin Colsanitas ni Medisanitas) como SANITAS; MALLAMAS como MALLAMAS; el resto conserva su nombre.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: Coincide con la página TRIAGES OBSTÉTRICOS del PBIP.
 - **Filtro obstétrico no documentado**: La consulta trae todos los triages; la documentación no dice cómo la página se limita a los códigos -G (la captura solo muestra códigos -G). Por confirmar.
 - **Medidas de año fijo**: Las medidas TRIAGES_2024/2025/2026 tienen el año escrito en la fórmula y no siguen al año seleccionado.
 - **Total distinto a la torta**: En la captura la tarjeta de total no coincide con la suma de la torta; la tarjeta parece limitarse a un año. Por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

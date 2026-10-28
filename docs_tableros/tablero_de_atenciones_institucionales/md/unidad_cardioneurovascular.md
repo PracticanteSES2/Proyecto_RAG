@@ -4,14 +4,14 @@ pagina: UNIDAD CARDIONEUROVASCULAR
 nombre_funcional: Atenciones mensuales de la Unidad Cardioneurovascular
 bloque: Histórico
 tablas: [UNIDAD_CARDIOVASCULAR, Calendario, MostrarProyeccion]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # UNIDAD CARDIONEUROVASCULAR
 
 ## Propósito
-Muestra la cantidad mensual de atenciones de la Unidad Cardioneurovascular, compara los años con proyección opcional y las reparte por asegurador. Desde el botón ESPECIALIDAD se llega a ESPECIALIDADES UNIDAD CARDIONEUROVASCULAR.
+Muestra la cantidad mensual de atenciones de la Unidad Cardioneurovascular, compara los años con proyección opcional y las reparte por asegurador. Desde el botón ESPECIALIDAD se llega a ESPECIALIDADES CARDIOVASCULAR.
 
 ## Fuentes de datos
 - **UNIDAD_CARDIOVASCULAR**: Servicios prestados en el área de servicio con código 108 desde 2024-01-01: ingreso, fecha del servicio, cantidad, asegurador, CUPS y su descripción, tipo de ingreso, médico, especialidad agrupada y asegurador agrupado (AGRUPA).
@@ -29,7 +29,7 @@ Muestra la cantidad mensual de atenciones de la Unidad Cardioneurovascular, comp
 - **Tabla de atenciones por asegurador**: ASEGURADOR (agrupado) y CANTIDAD ATENCIONES, con total.
 - **Tabla de detalle**: Matriz de atenciones por año (filas) y mes (columnas) con totales.
 - **Tarjetas de atenciones**: «PROMEDIO ATENCIONES» y «CANTIDAD ATENCIONES».
-- **Botón Especialidad**: Lleva a ESPECIALIDADES UNIDAD CARDIONEUROVASCULAR; el botón de casa vuelve a INICIO.
+- **Botón Especialidad**: Lleva a ESPECIALIDADES CARDIOVASCULAR; el botón de casa vuelve a INDICADORES.
 
 ## Reglas de negocio
 - **Tipo de ingreso**: AMBULATORIO cuando el ingreso es de tipo 1; si no, HOSPITALARIO.
@@ -38,7 +38,7 @@ Muestra la cantidad mensual de atenciones de la Unidad Cardioneurovascular, comp
 - **Año por defecto**: Sin año seleccionado, las tarjetas muestran el año anterior al año en curso.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar. La documentación la titula «UNIDAD CARDIOVASCULAR» y el gráfico «UNIDAD CARDIONEUROVASCULAR».
+- **Nombre de página**: Coincide con la página UNIDAD CARDIONEUROVASCULAR del PBIP; la documentación del propietario la titula «UNIDAD CARDIOVASCULAR» y el gráfico «UNIDAD CARDIONEUROVASCULAR».
 - **Proyección con años fijos**: PROYECCION_ATEN usa ATE2025 y ATE2024, que fijan el año dentro de la fórmula; la proyección siempre compara 2025 contra 2024, sin importar el año visto.
 - **Pacientes sin teléfono principal**: La consulta une con los teléfonos del paciente exigiendo teléfono principal; los servicios de pacientes sin teléfono principal quedan fuera.
 - **Bases distintas**: CANTIDAD ATENCIONES suma CANTIDAD y PROMEDIO ATENCIONES cuenta registros; el promedio por 12 no es la cantidad dividida por 12.
@@ -47,3 +47,4 @@ Muestra la cantidad mensual de atenciones de la Unidad Cardioneurovascular, comp
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

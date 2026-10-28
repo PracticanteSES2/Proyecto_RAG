@@ -4,23 +4,23 @@ pagina: GENERAL
 nombre_funcional: Indicadores asistenciales institucionales por servicio
 bloque: General
 tablas: [Calendario, TERCERO, ASEGURADORAS, DIM_SERVICIO, MostrarProyeccion, VistaServicios]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # GENERAL
 
 ## Propósito
-Tablero histórico de la actividad asistencial del hospital: egresos, estancia, ocupación y giro cama en INICIO, y una página por servicio (triage, urgencias, imágenes, laboratorios, cirugías, obstetricia, consulta ambulatoria, hospitalización parcial, atención domiciliaria, oncología, referencia y otras). Compara meses entre años desde 2023. Se entra por INICIO; las páginas de detalle están ocultas y se abren con sus botones.
+Tablero histórico de la actividad asistencial del hospital: egresos, estancia, ocupación y giro cama en INDICADORES, y una página por servicio (triage, urgencias, imágenes, laboratorios, cirugías, obstetricia, consulta ambulatoria, hospitalización parcial, atención domiciliaria, oncología, referencia y otras). Compara meses entre años desde 2023. Se entra por INDICADORES; las páginas de detalle están ocultas y se abren con sus botones.
 
 ## Fuentes de datos
 - **Origen de los datos**: Consultas SQL sobre la bodega institucional DWSES (tablas DIM_ y FACT_) que se alimenta del sistema de información Dinámica (base DGEMPRES10); algunas páginas leen vistas propias (ATC_DOMICILIARIA, CONSOLIDADO_IMAGENES_DWSES, fact_referencia).
 - **Calendario**: Tabla de fechas calculada con CALENDAR desde 2023-01-01 hasta el 31 de diciembre del año en curso, con columnas AÑO, MES y AñoMes; filtra casi todas las páginas por Año y Mes.
-- **TERCERO**: Terceros (aseguradores) con su nombre comercial TERNOMCOM; alimenta los segmentadores ASEGURADOR de INICIO, triage y cirugías.
+- **TERCERO**: Terceros (aseguradores) con su nombre comercial TERNOMCOM; alimenta los segmentadores ASEGURADOR de INDICADORES, triage y cirugías.
 - **ASEGURADORAS**: Planes de beneficio (GENDETCON) con su tercero; se relaciona con gineco, referencia, imágenes antiguas y estancia.
 - **DIM_SERVICIO**: Servicios homologados (SERVICIO_HOMOLOGADO) que unen egresos, estancia y ocupación.
 - **MostrarProyeccion**: Tabla fija con las opciones «SI» y «No» que alimenta las casillas «Mostrar proyección».
-- **VistaServicios**: Tabla fija con IND_GEN, IND URG, IND GIN, IND NEO, IND HOSP e IND UCI; parece apoyar las vistas por servicio de INICIO. Por confirmar.
+- **VistaServicios**: Tabla fija con IND_GEN, IND URG, IND GIN, IND NEO, IND HOSP e IND UCI; parece apoyar las vistas por servicio de INDICADORES. Por confirmar.
 - **Históricos mensuales**: Tablas EGRESOS, EGRESOS_URGENCIAS, EGRESOS_GINECO, EGRESOS_NEONATOS, EGRESOS_UCI, CIRUGIAS_ARC, CONSULTA_AMBULATORIAS, ATENCIONES_IMAGENES, ATENCIONES_LABORATORIO y Hoja1 con totales por año y mes cargados de un archivo; se usan en proyecciones. Origen del archivo por confirmar.
 
 ## Definiciones
@@ -44,10 +44,10 @@ Tablero histórico de la actividad asistencial del hospital: egresos, estancia, 
 - **Periodo cargado**: La mayoría de consultas traen datos desde 2023-01-01 hasta hoy; cada página indica su periodo cuando es distinto.
 - **Ingresos excluidos**: Las consultas de urgencias excluyen los ingresos con AINESTADO 2 y 4. Significado de esos estados por confirmar.
 - **Segmentadores comunes**: Casi todas las páginas tienen ASEGURADOR, Año y Mes; las de triage y urgencias agregan Día, grupo de edad y los botones GENERAL, URGENCIAS y OBSTETRICIA.
-- **Navegación**: El botón de casa vuelve a INICIO y la flecha vuelve a la página anterior del grupo.
+- **Navegación**: El botón de casa vuelve a INDICADORES y la flecha vuelve a la página anterior del grupo.
 
 ## Observaciones
-- **PBIP parcial**: El PBIP disponible solo trae cinco páginas (INICIO sin page.json, CONSULTAS PRIORITARIAS, IMAGENES, LABORATORIO PATOLOGICO y DETALLE ESPECIALIDADES), todas ocultas en modo lectura; los nombres del resto de páginas salen de la documentación.
+- **PBIP parcial**: El PBIP disponible solo trae cinco páginas (INDICADORES sin page.json, CONSULTAS PRIORITARIAS, IMAGENES, LABORATORIO PATOLOGICO y DETALLE ESPECIALIDADES), todas ocultas en modo lectura; los nombres del resto de páginas salen de la documentación.
 - **Medidas con año fijo**: Muchas medidas tienen el año escrito en la fórmula (TRIAGES_2025, OBSERVADOS_2025, IMG_2025, ATEN_DOM2025, ATEHP2025, ATE2025) y no siguen al segmentador de Año.
 - **Nombres de medida engañosos**: PRIORITARIAS_2024 usa YEAR(TODAY()-1), que da el año en curso; PROMEDIO_TRIAGE_2024 filtra 2025 en el modelo.
 - **Consultas desactualizadas**: Varias consultas SQL de la documentación no coinciden con las columnas del modelo (por ejemplo CONSULTA_URGENCIAS ya no tiene OID_TRIAGE ni TIEMPO_PARA_CONSULTA).
@@ -56,3 +56,4 @@ Tablero histórico de la actividad asistencial del hospital: egresos, estancia, 
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

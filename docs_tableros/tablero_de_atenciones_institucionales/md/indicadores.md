@@ -1,14 +1,15 @@
 ---
 tablero: TABLERO DE ATENCIONES INSTITUCIONALES
-pagina: INICIO
+pagina: INDICADORES
 nombre_funcional: Egresos, estancia, ocupación y giro cama institucionales
 bloque: Histórico
 tablas: [FACT_EGRESOS, FACT_ESTANCIA, PORCENTAJE_OCUPACIONAL, DIM_SERVICIO, TERCERO, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
+id_pagina: 6c03bc7bd793eda6c68a
 ---
 
-# INICIO
+# INDICADORES
 
 ## Propósito
 Página principal del tablero. Muestra mes a mes, comparando los dos últimos años, los egresos, el promedio de estancia, el porcentaje ocupacional y el giro cama de la institución o de una vista de servicios. Desde aquí se navega a las páginas de cada servicio.
@@ -45,7 +46,7 @@ Página principal del tablero. Muestra mes a mes, comparando los dos últimos a�
 - **Egresos para giro cama**: Solo cuentan los egresos con EGRESO_PUERTA igual a PUERTA o TRASLADO.
 
 ## Observaciones
-- **Nombre de página**: La carpeta de esta página en el PBIP no trae page.json; el nombre INICIO sale de la documentación. Nombre de página en Power BI por confirmar.
+- **Nombre de página**: En Power BI la página se llama INDICADORES; la documentación del propietario la titula «INICIO».
 - **PBIP incompleto**: El PBIP solo trae el gráfico de giro cama, los segmentadores y algunos botones; las medidas de los demás gráficos y tarjetas salen del catálogo del modelo. Por confirmar.
 - **Capacidad instalada sin cuadrar**: Las camas de NUM_CAM_EGRESOS suman 293 y las de NUMERO_CAMAS 306; ninguna coincide con el valor de la tarjeta en la captura (308). Por confirmar.
 - **Unidad del promedio de estancia**: En la captura el gráfico muestra valores entre 118 y 148, que no parecen días por egreso. Por confirmar la unidad.
@@ -55,3 +56,4 @@ Página principal del tablero. Muestra mes a mes, comparando los dos últimos a�
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

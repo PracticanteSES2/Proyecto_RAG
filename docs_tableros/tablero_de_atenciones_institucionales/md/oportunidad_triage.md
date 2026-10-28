@@ -4,8 +4,8 @@ pagina: OPORTUNIDAD TRIAGE
 nombre_funcional: Tiempo de espera para la clasificación de triage
 bloque: Histórico
 tablas: [OPORTUNIDAD_TRIAGE, Calendario, TERCERO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # OPORTUNIDAD TRIAGE
@@ -35,7 +35,7 @@ Muestra el tiempo promedio, en minutos, entre la llegada del paciente y su clasi
 - **Clasificación**: Se agrupa igual que en TRIAGE (IIIU en III; IIP e IIS en II; UA excluido).
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar; la documentación la llama OPORTUNIDAD DE TRIAGE y el botón OPORTUNIDAD TRIAGE.
+- **Nombre de página**: Coincide con la página OPORTUNIDAD TRIAGE del PBIP; la documentación del propietario la llama OPORTUNIDAD DE TRIAGE.
 - **Dos documentos**: La página está documentada en «Tablero Triage» y en «Oportunidad Triage»; solo el segundo, más reciente, trae la regla de 2 minutos para triage I. Por confirmar cuál está vigente.
 - **Promedio 2024 del modelo**: En el modelo PROMEDIO_TRIAGE_2024 filtra el año 2025, aunque la documentación dice 2024.
 - **Sin meta**: La documentación no define meta ni semáforo para este tiempo. Por confirmar.
@@ -43,3 +43,4 @@ Muestra el tiempo promedio, en minutos, entre la llegada del paciente y su clasi
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

@@ -4,8 +4,8 @@ pagina: OPORTUNIDAD CONSULTA OBSTÉTRICA
 nombre_funcional: Tiempo de oportunidad de la consulta obstétrica prioritaria
 bloque: Histórico
 tablas: [CONSULTA_URGENCIAS, Calendario, TERCERO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # OPORTUNIDAD CONSULTA OBSTÉTRICA
@@ -31,7 +31,7 @@ Muestra el tiempo promedio de espera, en minutos, para la consulta obstétrica p
 - **Tiempo para consulta**: Según la consulta de CONSULTAS OBSTÉTRICAS, minutos desde el triage hasta el primer folio; desde el 2025-08-01, para triage II hasta la admisión. Por confirmar cuál de los dos tiempos usa esta página.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: Coincide con la página OPORTUNIDAD CONSULTA OBSTÉTRICA del PBIP.
 - **Consulta que no corresponde**: La consulta documentada para esta página es la de pacientes observados (tabla OBSERVADOS) y no calcula tiempos de consulta.
 - **Capturas que no corresponden**: La captura general y la de la tabla de detalle muestran la página de pacientes observados, no esta página.
 - **Tarjeta vacía**: En la captura la tarjeta «OPORTUNIDAD AÑO ACTUAL» muestra «(En blanco)». Por confirmar si la medida tiene datos para el año en curso.
@@ -39,3 +39,4 @@ Muestra el tiempo promedio de espera, en minutos, para la consulta obstétrica p
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

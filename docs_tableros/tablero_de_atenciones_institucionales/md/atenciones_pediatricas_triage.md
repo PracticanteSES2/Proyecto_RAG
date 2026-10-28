@@ -4,8 +4,8 @@ pagina: ATENCIONES PEDIÁTRICAS TRIAGE
 nombre_funcional: Triages pediátricos por mes y clasificación
 bloque: Histórico
 tablas: [OPORTUNIDAD_TRIAGE, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # ATENCIONES PEDIÁTRICAS TRIAGE
@@ -36,10 +36,11 @@ Muestra cuántos triages pediátricos se registran cada mes, compara los años y
 - **Clasificación**: Se agrupa igual que en TRIAGE (IIIU en III; IIP e IIS en II; UA excluido).
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: El PBIP actual no trae una página con este nombre; la página existe en la documentación del propietario. Por confirmar su nombre en Power BI.
 - **Tarjeta con año fijo**: La tarjeta «TRIAGES 2025» tiene el año en la fórmula y no cambia con el segmentador.
 - **Valores que no cuadran**: En la captura el promedio mensual (190) no corresponde al total de 2025 entre 12 ni a los valores mensuales del gráfico (entre 480 y 970), y la torta suma varios años. Por confirmar si gráfico y torta filtran menores de edad.
 - **Medidas copiadas**: La documentación repite todas las medidas de la página TRIAGE, incluida la proyección, aunque esta página no tiene casilla de proyección.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

@@ -4,8 +4,8 @@ pagina: PACIENTES OBSERVADOS
 nombre_funcional: Pacientes en observación de urgencias por mes
 bloque: Histórico
 tablas: [OBSERVADOS, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # PACIENTES OBSERVADOS
@@ -35,11 +35,12 @@ Muestra cuántos pacientes ingresan a observación de urgencias cada mes, compar
 - **Año por defecto**: Sin año elegido, las tarjetas muestran el año cerrado (año anterior al actual).
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: El PBIP actual no trae una página con este nombre; la página existe en la documentación del propietario. Puede corresponder a ATENCIONES PEDIATRICAS OBSERVACIONES, página del PBIP sin visuales. Por confirmar.
 - **Dos documentos**: La página está documentada en «Tablero Urgencias» y en «Pacientes Observados» con medidas distintas (OBSERVADOS_2024/2025 frente a las medidas dinámicas); las capturas más recientes usan las dinámicas.
 - **Conteo distinto**: TOTAL_OBS cuenta triages distintos y el gráfico y OBSERVADOS_20xx cuentan filas; los totales pueden diferir levemente.
 - **Columna MENORES repetida**: La consulta calcula MENORES dos veces con fórmulas equivalentes.
-- **Incluye gineco-obstetricia**: El área 42 entra en este conteo aunque la página está en el grupo de urgencias; existe además PACIENTES OBSERVADOS OBSTETRICIA.
+- **Incluye gineco-obstetricia**: El área 42 entra en este conteo aunque la página está en el grupo de urgencias; existe además OBSERVACIONES OBSTETRICAS.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

@@ -4,8 +4,8 @@ pagina: OPORTUNIDAD TRIAGE OBSTÉTRICO
 nombre_funcional: Tiempo de oportunidad en la clasificación del triage obstétrico
 bloque: Histórico
 tablas: [OPORTUNIDAD_TRIAGE, Calendario, TERCERO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # OPORTUNIDAD TRIAGE OBSTÉTRICO
@@ -31,10 +31,11 @@ Muestra el tiempo promedio, en minutos, desde la llegada de la paciente hasta su
 - **Triage obstétrico**: Se analizan los códigos -G (I-G, II-G, III-G, IV-G y V-G).
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: Coincide con la página OPORTUNIDAD TRIAGE OBSTÉTRICO del PBIP.
 - **DAX con error**: En la documentación Crecimiento_TRIAGES aparece sin la coma entre los dos argumentos de DIVIDE; en el modelo está bien escrita.
 - **Medida del gráfico**: La única medida que lista la documentación para esta página es Crecimiento_TRIAGES, que no corresponde al gráfico de minutos. Medida exacta del gráfico por confirmar.
 - **Regla de triage I**: En otra copia de esta consulta (página OPORTUNIDAD DE TRIAGE) los triages I se fijan en 2 minutos; en la consulta de esta página no. Por confirmar cuál está vigente.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

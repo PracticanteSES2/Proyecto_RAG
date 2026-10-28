@@ -4,8 +4,8 @@ pagina: CONSULTAS OBSTÉTRICAS
 nombre_funcional: Volumen de consultas obstétricas prioritarias
 bloque: Histórico
 tablas: [CONSULTA_URGENCIAS, Calendario, TERCERO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # CONSULTAS OBSTÉTRICAS
@@ -27,7 +27,7 @@ Muestra cuántas consultas obstétricas prioritarias de urgencias se atienden ca
 - **Tarjetas de consultas**: «CONSULTAS PRIORITARIAS AÑO ACTUAL» y «PROMEDIO MENSUAL DE CONSULTAS PRIORITARIAS».
 - **Gráfico por clasificación**: Torta «CONSULTAS por CLASIFICACIÓN TRIAGE» con la proporción de códigos I-G, II-G, III-G y IV-G.
 - **Tabla de detalle anual**: Matriz de consultas por año (filas) y mes (columnas).
-- **Botones de navegación**: ATENCIONES (esta página) y OPORTUNIDAD CONSULTA; el botón de casa vuelve a INICIO.
+- **Botones de navegación**: ATENCIONES (esta página) y OPORTUNIDAD CONSULTA; el botón de casa vuelve a INDICADORES.
 
 ## Reglas de negocio
 - **Tiempo para consulta**: Minutos desde el triage hasta el primer folio; desde el 2025-08-01, para triage II se mide hasta la admisión.
@@ -35,7 +35,7 @@ Muestra cuántas consultas obstétricas prioritarias de urgencias se atienden ca
 - **Agrupación de aseguradoras**: NUEVA EPS, SURA (sin ARL, seguros de vida ni Suramericana), SANITAS (sin Colsanitas ni Medisanitas) y MALLAMAS se agrupan por nombre; el resto conserva su nombre.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: Coincide con la página CONSULTAS OBSTÉTRICAS del PBIP.
 - **Año anterior mal calculado**: PRIORITARIAS_2024 usa YEAR(TODAY()-1), que es el año de ayer (el año en curso) y no el año anterior.
 - **Nombres de medidas**: PRIORITARIAS_2025 y PRIORITARIAS_2024 se calculan con el año actual, no con 2025 ni 2024.
 - **Columna contada**: La documentación cuenta CONSULTA_URGENCIAS[OID_TRIAGE], que no existe en el modelo; el modelo cuenta DOCUMENTO.
@@ -44,3 +44,4 @@ Muestra cuántas consultas obstétricas prioritarias de urgencias se atienden ca
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

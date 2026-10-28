@@ -4,14 +4,14 @@ pagina: TRIAGE
 nombre_funcional: Volumen mensual de triages y su clasificación
 bloque: Histórico
 tablas: [OPORTUNIDAD_TRIAGE, Calendario, TERCERO, MostrarProyeccion]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # TRIAGE
 
 ## Propósito
-Muestra cuántos triages se hacen cada mes, compara los años, proyecta el año en curso y muestra la distribución por clasificación. Se llega con el botón TRIAGES de INICIO y desde aquí se abre OPORTUNIDAD TRIAGE.
+Muestra cuántos triages se hacen cada mes, compara los años, proyecta el año en curso y muestra la distribución por clasificación. Se llega con el botón TRIAGES de INDICADORES y desde aquí se abre OPORTUNIDAD TRIAGE.
 
 ## Fuentes de datos
 - **OPORTUNIDAD_TRIAGE**: Triages desde 2023-01-01 hasta hoy con clasificación, asegurador, hora de llegada, fecha y hora del triage, tramo horario, día de la semana, minutos de espera (MIN) y grupo de edad; excluye el código UA. Se une al Calendario por FECHA y a TERCERO por el asegurador.
@@ -33,7 +33,7 @@ Muestra cuántos triages se hacen cada mes, compara los años, proyecta el año 
 - **Gráfico de triages por mes**: Líneas «TRIAGES POR MES», una línea por año y una de proyección.
 - **Gráfico por clasificación**: Torta «TRIAGES por CLASIFICACION» con la proporción de cada código de triage.
 - **Tabla de detalle anual**: Matriz de triages por año (filas) y mes (columnas).
-- **Botón Oportunidad Triage**: Abre la página OPORTUNIDAD TRIAGE; el botón de casa vuelve a INICIO.
+- **Botón Oportunidad Triage**: Abre la página OPORTUNIDAD TRIAGE; el botón de casa vuelve a INDICADORES.
 
 ## Reglas de negocio
 - **Clasificación**: CLASIFICACION_TRIAGE agrupa IIIU en III e IIP e IIS en II; los códigos -G son obstétricos y UA no se carga.
@@ -42,7 +42,7 @@ Muestra cuántos triages se hacen cada mes, compara los años, proyecta el año 
 - **Vista obstetricia**: Muestra solo los códigos -G; la vista urgencias los demás. Regla exacta de los botones por confirmar.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: Coincide con la página TRIAGE del PBIP.
 - **Conteo distinto entre medidas**: TOTAL_TRIAGES cuenta triages distintos y TRIAGES_20xx cuenta filas; pueden diferir si un triage se repite.
 - **Proyección distinta al modelo**: La documentación toma el año con MAX(Calendario[Año]); el modelo usa el año elegido o, si no hay, el año en curso. Los comentarios de la fórmula hablan de «cirugías» porque se copió de esa página.
 - **Torta con otro periodo**: En la captura la torta suma varios años mientras las tarjetas muestran solo el año en curso. Por confirmar.
@@ -50,3 +50,4 @@ Muestra cuántos triages se hacen cada mes, compara los años, proyecta el año 
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

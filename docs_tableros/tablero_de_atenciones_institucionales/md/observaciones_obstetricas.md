@@ -1,14 +1,15 @@
 ---
 tablero: TABLERO DE ATENCIONES INSTITUCIONALES
-pagina: PACIENTES OBSERVADOS OBSTETRICIA
+pagina: OBSERVACIONES OBSTETRICAS
 nombre_funcional: Pacientes obstétricas en observación por mes
 bloque: Histórico
 tablas: [OBSERVADOS, Calendario, TERCERO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
+id_pagina: 1fd61719423b0853ee24
 ---
 
-# PACIENTES OBSERVADOS OBSTETRICIA
+# OBSERVACIONES OBSTETRICAS
 
 ## Propósito
 Muestra cuántas pacientes obstétricas quedan en observación cada mes y compara los años. Se llega desde el botón PACIENTES OBSERVADAS de TRIAGES OBSTÉTRICOS y se vuelve con la flecha. Es distinta de la página PACIENTES OBSERVADOS general de urgencias.
@@ -34,10 +35,11 @@ Muestra cuántas pacientes obstétricas quedan en observación cada mes y compar
 - **Agrupación de aseguradoras**: NUEVA EPS, SURA, SANITAS y MALLAMAS se agrupan por nombre igual que en los triages; el resto conserva su nombre.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
+- **Nombre de página**: En Power BI la página se llama OBSERVACIONES OBSTETRICAS; la documentación del propietario la titula «PACIENTES OBSERVADOS OBSTETRICIA».
 - **Filtro obstétrico no documentado**: La consulta incluye también el área 2 (urgencias); la documentación no dice qué filtro deja solo las pacientes obstétricas. Por confirmar.
 - **Columna MENORES repetida**: La consulta calcula dos veces la columna MENORES; en el modelo quedan MENORES y MENORES2.
 - **Tarjeta año actual**: Las medidas documentadas son de años fijos (2024 y 2025) o del año anterior cerrado; ninguna corresponde a «año actual». Por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
