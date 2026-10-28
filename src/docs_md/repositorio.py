@@ -25,12 +25,22 @@ import tempfile
 import unicodedata
 from pathlib import Path
 
-from .formato import Documento, ErrorFormato, normalizar_nombre, parsear, serializar, validar
+from .formato import (
+    PAGINA_DICCIONARIO,
+    Documento,
+    ErrorFormato,
+    es_diccionario,
+    normalizar_nombre,
+    parsear,
+    serializar,
+    validar,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DOCS_TABLEROS = PROJECT_ROOT / "docs_tableros"
 CARPETA_MD = "md"
 ARCHIVO_GENERAL = "_general.md"
+PREFIJO_DICCIONARIO = "_diccionario"  # _diccionario.md y _diccionario_<tema>.md
 
 
 class ErrorRepositorio(ValueError):
@@ -54,9 +64,17 @@ def slug(texto: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", texto).strip("_") or "pagina"
 
 
+def es_archivo_diccionario(nombre: str) -> bool:
+    """`_diccionario.md` o `_diccionario_<tema>.md` (todo lo que empieza por _diccionario)."""
+    return Path(nombre).name.lower().startswith(PREFIJO_DICCIONARIO) and str(nombre).lower().endswith(".md")
+
+
 def archivo_para(doc: Documento) -> str:
     if doc.meta.get("bloque") == "General":
         return ARCHIVO_GENERAL
+    if es_diccionario(doc.meta):
+        tema = str(doc.pagina)[len(PAGINA_DICCIONARIO):].strip()
+        return f"{PREFIJO_DICCIONARIO}_{slug(tema)}.md" if tema else f"{PREFIJO_DICCIONARIO}.md"
     return slug(doc.pagina) + ".md"
 
 
@@ -72,7 +90,7 @@ def listar_tableros(raiz: str | Path | None = None) -> list[dict]:
         return resultado
     for grupo in sorted(p for p in base.iterdir() if p.is_dir()):
         carpeta = grupo / CARPETA_MD
-        archivos = sorted(carpeta.glob("*.md")) if carpeta.exists() else []
+        archivos = [a for a in sorted(carpeta.glob("*.md")) if not es_archivo_diccionario(a.name)] if carpeta.exists() else []
         if not archivos:
             continue
         tablero = grupo.name
@@ -86,12 +104,12 @@ def listar_tableros(raiz: str | Path | None = None) -> list[dict]:
     return resultado
 
 
-def listar_paginas(source_group: str, raiz: str | Path | None = None) -> list[dict]:
-    """Páginas documentadas de un grupo, la general primero.
-    [{pagina, archivo, nombre_funcional, bloque, valido}]"""
+def _listar(source_group: str, raiz, diccionario: bool) -> list[dict]:
     carpeta = carpeta_md(source_group, raiz)
     paginas = []
     for archivo in sorted(carpeta.glob("*.md")):
+        if es_archivo_diccionario(archivo.name) != diccionario:
+            continue
         try:
             doc = parsear(archivo.read_text(encoding="utf-8"))
             paginas.append({
@@ -104,18 +122,41 @@ def listar_paginas(source_group: str, raiz: str | Path | None = None) -> list[di
         except (OSError, ErrorFormato):
             paginas.append({"pagina": archivo.stem, "archivo": archivo.name, "nombre_funcional": "",
                             "bloque": "", "valido": False})
-    paginas.sort(key=lambda p: (p["archivo"] != ARCHIVO_GENERAL,))
+    paginas.sort(key=lambda p: (p["archivo"] != ARCHIVO_GENERAL, p["archivo"]) if diccionario else (p["archivo"] != ARCHIVO_GENERAL,))
     return paginas
+
+
+def listar_paginas(source_group: str, raiz: str | Path | None = None) -> list[dict]:
+    """Páginas funcionales documentadas de un grupo, la general primero.
+    [{pagina, archivo, nombre_funcional, bloque, valido}]. El diccionario de
+    variables (`_diccionario*.md`) NO es una página: ver `listar_diccionarios`."""
+    return _listar(source_group, raiz, diccionario=False)
+
+
+def listar_diccionarios(source_group: str, raiz: str | Path | None = None) -> list[dict]:
+    """Archivos del diccionario de variables del grupo (`_diccionario.md` primero)."""
+    return _listar(source_group, raiz, diccionario=True)
 
 
 def ruta_pagina(source_group: str, pagina: str, raiz: str | Path | None = None) -> Path:
     """Archivo de una página por su nombre exacto (sin distinguir tildes ni
     mayúsculas) o por nombre de archivo."""
     clave = normalizar_nombre(pagina)
-    for item in listar_paginas(source_group, raiz):
+    for item in listar_paginas(source_group, raiz) + listar_diccionarios(source_group, raiz):
         if normalizar_nombre(item["pagina"]) == clave or normalizar_nombre(item["archivo"]) == clave:
             return carpeta_md(source_group, raiz) / item["archivo"]
     raise ErrorRepositorio(f"No hay documentación de la página «{pagina}» en «{source_group}».")
+
+
+def leer_diccionario(source_group: str, nombre: str | None = None, raiz: str | Path | None = None) -> Documento:
+    """Diccionario del grupo (por defecto `_diccionario.md`); `nombre` puede ser
+    el archivo o la «pagina» (DICCIONARIO <TEMA>)."""
+    items = listar_diccionarios(source_group, raiz)
+    if not items:
+        raise ErrorRepositorio(f"«{source_group}» no tiene diccionario de variables.")
+    if nombre is None:
+        return parsear((carpeta_md(source_group, raiz) / items[0]["archivo"]).read_text(encoding="utf-8"))
+    return leer_pagina(source_group, nombre, raiz)
 
 
 def leer_texto(source_group: str, pagina: str, raiz: str | Path | None = None) -> str:

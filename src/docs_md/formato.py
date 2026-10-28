@@ -25,7 +25,8 @@ Estructura (forma canónica que produce `serializar`):
     - **2026-10-20 · v1**: Documentación inicial.
 
 Reglas:
-- Las secciones permitidas y su orden están en SECCIONES_PAGINA / SECCIONES_GENERAL.
+- Las secciones permitidas y su orden están en SECCIONES_PAGINA / SECCIONES_GENERAL /
+  SECCIONES_DICCIONARIO (`bloque: Diccionario`, archivos `_diccionario*.md`; ver diccionario.py).
 - Toda sección, salvo «Propósito», es una lista de entradas `- **Nombre**: texto`.
   El nombre identifica la entrada (único en su sección, sin distinguir mayúsculas
   ni tildes) y es lo que usan las operaciones para modificarla o eliminarla.
@@ -62,16 +63,32 @@ SECCIONES_GENERAL = [
     "Historial de cambios",
 ]
 
+# Diccionario de variables del tablero (`_diccionario*.md`): tablas, medidas,
+# columnas y relaciones del modelo. Ver diccionario.py y el README.
+SECCIONES_DICCIONARIO = [
+    "Propósito",
+    "Tablas",
+    "Medidas",
+    "Columnas calculadas",
+    "Columnas clave",
+    "Relaciones",
+    "Observaciones",
+    "Historial de cambios",
+]
+
 SECCION_TEXTO = "Propósito"
 SECCION_HISTORIAL = "Historial de cambios"
 SECCIONES_OBLIGATORIAS = (SECCION_TEXTO, SECCION_HISTORIAL)
 
 CAMPOS_META = ["tablero", "pagina", "nombre_funcional", "bloque", "tablas", "actualizado", "version"]
-BLOQUES = ("General", "Día", "Histórico")
+BLOQUE_DICCIONARIO = "Diccionario"
+PAGINA_DICCIONARIO = "DICCIONARIO"
+BLOQUES = ("General", "Día", "Histórico", BLOQUE_DICCIONARIO)
 
 ACCIONES = ("agregar", "modificar", "eliminar")
 
 MAX_NOMBRE = 90
+MAX_NOMBRE_DICCIONARIO = 160  # TABLA[COLUMNA] y [Medida] suelen ser más largos
 
 _ENTRADA_RE = re.compile(r"^\s*[-*]\s+\*\*(?P<nombre>.+?)\*\*\s*[:：]\s*(?P<texto>.*)$")
 
@@ -91,7 +108,17 @@ def normalizar_nombre(texto: str) -> str:
     return re.sub(r"\s+", " ", texto).strip().casefold()
 
 
+def es_diccionario(meta: dict) -> bool:
+    return meta.get("bloque") == BLOQUE_DICCIONARIO
+
+
+def max_nombre(meta: dict) -> int:
+    return MAX_NOMBRE_DICCIONARIO if es_diccionario(meta) else MAX_NOMBRE
+
+
 def secciones_para(meta: dict) -> list[str]:
+    if es_diccionario(meta):
+        return SECCIONES_DICCIONARIO
     return SECCIONES_GENERAL if meta.get("bloque") == "General" else SECCIONES_PAGINA
 
 
@@ -296,8 +323,12 @@ def validar(doc_o_texto) -> list[str]:
             clave = normalizar_nombre(e.nombre)
             if not clave:
                 errores.append(f"Entrada sin nombre en «{seccion}».")
-            if len(e.nombre) > MAX_NOMBRE:
+            if len(e.nombre) > max_nombre(doc.meta):
                 errores.append(f"Nombre demasiado largo en «{seccion}»: «{e.nombre[:40]}…».")
+            if es_diccionario(doc.meta):
+                error_nombre = _validar_nombre_diccionario(seccion, e.nombre)
+                if error_nombre:
+                    errores.append(error_nombre)
             if clave in vistos:
                 errores.append(f"Entrada repetida en «{seccion}»: «{e.nombre}».")
             vistos.add(clave)
@@ -305,9 +336,31 @@ def validar(doc_o_texto) -> list[str]:
                 errores.append(f"La entrada «{e.nombre}» de «{seccion}» no tiene texto.")
             elif not e.texto.rstrip().endswith((".", "?", "!", ")", "»")):
                 errores.append(f"El texto de «{e.nombre}» ({seccion}) debe terminar en punto.")
+    if es_diccionario(doc.meta):
+        pagina = str(doc.meta.get("pagina") or "")
+        if pagina != PAGINA_DICCIONARIO and not pagina.startswith(PAGINA_DICCIONARIO + " "):
+            errores.append(f"En el diccionario «pagina» debe ser «{PAGINA_DICCIONARIO}» o «{PAGINA_DICCIONARIO} <TEMA>».")
     if SECCION_HISTORIAL not in doc.secciones:
         errores.append("Falta la sección «Historial de cambios».")
     return errores
+
+
+_NOMBRE_MEDIDA_RE = re.compile(r"^\[[^\[\]]+\]$")
+_NOMBRE_COLUMNA_RE = re.compile(r"^[^\[\]]+\[[^\[\]]+\]$")
+_NOMBRE_RELACION_RE = re.compile(r"^[^\[\]]+\[[^\[\]]+\]\s*(?:→|->)\s*[^\[\]]+\[[^\[\]]+\]$")
+
+
+def _validar_nombre_diccionario(seccion: str, nombre: str) -> str | None:
+    """Los nombres de entrada del diccionario siguen el formato del modelo."""
+    esperado = {
+        "Medidas": (_NOMBRE_MEDIDA_RE, "[Medida]"),
+        "Columnas calculadas": (_NOMBRE_COLUMNA_RE, "TABLA[COLUMNA]"),
+        "Columnas clave": (_NOMBRE_COLUMNA_RE, "TABLA[COLUMNA]"),
+        "Relaciones": (_NOMBRE_RELACION_RE, "A[x] → B[y]"),
+    }.get(seccion)
+    if esperado and not esperado[0].match(nombre.strip()):
+        return f"El nombre «{nombre[:50]}» de «{seccion}» debe tener la forma {esperado[1]}."
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -363,7 +416,7 @@ def aplicar_operaciones(
         existente = nuevo.buscar(seccion, op.entrada)
         if not op.entrada.strip():
             raise ErrorOperacion(f"La operación en «{seccion}» no indica el nombre de la entrada.")
-        if len(op.entrada) > MAX_NOMBRE:
+        if len(op.entrada) > max_nombre(nuevo.meta):
             raise ErrorOperacion(f"El nombre de la entrada es demasiado largo: «{op.entrada[:40]}…».")
 
         if op.accion == "agregar":

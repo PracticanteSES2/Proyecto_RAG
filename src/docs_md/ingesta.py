@@ -15,6 +15,13 @@ directamente al esquema de `normalize_dashboard`:
     documented_measures  <- medidas citadas como [Medida] en Indicadores/Visuales
 
 Así el chunk_builder produce un chunk por entrada de lista.
+
+El diccionario de variables (bloque Diccionario, `_diccionario*.md`) usa el
+mismo esquema pero con entradas estructuradas: Medidas -> documented_measures
+(table, name, expression, description), Columnas calculadas -> calculated_columns,
+Tablas -> data_sources, Columnas clave y Relaciones -> other_sections (con su
+encabezado). El tablero lleva `is_dictionary: True` para que el enrutador y el
+resolvedor de métricas no lo traten como una página.
 """
 
 from __future__ import annotations
@@ -24,6 +31,7 @@ import re
 from .formato import (
     SECCION_HISTORIAL,
     Documento,
+    es_diccionario,
     normalizar_nombre,
 )
 
@@ -38,6 +46,14 @@ SECCION_A_CAMPO = {
     normalizar_nombre("Reglas de negocio"): "business_rules",
     normalizar_nombre("Definiciones"): "definitions",
     normalizar_nombre("Observaciones"): "notes",
+}
+
+# Diccionario de variables: sección -> campo (las columnas clave y las
+# relaciones, que no tienen campo propio, caen en other_sections con su título).
+SECCION_DICCIONARIO_A_CAMPO = {
+    normalizar_nombre("Tablas"): "data_sources",
+    normalizar_nombre("Medidas"): "documented_measures",
+    normalizar_nombre("Columnas calculadas"): "calculated_columns",
 }
 
 # Secciones donde una referencia [Medida] se toma como medida documentada.
@@ -55,6 +71,79 @@ def _limpiar(texto) -> str:
 def es_general(doc: Documento, archivo: str | None = None) -> bool:
     """Bloque General (`_general.md`): describe el tablero completo."""
     return doc.meta.get("bloque") == "General" or (archivo or "").lower() == ARCHIVO_GENERAL
+
+
+_MARCADOR_RE = re.compile(r"(?:(?<=\s)|^)(Unidad|Tabla|Clase|Tipo|Valores|Cálculo|Se usa en):\s")
+_NOMBRE_COLUMNA_RE = re.compile(r"^(?P<tabla>[^\[\]]+)\[(?P<columna>[^\[\]]+)\]$")
+_NOMBRE_MEDIDA_RE = re.compile(r"^\[(?P<medida>[^\[\]]+)\]$")
+_CLAVE_CAMPO = {"Unidad": "unidad", "Tabla": "tabla", "Clase": "clase", "Tipo": "tipo", "Valores": "valores",
+               "Cálculo": "calculo", "Se usa en": "se_usa_en"}
+
+
+def nombre_diccionario(doc: Documento) -> str:
+    """Nombre del «tablero» que representa al diccionario en el RAG:
+    «DICCIONARIO <TABLERO>» (o «DICCIONARIO <TEMA> <TABLERO>»)."""
+    return _limpiar(f"{doc.pagina} {doc.meta.get('tablero') or ''}")
+
+
+def campos_entrada_diccionario(texto: str) -> dict:
+    """Campos de una entrada de Medidas / Columnas calculadas:
+    {descripcion, unidad, tabla, clase, tipo, valores, calculo, se_usa_en}. El DAX va entre comillas
+    invertidas y puede contener cualquier texto; lo desconocido es None."""
+    texto = _limpiar(texto)
+    # Los marcadores se buscan con el DAX enmascarado (puede traer «Tabla: ...»).
+    enmascarado = re.sub(r"`[^`]*`", lambda m: "x" * len(m.group(0)), texto)
+    marcas = [(m.start(), m.end(), m.group(1)) for m in _MARCADOR_RE.finditer(enmascarado)]
+    campos = {"descripcion": texto, **{v: None for v in _CLAVE_CAMPO.values()}}
+    if not marcas:
+        return campos
+    campos["descripcion"] = texto[: marcas[0][0]].strip()
+    for i, (_, fin, clave) in enumerate(marcas):
+        valor = texto[fin: marcas[i + 1][0] if i + 1 < len(marcas) else len(texto)].strip()
+        if clave == "Cálculo":
+            m = re.match(r"`(.*)`\.?$", valor)
+            valor = (m.group(1) if m else valor.rstrip(".")).strip()
+            if valor.casefold().startswith("por confirmar"):
+                valor = ""
+        else:
+            valor = valor.rstrip(".").strip()
+        campos[_CLAVE_CAMPO[clave]] = valor or None
+    return campos
+
+
+def _descripcion_estructurada(campos: dict) -> str:
+    """Descripción para el RAG: lo que mide, la unidad y dónde se usa (la tabla
+    y el cálculo van en sus propios campos)."""
+    partes = [campos["descripcion"]]
+    for clave, etiqueta in (("unidad", "Unidad"), ("clase", "Clase"), ("tipo", "Tipo"), ("valores", "Valores"),
+                            ("se_usa_en", "Se usa en")):
+        if campos[clave]:
+            partes.append(f"{etiqueta}: {campos[clave]}.")
+    return _limpiar(" ".join(p for p in partes if p))
+
+
+def _medida_diccionario(entrada) -> dict:
+    nombre = _limpiar(entrada.nombre)
+    m = _NOMBRE_MEDIDA_RE.match(nombre)
+    campos = campos_entrada_diccionario(entrada.texto)
+    return {
+        "table": campos["tabla"],
+        "name": m.group("medida").strip() if m else nombre,
+        "expression": campos["calculo"],
+        "description": _descripcion_estructurada(campos),
+    }
+
+
+def _columna_diccionario(entrada) -> dict:
+    nombre = _limpiar(entrada.nombre)
+    m = _NOMBRE_COLUMNA_RE.match(nombre)
+    campos = campos_entrada_diccionario(entrada.texto)
+    return {
+        "table": m.group("tabla").strip() if m else campos["tabla"],
+        "name": m.group("columna").strip() if m else nombre,
+        "expression": campos["calculo"],
+        "description": _descripcion_estructurada(campos),
+    }
 
 
 def _entrada_como_texto(entrada) -> str:
@@ -116,6 +205,9 @@ def documento_a_tablero(
         # pero quedan a mano para la interfaz y el diagnóstico.
         "md_metadata": dict(doc.meta),
     }
+    diccionario = es_diccionario(doc.meta)
+    if diccionario:
+        tablero["is_dictionary"] = True
 
     historial = []
     vistas = set()
@@ -128,6 +220,15 @@ def documento_a_tablero(
         for entrada in entradas:
             texto = _entrada_como_texto(entrada)
             if not texto:
+                continue
+            if diccionario and clave in SECCION_DICCIONARIO_A_CAMPO:
+                destino = SECCION_DICCIONARIO_A_CAMPO[clave]
+                if destino == "documented_measures":
+                    tablero[destino].append(_medida_diccionario(entrada))
+                elif destino == "calculated_columns":
+                    tablero[destino].append(_columna_diccionario(entrada))
+                else:
+                    tablero[destino].append(texto)
                 continue
             if campo is None:
                 # Sección no estándar: se conserva con su título.

@@ -7140,7 +7140,9 @@ class QueryPlanBuilder:
                 continue
             model = normalize_text(document.get("semantic_model"))
             for dashboard in document.get("dashboards") or []:
-                if isinstance(dashboard, dict):
+                # El diccionario de variables no es una página: sus medidas y
+                # textos no deben contar como documentación de una página.
+                if isinstance(dashboard, dict) and not dashboard.get("is_dictionary"):
                     index.setdefault(model, []).append(dashboard)
         self._semantic_documents_cache = index
         return index

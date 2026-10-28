@@ -61,5 +61,53 @@ class DocsTablerosTest(unittest.TestCase):
                         self.assertIsNone(patron.search(texto), f"posible dato personal: {patron.pattern}")
 
 
+class DiccionariosTest(unittest.TestCase):
+    """`_diccionario*.md` (bloque Diccionario), cuando existen."""
+
+    def _archivos(self):
+        return [(g, a) for g in _grupos() for a in sorted((g / "md").glob("*.md")) if R.es_archivo_diccionario(a.name)]
+
+    def test_diccionarios_cumplen_el_formato(self):
+        from src.docs_md import ingesta as I
+
+        for grupo, archivo in self._archivos():
+            with self.subTest(archivo=f"{grupo.name}/{archivo.name}"):
+                texto = archivo.read_text(encoding="utf-8").replace("\r\n", "\n")
+                doc = F.parsear(texto)
+                self.assertEqual(F.validar(doc), [])
+                self.assertEqual(F.serializar(doc), texto, "no está en forma canónica")
+                self.assertEqual(doc.meta.get("bloque"), "Diccionario")
+                self.assertEqual(R.archivo_para(doc), archivo.name)
+                self.assertTrue(set(doc.secciones) <= set(F.SECCIONES_DICCIONARIO))
+                for patron in PII:
+                    self.assertIsNone(patron.search(texto), f"posible dato personal: {patron.pattern}")
+                for e in doc.entradas("Medidas"):
+                    campos = I.campos_entrada_diccionario(e.texto)
+                    self.assertTrue(campos["tabla"], f"{e.nombre}: falta «Tabla:»")
+                    self.assertIn("Cálculo:", e.texto, e.nombre)
+                    self.assertIn("Se usa en:", e.texto, e.nombre)
+                for seccion in ("Columnas calculadas", "Columnas clave"):
+                    for e in doc.entradas(seccion):
+                        self.assertIn("Se usa en:", e.texto, e.nombre)
+                for e in doc.entradas("Columnas calculadas"):
+                    self.assertIn("Cálculo:", e.texto, e.nombre)
+
+    def test_nombres_unicos_entre_los_archivos_del_diccionario_de_un_grupo(self):
+        vistos = {}
+        for grupo, archivo in self._archivos():
+            doc = F.parsear(archivo.read_text(encoding="utf-8"))
+            for seccion in ("Medidas", "Columnas calculadas", "Columnas clave", "Tablas", "Relaciones"):
+                for e in doc.entradas(seccion):
+                    clave = (grupo.name, seccion, F.normalizar_nombre(e.nombre))
+                    self.assertNotIn(clave, vistos, f"{e.nombre} repetido en {archivo.name} y {vistos.get(clave)}")
+                    vistos[clave] = archivo.name
+
+    def test_el_diccionario_no_es_una_pagina(self):
+        for grupo, archivo in self._archivos():
+            nombres = [p["archivo"] for p in R.listar_paginas(grupo.name, RAIZ)]
+            self.assertNotIn(archivo.name, nombres)
+            self.assertIn(archivo.name, [d["archivo"] for d in R.listar_diccionarios(grupo.name, RAIZ)])
+
+
 if __name__ == "__main__":
     unittest.main()

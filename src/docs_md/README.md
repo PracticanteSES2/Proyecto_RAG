@@ -43,6 +43,7 @@ Secciones y orden (las vacías se omiten, salvo Propósito e Historial):
 | `repositorio.py` | listar_tableros / listar_paginas / leer_pagina / guardar_pagina | base (hecho) |
 | `actualizador.py` | proponer_cambio(nota, source_group, pagina=None, llm=None, cambios_pbip=None) -> Propuesta; aplicar_propuesta(propuesta, autor) | agente actualizador |
 | `indexacion.py` | reindexar_grupo(source_group, qdrant_client=None, *, project_root=None, md_root=None, embedder=None, incremental=True) -> dict; cliente_qdrant_de_la_app() | agente ingesta (hecho) |
+| `diccionario.py` | generar_esqueleto / cobertura / comparar_con_modelo (+ `uso.py`) | diccionario (hecho) |
 | `pbip.py` | extraer_hechos / comparar / esqueleto (+ guardar_instantanea / cambios_desde_instantanea; acepta PBIP o .pbix PBIR) | agente pbip (hecho) |
 | `src/ingestion` | leer `md/` y producir el JSON normalizado del RAG | agente ingesta |
 | `pages/` (Streamlit) | ver documentación, proponer cambio, aprobar, reindexar | agente interfaz |
@@ -103,3 +104,68 @@ Modos: **Ver** (tablero, página, ficha, historial e indicador de formato) y **P
 Al reindexar se reutiliza el cliente de Qdrant del chat (`src.rag.retriever.active_retriever()`, alias `retriever_abierto`); si el chat
 no está abierto, `reindexar_grupo` abre el suyo y debe cerrarlo al terminar.
 Pruebas sin MedGemma ni Qdrant: `DOCS_MD_SERVICIOS=tests.docs_md.fakes_interfaz` y `DOCS_MD_ROOT=<copia de fixtures>`.
+
+## Diccionario de variables (`diccionario.py`, `uso.py`)
+
+Qué es cada tabla, medida y columna del modelo, para que el RAG no tenga que adivinarlo.
+Un tablero tiene `docs_tableros/<grupo>/md/_diccionario.md` (si crece demasiado se reparte en
+`_diccionario_<tema>.md`, p. ej. `_diccionario_columnas.md`; todo archivo que empieza por `_diccionario`
+es del diccionario). Metadatos: `bloque: Diccionario`, `pagina: DICCIONARIO` (o `DICCIONARIO <TEMA>`).
+No es una página: `repositorio.listar_paginas` no lo devuelve; `listar_diccionarios`, `leer_diccionario`,
+`leer_pagina("DICCIONARIO")` y `guardar_pagina` sí lo manejan, y `aplicar_operaciones` lo edita como cualquier .md.
+
+Secciones y orden: Propósito, Tablas, Medidas, Columnas calculadas, Columnas clave, Relaciones, Observaciones,
+Historial de cambios. Cada entrada es UNA línea `- **Nombre**: texto.`:
+
+| Sección | Nombre | Texto |
+|---|---|---|
+| Tablas | `TABLA` | qué representa. Origen: SQL/M/DAX resumido. Granularidad: ... Columnas principales: ... |
+| Medidas | `[Medida]` | qué mide en lenguaje de negocio. Unidad: ... Tabla: T. Cálculo: `DAX en una línea`. Se usa en: PÁGINA › visual; ... |
+| Columnas calculadas | `TABLA[COL]` | significado. Tipo: ... Cálculo: `DAX`. Se usa en: ... |
+| Columnas clave (usadas en visuales, filtros o segmentadores) | `TABLA[COL]` | significado. Tipo: ... Valores: ... Se usa en: ... |
+| Relaciones | `A[x] → B[y]` | cardinalidad, dirección del filtro, activa/inactiva |
+
+Campos opcionales que reconoce la ingesta: `Clase:` (oculta, auxiliar), `Tipo:`, `Valores:`.
+
+Reglas de redacción (además de los lineamientos generales):
+1. El cálculo (DAX) va siempre literal, en una línea y entre comillas invertidas; el generador quita los comentarios.
+2. Lo que no se sabe se marca «Por confirmar» (descripción, unidad, granularidad, valores); no se inventa.
+3. «Se usa en» lista `PÁGINA › visual` (o `las medidas [A], [B]` si la usan otras medidas); lo genera el código.
+4. Sin datos de pacientes: solo nombres de tablas, columnas, medidas y cálculos.
+5. Al redactar una descripción se reemplaza el «Por confirmar.» inicial; el resto de la entrada se conserva.
+
+### Cómo llega al RAG
+`ingesta.documento_a_tablero`: Medidas -> `documented_measures` (table, name, expression, description),
+Columnas calculadas -> `calculated_columns`, Tablas -> `data_sources`, Columnas clave y Relaciones ->
+`other_sections` (con su encabezado), Observaciones -> `notes`. El «tablero» se llama `DICCIONARIO <TABLERO>` y lleva
+`is_dictionary: true`: el enrutador no lo registra como página y `QueryPlanBuilder` no usa sus textos como
+documentación de una página (no altera la resolución de métricas). Cada medida y columna produce su chunk
+(`documented_measure` / `measure` si se enlaza con el modelo, `calculated_column`), así «¿qué mide X?» y
+«¿cómo se calcula X?» recuperan nombre, descripción y DAX juntos.
+
+### Comandos (desde la raíz del proyecto)
+```
+python -m src.docs_md.diccionario cobertura <grupo>|--todos [--json]   # qué falta documentar
+python -m src.docs_md.diccionario esqueleto <grupo>                    # imprime el esqueleto
+python -m src.docs_md.diccionario esqueleto <grupo> --escribir         # lo escribe sin pisar texto redactado
+python -m src.docs_md.diccionario comparar <grupo>                     # entradas obsoletas / elementos nuevos
+```
+Las fuentes se leen en modo solo lectura: `data/model_metadata/<modelo>/*.csv` (INFO.VIEW, `;`) y el PBIP
+`tableros/<carpeta>/` (nunca `.pbi/cache.abf`). La raíz que contiene `data/` y `tableros/` es `--raiz`, si no
+`DOCS_MD_DATA_ROOT`, si no este repositorio (en un worktree: `DOCS_MD_DATA_ROOT=<checkout principal>`).
+Los .md se escriben en `DOCS_MD_ROOT` o `docs_tableros/`.
+
+- **Esqueleto**: determinista. Descripciones = Description del modelo o lo ya escrito en las páginas .md del grupo
+  (Fuentes de datos, Indicadores con `Medida X = ...` o `[X]`); si no, «Por confirmar». Marca medidas ocultas y
+  auxiliares (las usan otras medidas pero ningún visual). En modelos grandes (más de 250 medidas, 150 columnas
+  calculadas o 80 tablas) detalla solo lo usado en visuales, lo descrito y lo que alimenta a lo usado, y resume el
+  resto por tabla en Observaciones; si hay más de 120 columnas, van a `_diccionario_columnas.md`.
+- **`--escribir`**: conserva todo texto existente, agrega solo las entradas nuevas, marca «Obsoleta: ya no existe en el
+  modelo.» las que ya no están y registra el cambio en el historial (versión +1). Dos corridas seguidas no cambian nada.
+- **Cobertura**: medidas, columnas clave, tablas, relaciones, páginas y visuales del modelo/PBIP que ningún .md nombra
+  (nombres normalizados, sin tildes ni mayúsculas). Del diccionario solo cuentan las entradas ya redactadas.
+- **Comparar** (`comparar_con_modelo`): obsoletas, nuevas, renombradas probables (mismo DAX) y cálculos que cambiaron;
+  alimenta el flujo de actualización.
+- `uso.uso_de_campos(hechos)` -> `{"Tabla[col]" | "[Medida]": [{"pagina","visual","tipo","titulo"}]}` desde `pbip.extraer_hechos`.
+
+Pruebas: `python -m unittest tests.docs_md.test_diccionario tests.docs_md.test_docs_tableros` (sintéticas, sin red).

@@ -207,7 +207,7 @@ def merge_dashboard(
         table_index,
     )
 
-    return {
+    merged = {
         "name": dashboard.get("name"),
         "aliases": dashboard.get("aliases", []),
 
@@ -243,6 +243,10 @@ def merge_dashboard(
         "matched_measures": matched_measures,
         "unmatched_documented_measures": unmatched_measures,
     }
+    if dashboard.get("is_dictionary"):
+        # Diccionario de variables (.md): no es una página del tablero.
+        merged["is_dictionary"] = True
+    return merged
 
 
 # ============================================================
