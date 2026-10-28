@@ -81,7 +81,7 @@ def uso_de_campos(hechos: dict) -> dict[str, list[dict]]:
         registrar_textos([texto_filtro], PAGINA_INFORME, VISUAL_FILTRO_INFORME, "filtro", None)
 
     for pagina in hechos.get("paginas") or []:
-        nombre = pagina.get("nombre") or pagina.get("id") or "?"
+        nombre = (pagina.get("nombre") or pagina.get("id") or "?").strip() or "?"  # «PÁGINA » -> «PÁGINA»
         registrar_textos(
             list(pagina.get("filtros") or []) + list(pagina.get("obtener_detalles") or []),
             nombre, VISUAL_FILTRO_PAGINA, "filtro", None,

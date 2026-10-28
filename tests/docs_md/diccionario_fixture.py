@@ -21,7 +21,7 @@ TABLERO = "TABLERO MINI"
 
 _TABLAS = ["ID", "Name", "Model", "DataCategory", "Description", "IsHidden", "StorageMode", "TableStorage", "Expression"]
 _COLUMNAS = ["ID", "Name", "Table", "DataType", "DataCategory", "Description", "IsHidden", "IsKey", "Type",
-             "SourceColumn", "Expression"]
+             "SourceColumn", "Expression", "SummarizeBy", "FormatString"]
 _MEDIDAS = ["ID", "Name", "Table", "Description", "DataType", "Expression", "FormatString", "IsHidden", "State",
             "DisplayFolder"]
 _RELACIONES = ["ID", "Name", "Relationship", "Model", "IsActive", "CrossFilteringBehavior", "FromTable",
@@ -41,9 +41,11 @@ def _tabla(nombre, oculta=False, modo="Import", expresion="", desc=""):
     return {"Name": nombre, "IsHidden": str(oculta), "StorageMode": modo, "Expression": expresion, "Description": desc}
 
 
-def _columna(tabla, nombre, tipo="String", calculada=False, expresion="", oculta=False, desc=""):
+def _columna(tabla, nombre, tipo="String", calculada=False, expresion="", oculta=False, desc="", resumen="",
+             formato=""):
     return {"Name": nombre, "Table": tabla, "DataType": tipo, "Type": "Calculated" if calculada else "Data",
-            "Expression": expresion, "IsHidden": str(oculta), "Description": desc}
+            "Expression": expresion, "IsHidden": str(oculta), "Description": desc, "SummarizeBy": resumen,
+            "FormatString": formato}
 
 
 def _medida(tabla, nombre, dax, oculta=False, formato="", desc="", tipo="Integer"):

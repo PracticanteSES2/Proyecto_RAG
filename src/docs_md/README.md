@@ -146,7 +146,7 @@ documentación de una página (no altera la resolución de métricas). Cada medi
 ### Comandos (desde la raíz del proyecto)
 ```
 python -m src.docs_md.diccionario cobertura <grupo>|--todos [--json]   # qué falta documentar
-python -m src.docs_md.diccionario esqueleto <grupo>                    # imprime el esqueleto
+python -m src.docs_md.diccionario esqueleto <grupo>                    # sin diccionario: lo imprime; con diccionario: simula --escribir
 python -m src.docs_md.diccionario esqueleto <grupo> --escribir         # lo escribe sin pisar texto redactado
 python -m src.docs_md.diccionario comparar <grupo>                     # entradas obsoletas / elementos nuevos
 ```
@@ -155,17 +155,49 @@ Las fuentes se leen en modo solo lectura: `data/model_metadata/<modelo>/*.csv` (
 `DOCS_MD_DATA_ROOT`, si no este repositorio (en un worktree: `DOCS_MD_DATA_ROOT=<checkout principal>`).
 Los .md se escriben en `DOCS_MD_ROOT` o `docs_tableros/`.
 
+La carpeta del PBIP (`carpeta_pbip`) sale del `pbir_path` del manifest si existe; si no, de la carpeta de
+`tableros/` cuyo nombre, `.Report` o `.SemanticModel` coincide (en slug) con el grupo, el informe o el modelo del
+manifest, y por último con la misma comparación sin palabras vacías (de, del, la, tablero...). Si dos carpetas
+coinciden en un mismo paso no se elige ninguna.
+
 - **Esqueleto**: determinista. Descripciones = Description del modelo o lo ya escrito en las páginas .md del grupo
-  (Fuentes de datos, Indicadores con `Medida X = ...` o `[X]`); si no, «Por confirmar». Marca medidas ocultas y
+  (Fuentes de datos, Indicadores con `Medida X = ...` o `[X]`), copiado completo (nunca se trunca con «…»); si no,
+  «Por confirmar». Si el PBIP trae los nombres de las páginas, no se copian las notas «Nombre de página ... por
+  confirmar». La descripción de una columna se toma de una entrada que la cita como `Tabla[Columna]`, o cuyo
+  nombre es la columna y la tabla no deja duda (única en el modelo, o única entre las tablas que la entrada o la
+  página nombran): nunca se copia a otra tabla con una columna del mismo nombre. La «Unidad» solo se hereda de una
+  entrada que habla de esa medida y de ninguna otra, o de un formato de porcentaje; si no, «Por confirmar» (el tipo
+  de dato no basta). El tipo de las columnas calculadas es el dataType explícito del TMDL o del CSV, salvo que diga
+  texto y la columna se resuma con SUM/AVERAGE/MIN/MAX o tenga formato numérico (entonces «número»). Una relación
+  que INFO.VIEW lista en los dos sentidos (uno a uno bidireccional) se escribe una vez. Si el PBIP no trae los
+  visuales, «Se usa en» dice «sin dato (el PBIP no trae la definición de los visuales)». Marca medidas ocultas y
   auxiliares (las usan otras medidas pero ningún visual). En modelos grandes (más de 250 medidas, 150 columnas
   calculadas o 80 tablas) detalla solo lo usado en visuales, lo descrito y lo que alimenta a lo usado, y resume el
   resto por tabla en Observaciones; si hay más de 120 columnas, van a `_diccionario_columnas.md`.
 - **`--escribir`**: conserva todo texto existente, agrega solo las entradas nuevas, marca «Obsoleta: ya no existe en el
   modelo.» las que ya no están y registra el cambio en el historial (versión +1). Dos corridas seguidas no cambian nada.
+  Sin `--escribir`, si ya hay diccionario solo se lista lo que `--escribir` agregaría o marcaría.
 - **Cobertura**: medidas, columnas clave, tablas, relaciones, páginas y visuales del modelo/PBIP que ningún .md nombra
-  (nombres normalizados, sin tildes ni mayúsculas). Del diccionario solo cuentan las entradas ya redactadas.
+  (nombres normalizados, sin tildes, mayúsculas ni espacios al inicio/fin). Del diccionario solo cuentan las entradas
+  ya redactadas; informa cuántas empiezan por «Por confirmar» y cuántas lo mencionan en cualquier parte. Un grupo sin
+  modelo ni PBIP no falla: dice «sin modelo disponible» y solo valida sus .md.
+  - **Emparejamiento de páginas** (`emparejar_paginas`, uno a uno, en este orden): 1) `id_pagina` del .md (texto o
+    lista) igual al id de la página en el PBIP; 2) `pagina` igual al nombre (si el PBIP repite el nombre, la k-ésima
+    página va con «NOMBRE (k)», como las nombra `pbip.esqueleto`); 3) alias: `pagina_pbip` (texto o lista) o
+    `nombre_funcional` igual al nombre, si un único .md lo declara; 4) «Duplicado de X» con el .md de X si en el PBIP
+    no hay otra página X; 5) coincidencia de visuales: el .md que menciona el nombre de la página y nombra (por título
+    o `Tabla[Columna]`) más visuales distintivos de ella (no segmentadores, documentados en ≤ 2 .md), sin empate y sin
+    ser el mejor de otra página. Para dos páginas con el mismo nombre (p. ej. INTERCONSULTAS en tiempos de urgencias)
+    lo seguro es poner `id_pagina` en cada .md.
+  - **Visuales**: un visual de una página emparejada cuenta si su .md nombra su título, el nombre visible o la expresión
+    de un campo (con o sin el nivel de jerarquía de fecha: «Calendario[Date] (Año)» o «Calendario[Date]»); un
+    segmentador de fecha también cuenta si la página documenta su tabla y su columna de fecha.
 - **Comparar** (`comparar_con_modelo`): obsoletas, nuevas, renombradas probables (mismo DAX) y cálculos que cambiaron;
   alimenta el flujo de actualización.
 - `uso.uso_de_campos(hechos)` -> `{"Tabla[col]" | "[Medida]": [{"pagina","visual","tipo","titulo"}]}` desde `pbip.extraer_hechos`.
 
-Pruebas: `python -m unittest tests.docs_md.test_diccionario tests.docs_md.test_docs_tableros` (sintéticas, sin red).
+Pruebas: `python -m unittest tests.docs_md.test_diccionario tests.docs_md.test_diccionario_correcciones tests.docs_md.test_docs_tableros`
+(sintéticas, sin red; `PbipRealesTest` se salta si no hay `tableros/`). El detector de datos personales de
+`test_docs_tableros.posible_pii` ignora los identificadores técnicos (valor de `id_pagina`, «ReportSection…», ids
+hexadecimales de 16+ caracteres con letras y GUID) antes de buscar documentos, teléfonos y correos; un número solo de
+dígitos se sigue detectando.

@@ -2225,13 +2225,15 @@ def esqueleto(ruta_pbip, tablero, source_group) -> dict:
                 if p["nombre"] not in llegadas[v["destino_id"]]:
                     llegadas[v["destino_id"]].append(p["nombre"])
 
-    conteo = Counter(p["nombre"] for p in paginas)
+    # Los nombres se comparan sin espacios al inicio/fin («PROMEDIO GESTION MENSUAL »).
+    conteo = Counter(F.normalizar_nombre(p["nombre"]) for p in paginas)
     vistos: Counter = Counter()
     archivos = {ARCHIVO_GENERAL: _general_md(hechos, tablero, fecha)}
     for p in paginas:
-        vistos[p["nombre"]] += 1
-        nombre_doc = p["nombre"] if vistos[p["nombre"]] == 1 else f"{p['nombre']} ({vistos[p['nombre']]})"
+        nombre, clave = p["nombre"].strip(), F.normalizar_nombre(p["nombre"])
+        vistos[clave] += 1
+        nombre_doc = nombre if vistos[clave] == 1 else f"{nombre} ({vistos[clave]})"
         archivo = slug(nombre_doc) + ".md"
         archivos[archivo] = _pagina_md(p, hechos, tablero, nombre_doc, llegadas.get(p["id"], []),
-                                       conteo[p["nombre"]] > 1, fecha)
+                                       conteo[clave] > 1, fecha)
     return archivos

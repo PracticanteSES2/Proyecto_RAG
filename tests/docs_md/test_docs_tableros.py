@@ -25,6 +25,33 @@ PII = [
     re.compile(r"\b(?:CC|TI|RC|CE)\s*[:#]?\s*\d{5,}\b"),
 ]
 
+# Identificadores técnicos de Power BI que no son datos personales y se quitan
+# antes de buscar PII: ids de página («ReportSection0b34ce4c…», «6c03bc7bd793eda6c68a»),
+# GUID y el valor de `id_pagina` en los metadatos. Solo se quitan tokens con
+# letras hexadecimales (o el prefijo ReportSection): un número de documento o un
+# teléfono, que son solo dígitos, nunca se quita.
+_IDS_TECNICOS = [
+    re.compile(r"^id_pagina:.*$", re.M),
+    re.compile(r"\bReportSection[0-9A-Za-z]*\b"),
+    re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"),
+    re.compile(r"\b(?=[0-9a-fA-F]*[a-fA-F])(?=[0-9a-fA-F]*\d)[0-9a-fA-F]{16,}\b"),
+]
+
+
+def sin_ids_tecnicos(texto: str) -> str:
+    for patron in _IDS_TECNICOS:
+        texto = patron.sub(" ", texto)
+    return texto
+
+
+def posible_pii(texto: str) -> str | None:
+    """Patrón de PII que aparece en el texto (sin contar ids técnicos) o None."""
+    limpio = sin_ids_tecnicos(texto)
+    for patron in PII:
+        if patron.search(limpio):
+            return patron.pattern
+    return None
+
 
 def _grupos():
     return sorted(p for p in RAIZ.iterdir() if p.is_dir()) if RAIZ.exists() else []
@@ -57,8 +84,7 @@ class DocsTablerosTest(unittest.TestCase):
                     paginas.add(F.normalizar_nombre(doc.pagina))
                     if archivo.name == "_general.md":
                         self.assertEqual(doc.meta.get("pagina"), "GENERAL")
-                    for patron in PII:
-                        self.assertIsNone(patron.search(texto), f"posible dato personal: {patron.pattern}")
+                    self.assertIsNone(posible_pii(texto), "posible dato personal")
 
 
 class DiccionariosTest(unittest.TestCase):
@@ -79,8 +105,7 @@ class DiccionariosTest(unittest.TestCase):
                 self.assertEqual(doc.meta.get("bloque"), "Diccionario")
                 self.assertEqual(R.archivo_para(doc), archivo.name)
                 self.assertTrue(set(doc.secciones) <= set(F.SECCIONES_DICCIONARIO))
-                for patron in PII:
-                    self.assertIsNone(patron.search(texto), f"posible dato personal: {patron.pattern}")
+                self.assertIsNone(posible_pii(texto), "posible dato personal")
                 for e in doc.entradas("Medidas"):
                     campos = I.campos_entrada_diccionario(e.texto)
                     self.assertTrue(campos["tabla"], f"{e.nombre}: falta «Tabla:»")

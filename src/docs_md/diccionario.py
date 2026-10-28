@@ -36,6 +36,7 @@ import json
 import os
 import re
 import sys
+from collections import Counter
 from datetime import date
 from pathlib import Path
 
@@ -102,18 +103,52 @@ def carpeta_metadata(source_group: str, project_root: Path, manifest: dict) -> P
     return None
 
 
+_PALABRAS_VACIAS = {"de", "del", "la", "las", "el", "los", "y", "en", "a", "para", "por", "tablero"}
+
+
+def _slug_sin_vacias(texto: str) -> str:
+    return "_".join(p for p in R.slug(texto).split("_") if p and p not in _PALABRAS_VACIAS)
+
+
 def carpeta_pbip(source_group: str, project_root: Path, manifest: dict) -> Path | None:
-    """Carpeta de `tableros/` cuyo nombre (en slug) coincide con el grupo, el
-    informe o el modelo del manifest."""
+    """Carpeta de `tableros/` del grupo. Orden: `pbir_path` del manifest (si existe
+    o si su carpeta está en `tableros/`); nombre de la carpeta, del `.Report` o del
+    `.SemanticModel` igual (en slug) al grupo, informe o modelo del manifest; y por
+    último la misma comparación sin palabras vacías («de», «del», «la», «tablero»...).
+    Si en un paso coinciden dos carpetas distintas no se elige ninguna (sin falsos
+    positivos entre tableros)."""
     base = project_root / "tableros"
     if not base.is_dir():
         return None
-    claves = {R.slug(x) for x in (source_group, manifest.get("report"), manifest.get("semantic_model"),
-                                  manifest.get("semantic_model_key")) if x}
-    claves |= {c[len("tablero_"):] for c in set(claves) if c.startswith("tablero_")}
-    for carpeta in sorted(p for p in base.iterdir() if p.is_dir()):
-        if R.slug(carpeta.name) in claves and any(carpeta.glob("*.Report")):
-            return carpeta
+    carpetas = sorted(p for p in base.iterdir() if p.is_dir() and any(p.glob("*.Report")))
+
+    pbir = str(manifest.get("pbir_path") or "").strip()
+    if pbir:
+        ruta = Path(pbir)
+        padre = ruta.parent if ruta.name.endswith(".Report") else ruta
+        if padre.is_dir() and any(padre.glob("*.Report")) and padre.resolve().parent == base.resolve():
+            return padre
+        candidata = base / padre.name
+        if candidata in carpetas:
+            return candidata
+
+    fuentes = [x for x in (source_group, manifest.get("report"), manifest.get("semantic_model"),
+                           manifest.get("semantic_model_key")) if x]
+
+    def nombres(carpeta: Path) -> list[str]:
+        return [carpeta.name] + [p.name.rsplit(".", 1)[0] for p in carpeta.iterdir()
+                                 if p.is_dir() and p.name.endswith((".Report", ".SemanticModel"))]
+
+    for convertir in (R.slug, _slug_sin_vacias):
+        claves = {convertir(x) for x in fuentes}
+        if convertir is R.slug:
+            claves |= {c[len("tablero_"):] for c in set(claves) if c.startswith("tablero_")}
+        claves.discard("")
+        halladas = [c for c in carpetas if any(convertir(n) in claves for n in nombres(c))]
+        if len(halladas) == 1:
+            return halladas[0]
+        if len(halladas) > 1:
+            return None
     return None
 
 
@@ -176,6 +211,7 @@ def _modelo_desde_csv(carpeta: Path) -> dict:
             "tipo_dato": _tipo_dato(c.get("DataType")), "descripcion": (c.get("Description") or "").strip(),
             "oculta": _bool(c.get("IsHidden")), "calculada": c.get("Type") == "Calculated",
             "dax": (c.get("Expression") or "").strip() or None,
+            "resumen_por": (c.get("SummarizeBy") or "").strip(), "formato": (c.get("FormatString") or "").strip(),
         }
     for m in _leer_csv(carpeta / "measures.csv"):
         nombre, tabla = m.get("Name", ""), m.get("Table", "")
@@ -268,7 +304,37 @@ def cargar_modelo(source_group: str, project_root=None, *, raiz_docs=None, hecho
             calc = ((hechos.get("tablas") or {}).get(tabla) or {}).get("calculadas") or {}
             if c["calculada"] and not c.get("dax") and col in calc:
                 c["dax"] = calc[col]
+        for nombre, t in (hechos.get("tablas") or {}).items():
+            for d in t.get("columnas_detalle") or []:
+                c = modelo["columnas"].get((nombre, d.get("nombre")))
+                if c is None:
+                    continue
+                if d.get("tipo"):  # dataType explícito del TMDL: manda sobre el CSV
+                    c["tipo_dato"] = _tipo_dato(d["tipo"])
+                for clave, origen in (("resumen_por", "resumen_por"), ("formato", "formato")):
+                    if not c.get(clave) and d.get(origen):
+                        c[clave] = str(d[origen])
+    for c in modelo["columnas"].values():
+        if c.get("calculada"):
+            c["tipo_dato"] = _tipo_columna_calculada(c)
     return modelo
+
+
+_RESUMEN_NUMERICO = {"sum", "average", "min", "max"}
+
+
+def _tipo_columna_calculada(c: dict) -> str:
+    """Las columnas calculadas no traen dataType en el TMDL (se infiere) y INFO.VIEW
+    puede quedar desactualizado («Text» en una columna que suma). Si se resume con
+    SUM/AVERAGE/MIN/MAX o su formato es numérico, es un número aunque diga texto."""
+    tipo = c.get("tipo_dato") or ""
+    if tipo not in ("texto", ""):
+        return tipo
+    resumen = (c.get("resumen_por") or "").strip().lower()
+    formato = (c.get("formato") or "").strip()
+    if resumen in _RESUMEN_NUMERICO or re.fullmatch(r"[#0,.\s%\\-]+(;.*)?", formato or "x"):
+        return "número"
+    return tipo
 
 
 # ---------------------------------------------------------------------------
@@ -314,14 +380,19 @@ def _documentos_md(source_group: str, raiz_docs=None) -> tuple[list[tuple[str, F
     return paginas, diccionario
 
 
-def _primera_frase(texto: str, maximo: int = 260) -> str:
+_NOTA_NOMBRE_PAGINA = re.compile(
+    r"(?:^|(?<=[.;]))\s*[^.;]*\bnombres?\s+(?:exactos?\s+)?de\s+(?:la\s+)?p[aá]ginas?\b[^.;]*\bpor confirmar\b[^.;]*[.;]?",
+    re.I)
+
+
+def _primera_frase(texto: str, sin_notas_de_pagina: bool = False) -> str:
+    """Texto heredado de la documentación, en una línea y COMPLETO: nunca se
+    trunca (si hiciera falta acortar, sería en un resumen aparte). Con
+    `sin_notas_de_pagina` se quitan las notas «Nombre de página ... por confirmar»,
+    obsoletas cuando el PBIP ya trae los nombres de las páginas."""
     texto = re.sub(r"\s+", " ", texto or "").strip()
-    if len(texto) > maximo:
-        corte = texto.rfind(". ", 0, maximo)
-        if corte > 40:
-            return texto[: corte + 1]
-        corte = texto.rfind(" ", 0, maximo - 1)
-        texto = texto[: corte if corte > 40 else maximo - 1].rstrip(" ,;:") + "…"
+    if sin_notas_de_pagina:
+        texto = re.sub(r"\s+", " ", _NOTA_NOMBRE_PAGINA.sub(" ", texto)).strip()
     return texto
 
 
@@ -336,31 +407,59 @@ def conocimiento_md(paginas: list[tuple[str, F.Documento]], modelo: dict) -> dic
     tablas_norm = {F.normalizar_nombre(n): n for n in modelo["tablas"]}
     res = {"medidas": {}, "tablas": {}, "columnas": {}, "unidades": {}}
     patron_medida = re.compile(r"\bMedidas?\s+\[?([^\]=\n]+?)\]?\s*=")
+    hechos = modelo.get("hechos") or {}
+    con_nombres_pbip = bool(hechos.get("paginas"))
+    frase = lambda t: _primera_frase(t, sin_notas_de_pagina=con_nombres_pbip)
+    tablas_de_col: dict[str, list[str]] = {}
+    for tabla, col in modelo["columnas"]:
+        tablas_de_col.setdefault(F.normalizar_nombre(col), []).append(tabla)
     for _, doc in paginas:
+        tablas_doc = {F.normalizar_nombre(t) for t in (doc.meta.get("tablas") or []) if isinstance(t, str)}
         for e in doc.entradas("Fuentes de datos"):
             tabla = tablas_norm.get(F.normalizar_nombre(e.nombre))
             if tabla and tabla not in res["tablas"]:
-                res["tablas"][tabla] = _primera_frase(e.texto)
+                res["tablas"][tabla] = frase(e.texto)
         for seccion in ("Indicadores", "Visuales", "Definiciones", "Reglas de negocio"):
             for e in doc.entradas(seccion):
                 candidatas = [m.group(1).strip() for m in patron_medida.finditer(e.texto)]
                 candidatas += [m.group(1) for m in re.finditer(r"(?<![\w\]'])\[([^\[\]]{2,80})\]", e.texto)]
-                for cand in candidatas:
-                    medida = medidas_norm.get(F.normalizar_nombre(cand))
-                    if not medida or medida in res["medidas"]:
+                citadas = list(dict.fromkeys(m for m in (medidas_norm.get(F.normalizar_nombre(c)) for c in candidatas) if m))
+                for medida in citadas:
+                    if medida in res["medidas"]:
                         continue
                     previo = re.split(r"\bMedidas?\b\s|\[", e.texto, maxsplit=1)[0]
-                    previo = _quitar_punto(previo)
+                    previo = _quitar_punto(frase(previo))
                     nombre = _quitar_punto(e.nombre)
-                    res["medidas"][medida] = _primera_frase(f"{nombre}. {previo}." if previo else f"{nombre}.")
+                    res["medidas"][medida] = frase(f"{nombre}. {previo}." if previo else f"{nombre}.")
+                    # La unidad solo se hereda si la entrada habla de esa medida y de ninguna otra.
                     unidad = re.search(r"Unidad:\s*([^.]+)\.", e.texto)
-                    if unidad:
+                    if unidad and len(citadas) == 1:
                         res["unidades"][medida] = unidad.group(1).strip()
                 if seccion in ("Definiciones", "Reglas de negocio"):
-                    for tabla, col in modelo["columnas"]:
-                        if f"{tabla}[{col}]" in e.texto or F.normalizar_nombre(e.nombre) == F.normalizar_nombre(col):
-                            res["columnas"].setdefault((tabla, col), _primera_frase(e.texto, 200))
+                    for clave in _columnas_de_entrada(e, modelo, tablas_de_col, tablas_doc):
+                        res["columnas"].setdefault(clave, frase(e.texto))
     return res
+
+
+def _columnas_de_entrada(e: F.Entrada, modelo: dict, tablas_de_col: dict, tablas_doc: set) -> list[tuple]:
+    """Columnas que describe una entrada: las citadas como `Tabla[Columna]` y, si
+    el nombre de la entrada es solo el de una columna, la de la tabla que no deja
+    duda (la única del modelo con ese nombre, o la única entre las tablas que la
+    entrada o la página nombran). Nunca se copia a otra tabla con la misma columna."""
+    claves = [(t, c) for (t, c) in modelo["columnas"]
+              if re.search(r"(?<![\w'])'?" + re.escape(t) + r"'?\[" + re.escape(c) + r"\]", e.texto)]
+    tablas = tablas_de_col.get(F.normalizar_nombre(e.nombre)) or []
+    if tablas:
+        if len(tablas) == 1:
+            elegidas = tablas
+        else:
+            texto = F.normalizar_nombre(e.texto)
+            elegidas = [t for t in tablas if _menciona(texto, t)] or [t for t in tablas if F.normalizar_nombre(t) in tablas_doc]
+        if len(elegidas) == 1:
+            col = next(c for (t, c) in modelo["columnas"] if t == elegidas[0] and F.normalizar_nombre(c) == F.normalizar_nombre(e.nombre))
+            if (elegidas[0], col) not in claves:
+                claves.append((elegidas[0], col))
+    return claves
 
 
 # ---------------------------------------------------------------------------
@@ -373,16 +472,22 @@ def _texto_final(texto: str) -> str:
 
 
 def _unidad(medida: dict, conocido: str | None) -> str:
+    """Unidad con evidencia: la escrita para esa medida en la documentación o un
+    formato de porcentaje. El tipo de dato no basta (una resta de fechas sale como
+    fecha y mide minutos); sin evidencia queda «Por confirmar»."""
     if conocido:
         return conocido
     if "%" in (medida.get("formato") or ""):
         return "porcentaje"
-    if medida.get("tipo_dato") == "fecha":
-        return "fecha"
     return POR_CONFIRMAR
 
 
-def _uso_completo(visuales: list[dict] | None, dependientes: set | None, uso_conocido: bool) -> str:
+SIN_VISUALES = "sin dato (el PBIP no trae la definición de los visuales)"
+
+
+def _uso_completo(visuales: list[dict] | None, dependientes: set | None, uso_conocido) -> str:
+    """`uso_conocido`: True (el PBIP trae visuales), False (no hay PBIP) o
+    SIN_VISUALES (hay PBIP pero sin la definición de los visuales)."""
     partes = []
     if visuales:
         partes.append(texto_uso(visuales))
@@ -391,7 +496,17 @@ def _uso_completo(visuales: list[dict] | None, dependientes: set | None, uso_con
         partes.append("las medidas " + ", ".join(f"[{d}]" for d in lista[:5]) + (f" y {len(lista) - 5} más" if len(lista) > 5 else ""))
     if partes:
         return "; ".join(partes)
+    if uso_conocido == SIN_VISUALES:
+        return SIN_VISUALES
     return "no aparece en visuales ni filtros del informe" if uso_conocido else POR_CONFIRMAR
+
+
+def _estado_uso(hechos: dict | None):
+    if hechos is None:
+        return False
+    if not any(p.get("visuales") for p in hechos.get("paginas") or []):
+        return SIN_VISUALES
+    return True
 
 
 def _origen_tabla(tabla: dict) -> str:
@@ -442,6 +557,7 @@ class _Plan:
 def construir_plan(modelo: dict, md_paginas=None) -> _Plan:
     hechos = modelo.get("hechos")
     uso_conocido = hechos is not None
+    estado_uso = _estado_uso(hechos)
     uso = uso_de_campos(hechos) if uso_conocido else {}
     medida_usada_por, col_usada_por = _dependencias(modelo)
     conocido = conocimiento_md(md_paginas or [], modelo)
@@ -475,7 +591,7 @@ def construir_plan(modelo: dict, md_paginas=None) -> _Plan:
             partes.append(f"Clase: {cl}.")
         dax = dax_en_una_linea(m.get("dax") or "")
         partes.append(f"Cálculo: `{dax}`." if dax else f"Cálculo: {POR_CONFIRMAR}.")
-        partes.append(f"Se usa en: {_uso_completo(uso.get(f'[{nombre}]'), medida_usada_por.get(nombre), uso_conocido)}.")
+        partes.append(f"Se usa en: {_uso_completo(uso.get(f'[{nombre}]'), medida_usada_por.get(nombre), estado_uso)}.")
         plan.agregar("Medidas", f"[{nombre}]", " ".join(partes), vistos)
     omitidas = [n for n in medidas if n not in set(elegidas)]
     plan.conteos["medidas_omitidas"] = len(omitidas)
@@ -497,7 +613,7 @@ def construir_plan(modelo: dict, md_paginas=None) -> _Plan:
             partes.append(f"Tipo: {c['tipo_dato']}.")
         partes.append(f"Cálculo: `{dax_en_una_linea(c['dax'])}`.")
         deps = col_usada_por.get((tabla, col))
-        partes.append(f"Se usa en: {_uso_completo(uso.get(f'{tabla}[{col}]'), deps, uso_conocido)}.")
+        partes.append(f"Se usa en: {_uso_completo(uso.get(f'{tabla}[{col}]'), deps, estado_uso)}.")
         plan.agregar("Columnas calculadas", f"{tabla}[{col}]", " ".join(partes), vistos)
     elegidas_cc = {k for k, _ in sel}
     omitidas_cc = [k for k, _ in calculadas if k not in elegidas_cc]
@@ -517,7 +633,7 @@ def construir_plan(modelo: dict, md_paginas=None) -> _Plan:
             partes.append(f"Tipo: {c['tipo_dato']}.")
         if c.get("tipo_dato") in ("texto", ""):
             partes.append(f"Valores: {POR_CONFIRMAR}.")
-        partes.append(f"Se usa en: {_uso_completo(uso.get(f'{tabla}[{col}]'), col_usada_por.get((tabla, col)), uso_conocido)}.")
+        partes.append(f"Se usa en: {_uso_completo(uso.get(f'{tabla}[{col}]'), col_usada_por.get((tabla, col)), estado_uso)}.")
         plan.agregar("Columnas clave", f"{tabla}[{col}]", " ".join(partes), vistos)
 
     # --- Tablas ---------------------------------------------------------------
@@ -554,7 +670,7 @@ def construir_plan(modelo: dict, md_paginas=None) -> _Plan:
     plan.conteos["tablas_omitidas"] = len(resto)
 
     # --- Relaciones --------------------------------------------------------------
-    for r in modelo["relaciones"]:
+    for r in relaciones_unicas(modelo["relaciones"]):
         (t1, c1), (t2, c2) = r["desde"], r["hacia"]
         cardinalidad = _cardinalidad(r)
         direccion = f"filtro en ambos sentidos entre {t1} y {t2}" if r["ambos"] else f"{t2} filtra a {t1}"
@@ -565,6 +681,19 @@ def construir_plan(modelo: dict, md_paginas=None) -> _Plan:
         plan.observaciones.append(F.Entrada(
             "Sin informe PBIP", "No se encontró el PBIP del tablero; no se pudo calcular dónde se usa cada campo («Se usa en»)."))
     return plan
+
+
+def relaciones_unicas(relaciones: list[dict]) -> list[dict]:
+    """Sin la misma relación vista desde el otro extremo (una relación uno a uno
+    bidireccional aparece en INFO.VIEW como A→B y B→A): se queda la primera."""
+    vistas, salida = set(), []
+    for r in relaciones:
+        clave = frozenset((F.normalizar_nombre(f"{t}[{c}]") for t, c in (r["desde"], r["hacia"])))
+        if clave in vistas:
+            continue
+        vistas.add(clave)
+        salida.append(r)
+    return salida
 
 
 def _usadas_por_directo(modelo: dict, nombre: str) -> set[str]:
@@ -691,14 +820,15 @@ def _claves_modelo(modelo: dict) -> dict[str, set]:
 
 
 def _clave_relacion(desde: tuple, hacia: tuple) -> str:
-    return F.normalizar_nombre(f"{desde[0]}[{desde[1]}]|{hacia[0]}[{hacia[1]}]")
+    """Sin sentido: A[x] → B[y] y B[y] → A[x] son la misma relación."""
+    return "|".join(sorted(F.normalizar_nombre(f"{t}[{c}]") for t, c in (desde, hacia)))
 
 
 def _clave_entrada(seccion: str, nombre: str) -> str:
     if seccion == "Relaciones":
         partes = re.split(r"\s*(?:→|->)\s*", nombre)
         if len(partes) == 2:
-            return F.normalizar_nombre("|".join(partes))
+            return "|".join(sorted(F.normalizar_nombre(p) for p in partes))
     return F.normalizar_nombre(nombre)
 
 
@@ -710,7 +840,11 @@ def fusionar(existentes: dict[str, F.Documento], nuevos: dict[str, F.Documento],
     import copy
     fecha = fecha or date.today().isoformat()
     vigentes = _claves_modelo(modelo)
-    resumen = {"nuevas": 0, "obsoletas": 0, "archivos": []}
+    resumen = {"nuevas": 0, "obsoletas": 0, "archivos": [], "detalle": []}
+
+    def anotar(archivo, seccion, e, accion):
+        resumen["detalle"].append({"archivo": archivo, "seccion": seccion, "nombre": e.nombre,
+                                   "accion": accion, "texto": e.texto})
     resultado: dict[str, F.Documento] = {}
 
     presentes: dict[str, set] = {s: set() for s in _SECCIONES_DOC}
@@ -734,6 +868,9 @@ def fusionar(existentes: dict[str, F.Documento], nuevos: dict[str, F.Documento],
                     doc.secciones.pop(seccion)
             conteo = sum(len(doc.entradas(s)) for s in _SECCIONES_DOC)
             resumen["nuevas"] += conteo
+            for s in _SECCIONES_DOC:
+                for e in doc.entradas(s):
+                    anotar(archivo, s, e, "nueva")
             resultado[archivo] = doc
             resumen["archivos"].append(archivo)
             continue
@@ -745,12 +882,14 @@ def fusionar(existentes: dict[str, F.Documento], nuevos: dict[str, F.Documento],
                         and MARCA_OBSOLETA not in e.texto):
                     e.texto = f"{e.texto.rstrip()} {MARCA_OBSOLETA}"
                     resumen["obsoletas"] += 1
+                    anotar(archivo, seccion, e, "obsoleta")
                     cambios += 1
             for e in nuevo.entradas(seccion):
                 if _clave_entrada(seccion, e.nombre) not in presentes[seccion]:
                     lista.append(copy.deepcopy(e))
                     presentes[seccion].add(_clave_entrada(seccion, e.nombre))
                     resumen["nuevas"] += 1
+                    anotar(archivo, seccion, e, "nueva")
                     cambios += 1
             if not lista:
                 actual.secciones.pop(seccion)
@@ -759,6 +898,7 @@ def fusionar(existentes: dict[str, F.Documento], nuevos: dict[str, F.Documento],
         for e in nuevo.entradas("Observaciones"):
             if F.normalizar_nombre(e.nombre) not in nombres_obs:
                 obs.append(copy.deepcopy(e))
+                anotar(archivo, "Observaciones", e, "nueva")
                 cambios += 1
         if not obs:
             actual.secciones.pop("Observaciones")
@@ -774,9 +914,11 @@ def fusionar(existentes: dict[str, F.Documento], nuevos: dict[str, F.Documento],
 
 
 def escribir_esqueleto(source_group: str, project_root=None, *, raiz_docs=None, hechos=None,
-                       fecha: str | None = None) -> dict:
+                       fecha: str | None = None, guardar: bool = True) -> dict:
     """Escribe/actualiza los `_diccionario*.md` del grupo sin pisar texto redactado.
-    Devuelve {"escritos": [rutas], "nuevas", "obsoletas"}."""
+    Devuelve {"escritos": [rutas o archivos], "nuevas", "obsoletas", "detalle",
+    "habia_diccionario", "documentos"}. Con `guardar=False` no escribe nada
+    (simulación: «escritos» lista los archivos que cambiarían)."""
     modelo = cargar_modelo(source_group, project_root, raiz_docs=raiz_docs, hechos=hechos)
     nuevos = generar_esqueleto_archivos(source_group, project_root, raiz_docs=raiz_docs, hechos=modelo["hechos"] if hechos is None else hechos, fecha=fecha)
     _, existentes_lista = _documentos_md(source_group, raiz_docs)
@@ -784,8 +926,10 @@ def escribir_esqueleto(source_group: str, project_root=None, *, raiz_docs=None, 
     fusion, resumen = fusionar(existentes, nuevos, modelo, fecha)
     escritos = []
     for archivo in resumen["archivos"]:
-        escritos.append(str(R.guardar_pagina(source_group, fusion[archivo], raiz_docs)))
-    return {"escritos": escritos, "nuevas": resumen["nuevas"], "obsoletas": resumen["obsoletas"]}
+        escritos.append(str(R.guardar_pagina(source_group, fusion[archivo], raiz_docs)) if guardar else archivo)
+    return {"escritos": escritos, "nuevas": resumen["nuevas"], "obsoletas": resumen["obsoletas"],
+            "detalle": resumen["detalle"], "habia_diccionario": bool(existentes),
+            "documentos": {a: fusion[a] for a in resumen["archivos"]}}
 
 
 # ---------------------------------------------------------------------------
@@ -864,7 +1008,7 @@ def comparar_con_modelo(source_group: str, project_root=None, *, raiz_docs=None,
 # ---------------------------------------------------------------------------
 
 def _sin_sufijo_numero(nombre: str) -> str:
-    return re.sub(r"\s*\(\d+\)$", "", nombre or "")
+    return re.sub(r"\s*\(\d+\)$", "", (nombre or "").strip())
 
 
 def _menciona(texto_norm: str, nombre: str) -> bool:
@@ -873,13 +1017,222 @@ def _menciona(texto_norm: str, nombre: str) -> bool:
 
 
 def _bloque(total: list, documentados: list) -> dict:
-    faltantes = [x for x in total if x not in set(documentados)]
+    pendientes = Counter(documentados)
+    faltantes = []
+    for x in total:  # con repetidos (dos páginas con el mismo nombre) cuenta cada una
+        if pendientes[x] > 0:
+            pendientes[x] -= 1
+        else:
+            faltantes.append(x)
     return {"total": len(total), "documentados": len(total) - len(faltantes),
             "porcentaje": round(100 * (len(total) - len(faltantes)) / len(total), 1) if total else 100.0,
             "faltantes": faltantes}
 
 
 _VISUALES_SIN_DATOS = {"shape", "basicShape", "image", "textbox", "grupo", "actionButton"}
+_PREFIJO_DUPLICADO = re.compile(r"^(?:duplicado de\s+)+", re.I)
+_NIVEL_JERARQUIA = re.compile(r"^(?P<campo>.+?\[[^\[\]]+\])\s*\((?P<nivel>[^()]+)\)$")
+
+
+def _valores_meta(valor) -> list[str]:
+    if isinstance(valor, (list, tuple)):
+        return [str(v).strip() for v in valor if str(v).strip()]
+    return [str(valor).strip()] if valor not in (None, "") and str(valor).strip() else []
+
+
+def _visual_con_datos(v: dict) -> bool:
+    return not (v.get("tipo") in _VISUALES_SIN_DATOS or v.get("oculto") or not (v.get("campos") or v.get("titulo")))
+
+
+def _fichas_visual(v: dict) -> list[str]:
+    """Formas en que la documentación puede nombrar un visual: su título, y de cada
+    campo el nombre visible, la expresión («Calendario[Date] (Año)», «SUM(T[c])»),
+    la columna base («T[c]») y la columna sin el nivel de jerarquía de fecha."""
+    fichas = [v.get("titulo")]
+    for d in v.get("campos_detalle") or []:
+        expresion = d.get("expresion") or ""
+        base = pbip._base_texto(expresion)
+        m = _NIVEL_JERARQUIA.match(base)
+        fichas += [d.get("nombre"), expresion, base, m.group("campo") if m else None]
+    return [f.strip() for f in dict.fromkeys(f for f in fichas if f and str(f).strip())]
+
+
+def _visual_documentado(v: dict, texto_pag: str) -> bool:
+    if any(_menciona(texto_pag, f) for f in _fichas_visual(v)):
+        return True
+    # Segmentador de fecha: basta con que la página documente la columna de fecha
+    # (su tabla y su columna), aunque no cite el nivel (Año, Mes, Día).
+    if pbip._es_segmentador(v.get("tipo") or ""):
+        for d in v.get("campos_detalle") or []:
+            m = _NIVEL_JERARQUIA.match(pbip._base_texto(d.get("expresion") or ""))
+            if m:
+                tabla, _, col = m.group("campo").partition("[")
+                if _menciona(texto_pag, tabla.strip("'")) and _menciona(texto_pag, col.rstrip("]")):
+                    return True
+    return False
+
+
+def emparejar_paginas(paginas_pbip: list[dict], docs: list[tuple[str, F.Documento, str]]) -> dict[int, tuple[int, str]]:
+    """Empareja las páginas del PBIP con los .md de páginas del grupo, uno a uno.
+
+    `docs`: [(archivo, Documento, texto normalizado)]. Devuelve
+    {índice de página PBIP: (índice de doc, mecanismo)}. Mecanismos, en orden:
+      1. «id»: `id_pagina` del .md (texto o lista) igual al id de la página.
+      2. «nombre»: `pagina` del .md igual al nombre (sin tildes, mayúsculas ni
+         espacios al inicio/fin); si el PBIP repite el nombre, la k-ésima página
+         empareja con «NOMBRE (k)» (como las nombra `pbip.esqueleto`).
+      3. «alias»: `pagina_pbip` (texto o lista) o `nombre_funcional` del .md igual
+         al nombre, solo si un único .md libre lo declara.
+      4. «duplicado»: «Duplicado de X» empareja con el .md de X si en el PBIP no
+         hay otra página llamada X.
+      5. «visuales»: para las que quedan, el .md libre que menciona el nombre de la
+         página y documenta al menos la mitad de sus visuales con datos; si dos .md
+         empatan, no se elige ninguno.
+    """
+    norm = F.normalizar_nombre
+    asignadas: dict[int, tuple[int, str]] = {}
+    usados: set[int] = set()
+
+    def asignar(i, j, mecanismo):
+        asignadas[i] = (j, mecanismo)
+        usados.add(j)
+
+    for i, p in enumerate(paginas_pbip):
+        pid = str(p.get("id") or "").strip()
+        for j, (_, doc, _) in enumerate(docs):
+            if j not in usados and pid and pid in _valores_meta(doc.meta.get("id_pagina")):
+                asignar(i, j, "id")
+                break
+
+    por_nombre: dict[str, list[int]] = {}
+    for j, (_, doc, _) in enumerate(docs):
+        por_nombre.setdefault(norm(doc.pagina), []).append(j)
+    vistas: dict[str, int] = {}
+    for i, p in enumerate(paginas_pbip):
+        nombre = (p.get("nombre") or p.get("id") or "").strip()
+        vistas[norm(nombre)] = vistas.get(norm(nombre), 0) + 1
+        if i in asignadas:
+            continue
+        k = vistas[norm(nombre)]
+        buscado = norm(nombre if k == 1 else f"{nombre} ({k})")
+        libres = [j for j in por_nombre.get(buscado, []) if j not in usados]
+        if libres:
+            asignar(i, libres[0], "nombre")
+
+    for i, p in enumerate(paginas_pbip):
+        if i in asignadas:
+            continue
+        nombre = norm(p.get("nombre") or "")
+        libres = [j for j, (_, doc, _) in enumerate(docs) if j not in usados and nombre
+                  and nombre in {norm(a) for a in _valores_meta(doc.meta.get("pagina_pbip"))
+                                 + _valores_meta(doc.meta.get("nombre_funcional"))}]
+        if len(libres) == 1:
+            asignar(i, libres[0], "alias")
+
+    nombres_pbip = [norm(p.get("nombre") or "") for p in paginas_pbip]
+    for i, p in enumerate(paginas_pbip):
+        if i in asignadas:
+            continue
+        original = (p.get("nombre") or "").strip()
+        base = _PREFIJO_DUPLICADO.sub("", original).strip()
+        if base == original or not base or norm(base) in nombres_pbip:
+            continue
+        libres = [j for j in por_nombre.get(norm(base), []) if j not in usados]
+        if len(libres) == 1:
+            asignar(i, libres[0], "duplicado")
+
+    # 5. Visuales: solo cuentan los visuales con datos que no son segmentadores,
+    # nombrados por su título o por `Tabla[Columna]`/expresión, y que documentan
+    # como mucho dos .md del grupo (un visual que aparece en muchos .md no
+    # distingue). El .md debe mencionar el nombre de la página, ganar sin empate y
+    # no ser el mejor candidato de otra página.
+    mejores: dict[int, tuple[int, int]] = {}
+    for i, p in enumerate(paginas_pbip):
+        if i in asignadas:
+            continue
+        distintivos = [v for v in p.get("visuales") or [] if _visual_con_datos(v)
+                       and not pbip._es_segmentador(v.get("tipo") or "")]
+        if not distintivos:
+            continue
+        nombre = _PREFIJO_DUPLICADO.sub("", (p.get("nombre") or "").strip())
+        documenta = {id(v): [j for j, (_, _, t) in enumerate(docs) if _visual_nombrado(v, t)] for v in distintivos}
+        puntajes = []
+        for j, (_, _, texto) in enumerate(docs):
+            if j in usados or not _menciona(texto, nombre):
+                continue
+            puntaje = sum(1 for v in distintivos if j in documenta[id(v)] and len(documenta[id(v)]) <= 2)
+            if puntaje:
+                puntajes.append((puntaje, j))
+        puntajes.sort(reverse=True)
+        if puntajes and (len(puntajes) == 1 or puntajes[0][0] > puntajes[1][0]):
+            mejores[i] = (puntajes[0][1], puntajes[0][0])
+    elegidos = Counter(j for j, _ in mejores.values())
+    for i, (j, _) in mejores.items():
+        if elegidos[j] == 1:
+            asignar(i, j, "visuales")
+    return asignadas
+
+
+def _visual_nombrado(v: dict, texto: str) -> bool:
+    """El .md nombra el visual de forma específica: por su título o por una
+    expresión con `Tabla[Columna]` (no por el nombre visible corto de un campo)."""
+    fichas = [v.get("titulo")]
+    for d in v.get("campos_detalle") or []:
+        expresion = d.get("expresion") or ""
+        if "[" in expresion:
+            base = pbip._base_texto(expresion)
+            m = _NIVEL_JERARQUIA.match(base)
+            fichas += [expresion, base, m.group("campo") if m else None]
+    return any(f and _menciona(texto, f) for f in fichas)
+
+
+def _cuenta_por_confirmar(dicc_md) -> dict:
+    entradas = empiezan = mencionan = 0
+    for _, doc in dicc_md:
+        for seccion in _SECCIONES_DOC:
+            for e in doc.entradas(seccion):
+                entradas += 1
+                texto = e.texto.casefold()
+                if texto.startswith(POR_CONFIRMAR.casefold()):
+                    empiezan += 1
+                if POR_CONFIRMAR.casefold() in texto:
+                    mencionan += 1
+    return {"existe": bool(dicc_md), "entradas": entradas, "por_confirmar": empiezan,
+            "con_por_confirmar": mencionan}
+
+
+_BLOQUES = ("medidas", "columnas_clave", "tablas", "relaciones", "paginas", "visuales")
+
+
+def _cobertura_sin_modelo(source_group: str, project_root=None, raiz_docs=None, motivo: str = "") -> dict:
+    """Grupo sin metadatos del modelo ni PBIP: solo se validan sus .md."""
+    carpeta = R.carpeta_md(source_group, raiz_docs)
+    errores: dict[str, list[str]] = {}
+    archivos, dicc = 0, []
+    manifest = _leer_manifest(source_group, raiz_datos(project_root), raiz_docs)
+    for archivo in sorted(carpeta.glob("*.md")) if carpeta.is_dir() else []:
+        archivos += 1
+        try:
+            doc = F.parsear(archivo.read_text(encoding="utf-8"))
+        except (OSError, F.ErrorFormato) as exc:
+            errores[archivo.name] = [str(exc)]
+            continue
+        problemas = F.validar(doc)
+        if problemas:
+            errores[archivo.name] = problemas
+        if R.es_archivo_diccionario(archivo.name):
+            dicc.append((archivo.name, doc))
+    vacio = _bloque([], [])
+    resultado = {"source_group": source_group, "tablero": manifest.get("report") or source_group,
+                 "modelo": False, "sin_modelo": True, "pbip": False, "fuentes": [],
+                 "mensaje": "sin modelo disponible" + (f" ({motivo})" if motivo else ""),
+                 "validacion": {"archivos": archivos, "errores": errores}}
+    for clave in _BLOQUES:
+        resultado[clave] = dict(vacio, faltantes=[])
+    resultado["emparejamiento"] = []
+    resultado["diccionario"] = _cuenta_por_confirmar(dicc)
+    resultado["porcentaje"] = None
+    return resultado
 
 
 def cobertura(source_group: str, project_root=None, *, raiz_docs=None, hechos=None) -> dict:
@@ -888,11 +1241,18 @@ def cobertura(source_group: str, project_root=None, *, raiz_docs=None, hechos=No
     Un elemento cuenta como documentado si su nombre (normalizado: sin tildes ni
     mayúsculas, con límites de palabra) aparece en algún .md del grupo; las
     columnas, además, deben aparecer junto a su tabla. Del diccionario solo
-    cuentan las entradas ya redactadas (las que empiezan por «Por confirmar» no). Devuelve
+    cuentan las entradas ya redactadas (las que empiezan por «Por confirmar» no).
+    Las páginas se emparejan con `emparejar_paginas` y un visual cuenta si su
+    página documentada lo nombra (`_fichas_visual`). Devuelve
     {"source_group", "tablero", "modelo", "pbip", "medidas", "columnas_clave", "tablas",
-     "relaciones", "paginas", "visuales", "diccionario": {...}, "porcentaje"} con
-    {"total", "documentados", "porcentaje", "faltantes"} en cada bloque."""
-    modelo = cargar_modelo(source_group, project_root, raiz_docs=raiz_docs, hechos=hechos)
+     "relaciones", "paginas", "visuales", "emparejamiento", "diccionario": {...}, "porcentaje"} con
+    {"total", "documentados", "porcentaje", "faltantes"} en cada bloque.
+    Sin modelo ni PBIP no falla: devuelve "sin_modelo": True, "mensaje" y la
+    validación de los .md ("validacion"), con "porcentaje": None."""
+    try:
+        modelo = cargar_modelo(source_group, project_root, raiz_docs=raiz_docs, hechos=hechos)
+    except FileNotFoundError as exc:
+        return _cobertura_sin_modelo(source_group, project_root, raiz_docs, str(exc))
     paginas_md, dicc_md = _documentos_md(source_group, raiz_docs)
     hechos = modelo["hechos"]
     textos = [(doc, F.normalizar_nombre(F.serializar(doc))) for _, doc in paginas_md]
@@ -908,9 +1268,10 @@ def cobertura(source_group: str, project_root=None, *, raiz_docs=None, hechos=No
     tablas = list(modelo["tablas"])
     doc_tablas = [t for t in tablas if _menciona(todo, t)]
 
-    relaciones = [f"{r['desde'][0]}[{r['desde'][1]}] → {r['hacia'][0]}[{r['hacia'][1]}]" for r in modelo["relaciones"]]
+    unicas = relaciones_unicas(modelo["relaciones"])
+    relaciones = [f"{r['desde'][0]}[{r['desde'][1]}] → {r['hacia'][0]}[{r['hacia'][1]}]" for r in unicas]
     doc_rel = []
-    for r, nombre in zip(modelo["relaciones"], relaciones):
+    for r, nombre in zip(unicas, relaciones):
         a, b = F.normalizar_nombre(f"{r['desde'][0]}[{r['desde'][1]}]"), F.normalizar_nombre(f"{r['hacia'][0]}[{r['hacia'][1]}]")
         if any(a in t and b in t for _, t in textos):
             doc_rel.append(nombre)
@@ -923,6 +1284,7 @@ def cobertura(source_group: str, project_root=None, *, raiz_docs=None, hechos=No
 
     columnas_clave, doc_cols = [], []
     paginas_pbip, doc_pag, visuales, doc_vis = [], [], [], []
+    emparejamiento = []
     if hechos is not None:
         uso = uso_de_campos(hechos)
         for clave in sorted(k for k in uso if not k.startswith("[")):
@@ -931,35 +1293,33 @@ def cobertura(source_group: str, project_root=None, *, raiz_docs=None, hechos=No
             col = col.rstrip("]")
             if any(_menciona(t, col) and _menciona(t, tabla) for _, t in textos):
                 doc_cols.append(clave)
-        por_pagina = {F.normalizar_nombre(doc.pagina): t for doc, t in textos
-                      if not F.es_diccionario(doc.meta) and doc.meta.get("bloque") != "General"}
-        for p in hechos.get("paginas") or []:
-            nombre = p.get("nombre") or p.get("id")
+        docs_pag = [(archivo, doc, F.normalizar_nombre(F.serializar(doc))) for archivo, doc in paginas_md
+                    if not F.es_diccionario(doc.meta) and doc.meta.get("bloque") != "General"]
+        lista = hechos.get("paginas") or []
+        pares = emparejar_paginas(lista, docs_pag)
+        for i, p in enumerate(lista):
+            nombre = (p.get("nombre") or p.get("id") or "").strip()
             paginas_pbip.append(nombre)
-            texto_pag = por_pagina.get(F.normalizar_nombre(nombre)) or por_pagina.get(F.normalizar_nombre(_sin_sufijo_numero(nombre)))
-            if texto_pag is not None:
+            par = pares.get(i)
+            texto_pag = docs_pag[par[0]][2] if par else None
+            if par:
                 doc_pag.append(nombre)
+                emparejamiento.append({"pagina": nombre, "id": p.get("id"), "archivo": docs_pag[par[0]][0],
+                                       "mecanismo": par[1]})
             for v in p.get("visuales") or []:
-                if v.get("tipo") in _VISUALES_SIN_DATOS or v.get("oculto") or not (v.get("campos") or v.get("titulo")):
+                if not _visual_con_datos(v):
                     continue
                 etiqueta = f"{nombre} › {pbip._nombre_visual(v)}"
                 visuales.append(etiqueta)
-                fichas = [v.get("titulo")] + [d.get("nombre") for d in v.get("campos_detalle") or []]
-                if texto_pag is not None and any(f and _menciona(texto_pag, f) for f in fichas):
+                if texto_pag is not None and _visual_documentado(v, texto_pag):
                     doc_vis.append(etiqueta)
     resultado["columnas_clave"] = _bloque(columnas_clave, doc_cols)
     resultado["paginas"] = _bloque(paginas_pbip, doc_pag)
     resultado["visuales"] = _bloque(visuales, doc_vis)
+    resultado["emparejamiento"] = emparejamiento
 
-    entradas = por_confirmar = 0
-    for _, doc in dicc_md:
-        for seccion in _SECCIONES_DOC:
-            for e in doc.entradas(seccion):
-                entradas += 1
-                if e.texto.casefold().startswith(POR_CONFIRMAR.casefold()):
-                    por_confirmar += 1
-    resultado["diccionario"] = {"existe": bool(dicc_md), "entradas": entradas, "por_confirmar": por_confirmar}
-    bloques = [resultado[k] for k in ("medidas", "columnas_clave", "tablas", "relaciones", "paginas", "visuales")]
+    resultado["diccionario"] = _cuenta_por_confirmar(dicc_md)
+    bloques = [resultado[k] for k in _BLOQUES]
     total = sum(b["total"] for b in bloques)
     resultado["porcentaje"] = round(100 * sum(b["documentados"] for b in bloques) / total, 1) if total else 100.0
     return resultado
@@ -974,6 +1334,17 @@ def listar_grupos(project_root=None, raiz_docs=None) -> list[str]:
 # ---------------------------------------------------------------------------
 
 def _imprimir_cobertura(c: dict, detalle: int = 8):
+    d = c["diccionario"]
+    if c.get("sin_modelo"):
+        val = c["validacion"]
+        print(f"{c['source_group']} ({c['tablero']}): sin modelo disponible; solo se validan los .md "
+              f"({val['archivos']} archivos, {len(val['errores'])} con errores)")
+        for archivo, errores in list(val["errores"].items())[:detalle]:
+            print(f"      - {archivo}: {'; '.join(errores[:3])}")
+        if d["existe"]:
+            print(f"  Diccionario: sí ({d['entradas']} entradas, {d['por_confirmar']} empiezan por «Por confirmar», "
+                  f"{d['con_por_confirmar']} lo mencionan)")
+        return
     print(f"{c['source_group']} ({c['tablero']}): {c['porcentaje']}% documentado"
           + ("" if c["pbip"] else " [sin PBIP: páginas, visuales y columnas clave no evaluadas]"))
     for clave, etiqueta in (("medidas", "Medidas"), ("columnas_clave", "Columnas clave"), ("tablas", "Tablas"),
@@ -984,9 +1355,9 @@ def _imprimir_cobertura(c: dict, detalle: int = 8):
             print(f"      - falta: {f}")
         if len(b["faltantes"]) > detalle:
             print(f"      ... y {len(b['faltantes']) - detalle} más")
-    d = c["diccionario"]
     print(f"  Diccionario: {'sí' if d['existe'] else 'no'}"
-          + (f" ({d['entradas']} entradas, {d['por_confirmar']} por confirmar)" if d["existe"] else ""))
+          + (f" ({d['entradas']} entradas, {d['por_confirmar']} empiezan por «Por confirmar», "
+             f"{d['con_por_confirmar']} lo mencionan)" if d["existe"] else ""))
 
 
 def main(argv=None) -> int:
@@ -1034,9 +1405,20 @@ def main(argv=None) -> int:
             for ruta in res["escritos"]:
                 print("  ", ruta)
         else:
-            for archivo, doc in generar_esqueleto_archivos(args.grupo, args.raiz).items():
-                print(f"<!-- {archivo} -->")
-                print(F.serializar(doc))
+            res = escribir_esqueleto(args.grupo, args.raiz, guardar=False)
+            if not res["habia_diccionario"]:
+                for archivo, doc in res["documentos"].items():
+                    print(f"<!-- {archivo} -->")
+                    print(F.serializar(doc))
+            else:
+                # Ya hay diccionario: se muestra solo lo que --escribir agregaría o
+                # marcaría; el texto redactado no se toca.
+                print(f"Simulación de --escribir: {res['nuevas']} entradas nuevas, {res['obsoletas']} obsoletas "
+                      f"en {len(res['escritos'])} archivo(s). El texto ya redactado no cambia.")
+                for cambio in res["detalle"]:
+                    print(f"  [{cambio['accion']}] {cambio['archivo']} › {cambio['seccion']} › {cambio['nombre']}")
+                    if cambio["accion"] == "nueva":
+                        print(f"      {cambio['texto']}")
         return 0
     print(json.dumps(comparar_con_modelo(args.grupo, args.raiz), ensure_ascii=False, indent=2))
     return 0
