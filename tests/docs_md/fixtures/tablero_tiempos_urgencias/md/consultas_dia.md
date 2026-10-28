@@ -11,7 +11,7 @@ version: 1
 # CONSULTAS DIA
 
 ## Propósito
-Muestra en tiempo real la oportunidad de la consulta médica de urgencias, separada en triage II (mitad superior) y triage III (mitad inferior). En cada mitad hay una tabla de pacientes que esperan consulta y otra de pacientes ya atendidos, con semáforo. Se llega desde el botón de consulta de RESUMEN_D.
+Muestra en tiempo real la oportunidad de la consulta médica de urgencias, separada en triage II (mitad superior) y triage III (mitad inferior). En cada mitad hay una tabla de pacientes que esperan consulta y otra de pacientes ya atendidos, con semáforo. Se llega desde el botón de consulta de RESUMEN_D y el botón superior izquierdo regresa a RESUMEN_D.
 
 ## Fuentes de datos
 - **CONSULTAS_DIA**: Triages de hoy con su admisión y su primer folio de historia clínica; tabla en DirectQuery.
@@ -34,6 +34,7 @@ Muestra en tiempo real la oportunidad de la consulta médica de urgencias, separ
 - **Marca de triage II**: TRIAGE_II vale 1 solo para el código II; IIP e IIS no entran en las tablas de triage II.
 - **Marca de triage III**: TRIAGE_III vale 1 para los códigos III e IIIU.
 - **Paciente en espera de consulta**: Ingreso de hoy, triage no confirmado (HCTCONFIR = 0) de las clasificaciones 2, 7, 9, 16, 17, 18 o 19 y sin ningún folio todavía.
+- **Ingresos anulados**: CONSULTAS_DIA solo trae triages de hoy con ingreso de estado distinto de 2 (AINESTADO).
 - **Triages fuera de esta página**: Los triages IV y V se atienden por consulta prioritaria (página CONSULTAS PRIORITARIAS).
 
 ## Observaciones

@@ -175,7 +175,21 @@ def lookup_registry_model(source_group: str, raw_dir: Path) -> dict:
     return {}
 
 
-def resolve_document_config(file_path: Path, raw_dir: Path) -> dict:
+def _relative_to_any(path: Path, *bases) -> str:
+    for base in bases:
+        try:
+            return str(Path(path).relative_to(base))
+        except ValueError:
+            continue
+    return str(path)
+
+
+def resolve_document_config(
+    file_path: Path,
+    raw_dir: Path,
+    manifest_path: Path | None = None,
+    base_dir: Path | None = None,
+) -> dict:
     """
     Resuelve metadata explícita sin confundir carpeta documental con
     modelo semántico.
@@ -186,11 +200,17 @@ def resolve_document_config(file_path: Path, raw_dir: Path) -> dict:
       3. compatibilidad legacy
     Ya no se usa POWERBI_SEMANTIC_MODEL para agrupar: asignaba el mismo modelo
     a todo documento sin manifest.
+
+    base_dir: raíz de la que cuelga el archivo si no es raw_dir (páginas .md
+    fuera de data/raw); manifest_path: manifest ya elegido (si no, el más
+    cercano dentro de base_dir).
     """
-    relative_path = file_path.relative_to(raw_dir)
+    base_dir = Path(base_dir) if base_dir is not None else Path(raw_dir)
+    relative_path = file_path.relative_to(base_dir)
     path_parts = relative_path.parts
 
-    manifest_path = find_manifest(file_path, raw_dir)
+    if manifest_path is None:
+        manifest_path = find_manifest(file_path, base_dir)
     manifest = load_json(manifest_path) if manifest_path else {}
 
     legacy_group = (
@@ -273,10 +293,12 @@ def resolve_document_config(file_path: Path, raw_dir: Path) -> dict:
         "aliases": aliases,
         "document_type": document_type,
         "manifest_path": (
-            str(manifest_path.relative_to(raw_dir))
+            _relative_to_any(manifest_path, raw_dir, base_dir)
             if manifest_path
             else None
         ),
+        "report": clean_text(manifest.get("report")) or None,
+        "manifest_default_dashboard": clean_text(manifest.get("default_dashboard")) or None,
     }
 
 
@@ -574,36 +596,278 @@ def process_document(
 
 
 # ============================================================
+# DOCUMENTACIÓN VIVA EN MARKDOWN (<raíz md>/<grupo>/md/*.md)
+# ============================================================
+
+MARKDOWN_FOLDER = "md"
+
+
+def markdown_root(raw_dir: Path, md_root: Path | None = None) -> Path:
+    """Raíz de la documentación .md: la indicada, si no DOCS_MD_ROOT
+    (repositorio.raiz_documentos) y si no data/raw (raw_dir)."""
+    if md_root is not None:
+        return Path(md_root)
+    if os.getenv("DOCS_MD_ROOT", "").strip():
+        from src.docs_md.repositorio import raiz_documentos
+
+        return raiz_documentos()
+    return Path(raw_dir)
+
+
+def markdown_files(group_dir: Path) -> list:
+    """Páginas .md del grupo (sin temporales ni archivos ocultos)."""
+    folder = Path(group_dir) / MARKDOWN_FOLDER
+    if not folder.is_dir():
+        return []
+    return sorted(
+        path
+        for path in folder.glob("*.md")
+        if path.is_file() and not path.name.startswith(("~$", "."))
+    )
+
+
+def markdown_groups(md_root: Path) -> dict:
+    """{carpeta del grupo: [páginas .md]} de los grupos con documentación .md.
+
+    En esos grupos el .md es la fuente vigente: sus .docx se ignoran para que
+    la documentación vieja no contradiga la nueva.
+    """
+    md_root = Path(md_root)
+    groups = {}
+    if not md_root.is_dir():
+        return groups
+    for group_dir in sorted(p for p in md_root.iterdir() if p.is_dir()):
+        files = markdown_files(group_dir)
+        if files:
+            groups[group_dir] = files
+    return groups
+
+
+def group_folder(file_path: Path, raw_dir: Path) -> Path | None:
+    """Carpeta de primer nivel (grupo documental) que contiene el archivo."""
+    try:
+        relative = Path(file_path).relative_to(raw_dir)
+    except ValueError:
+        return None
+    if len(relative.parts) < 2:
+        return None
+    return Path(raw_dir) / relative.parts[0]
+
+
+def markdown_manifest(group_name: str, md_root: Path, raw_dir: Path) -> Path | None:
+    """manifest.json del grupo: primero junto a los .md y si no en data/raw/<grupo>."""
+    for base in (Path(md_root), Path(raw_dir)):
+        candidate = base / group_name / "manifest.json"
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def folder_source_group(group_dir: Path, manifest: Path | None = None) -> str:
+    """source_group de una carpeta: el del manifest.json o el nombre de la carpeta."""
+    manifest = Path(manifest) if manifest is not None else Path(group_dir) / "manifest.json"
+    if manifest.exists():
+        try:
+            value = clean_text(load_json(manifest).get("source_group"))
+            if value:
+                return value
+        except Exception:
+            pass
+    return Path(group_dir).name
+
+
+def process_markdown_document(
+    file_path: Path,
+    raw_dir: Path,
+    md_root: Path | None = None,
+) -> dict:
+    """Una página .md -> JSON procesado (el texto se normaliza en
+    document_normalizer con src.docs_md.ingesta, sin heurísticas)."""
+    from src.docs_md.formato import parsear, validar
+    from src.docs_md.ingesta import es_general
+
+    raw_dir = Path(raw_dir)
+    md_root = Path(md_root) if md_root is not None else raw_dir
+    relative_path = file_path.relative_to(md_root)
+    config = resolve_document_config(
+        file_path,
+        raw_dir,
+        manifest_path=markdown_manifest(relative_path.parts[0], md_root, raw_dir),
+        base_dir=md_root,
+    )
+
+    text = file_path.read_text(encoding="utf-8")
+    doc = parsear(text)  # ErrorFormato -> error de extracción del archivo
+    general = es_general(doc, file_path.name)
+
+    aliases = []
+    if general:
+        # El bloque General es el tablero completo: se llama como el informe
+        # del manifest (nunca «GENERAL», que chocaría entre grupos y el
+        # enrutador tomaría por una página) y lleva los alias del manifest,
+        # como el tablero por defecto del flujo .docx.
+        name = (
+            config.get("manifest_default_dashboard")
+            or config.get("report")
+            or clean_text(config.get("default_dashboard"))
+            or clean_text(doc.meta.get("tablero"))
+        )
+        aliases = _normalize_aliases(
+            [config.get("report"), config.get("default_dashboard"), doc.meta.get("tablero")]
+            + list(config.get("aliases") or [])
+            + ([doc.pagina] if _plain(doc.pagina) not in {"", "general"} else [])
+        )
+    else:
+        name = clean_text(doc.pagina) or folder_to_display_name(file_path.stem)
+
+    return {
+        "schema_version": 2,
+        "source_format": "md",
+        "source_file": file_path.name,
+        "relative_path": str(relative_path),
+        "source_folder": str(relative_path.parent),
+        "source_group": config.get("source_group"),
+        "source_hash": file_sha256(file_path),
+        "document_type": config.get("document_type"),
+        "manifest_path": config.get("manifest_path"),
+        "workspace": config.get("workspace"),
+        "semantic_model_key": config.get("semantic_model_key"),
+        "semantic_model": config.get("semantic_model"),
+        "technical_catalog": config.get("technical_catalog"),
+        "default_dashboard": config.get("default_dashboard"),
+        "dashboard_aliases": config.get("aliases", []),
+        "format_warnings": validar(doc),
+        "dashboards": [{
+            "name": name,
+            "aliases": aliases,
+            "source_file": file_path.name,
+            "markdown": text,
+        }],
+    }
+
+
+def plan_documents(
+    raw_dir: Path,
+    source_group: str | None = None,
+    md_root: Path | None = None,
+) -> dict:
+    """Archivos a procesar: .docx de los grupos sin .md y .md de los grupos
+    con documentación viva. Con source_group solo los de ese grupo.
+
+    Un grupo .md (<raíz md>/<carpeta>/md/) anula los .docx de la carpeta de
+    data/raw con el mismo nombre o el mismo source_group."""
+    raw_dir = Path(raw_dir)
+    md_root = markdown_root(raw_dir, md_root)
+    md_groups = {
+        folder: {
+            "files": files,
+            "source_group": folder_source_group(
+                folder, markdown_manifest(folder.name, md_root, raw_dir)
+            ),
+        }
+        for folder, files in markdown_groups(md_root).items()
+    }
+    md_names = {folder.name for folder in md_groups}
+    md_source_groups = {info["source_group"] for info in md_groups.values()}
+
+    def in_scope(names):
+        return source_group is None or source_group in names
+
+    docx = []
+    ignored = []
+    for path in sorted(raw_dir.rglob("*.docx")):
+        if path.name.startswith("~$"):
+            continue
+        folder = group_folder(path, raw_dir)
+        names = (
+            {folder.name, folder_source_group(folder)}
+            if folder is not None
+            else set()
+        )
+        if not in_scope(names):
+            continue
+        if names & md_names or names & md_source_groups:
+            ignored.append(path)
+        else:
+            docx.append(path)
+
+    selected = [
+        folder
+        for folder, info in md_groups.items()
+        if in_scope({folder.name, info["source_group"]})
+    ]
+
+    return {
+        "docx": docx,
+        "markdown": [path for folder in selected for path in md_groups[folder]["files"]],
+        "ignored_docx": ignored,
+        "markdown_groups": [folder.name for folder in selected],
+        "markdown_root": md_root,
+    }
+
+
+# ============================================================
 # PROCESAMIENTO MASIVO Y RECURSIVO
 # ============================================================
 
 def process_all_documents(
     raw_dir: Path,
     output_dir: Path,
+    source_group: str | None = None,
+    md_root: Path | None = None,
 ):
+    """Extrae la documentación de data/raw.
+
+    Los grupos con páginas en `<raíz md>/<grupo>/md/*.md` se ingieren desde el
+    .md y sus .docx se ignoran (con aviso). La raíz md es `md_root`, si no
+    DOCS_MD_ROOT y si no el mismo raw_dir. Con source_group solo se procesa
+    ese grupo.
+    """
     configure_console_utf8()
     raw_dir = Path(raw_dir)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    documents = sorted(
-        path
-        for path in raw_dir.rglob("*.docx")
-        if not path.name.startswith("~$")
-    )
+    plan = plan_documents(raw_dir, source_group=source_group, md_root=md_root)
+    md_root = plan["markdown_root"]
+    documents = plan["docx"] + plan["markdown"]
 
     print(f"Documentos encontrados: {len(documents)}")
+
+    if plan["ignored_docx"]:
+        print(
+            "\n[AVISO] Grupos con documentación .md "
+            f"({', '.join(plan['markdown_groups'])}): se ignoran sus .docx:"
+        )
+        for path in plan["ignored_docx"]:
+            print("   -", path.relative_to(raw_dir))
+            # Sin limpieza previa (--no-clean-derived) quedaría el JSON del
+            # .docx de una corrida anterior contradiciendo al .md.
+            stale = (output_dir / path.relative_to(raw_dir)).with_suffix(".json")
+            if stale.exists():
+                stale.unlink()
+
+    # Páginas .md eliminadas: su JSON de una corrida anterior también sobra.
+    current = {path.relative_to(md_root).with_suffix(".json") for path in plan["markdown"]}
+    for group_name in plan["markdown_groups"]:
+        for stale in sorted((output_dir / group_name / MARKDOWN_FOLDER).glob("*.json")):
+            if stale.relative_to(output_dir) not in current:
+                stale.unlink()
 
     total_dashboards = 0
     processed = 0
     errors = []
 
     for document_path in documents:
-        relative_path = document_path.relative_to(raw_dir)
+        is_markdown = document_path.suffix.lower() == ".md"
+        relative_path = document_path.relative_to(md_root if is_markdown else raw_dir)
         print("\nProcesando:", relative_path)
 
         try:
-            result = process_document(document_path, raw_dir)
+            if is_markdown:
+                result = process_markdown_document(document_path, raw_dir, md_root)
+            else:
+                result = process_document(document_path, raw_dir)
 
             output_path = (
                 output_dir / relative_path
@@ -644,6 +908,9 @@ def process_all_documents(
         for dashboard in result.get("dashboards", []):
             print("     ->", dashboard.get("name"))
 
+        for warning in result.get("format_warnings") or []:
+            print("  [AVISO] Formato .md:", warning)
+
     print("\n==============================")
     print("PROCESAMIENTO FINALIZADO")
     print("==============================")
@@ -656,6 +923,11 @@ def process_all_documents(
         "documents_processed": processed,
         "dashboards": total_dashboards,
         "errors": errors,
+        "markdown_groups": plan["markdown_groups"],
+        "ignored_docx": [
+            str(path.relative_to(raw_dir))
+            for path in plan["ignored_docx"]
+        ],
     }
 
 

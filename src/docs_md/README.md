@@ -7,7 +7,7 @@ MedGemma propone el cambio sobre la sección exacta del .md; una persona lo apru
 ## Formato (un .md por página del tablero)
 
 Ubicación: `data/raw/<source_group>/md/` (el mismo `source_group` del `manifest.json`).
-`_general.md` describe el tablero completo (bloque `General`); cada página de Power BI tiene su archivo.
+`_general.md` describe el tablero completo (bloque `General`, `pagina: GENERAL`, título `# GENERAL`; la ingesta lo publica con el nombre del informe); cada página de Power BI tiene su archivo.
 La implementación de referencia es `formato.py` (`parsear`, `serializar`, `validar`, `aplicar_operaciones`).
 Ejemplo completo: `tests/docs_md/fixtures/tablero_tiempos_urgencias/md/consultas_dia.md`.
 
@@ -41,10 +41,22 @@ Secciones y orden (las vacías se omiten, salvo Propósito e Historial):
 | `formato.py` | parsear / serializar / validar / aplicar_operaciones / diferencias | base (hecho) |
 | `repositorio.py` | listar_tableros / listar_paginas / leer_pagina / guardar_pagina | base (hecho) |
 | `actualizador.py` | proponer_cambio(nota, source_group, pagina=None, llm=None, cambios_pbip=None) -> Propuesta; aplicar_propuesta(propuesta, autor) | agente actualizador |
-| `indexacion.py` | reindexar_grupo(source_group, qdrant_client=None) -> dict | agente ingesta |
-| `pbip.py` | extraer_hechos / comparar / esqueleto | agente pbip |
+| `indexacion.py` | reindexar_grupo(source_group, qdrant_client=None, *, project_root=None, md_root=None, embedder=None, incremental=True) -> dict; cliente_qdrant_de_la_app() | agente ingesta (hecho) |
+| `pbip.py` | extraer_hechos / comparar / esqueleto (+ guardar_instantanea / cambios_desde_instantanea; acepta PBIP o .pbix PBIR) | agente pbip (hecho) |
 | `src/ingestion` | leer `md/` y producir el JSON normalizado del RAG | agente ingesta |
 | `pages/` (Streamlit) | ver documentación, proponer cambio, aprobar, reindexar | agente interfaz |
+
+## Ingesta en el RAG (`ingesta.py`, `src/ingestion/document_parser.py`)
+
+- Un grupo con páginas en `<raíz md>/<grupo>/md/*.md` se ingiere desde el .md y sus .docx
+  (en `data/raw/<grupo>/`) se ignoran con aviso en consola. Los demás grupos siguen con .docx.
+- Raíz md: `md_root` explícito, si no `DOCS_MD_ROOT` (`repositorio.raiz_documentos`), si no `data/raw`.
+  El `manifest.json` se busca junto a los .md y si no en `data/raw/<grupo>/`.
+- Cada .md es un tablero del JSON normalizado (sin las heurísticas de los .docx): una cadena
+  «Nombre: texto» por entrada, el historial en `other_sections` y las medidas citadas como `[Medida]`
+  en Indicadores/Visuales como medidas documentadas. `_general.md` toma el nombre del informe del
+  manifest (nunca «GENERAL») y sus alias.
+- `reindexar_grupo` regenera solo los derivados del grupo y solo embebe los chunks que cambiaron.
 
 Operaciones que devuelve MedGemma (JSON):
 
@@ -58,3 +70,35 @@ Operaciones que devuelve MedGemma (JSON):
 
 `accion`: agregar | modificar | eliminar. `Propósito` solo admite `modificar` con el texto completo.
 El historial y la versión los actualiza `aplicar_operaciones`.
+En la llamada real cada operación trae además `antes` (copia del texto actual de la entrada): obliga al
+modelo a distinguir el texto viejo del nuevo; el código lo ignora al aplicar.
+
+## Actualizador (`actualizador.py`)
+
+`proponer_cambio(nota, source_group, pagina=None, llm=None, cambios_pbip=None, raiz=None)` devuelve una
+`Propuesta` con `estado`:
+
+- **lista**: hay operaciones válidas; `despues` y `diff` muestran el resultado. Se aprueba con
+  `aplicar_propuesta(propuesta, autor, raiz=None)`, que falla (`ErrorActualizacion`) si el archivo cambió
+  desde la propuesta.
+- **requiere_aclaracion**: `dudas` trae las preguntas (nota sin contenido, página dudosa con `candidatas`,
+  valor anterior que no coincide con el documento, algo que la página no documenta, dudas del modelo).
+  Si había operaciones, el `diff` sirve de vista previa, pero no se aplica.
+- **error**: `errores` (MedGemma no respondió o no devolvió JSON válido tras un reintento).
+
+`avisos` (no bloquean) le dicen a quien aprueba qué revisar: cifras que no están en la nota, textos que
+pierden contenido, entradas relacionadas que no se tocaron y correcciones hechas por el código.
+`llm_raw` guarda las respuestas crudas; `metodo_pagina` dice cómo se eligió la página.
+
+Pruebas sin red: `python -m unittest tests.docs_md.test_actualizador`.
+Evaluación con MedGemma real: `python -X utf8 -m tests.docs_md.eval_actualizador` (informe en
+`tests/docs_md/out/`).
+
+## Interfaz (`pages/1_Documentación.py` + `interfaz.py`)
+
+`streamlit run app.py` muestra «Documentación» en la barra lateral (multipágina por carpeta `pages/`; app.py no cambia).
+Modos: **Ver** (tablero, página, ficha, historial e indicador de formato) y **Proponer un cambio**
+(nota + autor + página opcional + cambios PBIP → revisión con diff → Aprobar / Rechazar → reindexación).
+Al reindexar se reutiliza el cliente de Qdrant del chat (`src.rag.retriever.active_retriever()`, alias `retriever_abierto`); si el chat
+no está abierto, `reindexar_grupo` abre el suyo y debe cerrarlo al terminar.
+Pruebas sin MedGemma ni Qdrant: `DOCS_MD_SERVICIOS=tests.docs_md.fakes_interfaz` y `DOCS_MD_ROOT=<copia de fixtures>`.

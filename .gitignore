@@ -6,3 +6,5 @@ __pycache__/
 tableros
 # Salidas del evaluador (tests/eval)
 /tests/eval/out/
+# Salidas del evaluador del actualizador (tests/docs_md)
+/tests/docs_md/out/

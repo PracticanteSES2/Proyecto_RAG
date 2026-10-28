@@ -673,13 +673,32 @@ def normalize_dashboard(dashboard):
 # NORMALIZACIÓN DEL DOCUMENTO
 # ============================================================
 
+def normalize_markdown_dashboard(dashboard):
+    """Página .md (documentación viva): conversión directa del formato
+    estándar, sin las heurísticas de encabezados de los .docx."""
+    from src.docs_md.formato import parsear
+    from src.docs_md.ingesta import documento_a_tablero
+
+    return documento_a_tablero(
+        parsear(dashboard.get("markdown", "")),
+        nombre=dashboard.get("name"),
+        aliases=_as_list(dashboard.get("aliases")),
+        source_file=dashboard.get("source_file"),
+    )
+
+
 def normalize_document(data):
+    normalize = (
+        normalize_markdown_dashboard
+        if data.get("source_format") == "md"
+        else normalize_dashboard
+    )
     normalized_dashboards = [
-        normalize_dashboard(dashboard)
+        normalize(dashboard)
         for dashboard in data.get("dashboards", [])
     ]
 
-    return {
+    result = {
         "schema_version": 2,
         "workspace": data.get("workspace"),
         "semantic_model": data.get("semantic_model"),
@@ -696,11 +715,36 @@ def normalize_document(data):
         "dashboard_aliases": data.get("dashboard_aliases", []),
         "dashboards": normalized_dashboards,
     }
+    if data.get("source_format"):
+        result["source_format"] = data["source_format"]
+    return result
 
 
 # ============================================================
 # PROCESAMIENTO MASIVO
 # ============================================================
+
+def remove_stale_docx_outputs(processed_dir, output_dir):
+    """En los grupos con documentación .md (processed/<grupo>/md/) borra los
+    JSON normalizados que ya no tienen JSON procesado (.docx ignorados o
+    páginas .md eliminadas): sin limpieza previa contradirían al .md."""
+    processed_dir = Path(processed_dir)
+    output_dir = Path(output_dir)
+    removed = []
+    if not output_dir.exists() or not processed_dir.exists():
+        return removed
+    for md_dir in sorted(processed_dir.glob("*/md")):
+        group = md_dir.parent.name
+        if not any(md_dir.glob("*.json")):
+            continue
+        for path in sorted((output_dir / group).rglob("*.json")):
+            relative = path.relative_to(output_dir)
+            if not (processed_dir / relative).exists():
+                path.unlink()
+                removed.append(str(relative))
+                print("  [AVISO] Eliminado JSON obsoleto (el grupo usa .md):", relative)
+    return removed
+
 
 def normalize_all_documents(processed_dir, output_dir):
     for stream in (sys.stdout, sys.stderr):
@@ -757,6 +801,8 @@ def normalize_all_documents(processed_dir, output_dir):
         print(f"  [OK] Tableros normalizados: {count}")
         for dashboard in normalized.get("dashboards", []):
             print("     ->", dashboard.get("name"))
+
+    remove_stale_docx_outputs(processed_dir, output_dir)
 
     print("\n===========================")
     print("NORMALIZACION FINALIZADA")

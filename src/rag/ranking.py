@@ -164,6 +164,10 @@ INTENT_TYPE_BONUS = {
     "definition": {
         "document_section": 0.05, "documented_measure": 0.05, "visual": 0.03,
         "dashboard_overview": 0.03, "indicator": 0.04,
+        # Documentación .md: los semáforos y rangos viven en «Reglas de
+        # negocio» y los significados en «Definiciones» (textos con números,
+        # de coseno bajo frente a los visuales que solo los mencionan).
+        "business_rule": 0.10, "definition": 0.10,
     },
     "technical": {"sql_query": 0.24, "table_context": 0.16, "calculated_column": 0.05},
     "general": {},

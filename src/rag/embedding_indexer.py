@@ -112,6 +112,185 @@ def _delete_source_group(client, collection_name, source_group):
     )
 
 
+def chunk_payload(chunk):
+    """Payload plano del punto en Qdrant (texto, tipo y metadatos)."""
+    metadata = dict(chunk.get("metadata", {}) or {})
+    metadata.setdefault(
+        "source_group",
+        _chunk_source_group(chunk),
+    )
+
+    return {
+        "text": chunk["text"],
+        "chunk_type": chunk["chunk_type"],
+        **metadata,
+    }
+
+
+def _upsert_chunks(client, collection_name, chunks, embeddings, batch_size=64):
+    """Inserta los chunks con sus embeddings (payload plano, como siempre)."""
+    total_upserted = 0
+
+    for start in range(0, len(chunks), batch_size):
+        batch_chunks = chunks[start:start + batch_size]
+        batch_embeddings = embeddings[start:start + batch_size]
+
+        points = []
+
+        for chunk, embedding in zip(batch_chunks, batch_embeddings):
+            payload = chunk_payload(chunk)
+
+            vector = (
+                embedding.tolist()
+                if hasattr(embedding, "tolist")
+                else list(embedding)
+            )
+
+            points.append(
+                PointStruct(
+                    id=chunk["id"],
+                    vector=vector,
+                    payload=payload,
+                )
+            )
+
+        client.upsert(
+            collection_name=collection_name,
+            points=points,
+            wait=True,
+        )
+
+        total_upserted += len(points)
+
+    return total_upserted
+
+
+def replace_source_group_points(
+    client,
+    collection_name,
+    source_group,
+    chunks,
+    embeddings,
+    vector_size,
+    batch_size=64,
+):
+    """Reemplaza en Qdrant SOLO los puntos de un source_group (los demás
+    grupos no se tocan). Los embeddings deben estar calculados antes de
+    llamar: si fallan, la colección queda intacta."""
+    if any(_chunk_source_group(chunk) != source_group for chunk in chunks):
+        raise ValueError(
+            f"Todos los chunks deben ser del grupo «{source_group}»."
+        )
+
+    _ensure_collection(client, collection_name, vector_size)
+    _delete_source_group(client, collection_name, source_group)
+    return _upsert_chunks(
+        client,
+        collection_name,
+        chunks,
+        embeddings,
+        batch_size,
+    )
+
+
+def source_group_payloads(client, collection_name, source_group, page_size=512):
+    """{id: payload} de los puntos de un source_group (sin vectores)."""
+    selector = Filter(
+        must=[
+            FieldCondition(
+                key="source_group",
+                match=MatchValue(value=source_group),
+            )
+        ]
+    )
+    payloads = {}
+    offset = None
+
+    while True:
+        points, offset = client.scroll(
+            collection_name=collection_name,
+            scroll_filter=selector,
+            limit=page_size,
+            offset=offset,
+            with_payload=True,
+            with_vectors=False,
+        )
+
+        for point in points:
+            payloads[str(point.id)] = point.payload or {}
+
+        if offset is None:
+            break
+
+    return payloads
+
+
+def update_source_group_points(
+    client,
+    collection_name,
+    source_group,
+    chunks,
+    existing_payloads,
+    changed_chunks,
+    changed_embeddings,
+    batch_size=64,
+):
+    """Actualización incremental de un source_group ya indexado.
+
+    - changed_chunks (texto nuevo o distinto): se insertan con su embedding.
+    - Mismo texto y otros metadatos (p. ej. source_hash): solo se reescribe
+      el payload; el vector se conserva.
+    - Puntos del grupo que ya no están en `chunks`: se eliminan.
+    Los demás grupos no se tocan.
+    """
+    from qdrant_client.models import PointIdsList
+
+    if any(_chunk_source_group(chunk) != source_group for chunk in chunks):
+        raise ValueError(
+            f"Todos los chunks deben ser del grupo «{source_group}»."
+        )
+
+    current_ids = {str(chunk["id"]) for chunk in chunks}
+    changed_ids = {str(chunk["id"]) for chunk in changed_chunks}
+
+    stale = sorted(set(existing_payloads) - current_ids)
+    if stale:
+        client.delete(
+            collection_name=collection_name,
+            points_selector=PointIdsList(points=stale),
+            wait=True,
+        )
+
+    payload_only = 0
+    for chunk in chunks:
+        chunk_id = str(chunk["id"])
+        if chunk_id in changed_ids:
+            continue
+        payload = chunk_payload(chunk)
+        if existing_payloads.get(chunk_id) != payload:
+            client.overwrite_payload(
+                collection_name=collection_name,
+                payload=payload,
+                points=[chunk_id],
+                wait=True,
+            )
+            payload_only += 1
+
+    upserted = _upsert_chunks(
+        client,
+        collection_name,
+        changed_chunks,
+        changed_embeddings,
+        batch_size,
+    )
+
+    return {
+        "upserted": upserted,
+        "payload_only": payload_only,
+        "deleted": len(stale),
+    }
+
+
 # ============================================================
 # INDEXACIÓN
 # ============================================================
@@ -226,42 +405,13 @@ def build_vector_index(
 
         print("\nGuardando vectores en Qdrant...")
 
-        total_upserted = 0
-
-        for start in range(0, len(chunks), batch_size):
-            batch_chunks = chunks[start:start + batch_size]
-            batch_embeddings = embeddings[start:start + batch_size]
-
-            points = []
-
-            for chunk, embedding in zip(batch_chunks, batch_embeddings):
-                metadata = dict(chunk.get("metadata", {}) or {})
-                metadata.setdefault(
-                    "source_group",
-                    _chunk_source_group(chunk),
-                )
-
-                payload = {
-                    "text": chunk["text"],
-                    "chunk_type": chunk["chunk_type"],
-                    **metadata,
-                }
-
-                points.append(
-                    PointStruct(
-                        id=chunk["id"],
-                        vector=embedding.tolist(),
-                        payload=payload,
-                    )
-                )
-
-            client.upsert(
-                collection_name=collection_name,
-                points=points,
-                wait=True,
-            )
-
-            total_upserted += len(points)
+        total_upserted = _upsert_chunks(
+            client,
+            collection_name,
+            chunks,
+            embeddings,
+            batch_size,
+        )
 
         collection_info = client.get_collection(collection_name)
 
