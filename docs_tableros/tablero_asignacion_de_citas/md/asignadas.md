@@ -4,8 +4,8 @@ pagina: ASIGNADAS
 nombre_funcional: Solicitudes asignadas por especialidad y top 5 de aseguradoras
 bloque: Histórico
 tablas: [EN_ESPERA, ASEGURADORA, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # ASIGNADAS
@@ -23,7 +23,7 @@ Muestra las solicitudes de la lista de espera que ya quedaron asignadas, por esp
 - **Asignadas por aseguradora**: SUM(EN_ESPERA[ASIGNADAS]) por ASEGURADORA[ASEGURADORA_HM]; ASIGNADAS vale 1 cuando CCEESTADO = 1.
 
 ## Visuales
-- **Filtros de fecha**: Segmentadores de año, mes y día de Calendario (fecha de registro de la solicitud).
+- **Filtros de fecha**: Segmentadores de año, mes y día de Calendario («Date Año», «Date Mes» y «Date Día»; fecha de registro de la solicitud).
 - **Filtro de aseguradora**: Segmentador «ASEGURADORA» con EN_ESPERA[NOM_TERCERO].
 - **Filtro de clasificación**: Casillas por EN_ESPERA[MAESTROS] (MAGISTERIO, MEDICINA PREPAGADA, OTROS, PARTICULAR).
 - **Tarjeta consultas asignadas**: Total de solicitudes asignadas con los filtros aplicados.
@@ -40,3 +40,4 @@ Muestra las solicitudes de la lista de espera que ya quedaron asignadas, por esp
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

@@ -4,8 +4,8 @@ pagina: COMPARATIVO ASIGNADAS
 nombre_funcional: Comparativo porcentual de estados de la gestión de citas por especialidad
 bloque: Histórico
 tablas: [EN_ESPERA, CITAS_ASIGNADAS, ESPECIALIDADES, ASEGURADORA, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # COMPARATIVO ASIGNADAS
@@ -26,7 +26,7 @@ Compara en porcentaje, para cada especialidad, cómo se reparten las solicitudes
 - **Asignadas**: Citas asignadas en el periodo. DISTINCTCOUNT(CITAS_ASIGNADAS[OID_CITA]).
 
 ## Visuales
-- **Filtros de la página**: Segmentadores de año, mes y día, ESPECIALIDAD (ESPECIALIDADES[GEEDESCRI]), ASEGURADORA (ASEGURADORA[ASEGURADORA_HM]) y «TOP 5 ASEGURADORAS».
+- **Filtros de la página**: Segmentadores «Date Año», «Date Mes» y «Date Día» (año, mes y día), ESPECIALIDAD (ESPECIALIDADES[GEEDESCRI]), ASEGURADORA (ASEGURADORA[ASEGURADORA_HM]) y «TOP 5 ASEGURADORAS».
 - **Tarjetas de indicadores**: CONSULTAS EN ESPERA, NO REGISTRADOS EN DINÁMICA, ASIGNADAS EN ESPERA y ASIGNADAS.
 - **Barras 100 % por especialidad**: Barras apiladas al 100 % por especialidad con EN ESPERA, PACIENTES NO REGISTRADOS EN DINAMICA, ASIGNADAS EN ESPERA, CITAS ANULADAS (estado 1), CITAS CANCELADAS (estado 3), CITAS CON ASISTENCIA (estado 2) y CITAS ASIGNADAS (estado 0); ordenadas por EN ESPERA de mayor a menor.
 - **Botón inicio**: Regresa a INICIO.
@@ -41,3 +41,4 @@ Compara en porcentaje, para cada especialidad, cómo se reparten las solicitudes
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

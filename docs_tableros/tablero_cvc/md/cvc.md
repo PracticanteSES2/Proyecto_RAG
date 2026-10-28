@@ -3,9 +3,9 @@ tablero: TABLERO CVC
 pagina: CVC
 nombre_funcional: Aumentos y disminuciones de costo de compra por producto y mes
 bloque: Histórico
-tablas: [COSTOS_PRODUCTOS]
-actualizado: 2026-10-20
-version: 1
+tablas: [COSTOS_PRODUCTOS, COSTOS_VARIACION, DESABASTECIDOS, PRODUCTOS_REGULADOS, calendario]
+actualizado: 2026-10-28
+version: 2
 ---
 
 # CVC
@@ -41,8 +41,8 @@ version: 1
 - **Medidas del catálogo local**: El catálogo local tiene medidas inferidas que cuentan filas para las tarjetas de aumento y disminución, pero la captura muestra valores en pesos. No se usan esas medidas como fuente.
 - **Total productos igual a aumentos**: En la captura, TOTAL PRODUCTOS (4.367) coincide con el número de registros AUMENTÓ del gráfico de volatilidad. Por confirmar qué cuenta la tarjeta.
 - **Texto copiado**: La documentación describe los segmentadores como filtros de «citas asignadas»; es un error de copia.
-- **Producto regulado**: La fuente de la marca PRODUCTO REGULADO no está documentada. Por confirmar.
-- **Nombre de página**: La documentación no da el nombre de la página. Nombre de página en Power BI por confirmar.
+- **Producto regulado**: La marca PRODUCTO REGULADO sale de PRODUCTOS_REGULADOS[PROD_REGULADO], construida del Excel de regulados y unida por IPRCODIGO. Por confirmar qué cuenta como regulado en la columna REGULADO.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

@@ -4,8 +4,8 @@ pagina: MAPA DE CALOR ASESORES
 nombre_funcional: Gestiones de solicitudes por asesor y tramo horario
 bloque: Histórico
 tablas: [EN_ESPERA, ASESORES, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # MAPA DE CALOR ASESORES
@@ -22,7 +22,7 @@ Mapa de calor con las gestiones de solicitudes de cita que registra cada asesor 
 - **Gestiones por asesor y tramo**: DISTINCTCOUNT(EN_ESPERA[OID_CITA]) por EN_ESPERA[ASESOR] y EN_ESPERA[TramoHorario].
 
 ## Visuales
-- **Filtros de la página**: Segmentadores de año, mes y día, ASESOR (EN_ESPERA[NOMBRE_USUARIO]), ESPECIALIDAD y ASEGURADORA (EN_ESPERA[NOM_TERCERO]).
+- **Filtros de la página**: Segmentadores «Date Año», «Date Mes» y «Date Día» (año, mes y día), ASESOR (EN_ESPERA[NOMBRE_USUARIO]), ESPECIALIDAD y ASEGURADORA (EN_ESPERA[NOM_TERCERO]).
 - **Tarjeta total gestiones**: Conteo total de gestiones con los filtros aplicados.
 - **Mapa de calor por asesor**: Matriz con un asesor por fila, TRAMO HORARIO en columnas y el conteo de solicitudes en cada celda.
 - **Botón inicio**: Regresa a INICIO.
@@ -39,3 +39,4 @@ Mapa de calor con las gestiones de solicitudes de cita que registra cada asesor 
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

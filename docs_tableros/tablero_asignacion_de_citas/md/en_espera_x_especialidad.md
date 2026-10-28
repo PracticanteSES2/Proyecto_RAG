@@ -4,8 +4,8 @@ pagina: EN ESPERA X ESPECIALIDAD
 nombre_funcional: Consultas en espera por especialidad y top 5 de aseguradoras
 bloque: Histórico
 tablas: [EN_ESPERA, ASEGURADORA, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # EN ESPERA X ESPECIALIDAD
@@ -23,7 +23,7 @@ Muestra cuántas solicitudes de cita siguen en espera en cada especialidad y las
 - **Consultas solicitadas por aseguradora**: Filas de solicitudes en espera por aseguradora. COUNT(EN_ESPERA[OID_CITA]) por ASEGURADORA[ASEGURADORA_HM].
 
 ## Visuales
-- **Filtros de fecha**: Segmentadores de año y mes de Calendario (fecha de registro de la solicitud).
+- **Filtros de fecha**: Segmentadores de año y mes de Calendario («Date Año» y «Date Mes»; fecha de registro de la solicitud).
 - **Filtro de clasificación**: Casillas por EN_ESPERA[MAESTROS]: MAGISTERIO, MEDICINA PREPAGADA, OTROS y PARTICULAR.
 - **Filtro de aseguradora**: Segmentador «ASEGURADORA» con EN_ESPERA[NOM_TERCERO].
 - **Tarjeta consultas en espera**: Total de solicitudes en espera con los filtros aplicados.
@@ -40,3 +40,4 @@ Muestra cuántas solicitudes de cita siguen en espera en cada especialidad y las
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

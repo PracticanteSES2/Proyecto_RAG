@@ -4,8 +4,8 @@ pagina: ASIGNADAS X ASESOR
 nombre_funcional: Gestión de citas por asesor según estado
 bloque: Histórico
 tablas: [ASESORES, EN_ESPERA, CITAS_ASIGNADAS, ASEGURADORA, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # ASIGNADAS X ASESOR
@@ -26,7 +26,7 @@ Muestra, para cada asesor del área de citas, cuántas solicitudes de la lista d
 - **Anuladas**: Citas en estado 1. SUM(CITAS_ASIGNADAS[ANULADO]).
 
 ## Visuales
-- **Filtros de la página**: Segmentadores de año, mes y día, ASESOR (EN_ESPERA[ASESOR]), ESPECIALIDAD (EN_ESPERA[GEEDESCRI]) y ASEGURADORA (ASEGURADORA[ASEGURADORA_HM]).
+- **Filtros de la página**: Segmentadores «Date Año», «Date Mes» y «Date Día» (año, mes y día), ASESOR (segmentador «ASESOR1», EN_ESPERA[ASESOR]), ESPECIALIDAD (EN_ESPERA[GEEDESCRI]) y ASEGURADORA (ASEGURADORA[ASEGURADORA_HM]).
 - **Tabla de gestión por asesor**: Una fila por asesor (ASESORES[ASESOR]) con ASIGNADAS EN ESPERA, ASIGNADAS, CITAS CONFIRMADAS, CANCELADAS y ANULADAS, y fila de total.
 - **Botón inicio**: Regresa a INICIO.
 
@@ -40,3 +40,4 @@ Muestra, para cada asesor del área de citas, cuántas solicitudes de la lista d
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

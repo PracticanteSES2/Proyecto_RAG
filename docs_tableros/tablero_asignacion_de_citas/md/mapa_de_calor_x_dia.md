@@ -4,8 +4,8 @@ pagina: MAPA DE CALOR X DIA
 nombre_funcional: Gestiones de solicitudes por día de la semana y tramo horario
 bloque: Histórico
 tablas: [EN_ESPERA, ASESORES, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # MAPA DE CALOR X DIA
@@ -22,7 +22,7 @@ Mapa de calor con las gestiones de solicitudes de cita por día de la semana y m
 - **Gestiones por día y tramo**: DISTINCTCOUNT(EN_ESPERA[OID_CITA]) por EN_ESPERA[DIA_SEMANA] y EN_ESPERA[TramoHorario].
 
 ## Visuales
-- **Filtros de la página**: Segmentadores de año, mes y día, ESPECIALIDAD, ASEGURADORA (EN_ESPERA[NOM_TERCERO]) y una lista de asesores (EN_ESPERA[ASESOR]) al lado de la matriz.
+- **Filtros de la página**: Segmentadores «Date Año», «Date Mes» y «Date Día» (año, mes y día), ESPECIALIDAD, ASEGURADORA (EN_ESPERA[NOM_TERCERO]) y una lista de asesores (segmentador «ASESOR1», EN_ESPERA[ASESOR]) al lado de la matriz.
 - **Tarjeta total gestiones**: Conteo total de gestiones con los filtros aplicados.
 - **Mapa de calor por día**: Matriz con TRAMO HORARIO en filas (orden ascendente), DÍA SEMANA en columnas (1. LUNES a 7. DOMINGO) y el conteo de solicitudes en cada celda.
 - **Botón inicio**: Regresa a INICIO.
@@ -39,3 +39,4 @@ Mapa de calor con las gestiones de solicitudes de cita por día de la semana y m
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

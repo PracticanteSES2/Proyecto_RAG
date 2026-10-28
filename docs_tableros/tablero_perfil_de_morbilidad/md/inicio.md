@@ -4,14 +4,14 @@ pagina: INICIO
 nombre_funcional: Resumen de egresos por GRD, CMD y CIE10
 bloque: Histórico
 tablas: [MATRIZ 2024, ONCOLOGICO, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # INICIO
 
 ## Propósito
-Página principal del perfil de morbilidad: muestra el total de egresos, el promedio de edad y los pacientes atendidos por GRD, CMD y diagnóstico CIE10, con filtros por servicio, asegurador, sexo y tipo de salida. Tiene los botones hacia las demás páginas. Análisis por año y mes (bloque Histórico). Nombre de página en Power BI por confirmar.
+Página principal del perfil de morbilidad: muestra el total de egresos, el promedio de edad y los pacientes atendidos por GRD, CMD y diagnóstico CIE10, con filtros por servicio, asegurador, sexo y tipo de salida. Tiene los botones hacia las demás páginas. Análisis por año y mes (bloque Histórico).
 
 ## Fuentes de datos
 - **MATRIZ 2024**: Egresos hospitalarios con diagnóstico, GRD, CMD, edad, sexo, servicio y tipo de salida.
@@ -31,7 +31,7 @@ Página principal del perfil de morbilidad: muestra el total de egresos, el prom
 - **Barras por GRD**: Titulado «PACIENTES ATENDIDOS por GRD»; barras horizontales de mayor a menor.
 - **Barras por CMD**: Titulado «PACIENTES ATENDIDOS por CMD»; barras horizontales de mayor a menor.
 - **Barras por CIE10**: Titulado «PACIENTES ATENDIDOS por CIE10»; diagnósticos más frecuentes de mayor a menor.
-- **Botones de navegación**: PIRAMIDE POBLACIONAL, FACTURACIÓN, PERFIL DE MORBILIDAD (abre DETALLE PERFIL DE MORBILIDAD), PERIOPERATORIA y ATENCIONES AMBULATORIAS.
+- **Botones de navegación**: PIRAMIDE POBLACIONAL, FACTURACIÓN, PERFIL DE MORBILIDAD (abre PERFIL DE MORBILIDAD), PERIOPERATORIA y ATENCIONES AMBULATORIAS.
 
 ## Reglas de negocio
 - **Ejes de diagnóstico**: Las barras usan las columnas calculadas GRD_R, CMD_R y CIE10_R de MATRIZ 2024 (por confirmar en el PBIP del informe).
@@ -44,3 +44,4 @@ Página principal del perfil de morbilidad: muestra el total de egresos, el prom
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP (solo modelo semántico).
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
