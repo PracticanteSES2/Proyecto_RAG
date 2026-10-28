@@ -4,8 +4,8 @@ pagina: DETALLE EN ESPERA
 nombre_funcional: Listado de pacientes con solicitud de cita en espera
 bloque: Histórico
 tablas: [EN_ESPERA, PACIENTES CITA ASIGNADA, PACIENTES, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # DETALLE EN ESPERA
@@ -23,7 +23,7 @@ Lista, paciente por paciente, las solicitudes de cita con especialista que sigue
 - **Días en espera**: Días desde el registro de la solicitud hasta hoy. Columna EN_ESPERA[DIAS_ESPERA].
 
 ## Visuales
-- **Filtros de la página**: Segmentadores de ASESOR (EN_ESPERA[NOMBRE_USUARIO]), ESPECIALIDAD, año, mes y día, ASEGURADORA (EN_ESPERA[NOM_TERCERO]) y buscadores de texto por nombre y documento del paciente.
+- **Filtros de la página**: Segmentadores de ASESOR (EN_ESPERA[NOMBRE_USUARIO]), ESPECIALIDAD, «Date Año», «Date Mes» y «Date Día» (año, mes y día), ASEGURADORA (EN_ESPERA[NOM_TERCERO]) y buscadores de texto «NOMBRE PACIENTE» (EN_ESPERA[gpanomcom]) y «DOCUMENTO PACIENTE» (EN_ESPERA[pacnumdoc]).
 - **Filtros por casillas**: TIENE CITA (TIENE CITA ASIGNADA o NO TIENE CITA ASIGNADA), Existe (EXISTE EN DINAMICA o NO EXISTE EN DINAMICA) y clasificación MAESTROS.
 - **Tarjeta consultas en espera**: Total de solicitudes en espera.
 - **Tabla de pacientes en espera**: Fecha de solicitud, documento, nombre, teléfono, asesor, especialidad, DIAS EN ESPERA, FECHA DE CITA ASIGNADA, MEDICO SOLICITADO, ASESOR CITA ASIGNADA, ASEGURADORA y CORREO ELECTRONICO.
@@ -40,3 +40,4 @@ Lista, paciente por paciente, las solicitudes de cita con especialista que sigue
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

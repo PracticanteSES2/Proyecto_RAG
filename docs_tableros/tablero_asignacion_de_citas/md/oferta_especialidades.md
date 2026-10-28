@@ -4,8 +4,8 @@ pagina: OFERTA ESPECIALIDADES
 nombre_funcional: Demanda de citas: pendientes, asignadas, inasistencia y gestión por aseguradora
 bloque: Histórico
 tablas: [EN_ESPERA, CITAS_ASIGNADAS, ESPECIALIDADES, ASEGURADORA, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # OFERTA ESPECIALIDADES
@@ -28,7 +28,7 @@ Reúne los indicadores de demanda de citas: solicitudes pendientes, citas asigna
 - **Gestionada**: Solicitudes en estado asignada. SUM(EN_ESPERA[GESTIONADAS]).
 
 ## Visuales
-- **Filtros de la página**: Lista de especialidades (ESPECIALIDADES[GEEDESCRI]) y botones de mes de Calendario.
+- **Filtros de la página**: Lista de especialidades (ESPECIALIDADES[GEEDESCRI]) y botones de mes «Date Mes» de Calendario.
 - **Tarjetas de indicadores**: PENDIENTES, ASIGNADA, %INASISTENCIA y %PENDIENTE.
 - **Columnas de pendientes por especialidad**: Titulado «PENDIENTES por ESPECIALIDAD»; SUM(PENDIENTES_CO) por especialidad, de mayor a menor.
 - **Área de inasistidas por día**: Titulado «INASISTIDAS por DIA»; citas inasistidas por Calendario[DIA_SEMANA] de 1.LUNES a 7.DOMINGO.
@@ -47,3 +47,4 @@ Reúne los indicadores de demanda de citas: solicitudes pendientes, citas asigna
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

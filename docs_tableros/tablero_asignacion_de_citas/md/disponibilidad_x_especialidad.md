@@ -4,8 +4,8 @@ pagina: DISPONIBILIDAD X ESPECIALIDAD
 nombre_funcional: Versión anterior de la disponibilidad de agenda por especialidad
 bloque: Histórico
 tablas: [AGENDA_ESPECIALISTAS, ESPECIALIDADES, EN_ESPERA, CITAS_ASIGNADAS, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # DISPONIBILIDAD X ESPECIALIDAD
@@ -26,7 +26,7 @@ Página oculta que parece una versión anterior de DISPO X ESPECIALIDAD: compara
 - **Citas en espera**: SUM(EN_ESPERA[PENDIENTES]).
 
 ## Visuales
-- **Filtros de la página**: Segmentadores rotulados año, mes y día (usan la fecha completa de Calendario) y de especialidad.
+- **Filtros de la página**: Segmentadores «Date Año», «Date Mes» y «Date Día», rotulados año, mes y día (usan la fecha completa de Calendario) y de especialidad.
 - **Tabla de disponibilidad**: Matriz con especialidad y MEDICO; columnas AGENDA TOTAL, CITAS EN ESPERA, CANTIDAD CITAS y CITAS DISPONIBLES.
 - **Anillo de agenda**: Solicitudes en espera, citas asignadas (DISTINCTCOUNT de CITAS_ASIGNADAS[OID_CITA]) y una columna de agenda disponible en minutos.
 - **Botón inicio**: Regresa a INICIO.
@@ -41,3 +41,4 @@ Página oculta que parece una versión anterior de DISPO X ESPECIALIDAD: compara
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir del PBIP; la página no está en la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

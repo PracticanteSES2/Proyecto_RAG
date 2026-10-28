@@ -4,8 +4,8 @@ pagina: INICIO
 nombre_funcional: Resumen de solicitudes en espera, asignaciones y estados de las citas
 bloque: Histórico
 tablas: [EN_ESPERA, CITAS_ASIGNADAS, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # INICIO
@@ -25,7 +25,7 @@ Página principal del tablero. Resume con tarjetas las solicitudes en espera, la
 - **Consultas asignadas**: Citas asignadas en el periodo, en cualquier estado. DISTINCTCOUNT(CITAS_ASIGNADAS[OID_CITA]).
 
 ## Visuales
-- **Filtros de fecha**: Segmentadores de año, mes y día de Calendario.
+- **Filtros de fecha**: Segmentadores de año, mes y día de Calendario («Date Año», «Date Mes» y «Date Día» de Calendario[Date]).
 - **Tarjetas de indicadores**: Cinco tarjetas en la columna izquierda: CONSULTAS EN ESPERA, ASIGNADAS EN ESPERA, TOTAL GESTIÓN CITA EN ESPERA, DÍAS PROMEDIO PARA ASIGNACIÓN y CONSULTAS ASIGNADAS.
 - **Gráfico circular de estados**: Conteo y porcentaje de EN ESPERA (SUM EN_ESPERA[PENDIENTES]), ASIGNADAS EN ESPERA (SUM EN_ESPERA[ASIGNADAS]), CITAS ASISTIDAS (SUM CONFIRMADO), CITAS REGISTRADAS (SUM REGISTRADO), CITAS CANCELADAS (SUM ANULADO) y CITAS INASISTIDAS (SUM CANCELADO). Filtro CCEESTADO 0 o 1.
 - **Botones de navegación**: CONSULTAS POR ESPECIALIDAD, DETALLE EN ESPERA, ASIGNADAS POR ESPECIALIDAD, DETALLE ASIGNADAS, MAPA DE CALOR ASESORES, MAPA DE CALOR POR DÍA, DISPONIBILIDAD ESPECIALISTAS, COMPARATIVO CONSULTAS ASIGNADAS, ASIGNADAS POR ASESOR y DEMANDA DE CITAS.
@@ -40,3 +40,4 @@ Página principal del tablero. Resume con tarjetas las solicitudes en espera, la
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

@@ -4,8 +4,8 @@ pagina: DETALLE CITAS ASIGNADAS DÍA
 nombre_funcional: Detalle de citas de un médico (obtención de detalles)
 bloque: Histórico
 tablas: [ASIGNADAS_ACTIVIDAD, AGENDA_ESPECIALISTAS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # DETALLE CITAS ASIGNADAS DÍA
@@ -17,7 +17,7 @@ Página de obtención de detalles (drillthrough) por médico: al profundizar des
 - **ASIGNADAS_ACTIVIDAD**: Tabla de citas con médico, paciente, especialidad y actividad. No existe en el modelo semántico actual.
 
 ## Visuales
-- **Tabla de citas del médico**: Columnas Nombre_Medico, NOMBRE PACIENTE, DOCUMENTO, Especialidad y ACTIVIDAD.
+- **Tabla de citas del médico**: Columnas ASIGNADAS_ACTIVIDAD[Nombre_Medico], ASIGNADAS_ACTIVIDAD[GPANOMCOM] (nombre del paciente), ASIGNADAS_ACTIVIDAD[PACNUMDOC] (documento), ASIGNADAS_ACTIVIDAD[Especialidad] y ASIGNADAS_ACTIVIDAD[ACTIVIDAD].
 - **Botón de regreso**: Vuelve a DISPONIBILIDAD X ESPECIALIDAD.
 
 ## Reglas de negocio
@@ -30,3 +30,4 @@ Página de obtención de detalles (drillthrough) por médico: al profundizar des
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir del PBIP; la página no está en la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

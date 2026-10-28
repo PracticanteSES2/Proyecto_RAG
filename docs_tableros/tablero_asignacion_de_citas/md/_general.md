@@ -4,8 +4,8 @@ pagina: GENERAL
 nombre_funcional: Seguimiento de solicitudes de citas de especialistas, asignaciones y agenda
 bloque: General
 tablas: [EN_ESPERA, CITAS_ASIGNADAS, AGENDA_ESPECIALISTAS, ASEGURADORA, ASESORES, ESPECIALIDADES, PACIENTES, PACIENTES CITA ASIGNADA, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # GENERAL
@@ -56,3 +56,4 @@ Monitorea las solicitudes de citas con especialistas que entran al sistema: cuá
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

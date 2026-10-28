@@ -4,8 +4,8 @@ pagina: DETALLE ASIGNADAS
 nombre_funcional: Listado de pacientes con solicitud de cita asignada
 bloque: Histórico
 tablas: [EN_ESPERA, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # DETALLE ASIGNADAS
@@ -20,7 +20,7 @@ Lista, paciente por paciente, las solicitudes de la lista de espera que ya queda
 - **Consultas asignadas**: Solicitudes asignadas con los filtros aplicados. DISTINCTCOUNT(EN_ESPERA[OID_CITA]).
 
 ## Visuales
-- **Filtros de la página**: Segmentadores de año, mes y día, ASESOR (EN_ESPERA[ASESOR]), ESPECIALIDAD, ASEGURADORA (EN_ESPERA[NOM_TERCERO]), clasificación MAESTROS y buscadores de texto por documento y nombre del paciente.
+- **Filtros de la página**: Segmentadores «Date Año», «Date Mes» y «Date Día» (año, mes y día), ASESOR (segmentador «ASESOR1», EN_ESPERA[ASESOR]), ESPECIALIDAD, ASEGURADORA (EN_ESPERA[NOM_TERCERO]), clasificación MAESTROS y buscadores de texto «DOCUMENTO PACIENTE» (EN_ESPERA[pacnumdoc]) y «NOMBRE PACIENTE» (EN_ESPERA[gpanomcom]).
 - **Tarjeta consultas asignadas**: Total de solicitudes asignadas.
 - **Tabla de pacientes asignados**: Fecha de solicitud, documento, nombre, teléfono, MÉDICO (EN_ESPERA[GMENOMCOM]), especialidad y asesor.
 - **Botón inicio**: Regresa a INICIO.
@@ -34,3 +34,4 @@ Lista, paciente por paciente, las solicitudes de la lista de espera que ya queda
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
