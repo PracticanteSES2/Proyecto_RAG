@@ -5,13 +5,13 @@ nombre_funcional: Diccionario de variables del tablero
 bloque: Diccionario
 tablas: [AMBULATORIO_SS, ATENCIONES_SERVICIO, AUDITORIA_CONCURRENTE, BOLETIN, CALENDARIO, CALENDARIO_IMAGENES, CAMAS DISPONIBLES, CONSULTAS PRIORITARIAS, CONSULTAS URGENCIAS, CONVENIOS, DETALLE RECEPCION, EGRESOS, EGRESOS PROBABLES, EPS, ESTADOS CAMA, GESTIÓN CAMAS, IMAGENES_TOMADAS, INGRESOS, INTERCONSULTAS, MEDICAMENTOS DESABASTECIDOS]
 actualizado: 2026-10-28
-version: 1
+version: 2
 ---
 
 # DICCIONARIO
 
 ## Propósito
-Diccionario de variables del tablero BRIEFING HOSPITALARIO: qué es cada tabla, medida y columna clave del modelo «BRIEFING HOSPITALARIO», con su cálculo y dónde se usa. Se genera del modelo y de los visuales; las descripciones de negocio marcadas «Por confirmar» las completa quien conoce el tablero. Las columnas están en _diccionario_columnas.md.
+Diccionario de variables del tablero BRIEFING HOSPITALARIO: qué es cada tabla, medida, columna clave y relación del modelo «BRIEFING HOSPITALARIO», con su cálculo, su unidad cuando aplica y dónde se usa. Las columnas calculadas y clave están en _diccionario_columnas.md. Las descripciones se sustentan en el modelo, las consultas, el informe y la documentación; lo que no se pudo sustentar se lista en Observaciones.
 
 ## Tablas
 - **AMBULATORIO_SS**: Citas usadas por la matriz de INICIO (fecha, tramo horario y cita). Origen: consulta SQL sobre BI_PROXIMAS_CITAS en la base DWSES (Import). Granularidad: una fila por cita ambulatoria próxima (CITA). Columnas principales: CITA, ESPECIALIDAD, FECHA, TIPO_CONSULTA, TramoHorario, CCMFECCIT, CMANOMBRE, DIA_SEMANA y 1 más.
@@ -20,7 +20,7 @@ Diccionario de variables del tablero BRIEFING HOSPITALARIO: qué es cada tabla, 
 - **BOLETIN**: Solicitudes de servicio (DNSOLISERVICIO_NEW) de la categoría 366 en estados 1, 2 o 3, con el área que reporta (GENDEPEND), la descripción, fechas de creación y cierre, y el último seguimiento en estado 3 (fecha, observación y usuario). Origen: consulta SQL sobre PLANILLAUSUARIO.DBO.DNSOLISERVICIO_NEW, PLANILLAUSUARIO.DBO.DnCatServicio_new, PLANILLAUSUARIO.DBO.DnHistorialSs_new, PLANILLAUSUARIO.DBO.usuario, DGEMPRES10.DBO.GENDEPEND en la base DWSES (DirectQuery). Granularidad: una fila por solicitud de servicio de la categoría 366 (OID_SOLICITUD). Columnas principales: HSSFECHA, HssObservaciones, NOM_COMPLETO, OID_SOLICITUD, SERVICIO, SsDescripcion, SsFechaC, APELLIDOS_USUARIO y 11 más.
 - **CALENDARIO**: Tabla de fechas desde el 1 de enero de 2026 hasta hoy; filtra por fecha a TURNOS_AMBULATORIO, a PACIENTES EMERGENCIA y a los segmentadores de fecha de CONSULTAS PROXIMA SEMANA. Origen: tabla calculada con DAX `CALENDAR("2026-01-01",TODAY())` (Import). Granularidad: una fila por día. Columnas principales: Date.
 - **CALENDARIO_IMAGENES**: Tabla de fechas entre la primera y la última fecha de IMAGENES_TOMADAS; filtra por fecha a IMAGENES_TOMADAS y a SOLICITUDES_RESPUESTA. Origen: tabla calculada con DAX `CALENDAR(MIN(IMAGENES_TOMADAS[FECHA]),MAX(IMAGENES_TOMADAS[FECHA]))` (Import). Granularidad: una fila por día. Columnas principales: Date.
-- **CAMAS DISPONIBLES**: Una fila por cama con código (HCACODIGO), servicio, estado y orden de presentación. Consulta SELECT * FROM CAMAS_DISPONIBLES3; muestra el estado en el momento de la actualización. Origen: consulta SQL sobre CAMAS_DISPONIBLES en la base DWSES (DirectQuery). Granularidad: una fila por cama. Columnas principales: ESTADOS_CAM, HCACODIGO, MOSTRAR, MOSTRAR_6TO, Orden, SERVICIOS, ADNINGRESO, CAMAS_EXPANSION y 13 más.
+- **CAMAS DISPONIBLES**: Una fila por cama con código (HCACODIGO), servicio, estado y orden de presentación. Consulta SELECT * FROM CAMAS_DISPONIBLES (la documentación original dice CAMAS_DISPONIBLES3); muestra el estado en el momento de la actualización. Origen: consulta SQL sobre CAMAS_DISPONIBLES en la base DWSES (DirectQuery). Granularidad: una fila por cama. Columnas principales: ESTADOS_CAM, HCACODIGO, MOSTRAR, MOSTRAR_6TO, Orden, SERVICIOS, ADNINGRESO, CAMAS_EXPANSION y 13 más.
 - **CONSULTAS PRIORITARIAS**: Citas médicas de ayer (CCMFECCIT) cuyo nombre de actividad (CMANOMBRE) contiene PRIORITARIA, con paciente, aseguradora agrupada, estado de la cita y marca de menor de edad. Excluye los pacientes con tipo de documento 30 a 39. Origen: consulta SQL sobre CITAS_MEDICAS, DIM_MEDICO, DIM_ESPECIALIDAD, DIM_PACIENTES, DIM_ASEGURADORA en la base DWSES (Import). Granularidad: una fila por cita prioritaria. Columnas principales: ASEGURADORA, CCMPACNOM, ESTADO_NOMBRE, FECHA, GENPACIEN, PACNUMDOC, CMANOMBRE, ESTADO y 4 más.
 - **CONSULTAS URGENCIAS**: Consultas de urgencias con triage, tipo de triage, entidad, fechas de llegada, triage, admisión y folio, médico y diagnóstico. Solo triages de ayer, sin el código UA y sin ingresos anulados; CONSULTAS_REALIZADAS vale 1 en los triages obstétricos (-G) y de muerto (M), 0 en I, II y III y vacío en el resto. Origen: consulta SQL sobre DIM_TRIAGE, DIM_HCNCLAURGTR, DIM_MEDICO, DIM_ENTIDAD, DIM_DIAGNOSTICO en la base DWSES (Import). Granularidad: una fila por triage con su consulta (OID_TRIAGE). Columnas principales: CONSULTAS_REALIZADAS, OID_TRIAGE, ASEGURADORA, DOCUMENTO, ENTNOMBRE, FECHA_ADMISION, FECHA_FOLIO, FECHA_TRIAGE y 8 más.
 - **CONVENIOS**: Archivo Excel «TABLERO CONVENIOS 2026.xlsx» en SharePoint con NIT, entidad, tipo, observación, fecha inicio y fecha final de cada convenio. Origen: consulta de Power Query (M) (Import). Granularidad: una fila por convenio con una entidad. Columnas principales: FECHA FINAL, FECHA INICIO, FILTRO_VIG, NIT, OBSERVACION, RESTANTE, TIPO, ENTIDAD .
@@ -88,5 +88,18 @@ Diccionario de variables del tablero BRIEFING HOSPITALARIO: qué es cada tabla, 
 - **SOLICITUDES_RESPUESTA[FECHA] → CALENDARIO_IMAGENES[Date]**: Muchos a uno, CALENDARIO_IMAGENES filtra a SOLICITUDES_RESPUESTA, activa. Permite agrupar las solicitudes de imagen por día.
 - **PACIENTES EMERGENCIA[FECHA INGRESO.1] → CALENDARIO[Date]**: Muchos a uno, CALENDARIO filtra a PACIENTES EMERGENCIA, activa. Permite filtrar los pacientes de la emergencia por fecha de ingreso.
 
+## Observaciones
+- **Medida CAMAS inexistente**: La documentación original habla de una medida CAMAS; en el modelo no existe y el visual usa [CamasFiltradas] con el rótulo «Camas».
+- **Medidas con exclusiones distintas**: [%OCUPACION] suma OCUPADAS sin excluir camas EXP ni OH, pero divide entre [CamasFiltradas], que sí las excluye; [TOTAL_OCUPADAS] no se usa en ningún visual.
+- **CONSULTAS_REALIZADAS**: La marca vale 1 en triages obstétricos y de muerto y 0 en I, II y III; por confirmar con el dueño si ese es el criterio de consulta realizada de la tarjeta CONSULTAS URGENCIAS.
+- **Unidades de NEDOCS**: No se documenta la unidad de las variables C y D (tiempos de espera); por confirmar.
+- **Vistas de origen**: Las vistas CAMAS_DISPONIBLES, BI_PROXIMAS_CITAS, Cd_CensoGlobal_2 y la vista de remisiones no están definidas en el modelo; sus reglas internas, incluidos MOSTRAR_6TO y TIPO_CONSULTA, están por confirmar.
+- **Estados sin nombre**: No se documenta el significado de los estados de SOLICITUD CAMAS[estadooid] (2, 3, 4, 5, 8), de EstadoOid = 1 y EstadosRecOid = 4 en remisiones, de OidEstado = 7 en recepciones ni de los estados de ESTADO_TRAMITE.
+- **Tablas retiradas**: PACIENTES POR ESTANCIA y la página OCUPACIÓN POR ESTANCIA ya no existen en el modelo ni en el informe.
+- **Tablas sin visual**: ESTADOS CAMA, Tabla7 y ORDEN CAMAS no alimentan ningún visual; por confirmar si pueden retirarse.
+- **Relaciones duplicadas**: TercerosRelacionados con TERCERO y CONSULTAS URGENCIAS con TRIAGES existen en ambos sentidos como relaciones separadas.
+- **Siglas**: Por confirmar el significado de SAMYL, OH y ACV (ruta de camas) con el dueño del tablero.
+
 ## Historial de cambios
 - **2026-10-28 · v1**: Esqueleto generado desde data/model_metadata/briefing_hospitalario y hechos del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

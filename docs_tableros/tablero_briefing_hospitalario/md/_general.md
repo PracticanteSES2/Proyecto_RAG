@@ -4,8 +4,8 @@ pagina: GENERAL
 nombre_funcional: Briefing diario de ocupación, camas, flujo de pacientes y pendientes institucionales
 bloque: General
 tablas: [CAMAS DISPONIBLES, SOLICITUD CAMAS, PACIENTES X ASEGURADORA, EGRESOS PROBABLES, INGRESOS, EGRESOS, SEGUIMIENTO REMISIONES, DETALLE RECEPCION, NEDOCS, TRIAGES, INTERCONSULTAS, BOLETIN, MEDICAMENTOS DESABASTECIDOS, REPS, CONVENIOS, ATENCIONES_SERVICIO, IMAGENES_TOMADAS, AMBULATORIO_SS, GESTIÓN CAMAS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # GENERAL
@@ -45,10 +45,12 @@ Tablero de consulta diaria de la gerencia y las coordinaciones asistenciales. Re
 - **Ingresos anulados**: Las consultas de ingresos excluyen los ingresos anulados (AINESTADO = 2).
 
 ## Observaciones
-- **PBIP local parcial**: El PBIP disponible localmente es más antiguo que el del propietario: tiene 14 de 21 páginas, INICIO solo trae 6 visuales y no incluye la medida CAMAS ni el visual PACIENTES por ASEGURADORA. Donde difieren, se documenta lo que dice la documentación del propietario.
+- **PBIP actualizado**: El PBIP local tiene las 21 páginas y los visuales de INICIO; cuando la documentación original difiere del informe se documenta el informe. La página OCUPACIÓN POR ESTANCIA y la tabla PACIENTES POR ESTANCIA ya no existen en el informe.
+- **Página duplicada**: SEGUIMIENTO REMISION es una copia oculta de SEGUIMIENTO REMISIONES sin acceso desde INICIO.
 - **Versiones de la documentación**: Existen versiones de marzo de 2026 (carpeta Documentacion) y de septiembre de 2026 (data/raw). Se usó la de septiembre como vigente y se anotan en cada página las diferencias relevantes.
 - **Sentido de remisión y recepción**: Se interpreta remisión como salida de pacientes del hospital y recepción como llegada desde otra entidad, según las columnas de cada fuente (servicio del hospital y entidad que remite). Por confirmar.
 - **Sigla OH**: Las camas con OH en el código se excluyen de la ocupación; el significado de OH está por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

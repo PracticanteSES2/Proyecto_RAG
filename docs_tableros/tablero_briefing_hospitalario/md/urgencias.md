@@ -4,8 +4,8 @@ pagina: URGENCIAS
 nombre_funcional: Comportamiento del servicio de urgencias del día anterior
 bloque: Día
 tablas: [TRIAGES]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # URGENCIAS
@@ -44,7 +44,8 @@ Resume la actividad del servicio de urgencias del día anterior: triages atendid
 ## Observaciones
 - **Escala de color**: La tabla de tramo horario usa una escala de color sin umbrales documentados. Por confirmar si hay cortes fijos.
 - **Versión de marzo**: La versión de marzo de 2026 tenía un selector de rango (Año, Mes, Semestre o Ayer) y excluía los triages obstétricos en los rangos distintos de AYER; la versión vigente solo muestra el día anterior.
-- **Nombre de página**: La página no está en la copia local del PBIP; el botón de INICIO dice DETALLE URGENCIAS. Nombre de página en Power BI por confirmar.
+- **Nombre de página**: La página se llama URGENCIAS en Power BI; está oculta y se llega con el botón DETALLE URGENCIAS de INICIO.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

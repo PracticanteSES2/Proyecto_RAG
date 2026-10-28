@@ -4,8 +4,8 @@ pagina: ATENCIONES POR ASEGURADOR
 nombre_funcional: Atenciones institucionales por mes, servicio y asegurador desde 2025
 bloque: Histórico
 tablas: [ATENCIONES_SERVICIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # ATENCIONES POR ASEGURADOR
@@ -22,7 +22,7 @@ Analiza el volumen de atenciones de la institución desde enero de 2025: total, 
 
 ## Visuales
 - **Tarjeta TOTAL DE ATENCIONES**: Total según los filtros aplicados.
-- **Segmentadores**: ASEGURADOR, SERVICIO, Año y Mes.
+- **Segmentadores**: ASEGURADOR, SERVICIO (área de servicio) y los campos FECHA Año y FECHA Mes de ATENCIONES_SERVICIO[FECHA] en lista desplegable.
 - **TOTAL DE ATENCIONES**: Gráfico de líneas por mes con una línea por año.
 - **Atenciones por servicio**: Barras con las atenciones por servicio, de mayor a menor.
 - **Atenciones por asegurador**: Barras con las atenciones por asegurador, de mayor a menor.
@@ -37,3 +37,4 @@ Analiza el volumen de atenciones de la institución desde enero de 2025: total, 
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

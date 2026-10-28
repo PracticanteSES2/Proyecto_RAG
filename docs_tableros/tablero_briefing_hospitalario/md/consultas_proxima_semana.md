@@ -1,14 +1,14 @@
 ---
 tablero: BRIEFING HOSPITALARIO
-pagina: CONSULTAS PRÓXIMA SEMANA
+pagina: CONSULTAS PROXIMA SEMANA
 nombre_funcional: Citas asignadas para los próximos días y digiturnos por tramo horario
 bloque: Día
 tablas: [BI_PROXIMAS_CITAS, AMBULATORIO_SS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
-# CONSULTAS PRÓXIMA SEMANA
+# CONSULTAS PROXIMA SEMANA
 
 ## Propósito
 Muestra las citas ya asignadas desde mañana en adelante, separadas en consulta ambulatoria e imágenes diagnósticas, por fecha y por tramo horario, junto con el histórico de digiturnos asignados. Sirve para anticipar horas de alta demanda y evitar sobrecupos. Se llega desde el botón DETALLE de la matriz CONSULTAS PRÓXIMA SEMANA en INICIO.
@@ -26,7 +26,7 @@ Muestra las citas ya asignadas desde mañana en adelante, separadas en consulta 
 
 ## Visuales
 - **Tarjetas**: CONSULTAS AMBULATORIAS y CONSULTAS IMÁGENES.
-- **Segmentadores**: ESPECIALIDAD CONSULTA, ESPECIALIDAD IMÁGENES, AÑO TURNOS y MES TURNOS.
+- **Segmentadores**: ESPECIALIDAD CONSULTA, ESPECIALIDAD IMÁGENES, TIPO CONSULTA (AMBULATORIO_SS[TIPO_CONSULTA], que también filtra la tarjeta CONSULTAS AMBULATORIAS) y los campos Date Año y Date Mes de CALENDARIO[Date] para los turnos.
 - **CONSULTAS PROXIMA SEMANA**: Columnas por fecha con dos series, CONSULTA AMBULATORIA e IMAGENES, y botones para elegir el tipo.
 - **DIGITURNOS POR TIPO**: Barras con los turnos asignados por tipo de turno (por ejemplo EPS EFECTIVO, MEDICINA PREPAGADA, PRIORIZADOS).
 - **Matriz CONSULTAS PRÓXIMA SEMANA**: Citas por tramo horario (filas) y fecha (columnas) con escala de color verde a rojo.
@@ -39,7 +39,8 @@ Muestra las citas ya asignadas desde mañana en adelante, separadas en consulta 
 - **Realizadas o asignadas**: La documentación dice «consultas realizadas semanalmente», pero la página muestra citas asignadas a futuro.
 - **Horizonte**: El nombre dice próxima semana, pero el número de días incluidos depende de BI_PROXIMAS_CITAS. Por confirmar.
 - **Escala de color**: Las matrices usan escala de color sin umbrales documentados.
-- **Nombre de página**: La página no está en la copia local del PBIP. Nombre de página en Power BI por confirmar.
+- **Nombre de página**: La página se llama CONSULTAS PROXIMA SEMANA en Power BI; está oculta y se llega con el botón DETALLE de su visual en INICIO.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

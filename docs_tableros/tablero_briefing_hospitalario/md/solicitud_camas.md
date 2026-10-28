@@ -4,8 +4,8 @@ pagina: SOLICITUD CAMAS
 nombre_funcional: Solicitudes de cama pendientes por servicio, sexo y aseguradora
 bloque: Día
 tablas: [SOLICITUD CAMAS, SERVICIO SOLICITUD]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # SOLICITUD CAMAS
@@ -23,13 +23,15 @@ Lista las solicitudes de cama hospitalaria que aún no tienen cama asignada, con
 
 ## Visuales
 - **Tarjetas**: SOLICITUDES, HOMBRES y MUJERES.
-- **Segmentadores**: TIPO (condición especial de la cama), SERVICIO SOLICITADO, sexo (casillas HOMBRE y MUJER) y ASEGURADORA.
-- **Botones por área**: GENERAL, HOSPITALIZACIÓN, URGENCIAS, GINECOBSTETRICIA, SEXTO PISO, CUIDADO CRÍTICO, QUIROFANO, HOSPITALIZACIÓN PARCIAL y UNIDAD NEUROCARDIOVASCULAR; cada uno aplica un marcador con los servicios del área.
-- **Botón GESTIÓN DE CAMAS**: Navega a una página de gestión de camas; por confirmar si es GESTIÓN DE CAMAS o DETALLE GESTIÓN CAMAS.
-- **Tabla de solicitudes**: ID SOLICITUD, PACIENTE, SERVICIO, EPS y FECHA DE CREACIÓN de cada solicitud.
+- **Segmentadores**: TIPO (condición especial de la cama), SERVICIO SOLICITADO, SEXO (HOMBRE y MUJER) y ASEGURADORA (SOLICITUD CAMAS[TERNOMCOM]).
+- **Botones por área**: SOLIC GENERAL, SOLIC HOSPITALIZACION, SOLIC URGENCIAS, SOLIC OBST, SOLIC UCI, SOLIC QX, SOLIC_HOSPI_PARCIAL y SOLIC_CARDIONEUROVASCULAR; cada uno aplica un marcador con los servicios del área.
+- **Botón GESTIÓN DE CAMAS**: Navega a la página GESTIÓN DE CAMAS (flujo de aseo y alistamiento), no a GESTIÓN CAMAS.
+- **Solicitudes por servicio**: Gráfico circular SOLICITUDES POR SERVICIO con el conteo de solicitudes pendientes por SOLICITUD CAMAS[GDPNOMBRE].
+- **Solicitudes por tipo de cama**: Gráfico circular SOLICITUDES POR TIPO DE CAMA con las solicitudes pendientes por TIPO (AISLAMIENTO, REJAS, SUCCIÓN o UNIPERSONAL).
+- **Tabla de solicitudes**: ID SOLICITUD, PACIENTE, SERVICIO, EPS, FECHA DE CREACIÓN, RESPUESTA y CAMA de cada solicitud.
 
 ## Reglas de negocio
-- **Solicitud pendiente**: Se muestran solicitudes con estadooid 2 o 3 (filtro aplicado en los marcadores y en INICIO) y, en INICIO, sin cama asignada (camaoid vacío).
+- **Solicitud pendiente**: Se muestran solicitudes con estadooid 2 o 3 (filtro aplicado en las tarjetas, los gráficos circulares y en INICIO) y sin cama asignada (camaoid vacío) ni fecha de cierre (ssfechafin vacía).
 - **Columna RESPUESTA**: ASIGNADA si estadooid es 4, 5 u 8; en otro caso NO ASIGNADA.
 - **Columna TIPO**: AISLAMIENTO, REJAS, SUCCIÓN o UNIPERSONAL según la marca de la solicitud, en ese orden de prioridad.
 - **Columna SERVICIO_SOLICITADO**: ServicioCama 1 es HOSPITALIZACIÓN GENERAL, 2 HOSPITALIZACIÓN INTERMEDIOS y 3 UNIDADES DE CUIDADOS INTENSIVOS.
@@ -42,3 +44,4 @@ Lista las solicitudes de cama hospitalaria que aún no tienen cama asignada, con
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

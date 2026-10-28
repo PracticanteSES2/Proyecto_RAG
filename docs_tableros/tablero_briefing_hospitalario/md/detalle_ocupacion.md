@@ -4,8 +4,8 @@ pagina: DETALLE OCUPACIÓN
 nombre_funcional: Pacientes hospitalizados con días de estancia y semáforo de estancia prolongada
 bloque: Día
 tablas: [PACIENTES X ASEGURADORA, AUDITORIA_CONCURRENTE]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # DETALLE OCUPACIÓN
@@ -30,7 +30,7 @@ Lista los pacientes que ocupan cama en este momento con su servicio, aseguradora
 - **Segmentadores**: SERVICIO y ASEGURADORA.
 - **Tabla de pacientes**: CEDULA, PACIENTE, CAMA, SERVICIO, ASEGURADORA, PLAN DE BENEFICIOS, CANTIDAD HORAS CIRUGÍA y ESPECIALIDAD CIRUGÍA; cada fila se colorea según ColorFila.
 - **Tabla TIEMPO DE ESTANCIA**: Cantidad de pacientes por rango (5 DÍAS O MENOS, 6 A 8 DÍAS, 9 A 14 DÍAS, 15 DÍAS O MÁS) con total.
-- **Pacientes por servicio**: Anillo con número y porcentaje de pacientes por servicio.
+- **Pacientes por servicio**: Anillo «HSUNOMBRE» con el conteo de ADNINGRESO y el porcentaje de pacientes por servicio.
 - **Tabla de seguimiento**: DOCUMENTO PACIENTE, PACIENTE, FECHA, SEGUIMIENTO y RESPONSABLE de la auditoría concurrente.
 
 ## Reglas de negocio
@@ -46,3 +46,4 @@ Lista los pacientes que ocupan cama en este momento con su servicio, aseguradora
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

@@ -5,7 +5,7 @@ nombre_funcional: Diccionario de columnas del tablero
 bloque: Diccionario
 tablas: []
 actualizado: 2026-10-28
-version: 1
+version: 2
 ---
 
 # DICCIONARIO COLUMNAS
@@ -81,7 +81,7 @@ Columnas calculadas y columnas clave (usadas en visuales o filtros) del tablero 
 - **CONVENIOS[FECHA INICIO]**: Fecha en que empieza el convenio. Tipo: fecha. Se usa en: CONVENIOS › Tabla «CONSULTAS PRIORITARIAS».
 - **CONVENIOS[NIT]**: NIT de la entidad del convenio. Tipo: texto. Valores: números de identificación tributaria de entidades. Se usa en: CONVENIOS › Tabla «CONSULTAS PRIORITARIAS».
 - **CONVENIOS[OBSERVACION]**: Observación registrada del convenio. Tipo: texto. Valores: texto libre. Se usa en: CONVENIOS › Tabla «CONSULTAS PRIORITARIAS».
-- **CONVENIOS[TIPO]**: Tipo de convenio de la entidad. Tipo: texto. Valores: tipos de convenio del libro de Excel, por confirmar. Se usa en: INICIO › Gráfico de anillos «TIPO»; CONVENIOS › Segmentación de CONVENIOS[TIPO]; CONVENIOS › Tabla «CONSULTAS PRIORITARIAS»; CONVENIOS › Gráfico de anillos «TIPO».
+- **CONVENIOS[TIPO]**: Tipo de convenio de la entidad. Tipo: texto. Valores: CARTA DE MANIFESTACIÓN DE INTERÉS, CONTRATO, OFERTA PAS, OFERTA PCG, SOAT o vacío. Se usa en: INICIO › Gráfico de anillos «TIPO»; CONVENIOS › Segmentación de CONVENIOS[TIPO]; CONVENIOS › Tabla «CONSULTAS PRIORITARIAS»; CONVENIOS › Gráfico de anillos «TIPO».
 - **DETALLE RECEPCION[ANOS]**: Edad del paciente en años. Tipo: entero. Se usa en: SEGUIMIENTO RECEPCIÓN › Tabla «DOCUMENTO».
 - **DETALLE RECEPCION[DiagnosticoInicial]**: Diagnóstico inicial con que remiten al paciente. Tipo: texto. Valores: texto libre. Se usa en: SEGUIMIENTO RECEPCIÓN › Tabla «DOCUMENTO».
 - **DETALLE RECEPCION[FECHALLAMADA]**: Fecha de la llamada en que la entidad solicitó la recepción del paciente. Tipo: fecha. Se usa en: SEGUIMIENTO RECEPCIÓN › Tabla «DOCUMENTO».
@@ -207,3 +207,4 @@ Columnas calculadas y columnas clave (usadas en visuales o filtros) del tablero 
 
 ## Historial de cambios
 - **2026-10-28 · v1**: Esqueleto generado desde data/model_metadata/briefing_hospitalario y hechos del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

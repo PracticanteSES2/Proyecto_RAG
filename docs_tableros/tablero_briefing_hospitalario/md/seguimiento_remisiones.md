@@ -4,8 +4,8 @@ pagina: SEGUIMIENTO REMISIONES
 nombre_funcional: Remisiones de pacientes a otras instituciones en trámite
 bloque: Día
 tablas: [SEGUIMIENTO REMISIONES]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # SEGUIMIENTO REMISIONES
@@ -36,6 +36,8 @@ Seguimiento de las remisiones de pacientes del hospital que están en trámite: 
 - **Significado de estados**: Qué representan EstadoOid = 1 y EstadosRecOid = 4 no está documentado. Por confirmar.
 - **Filtros de página heredados**: Los filtros sobre SERVICIOS y CAMAS DISPONIBLES solo afectan esta página si esas tablas están relacionadas con SEGUIMIENTO REMISIONES. Por confirmar.
 - **Nombre del botón**: En INICIO el botón dice SEGUIMIENTO REMISIÓN y la página se llama SEGUIMIENTO REMISIONES.
+- **Página duplicada**: El informe tiene una copia oculta llamada SEGUIMIENTO REMISION con los mismos visuales; ver su página.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

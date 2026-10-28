@@ -4,8 +4,8 @@ pagina: EGRESOS PROBABLES
 nombre_funcional: Pacientes hospitalizados con fecha probable de egreso y egresos efectivos de hoy
 bloque: Día
 tablas: [EGRESOS PROBABLES, TablaFechas]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # EGRESOS PROBABLES
@@ -34,7 +34,8 @@ Lista los pacientes hospitalizados con fecha probable de egreso y cuenta cuánto
 ## Observaciones
 - **Versión de marzo**: La versión de marzo de 2026 tenía una consulta simple sin epicrisis ni egresos efectivos; se documenta la de septiembre.
 - **Caso con epicrisis y orden**: Un paciente con orden de salida de hoy y epicrisis de otro día queda en 0. Por confirmar si es intencional.
-- **Nombre de página**: La copia local del PBIP tiene la página sin nombre visible; se usa el nombre de la documentación. Nombre de página en Power BI por confirmar.
+- **Nombre de página**: La página se llama EGRESOS PROBABLES en Power BI; está oculta y se llega con el botón DETALLE de su visual en INICIO.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

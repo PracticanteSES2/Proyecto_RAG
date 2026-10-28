@@ -4,8 +4,8 @@ pagina: PACIENTES EMERGENCIA
 nombre_funcional: Pacientes atendidos por el movimiento telúrico de agosto de 2026 en Manizales
 bloque: Histórico
 tablas: []
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # PACIENTES EMERGENCIA
@@ -17,8 +17,8 @@ Registro de los pacientes atendidos por el hospital durante el movimiento telúr
 - **Archivo de emergencia**: Excel «DATOS DE PACIENTES - EMEREGENCIA HOJA DE TRABAJO (1).xlsx» en el SharePoint de coordinación de facturación hospitalaria, con documento, edad, aseguradora, fecha y observación de cada paciente. Nombre de la tabla en el modelo por confirmar.
 
 ## Indicadores
-- **Total de pacientes**: Pacientes atendidos por la emergencia. Conteo de DOCUMENTO; cálculo exacto por confirmar.
-- **Promedio de edad**: Edad promedio de los pacientes, en años. Cálculo por confirmar.
+- **Total de pacientes**: Pacientes atendidos por la emergencia. Recuento de PACIENTES EMERGENCIA[DOCUMENTO].
+- **Promedio de edad**: Edad promedio de los pacientes, en años. Promedio de PACIENTES EMERGENCIA[EDAD].
 
 ## Visuales
 - **Tarjetas**: TOTAL DE PACIENTES y PROMEDIO EDAD.
@@ -32,9 +32,9 @@ Registro de los pacientes atendidos por el hospital durante el movimiento telúr
 - **Fechas del evento**: Las atenciones registradas son del 10, 11 y 14 de agosto de 2026.
 
 ## Observaciones
-- **Límite de 65 años**: No está documentado si un paciente de 65 años cae en «DE 18 A 65 AÑOS» o en «MAYORES DE 65 AÑOS». Por confirmar.
-- **Página sin visuales en el PBIP local**: La copia local del PBIP tiene la página PACIENTES EMERGENCIA vacía; se documenta desde la documentación del propietario.
+- **Límite de 65 años**: Un paciente de 65 años cae en «DE 18 A 65 AÑOS»; «MAYORES DE 65 AÑOS» empieza en 66 (RANGO_EDAD); sin edad queda «NO REGISTRA EDAD».
 - **Significado de las observaciones**: La interpretación de EPS y ADRES como responsable del pago está por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
