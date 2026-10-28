@@ -4,8 +4,8 @@ pagina: DETALLE BRIEFING
 nombre_funcional: Casos abiertos reportados por las áreas para el briefing diario
 bloque: Día
 tablas: [BOLETIN]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # DETALLE BRIEFING
@@ -35,7 +35,8 @@ Lista los casos y novedades que las áreas del hospital reportan para el briefin
 ## Observaciones
 - **Primer o último seguimiento**: La consulta llama PRIMER_SEGUIMIENTO al registro, pero lo ordena por fecha descendente, así que trae el último; la tabla lo titula correctamente ÚLTIMO SEGUIMIENTO.
 - **Significado de estados**: Qué representan los estados 1, 2 y 3 de la solicitud y el estado 3 del historial está por confirmar.
-- **Nombre de página**: La página no está en la copia local del PBIP; se usa el texto del botón de INICIO. Nombre de página en Power BI por confirmar.
+- **Nombre de página**: La página se llama DETALLE BRIEFING en Power BI; está oculta y se llega con el botón DETALLE de su visual en INICIO.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

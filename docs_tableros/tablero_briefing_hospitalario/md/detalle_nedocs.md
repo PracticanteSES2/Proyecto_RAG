@@ -4,8 +4,8 @@ pagina: DETALLE NEDOCS
 nombre_funcional: Nivel de sobreocupación de urgencias con la escala NEDOCS
 bloque: Día
 tablas: [NEDOCS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # DETALLE NEDOCS
@@ -29,7 +29,7 @@ Muestra el valor actual del NEDOCS, su clasificación, las siete variables que l
 ## Visuales
 - **Tarjeta NEDOCS**: Valor de TotalN con la clasificación (columna etiqueta) como título.
 - **Leyenda de rangos**: Recuadro con NORMAL 0-60, OCUPADO 61-100, SOBREOCUPADO 101-140, SEVERAMENTE SOBREOCUPADO 141-180 y CRITICAMENTE SOBREOCUPADO >180, cada uno con su color.
-- **Tarjetas de variables**: Siete tarjetas, una por variable, con los títulos del PBIP (por ejemplo PACIENTES OCUPANDO CAMA DE URGENCIAS).
+- **Tarjetas de variables**: Siete tarjetas, una por variable: PACIENTES OCUPANDO CAMA DE URGENCIAS (A1), CAMAS EN EL SERVICIO DE URGENCIAS (A2), PACIENTES ESPERANDO CAMA DE HOSPITALIZACIÓN (B1), TOTAL CAMAS HOSPITALARIAS (B2), TIEMPO DE ESPERA CONSULTA ULTIMO PACIENTE TRIAGIZADO (C), TIEMPO DE ESPERA PARA ASIGNACIÓN DE CAMA ÚLTIMO PACIENTE TRIAGIZADO (D) y PACIENTES INTUBADOS EN URGENCIAS (E).
 - **Fórmula con valores**: Visual HTML con la medida TextoConResultadoHTML, que muestra la fórmula con los valores reales en rojo y el resultado en negrita.
 
 ## Reglas de negocio
@@ -44,3 +44,4 @@ Muestra el valor actual del NEDOCS, su clasificación, las siete variables que l
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

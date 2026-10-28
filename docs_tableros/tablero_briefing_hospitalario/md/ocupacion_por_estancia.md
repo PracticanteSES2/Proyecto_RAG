@@ -4,8 +4,8 @@ pagina: OCUPACIÓN POR ESTANCIA
 nombre_funcional: Censo de pacientes hoy frente al censo de hace un mes, un semestre o un año
 bloque: Histórico
 tablas: [PACIENTES POR ESTANCIA]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # OCUPACIÓN POR ESTANCIA
@@ -34,9 +34,10 @@ Compara por servicio el censo de pacientes hospitalizados hoy con el censo de un
 - **Pacientes con documento**: Solo se incluyen pacientes con número de documento.
 
 ## Observaciones
-- **Botones copiados**: La documentación describe botones de navegación por áreas copiados de DETALLE SOLICITUD CAMAS; la captura de esta página no los muestra. Por confirmar.
-- **Acceso y nombre**: La página no está en la copia local del PBIP ni se enlaza desde INICIO en la documentación. Nombre de página en Power BI por confirmar.
+- **Botones copiados**: La documentación describe botones de navegación por áreas copiados de SOLICITUD CAMAS; la captura de esta página no los muestra. Por confirmar.
+- **Sin página en el informe**: La página no existe en el PBIP actual ni se enlaza desde INICIO, y el modelo actual no tiene la tabla PACIENTES POR ESTANCIA; parece una página retirada. Por confirmar con el dueño del tablero.
 - **Significado de «rango»**: El nombre sugiere un acumulado del periodo, pero la consulta mide el censo de un solo día (la fecha de corte).
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

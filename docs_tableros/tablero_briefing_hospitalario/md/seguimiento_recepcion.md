@@ -4,8 +4,8 @@ pagina: SEGUIMIENTO RECEPCIÓN
 nombre_funcional: Pacientes remitidos por otras entidades pendientes de recepción
 bloque: Día
 tablas: [DETALLE RECEPCION]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # SEGUIMIENTO RECEPCIÓN
@@ -21,7 +21,7 @@ Seguimiento de los pacientes que otras entidades solicitan remitir al hospital y
 
 ## Visuales
 - **Tarjeta PENDIENTES RECEPCIÓN**: Total según los filtros aplicados.
-- **Segmentadores**: EPS y SERVICIO.
+- **Segmentadores**: EPS (DETALLE RECEPCION[nombreps]) y SERVICIO (DETALLE RECEPCION[SERVICIO], campo SERVICIO1).
 - **Tabla de pendientes**: DOCUMENTO, PACIENTE, EDAD, LLAMADA (fecha de la llamada), ENTIDAD QUE REMITE, EPS, DIAGNOSTICO, SERVICIO y OBSERVACIONES.
 - **Pendientes por EPS**: Anillo con número y porcentaje de pendientes por EPS.
 - **Pendientes por servicio**: Anillo con número y porcentaje de pendientes por servicio solicitado.
@@ -38,3 +38,4 @@ Seguimiento de los pacientes que otras entidades solicitan remitir al hospital y
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

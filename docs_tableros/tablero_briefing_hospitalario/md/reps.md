@@ -4,8 +4,8 @@ pagina: REPS
 nombre_funcional: Capacidad instalada habilitada según el REPS
 bloque: Día
 tablas: [REPS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # REPS
@@ -31,8 +31,9 @@ Muestra la capacidad instalada habilitada del hospital según el Registro Especi
 ## Observaciones
 - **Visual ajeno en la documentación**: La documentación de REPS incluye una sección «Tabla Detalle Medicamentos Desabastecidos» copiada de otra página; no pertenece a REPS.
 - **Actualización manual**: Los datos dependen de que se actualice el Excel en SharePoint; el nombre del archivo dice 2025. Por confirmar si se mantiene al día.
-- **Relación con DETALLE GESTIÓN CAMAS**: La tarjeta CAPACIDAD INSTALADA REPS de DETALLE GESTIÓN CAMAS usa esta tabla filtrada a los grupos de camas del área. Por confirmar.
-- **Nombre de página**: La página no está en la copia local del PBIP. Nombre de página en Power BI por confirmar.
+- **Relación con GESTIÓN CAMAS**: La tarjeta CAPACIDAD INSTALADA REPS de GESTIÓN CAMAS usa esta tabla filtrada a los grupos de camas del área. Por confirmar.
+- **Nombre de página**: La página se llama REPS en Power BI; está oculta y se llega con el botón DETALLE de su visual en INICIO.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

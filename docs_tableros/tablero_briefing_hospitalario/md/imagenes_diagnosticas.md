@@ -4,8 +4,8 @@ pagina: IMAGENES DIAGNOSTICAS
 nombre_funcional: Imágenes diagnósticas tomadas y solicitudes de la semana por día, área y tramo horario
 bloque: Día
 tablas: [IMAGENES_TOMADAS, SOLICITUDES_RESPUESTA]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # IMAGENES DIAGNOSTICAS
@@ -20,7 +20,7 @@ Muestra las imágenes diagnósticas tomadas en la semana en curso frente a las s
 ## Indicadores
 - **Imágenes tomadas**: Número de estudios realizados. COUNT(IMAGENES_TOMADAS[ID_INGRESO]).
 - **Solicitudes realizadas**: Solicitudes del mismo día de la semana. Medida Solicitudes_Con_Respuesta = CALCULATE(COUNTA(SOLICITUDES_RESPUESTA[OID_SOLICITUD]), FILTER(ALL(SOLICITUDES_RESPUESTA), ORDEN_DIA = MAX(IMAGENES_TOMADAS[ORDEN_DIA]))).
-- **Tiempo promedio respuesta**: Promedio del tiempo de respuesta a las solicitudes. Cálculo, eventos y unidad por confirmar.
+- **Tiempo promedio respuesta**: Promedio de SOLICITUDES_RESPUESTA[tiempo_respuesta], en horas, desde la solicitud de la imagen (HCSFECSOL) hasta la confirmación del resultado (HCRFECCONF) o hasta ahora si no hay confirmación.
 
 ## Visuales
 - **Tarjetas**: IMAGENES TOMADAS, SOLICITUDES REALIZADAS y TIEMPO PROMEDIO RESPUESTA.
@@ -38,8 +38,10 @@ Muestra las imágenes diagnósticas tomadas en la semana en curso frente a las s
 
 ## Observaciones
 - **Conteo de imágenes**: La tarjeta cuenta filas (ID_INGRESO), no suma la cantidad (SERCANTID); un servicio con cantidad mayor a 1 cuenta una vez. Por confirmar si es lo esperado.
-- **Medida mal nombrada**: Solicitudes_Con_Respuesta cuenta todas las solicitudes del día de la semana, no solo las respondidas. Por confirmar.
+- **Solicitudes con respuesta**: SOLICITUDES_RESPUESTA solo carga solicitudes que ya tienen resultado (la consulta exige respuesta) y una por ingreso, por lo que Solicitudes_Con_Respuesta cuenta solicitudes respondidas del día de la semana y el nombre es correcto; la tarjeta no es el total de solicitudes de imágenes.
+- **Una solicitud por ingreso**: SOLICITUDES_RESPUESTA conserva solo la primera solicitud respondida de cada ingreso en la semana (RN_RESPUESTA = 1); un paciente con varias solicitudes cuenta una vez en SOLICITUDES REALIZADAS.
 - **Códigos de área**: La documentación no traduce los códigos de área a nombres. Por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

@@ -4,8 +4,8 @@ pagina: LISTADO
 nombre_funcional: Listado de pacientes con pendientes activos
 bloque: Día
 tablas: [PACIENTES]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # LISTADO
@@ -17,7 +17,7 @@ Página principal del tablero NAOS. Muestra en tiempo real los pacientes hospita
 - **PACIENTES**: Vista TABLERO_NAOS cargada completa; un registro por paciente con servicio, cama, aseguradora, clasificación, días de estancia y marcas de solicitud de cama, dieta y gestión clínica pendientes.
 
 ## Indicadores
-- **Total de pacientes**: Cantidad de pacientes con pendientes activos según los filtros. Unidad: pacientes. Cálculo por confirmar; el catálogo local sugiere COUNTROWS('PACIENTES') como medida inferida.
+- **Total de pacientes**: Cantidad de pacientes con pendientes activos según los filtros. Unidad: pacientes. Se cuenta PACIENTES[AINCONSEC] en la tarjeta; el modelo no tiene medidas.
 - **Pacientes por servicio**: Cantidad y porcentaje de pacientes por servicio hospitalario (PACIENTES[SERVICIO]). Unidad: pacientes y porcentaje.
 - **Pacientes por clasificación**: Cantidad y porcentaje de pacientes por clasificación de aseguramiento (PACIENTES[CLASIFICACION]). Unidad: pacientes y porcentaje.
 
@@ -37,10 +37,11 @@ Página principal del tablero NAOS. Muestra en tiempo real los pacientes hospita
 - **Gestión clínica pendiente**: PENDIENTES_GESTION vale «PENDIENTE SOLICITUD GESTION CLINICA» cuando el paciente tiene OID_GESTION; si no, queda vacío.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar; la documentación la llama «NAOS -LISTADO».
+- **Nombre de página**: La página se llama LISTADO en Power BI; la documentación original la llama «NAOS -LISTADO».
 - **Color oculta pendientes**: Por la prioridad del color, un paciente con 6 o más días de estancia no muestra si además tiene cama, gestión clínica o dieta pendiente.
 - **Clasificación sin documentar**: La columna CLASIFICACION viene de la vista TABLERO_NAOS; su lógica (incluida PACIENTE PRIORIZADO) está por confirmar.
 - **Columnas de la tabla**: La captura no muestra todas las columnas de la tabla de detalle. Por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

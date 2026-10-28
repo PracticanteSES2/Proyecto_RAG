@@ -4,8 +4,8 @@ pagina: CONVENIOS
 nombre_funcional: Convenios del hospital por tipo, vigencia y fecha de finalización
 bloque: Día
 tablas: [CONVENIOS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # CONVENIOS
@@ -22,9 +22,9 @@ Muestra los convenios en trámite u obtenidos por el hospital con cada entidad: 
 
 ## Visuales
 - **Botones de tipo**: (En blanco), CARTA DE MANIFESTACIÓN DE INTERÉS, CONTRATO, OFERTA PAS, OFERTA PCG y SOAT; filtran la tabla por tipo.
-- **Botones de vigencia**: VENCIDO y VIGENTE.
+- **Botones de vigencia**: VENCIDO y VIGENTE (segmentación de CONVENIOS[FILTRO_VIG]).
 - **Tabla de convenios**: NIT, ENTIDAD, TIPO, OBSERVACION, FECHA INICIO, FECHA FINAL y VIGENCIA (texto de RESTANTE).
-- **Segmentadores de finalización**: AÑO, MES y DÍA DE FINALIZACIÓN.
+- **Segmentadores de finalización**: AÑO, MES y DÍA de finalización, con los campos FECHA FINAL Año, FECHA FINAL Mes y FECHA FINAL Día de CONVENIOS[FECHA FINAL].
 - **CONVENIOS por TIPO**: Anillo con número y porcentaje de convenios por tipo.
 - **CANTIDAD DE CONTRATOS POR VIGENCIA**: Anillo con número y porcentaje de convenios vigentes y vencidos.
 
@@ -36,7 +36,8 @@ Muestra los convenios en trámite u obtenidos por el hospital con cada entidad: 
 - **Criterio de vigencia**: Cómo se calcula VIGENTE o VENCIDO no está documentado. Por confirmar si compara FECHA FINAL con hoy.
 - **Tipo vacío**: Hay convenios sin tipo que aparecen como (En blanco).
 - **Siglas PAS y PCG**: Su significado está por confirmar.
-- **Nombre de página**: La página no está en la copia local del PBIP. Nombre de página en Power BI por confirmar.
+- **Nombre de página**: La página se llama CONVENIOS en Power BI; está oculta y se llega con el botón DETALLE de su visual en INICIO.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
