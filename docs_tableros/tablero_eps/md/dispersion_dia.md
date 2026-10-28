@@ -1,20 +1,21 @@
 ---
 tablero: TABLERO EPS
-pagina: DISPERSIÓN DÍA
+pagina: DISPERSION DIA
 nombre_funcional: Atendidos frente a llegadas por tramo horario del día actual
 bloque: Día
-tablas: [DISPERSION_DIA]
-actualizado: 2026-10-20
-version: 1
+tablas: [ATENCIONES_DIA, OPORTUNIDAD_TRIAGE, Calendario]
+actualizado: 2026-10-28
+version: 2
+id_pagina: ReportSection4e35846d7ed18889621b
 ---
 
-# DISPERSIÓN DÍA
+# DISPERSION DIA
 
 ## Propósito
-Gráfico de dispersión del día en curso que compara, por tramo horario, los pacientes atendidos en triage con las llegadas a urgencias. Sirve para el seguimiento en tiempo real del balance entre demanda y capacidad. Página de navegación desde la vista de dispersión.
+Gráfico de dispersión del día en curso que compara, por tramo horario, los pacientes atendidos en triage con las llegadas a urgencias. Sirve para el seguimiento en tiempo real del balance entre demanda y capacidad. Se llega con el botón de la página %ATENCIONES/ADMISIONES; VOLVER regresa a ella.
 
 ## Fuentes de datos
-- **Consulta de llegadas y atendidos del día**: Por cada hora de hoy cuenta los triages realizados (HCNTRIAGE, campo HCTFECTRI) y las llegadas (ADMISIONTRIAGE, campo HoraEntrada), y calcula pendientes por tramo y acumulados.
+- **ATENCIONES_DIA**: Por cada hora de hoy cuenta los triages realizados (HCNTRIAGE, campo HCTFECTRI) y las llegadas (ADMISIONTRIAGE, campo HoraEntrada), y calcula pendientes por tramo y acumulados.
 
 ## Indicadores
 - **Atendidos por tramo**: Triages realizados hoy en cada hora (ATENDIDOS). Unidad: pacientes.
@@ -23,7 +24,7 @@ Gráfico de dispersión del día en curso que compara, por tramo horario, los pa
 - **Pendientes acumulados**: Suma acumulada de pendientes desde el inicio del día, mostrada en 0 si es negativa (PENDIENTES_ACUMULADOS). Unidad: pacientes.
 
 ## Visuales
-- **Filtros de segmentación**: Listas de Año, Mes, Día y ASEGURADORA.
+- **Filtros de segmentación**: Listas de Año, Mes y Día (segmentadores «Fecha Año», «Fecha Mes» y «Fecha Día» de Calendario[Fecha]) y ASEGURADORA.
 - **Dispersión atendidos y llegadas por tramo**: Titulado «ATENDIDOS y LLEGADAS por TRAMO»; eje X ATENDIDOS, eje Y LLEGADAS y un punto de color por hora del día (leyenda TRAMO).
 - **Líneas guía**: Una línea vertical y otra horizontal punteadas que dividen el gráfico en cuadrantes de equilibrio.
 - **Botón VOLVER**: Regresa a la página anterior.
@@ -34,10 +35,9 @@ Gráfico de dispersión del día en curso que compara, por tramo horario, los pa
 - **Piso de pendientes acumulados**: Si la suma acumulada de pendientes es negativa se muestra 0.
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
-- **Filtros sin efecto**: La consulta solo trae el día de hoy y no incluye aseguradora; los filtros de Año, Mes, Día y ASEGURADORA no deberían cambiar el gráfico. Por confirmar.
+- **Filtros sin efecto**: ATENCIONES_DIA solo trae el día de hoy y no tiene aseguradora ni relación con Calendario; los segmentadores de Año, Mes, Día y ASEGURADORA (de OPORTUNIDAD_TRIAGE) no deberían cambiar el gráfico. Por confirmar.
 - **Valor de las líneas guía**: Por confirmar qué valor marcan las líneas punteadas.
-- **Origen de la navegación**: La documentación no dice desde qué botón se llega a esta página. Por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

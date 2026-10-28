@@ -3,9 +3,10 @@ tablero: TABLERO EPS
 pagina: CONSULTAS PRIORITARIAS
 nombre_funcional: Detalle de consultas prioritarias por estado
 bloque: Histórico
-tablas: [CONSULTAS_PRIORITARIAS]
-actualizado: 2026-10-20
-version: 1
+tablas: [CONSULTAS_PRIORITARIAS, Calendario]
+actualizado: 2026-10-28
+version: 2
+id_pagina: ReportSection03881a3bf5b2717d0358
 ---
 
 # CONSULTAS PRIORITARIAS
@@ -17,13 +18,13 @@ Detalle de las consultas prioritarias de urgencias (pacientes de triage 4 y 5): 
 - **Consulta de consultas prioritarias**: Citas de CITAS_MEDICAS desde el 2022-01-01 hasta hoy cuya actividad (CMANOMBRE) contiene «PRIORITARIA», con fecha de la cita, aseguradora, estado y grupo de edad.
 
 ## Indicadores
-- **Consultas prioritarias**: Cantidad de citas prioritarias. Unidad: consultas. Cálculo por confirmar; el catálogo local sugiere COUNTROWS('CONSULTAS_PRIORITARIAS') como medida inferida.
-- **Participación por estado**: Porcentaje de citas en cada estado sobre el total filtrado. Unidad: porcentaje.
+- **Consultas prioritarias**: Cantidad de citas prioritarias. Unidad: consultas. La tarjeta de la página principal cuenta CONSULTAS_PRIORITARIAS[PACNUMDOC] con estado CONFIRMADO.
+- **Participación por estado**: Porcentaje de citas en cada estado sobre el total filtrado. Unidad: porcentaje. COUNT de CONSULTAS_PRIORITARIAS[ESTADO_NOMBRE] por ESTADO_NOMBRE en la torta.
 
 ## Visuales
-- **Filtros de segmentación**: Listas de Año, Mes, Día, ASEGURADORA y ESTADO CONSULTA.
-- **Tabla detalle de pacientes**: Columnas DOCUMENTO PACIENTE, NOMBRE PACIENTE y ASEGURADORA, una fila por cita.
-- **Gráfico consultas por estado**: Torta titulada «CONSULTAS por ESTADO» con cantidad y porcentaje de CONFIRMADO, ANULADO y REGISTRADO.
+- **Filtros de segmentación**: Listas de Año, Mes y Día (segmentadores «Fecha Año», «Fecha Mes» y «Fecha Día» de Calendario[Fecha]), ASEGURADORA y ESTADO CONSULTA.
+- **Tabla detalle de pacientes**: Tabla «DOCUMENTO PACIENTE» con PACNUMDOC, CCMPACNOM, ASEGURADORA, ESTADO_NOMBRE y FECHA, una fila por cita.
+- **Gráfico consultas por estado**: Gráfico circular «ESTADO» (titulado «CONSULTAS por ESTADO») con cantidad y porcentaje de CONFIRMADO, ANULADO y REGISTRADO.
 - **Botón VOLVER**: Regresa a la página principal.
 
 ## Reglas de negocio
@@ -34,7 +35,6 @@ Detalle de las consultas prioritarias de urgencias (pacientes de triage 4 y 5): 
 - **Agrupación de aseguradoras**: NUEVA EPS, SURA, SANITAS y MALLAMAS se agrupan igual que en el resto del tablero (ver General).
 
 ## Observaciones
-- **Nombre de página**: Nombre de página en Power BI por confirmar.
 - **Documentos 30 a 39**: Por confirmar el motivo de la exclusión; parecen documentos de prueba o genéricos.
 - **Edad aproximada**: DATEDIFF por años cuenta cambios de año calendario, no años cumplidos; un paciente puede quedar como mayor de edad meses antes de cumplir 18.
 - **Uniones que pueden excluir citas**: La consulta exige municipio, departamento, médico y especialidad (INNER JOIN); citas sin alguno de esos datos no aparecen. Por confirmar si es intencional.
@@ -42,3 +42,4 @@ Detalle de las consultas prioritarias de urgencias (pacientes de triage 4 y 5): 
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

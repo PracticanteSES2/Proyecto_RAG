@@ -3,21 +3,26 @@ tablero: TABLERO EPS
 pagina: GENERAL
 nombre_funcional: Consolidado de atenciones de urgencias por aseguradora
 bloque: General
-tablas: [ATENCIONES_ADMISIONES, DISPERSION_GENERAL, DISPERSION_DIA, CONSULTAS_PRIORITARIAS]
-actualizado: 2026-10-20
-version: 1
+tablas: [OPORTUNIDAD_TRIAGE, ADMISIONES_TRIAGE, ATENCIONES_DIA, CONSULTA_URGENCIAS, CONSULTAS_PRIORITARIAS, PACIENTES_OBSERVADOS, PACIENTES_HOSPITALIZADOS, ATENCIONES_GINECO, %OCUPACIONAL, ASEGURADORAS, GENTERCER, PACIENTES, Calendario]
+actualizado: 2026-10-28
+version: 2
 ---
 
 # GENERAL
 
 ## Propósito
-Tablero «Consolidado de atenciones de urgencias»: muestra el volumen de triages, consultas de urgencias, consultas prioritarias, observación, hospitalización y ocupación de urgencias, filtrable por aseguradora (EPS). Desde la página principal se llega a %ATENCIONES (con su gráfico de dispersión), al mapa de calor de triages y al detalle de consultas prioritarias. La documentación del propietario se titula «Triages Atendidos».
+Tablero «Consolidado de atenciones de urgencias»: muestra el volumen de triages, consultas de urgencias, consultas prioritarias, observación, hospitalización y ocupación de urgencias, filtrable por aseguradora (EPS). Desde la página principal TRIAGES ATENDIDOS se llega a %ATENCIONES/ADMISIONES (con sus páginas de dispersión), al mapa de calor de triages y al detalle de consultas prioritarias. La documentación del propietario se titula «Triages Atendidos».
 
 ## Fuentes de datos
-- **Consulta de triages**: Triages de DIM_TRIAGE desde el 2022-01-01 hasta hoy con clasificación, fechas de llegada y de triage, tramo horario, día de la semana, aseguradora y grupo de edad; excluye la clasificación UA.
-- **Consulta de llegadas y atendidos del día**: Por cada hora de hoy cuenta los triages realizados (HCNTRIAGE) y las llegadas registradas en ADMISIONTRIAGE, y calcula los pendientes.
-- **Consulta de admisiones triage**: Todos los registros de ADMISIONTRIAGE (llegadas de pacientes a urgencias) desde el 2022-01-01 hasta hoy.
-- **Consulta de consultas prioritarias**: Citas médicas cuya actividad contiene «PRIORITARIA», desde el 2022-01-01 hasta hoy, con estado, aseguradora y grupo de edad.
+- **OPORTUNIDAD_TRIAGE**: Triages de DIM_TRIAGE desde el 2022-01-01 hasta hoy con clasificación, fechas de llegada y de triage, tramo horario, día de la semana, aseguradora y grupo de edad; excluye la clasificación UA.
+- **ATENCIONES_DIA**: Por cada hora de hoy cuenta los triages realizados (HCNTRIAGE) y las llegadas registradas en ADMISIONTRIAGE, y calcula los pendientes.
+- **ADMISIONES_TRIAGE**: Todos los registros de ADMISIONTRIAGE (llegadas de pacientes a urgencias) desde el 2022-01-01 hasta hoy.
+- **CONSULTAS_PRIORITARIAS**: Citas médicas cuya actividad contiene «PRIORITARIA», desde el 2022-01-01 hasta hoy, con estado, aseguradora y grupo de edad.
+- **CONSULTA_URGENCIAS**: Triages con su ingreso y primer folio, sin la clasificación UA y sin ingresos con estado 2; fuente de la tarjeta Consultas urgencias.
+- **PACIENTES_OBSERVADOS y PACIENTES_HOSPITALIZADOS**: Ingresos desde 2022-01-01 en las áreas de servicio 2 y 42, tipo de ingreso 1 y 2 respectivamente.
+- **%OCUPACIONAL**: Ocupación diaria de camas desde 2023-01-01 hasta ayer, con las camas ocupadas y disponibles por servicio.
+- **ATENCIONES_GINECO**: Ingresos con causa de ingreso 9 desde 2022-01-01; no alimenta ninguna tarjeta.
+- **ASEGURADORAS, GENTERCER y PACIENTES**: Catálogos de apoyo para filtrar por aseguradora y por paciente.
 
 ## Definiciones
 - **Triage atendido**: Registro de clasificación de triage hecho al paciente en urgencias (tabla DIM_TRIAGE o HCNTRIAGE).
@@ -37,10 +42,9 @@ Tablero «Consolidado de atenciones de urgencias»: muestra el volumen de triage
 - **Filtros comunes**: Todas las páginas filtran por año, mes, día y aseguradora.
 
 ## Observaciones
-- **Nombres de tablas del modelo**: Los nombres ATENCIONES_ADMISIONES, DISPERSION_GENERAL, DISPERSION_DIA y CONSULTAS_PRIORITARIAS vienen de un catálogo generado localmente; por confirmar contra el modelo publicado.
-- **Indicadores sin fuente documentada**: Triages Gineco, Consultas urgencias, Pacientes Observados, Pacientes hospitalizados y Ocupación de urgencias no tienen consulta ni medida en la documentación. Por confirmar.
-- **Sin medidas DAX documentadas**: La documentación no trae medidas; los cálculos de porcentajes y tarjetas quedan por confirmar.
-- **Nombre del tablero**: El informe se llama TABLERO EPS, pero sus páginas se titulan «CONSOLIDADO DE ATENCIONES DE URGENCIAS» y el documento «Triages Atendidos».
+- **Fuentes de las tarjetas**: Las tarjetas se calculan con agregaciones implícitas en el visual (COUNT y DISTINCTCOUNT); las únicas medidas del modelo son [%ATENCIONES], [%ATENDIDOS] y [%OCUPACIONALC]. Ver el diccionario.
+- **Nombre del tablero**: El informe se llama TABLERO EPS; su página principal se llama TRIAGES ATENDIDOS y en pantalla se titula «CONSOLIDADO DE ATENCIONES DE URGENCIAS».
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
