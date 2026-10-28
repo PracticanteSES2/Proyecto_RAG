@@ -689,8 +689,8 @@ def process_markdown_document(
 ) -> dict:
     """Una página .md -> JSON procesado (el texto se normaliza en
     document_normalizer con src.docs_md.ingesta, sin heurísticas)."""
-    from src.docs_md.formato import parsear, validar
-    from src.docs_md.ingesta import es_general
+    from src.docs_md.formato import es_diccionario, parsear, validar
+    from src.docs_md.ingesta import es_general, nombre_diccionario
 
     raw_dir = Path(raw_dir)
     md_root = Path(md_root) if md_root is not None else raw_dir
@@ -723,6 +723,9 @@ def process_markdown_document(
             + list(config.get("aliases") or [])
             + ([doc.pagina] if _plain(doc.pagina) not in {"", "general"} else [])
         )
+    elif es_diccionario(doc.meta):
+        # «DICCIONARIO <TABLERO>»: no es una página del tablero (ver is_dictionary).
+        name = nombre_diccionario(doc) or folder_to_display_name(file_path.stem)
     else:
         name = clean_text(doc.pagina) or folder_to_display_name(file_path.stem)
 

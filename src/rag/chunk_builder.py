@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 import unicodedata
@@ -121,6 +122,19 @@ def _chunk(
     }
 
 
+def _unique_key(seen, key):
+    """Clave de entidad sin colisiones: deterministic_id quita signos y
+    tildes, así que «Consultas Año Anterior» y «Consultas_Año_Anterior»
+    darían el mismo id y un chunk taparía al otro. Solo la segunda y las
+    siguientes llevan un sufijo (los ids de siempre no cambian)."""
+    normalized = normalize_key(key)
+    if normalized in seen:
+        key = f"{key}#{hashlib.sha1(str(key).encode('utf-8')).hexdigest()[:8]}"
+        normalized = normalize_key(key)
+    seen.add(normalized)
+    return key
+
+
 def _join_items(items):
     return " ".join(
         clean_text(item)
@@ -214,6 +228,7 @@ Descripción: {description}
 
 def build_measure_chunks(dashboard, workspace=None, semantic_model=None):
     chunks = []
+    seen_keys = set()
     dashboard_name = clean_text(dashboard.get("name"))
 
     for item in dashboard.get("matched_measures", []):
@@ -255,7 +270,7 @@ Expresión documentada: {documented_expression}
             dashboard=dashboard,
             chunk_type="measure",
             text=text,
-            entity_key=f"measure:{table_name}:{measure_name}",
+            entity_key=_unique_key(seen_keys, f"measure:{table_name}:{measure_name}"),
             section="measures",
             extra_metadata={
                 "table": table_name,
@@ -278,6 +293,7 @@ def build_documented_measure_chunks(dashboard):
     que MetricResolver las trate como una medida ejecutable certificada.
     """
     chunks = []
+    seen_keys = set()
     dashboard_name = clean_text(dashboard.get("name"))
 
     for index, measure in enumerate(
@@ -301,7 +317,7 @@ Estado: documentada, no vinculada automáticamente con una medida del modelo Pow
             dashboard=dashboard,
             chunk_type="documented_measure",
             text=text,
-            entity_key=f"documented_measure:{measure_name or index}",
+            entity_key=_unique_key(seen_keys, f"documented_measure:{measure_name or index}"),
             section="measures",
             extra_metadata={
                 "table": table_name,
@@ -322,6 +338,7 @@ Estado: documentada, no vinculada automáticamente con una medida del modelo Pow
 
 def build_calculated_column_chunks(dashboard, workspace=None, semantic_model=None):
     chunks = []
+    seen_keys = set()
     dashboard_name = clean_text(dashboard.get("name"))
 
     for index, column in enumerate(dashboard.get("calculated_columns", [])):
@@ -345,7 +362,7 @@ Expresión DAX: {expression}
             dashboard=dashboard,
             chunk_type="calculated_column",
             text=text,
-            entity_key=f"column:{table_name}:{column_name or index}",
+            entity_key=_unique_key(seen_keys, f"column:{table_name}:{column_name or index}"),
             section="calculated_columns",
             extra_metadata={
                 "table": table_name,

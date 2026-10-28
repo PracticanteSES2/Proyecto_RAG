@@ -745,6 +745,9 @@ class SourceModelRouter:
                 name, group = item
             except (TypeError, ValueError):
                 continue
+            # «DICCIONARIO <TABLERO>» (diccionario de variables .md) no es una página.
+            if str(name or "").strip().upper().startswith("DICCIONARIO "):
+                continue
             if name and group and (str(name), str(group)) not in values:
                 values.append((str(name), str(group)))
         self._documentation_dashboards = values
