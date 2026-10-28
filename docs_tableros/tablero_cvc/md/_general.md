@@ -4,8 +4,8 @@ pagina: GENERAL
 nombre_funcional: Variación de costos de compra de medicamentos, dispositivos e insumos
 bloque: General
 tablas: [COSTOS_PRODUCTOS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # GENERAL
@@ -15,8 +15,9 @@ Tablero de una página para monitorear el comportamiento de los precios de compr
 
 ## Fuentes de datos
 - **COSTOS_PRODUCTOS**: Registros de costo de productos (COSTO_PRODUCTOS_DW) del almacén 062 desde 2025-01-01, con producto, código, CUM, grupo, categoría, cantidad, último costo, costo promedio y costo y fecha del registro anterior del mismo producto y almacén.
-- **Último y anterior costo por producto**: Segunda consulta que deja, por producto, el último costo y el costo anterior distinto con su fecha. Nombre de la tabla en el modelo por confirmar.
-- **Desabastecidos**: Tercera consulta con la solicitud de desabastecimiento más reciente por producto (categoría 325, estados 1, 2 o 3), la misma fuente de DETALLE MEDICAMENTOS DESABASTECIDOS del BRIEFING HOSPITALARIO.
+- **COSTOS_VARIACION**: Segunda consulta que deja, por producto, el último costo y el costo anterior distinto con su fecha (el mayor costo distinto del último, no el inmediatamente previo).
+- **DESABASTECIDOS**: Tercera consulta con la solicitud de desabastecimiento más reciente por producto (categoría 325, estados 1, 2 o 3), la misma fuente de DETALLE MEDICAMENTOS DESABASTECIDOS del BRIEFING HOSPITALARIO.
+- **PRODUCTOS_REGULADOS**: Listado en Excel «Regulados y No Regulados Dinamica Gerencial» (hoja «Listado Productos Dinamica») con la marca de producto regulado; se une por IPRCODIGO.
 
 ## Definiciones
 - **Costo actual**: Último costo registrado del producto en el registro (ULTIMOCOSTO).
@@ -35,3 +36,4 @@ Tablero de una página para monitorear el comportamiento de los precios de compr
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
