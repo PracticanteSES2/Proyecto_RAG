@@ -603,15 +603,21 @@ MARKDOWN_FOLDER = "md"
 
 
 def markdown_root(raw_dir: Path, md_root: Path | None = None) -> Path:
-    """Raíz de la documentación .md: la indicada, si no DOCS_MD_ROOT
-    (repositorio.raiz_documentos) y si no data/raw (raw_dir)."""
+    """Raíz de la documentación .md: la indicada, si no DOCS_MD_ROOT, si no
+    docs_tableros/ cuando se ingiere el data/raw del proyecto, y si no raw_dir."""
     if md_root is not None:
         return Path(md_root)
-    if os.getenv("DOCS_MD_ROOT", "").strip():
-        from src.docs_md.repositorio import raiz_documentos
+    from src.docs_md.repositorio import PROJECT_ROOT as DOCS_PROJECT_ROOT, raiz_documentos
 
+    if os.getenv("DOCS_MD_ROOT", "").strip():
         return raiz_documentos()
-    return Path(raw_dir)
+    # Con el data/raw del proyecto, la documentación vive en docs_tableros/;
+    # con otra raíz (pruebas, copias) se busca dentro de esa misma raíz.
+    try:
+        es_raw_del_proyecto = Path(raw_dir).resolve() == (DOCS_PROJECT_ROOT / "data" / "raw").resolve()
+    except OSError:
+        es_raw_del_proyecto = False
+    return raiz_documentos() if es_raw_del_proyecto else Path(raw_dir)
 
 
 def markdown_files(group_dir: Path) -> list:

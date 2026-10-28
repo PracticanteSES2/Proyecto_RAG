@@ -6,7 +6,8 @@ MedGemma propone el cambio sobre la sección exacta del .md; una persona lo apru
 
 ## Formato (un .md por página del tablero)
 
-Ubicación: `data/raw/<source_group>/md/` (el mismo `source_group` del `manifest.json`).
+Ubicación: `docs_tableros/<source_group>/md/` (versionada en git), con el `manifest.json` del grupo en
+`docs_tableros/<source_group>/`. `DOCS_MD_ROOT` cambia la raíz (pruebas); sin `docs_tableros/` se usa `data/raw`.
 `_general.md` describe el tablero completo (bloque `General`, `pagina: GENERAL`, título `# GENERAL`; la ingesta lo publica con el nombre del informe); cada página de Power BI tiene su archivo.
 La implementación de referencia es `formato.py` (`parsear`, `serializar`, `validar`, `aplicar_operaciones`).
 Ejemplo completo: `tests/docs_md/fixtures/tablero_tiempos_urgencias/md/consultas_dia.md`.
@@ -50,7 +51,7 @@ Secciones y orden (las vacías se omiten, salvo Propósito e Historial):
 
 - Un grupo con páginas en `<raíz md>/<grupo>/md/*.md` se ingiere desde el .md y sus .docx
   (en `data/raw/<grupo>/`) se ignoran con aviso en consola. Los demás grupos siguen con .docx.
-- Raíz md: `md_root` explícito, si no `DOCS_MD_ROOT` (`repositorio.raiz_documentos`), si no `data/raw`.
+- Raíz md: `md_root` explícito, si no `DOCS_MD_ROOT`, si no `docs_tableros/` (`repositorio.raiz_documentos`).
   El `manifest.json` se busca junto a los .md y si no en `data/raw/<grupo>/`.
 - Cada .md es un tablero del JSON normalizado (sin las heurísticas de los .docx): una cadena
   «Nombre: texto» por entrada, el historial en `other_sections` y las medidas citadas como `[Medida]`

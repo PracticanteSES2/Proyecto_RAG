@@ -2,9 +2,9 @@
 Ubicación y acceso a la documentación .md de los tableros.
 
 Cada tablero (grupo documental, el mismo `source_group` del RAG) guarda sus
-páginas en `data/raw/<source_group>/md/`:
+páginas en `docs_tableros/<source_group>/md/`:
 
-    data/raw/tablero_tiempos_urgencias/
+    docs_tableros/tablero_tiempos_urgencias/
         manifest.json
         md/
             _general.md          <- bloque General (una por tablero)
@@ -12,6 +12,7 @@ páginas en `data/raw/<source_group>/md/`:
             consultas_dia.md
             ...
 
+Raíz por defecto: docs_tableros/ (versionada en git); si no existe, data/raw.
 La raíz se puede cambiar con la variable de entorno DOCS_MD_ROOT (pruebas).
 """
 
@@ -27,6 +28,7 @@ from pathlib import Path
 from .formato import Documento, ErrorFormato, normalizar_nombre, parsear, serializar, validar
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DOCS_TABLEROS = PROJECT_ROOT / "docs_tableros"
 CARPETA_MD = "md"
 ARCHIVO_GENERAL = "_general.md"
 
@@ -39,7 +41,11 @@ def raiz_documentos(raiz: str | Path | None = None) -> Path:
     if raiz is not None:
         return Path(raiz)
     env = os.getenv("DOCS_MD_ROOT", "").strip()
-    return Path(env) if env else PROJECT_ROOT / "data" / "raw"
+    if env:
+        return Path(env)
+    # docs_tableros/ (versionada en git) es la ubicación oficial; data/raw
+    # queda solo como respaldo para instalaciones que aún no la tengan.
+    return DOCS_TABLEROS if DOCS_TABLEROS.is_dir() else PROJECT_ROOT / "data" / "raw"
 
 
 def slug(texto: str) -> str:

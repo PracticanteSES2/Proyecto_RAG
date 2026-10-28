@@ -23,8 +23,8 @@ CONTRATO:
   (`refresh_metadata`) para que la búsqueda léxica vea el texto nuevo.
 - Rutas: derivados en <project_root>/data/... (por defecto el data/ del
   proyecto). Las páginas .md se leen de `md_root`; si no se indica: de
-  DOCS_MD_ROOT (repositorio.raiz_documentos) cuando no se pasa project_root,
-  y si no de data/raw. El manifest se busca junto a los .md y si no en
+  repositorio.raiz_documentos() (DOCS_MD_ROOT o docs_tableros/) cuando no se
+  pasa project_root, y si no de <project_root>/data/raw. El manifest se busca junto a los .md y si no en
   data/raw/<grupo>/manifest.json. Las pruebas pasan project_root (y md_root)
   para no tocar el data/ real.
 
@@ -65,7 +65,7 @@ def rutas_datos(project_root: str | Path | None = None, md_root: str | Path | No
     raw = data / "raw"
     if md_root is not None:
         md = Path(md_root)
-    elif project_root is None and os.getenv("DOCS_MD_ROOT", "").strip():
+    elif project_root is None:
         from .repositorio import raiz_documentos
 
         md = raiz_documentos()
