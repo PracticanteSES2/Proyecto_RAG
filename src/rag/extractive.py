@@ -8,6 +8,8 @@ se conservan las frases descriptivas y se arma una lista breve por fuente.
 """
 import re
 
+from src.rag.source_labels import dictionary_page_label
+
 
 # Rótulos que abren el nombre del elemento documentado.
 _ITEM_LABELS = (
@@ -114,7 +116,7 @@ def readable_source(source):
         if not value:
             continue
         if label == "Tablero":
-            page = value
+            page = dictionary_page_label(value)
         elif label in _ITEM_LABELS:
             title = title or value
         elif label in ("Descripción", "Contenido"):
@@ -155,7 +157,8 @@ def readable_fallback(sources, max_items=5):
             continue
         seen.add(key)
 
-        page = source.get("dashboard")
+        # «DICCIONARIO TABLERO X» -> «Diccionario de variables · TABLERO X».
+        page = dictionary_page_label(source.get("dashboard")) or None
         prefix = title or page or "Documentación"
         if page and title and page.lower() not in title.lower():
             prefix = f"{title} ({page})"

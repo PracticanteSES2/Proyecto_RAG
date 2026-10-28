@@ -1,6 +1,8 @@
 import re
 import unicodedata
 
+from src.rag.source_labels import is_dictionary_source
+
 
 class MetricResolver:
 
@@ -294,10 +296,15 @@ class MetricResolver:
                 )
             )
 
+        # Las medidas del diccionario de variables («DICCIONARIO <TABLERO>»)
+        # no son candidatos: repiten las del modelo con otro «tablero» y la
+        # resolución debe salir del catálogo (retrievers antiguos o dobles de
+        # prueba pueden devolverlas).
         candidates = [
             candidate
             for candidate in candidates
             if candidate.get("measure")
+            and not is_dictionary_source(candidate)
         ]
 
         if not candidates:

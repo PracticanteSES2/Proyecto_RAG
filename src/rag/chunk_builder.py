@@ -71,6 +71,10 @@ def _base_metadata(dashboard, section=None):
         "relative_path": dashboard.get("relative_path"),
         "document_type": dashboard.get("document_type"),
         "enrichment_status": dashboard.get("enrichment_status"),
+        # Diccionario de variables («DICCIONARIO <TABLERO>», ver
+        # docs_md/ingesta.py): el retriever y el resolvedor de métricas lo
+        # distinguen de las páginas del tablero.
+        "is_dictionary": True if dashboard.get("is_dictionary") else None,
     }
 
     if section:

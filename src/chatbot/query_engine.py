@@ -12,6 +12,7 @@ from src.chatbot.response_formatter import (
     NONE_OF_THE_ABOVE_ID, format_filters_line, format_value_es, group_header,
 )
 from src.providers.domain_cache import domain_cache_for
+from src.rag.source_labels import source_label
 from src.semantic.request_phrases import requester, rewrite_request, without_requester
 
 class QueryEngine:
@@ -5694,7 +5695,7 @@ class QueryEngine:
                 f"estado: {rag_result.get('status')} · síntesis: {rag_result.get('synthesis_mode')}",
                 rag_result.get("synthesis_issue"),
                 *[
-                    f"fuente: {source.get('dashboard') or '-'} · {source.get('chunk_type') or '-'}"
+                    f"fuente: {source_label(source) or '-'} · {source.get('chunk_type') or '-'}"
                     f" · puntaje {format_score(source.get('score'))}"
                     f" · {short(source.get('text'), 120)}"
                     for source in rag_result.get("sources") or []

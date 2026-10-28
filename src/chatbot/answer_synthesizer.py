@@ -5,6 +5,11 @@ import unicodedata
 from src.llm.llm_gate import call_llm
 
 from src.rag.ranking import detect_question_intent
+from src.rag.source_labels import (
+    dictionary_board,
+    dictionary_section,
+    is_dictionary_source,
+)
 
 
 # Tiempo máximo de la síntesis RAG (segundos). Si el LLM no responde a tiempo
@@ -327,10 +332,23 @@ REGLAS OBLIGATORIAS:
             header = f"[FUENTE {index}]\n"
             if report:
                 header += f"Informe: {report}\n"
-            header += (
-                f"Página del tablero: {dashboard}\n"
-                f"Tipo: {chunk_label}\n"
-            )
+            if is_dictionary_source(source):
+                # «DICCIONARIO TABLERO X» no es una página: se nombra como lo
+                # leería el usuario (y así lo cita el LLM si hace falta).
+                board = dictionary_board(dashboard)
+                header += f"Diccionario de variables del tablero: {board}\n"
+                section_name = dictionary_section(source)
+                if section_name:
+                    header += f"Sección del diccionario: {section_name}\n"
+                text = re.sub(
+                    r"^Tablero:\s*" + re.escape(dashboard),
+                    f"Diccionario de variables del tablero: {board}",
+                    text,
+                    count=1,
+                )
+            else:
+                header += f"Página del tablero: {dashboard}\n"
+            header += f"Tipo: {chunk_label}\n"
 
             if measure:
                 header += (

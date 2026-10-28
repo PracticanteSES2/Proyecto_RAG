@@ -7,6 +7,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import (
     FieldCondition,
     Filter,
+    HasIdCondition,
     MatchValue,
 )
 
@@ -19,6 +20,11 @@ from src.rag.ranking import (
     select_diverse,
     tokenize,
     type_prior,
+)
+from src.rag.source_labels import (  # noqa: F401  (reexportadas)
+    is_dictionary_name,
+    is_dictionary_source,
+    source_label,
 )
 
 
@@ -40,6 +46,12 @@ LEGACY_COLLECTION_NAME = (
 # (nombres de aseguradoras, ciudades...), así que sin tablero nombrado solo
 # cuentan como evidencia si además coinciden léxicamente.
 TECHNICAL_CHUNK_TYPES = {"sql_query", "table_context"}
+
+# El diccionario de variables («DICCIONARIO <TABLERO>») es casi todo
+# identificadores (EN_ESPERA[TramoHorario], [%PENDIENTE]): su coseno con
+# preguntas ajenas («clima mañana en Manizales» → 0,51) no prueba nada. Sin
+# tablero nombrado, sus chunks solo cuentan con apoyo léxico, como los
+# volcados técnicos.
 
 
 # ============================================================
@@ -124,6 +136,9 @@ class HybridRetriever:
     # bajos (0.25-0.35); se confía en el filtro con un umbral menor.
     SCOPED_MIN_SCORE = 0.20
     SCOPED_MIN_LEXICAL = 0.20
+    # Página nombrada: las entradas del diccionario del mismo informe siguen
+    # siendo candidatas si coinciden bien con la pregunta.
+    SCOPED_DICTIONARY_MIN_LEXICAL = 0.50
     # Sin tablero: el coseno debe superar min_score Y estar respaldado por
     # coincidencia léxica (o ser alto). Así «capital de Francia» o «clima en
     # Manizales» (coseno 0.35-0.45 contra textos genéricos, sin términos en
@@ -197,7 +212,7 @@ class HybridRetriever:
         if score is None:
             score = default_score
 
-        return {
+        result = {
             "score": float(score),
             "chunk_type": self._payload_value(payload, "chunk_type"),
             "dashboard": self._payload_value(payload, "dashboard"),
@@ -233,8 +248,15 @@ class HybridRetriever:
                 "document_type",
             ),
             "section": self._payload_value(payload, "section"),
+            "column": self._payload_value(payload, "column"),
             "text": self._payload_value(payload, "text", "") or "",
         }
+        result["is_dictionary"] = is_dictionary_source({
+            "dashboard": result["dashboard"],
+            "is_dictionary": self._payload_value(payload, "is_dictionary"),
+        })
+        result["source_label"] = source_label(result)
+        return result
 
     def _scroll_all(self, limit_per_page=512):
         """Recorre toda la colección sin asumir un máximo de 10.000 puntos."""
@@ -274,6 +296,19 @@ class HybridRetriever:
 
             dashboards.add(dashboard)
 
+            # El diccionario solo se nombra a sí mismo («diccionario tablero
+            # cvc»): los alias del tablero y del grupo («tablero cvc»)
+            # apuntan a las páginas, no a «DICCIONARIO TABLERO CVC» (que, por
+            # ser el nombre más largo, se los quedaba).
+            if is_dictionary_source({
+                "dashboard": dashboard,
+                "is_dictionary": self._payload_value(payload, "is_dictionary"),
+            }):
+                normalized = normalize_text(dashboard)
+                if normalized and normalized not in aliases:
+                    aliases[normalized] = dashboard
+                continue
+
             candidate_aliases = [dashboard]
             candidate_aliases.extend(
                 _as_list(
@@ -297,7 +332,11 @@ class HybridRetriever:
                     continue
 
                 current = aliases.get(normalized)
-                if current is None or len(dashboard) > len(current):
+                if (
+                    current is None
+                    or is_dictionary_name(current)
+                    or len(dashboard) > len(current)
+                ):
                     aliases[normalized] = dashboard
 
         return sorted(dashboards), aliases
@@ -535,6 +574,11 @@ class HybridRetriever:
             if result.get("dashboard") != dashboard:
                 continue
 
+            # Las medidas ejecutables salen del catálogo del modelo, no del
+            # diccionario de variables.
+            if result.get("is_dictionary"):
+                continue
+
             results.append(result)
 
             if len(results) >= limit:
@@ -564,17 +608,40 @@ class HybridRetriever:
             semantic_model=semantic_model,
         )
 
+        # Las medidas del diccionario de variables repiten las del modelo
+        # (mismo nombre, otro «tablero»): crearían candidatos duplicados o
+        # falsos. La resolución de métricas usa solo las del catálogo.
+        dictionary_ids = self._dictionary_point_ids()
+        if dictionary_ids:
+            query_filter = Filter(
+                must=(query_filter.must if query_filter else None),
+                must_not=[HasIdCondition(has_id=dictionary_ids)],
+            )
+
         response = self.client.query_points(
             collection_name=self.collection_name,
             query=query_vector.tolist(),
             query_filter=query_filter,
-            limit=limit,
+            limit=limit + len(dictionary_ids),
             with_payload=True,
         )
 
-        return [
+        results = [
             self._point_to_result(point)
             for point in response.points
+        ]
+        return [
+            result
+            for result in results
+            if not result.get("is_dictionary")
+        ][:limit]
+
+    def _dictionary_point_ids(self):
+        """Ids de los chunks del diccionario de variables (del corpus en memoria)."""
+        return [
+            result["id"]
+            for result in getattr(self, "_corpus", None) or []
+            if result.get("is_dictionary") and result.get("id") is not None
         ]
 
     # --------------------------------------------------------
@@ -758,6 +825,13 @@ class HybridRetriever:
 
                 vector = vector_scores.get(result["id"], 0.0)
                 lexical = self._lexical_index.score(index, query_tokens)
+                needs_lexical = (
+                    result.get("is_dictionary")
+                    or (
+                        intent != "technical"
+                        and result.get("chunk_type") in TECHNICAL_CHUNK_TYPES
+                    )
+                )
 
                 if active_scope:
                     relevant = (
@@ -772,10 +846,7 @@ class HybridRetriever:
                                 lexical >= self.UNSCOPED_MIN_LEXICAL_SUPPORT
                                 or (
                                     vector >= self.UNSCOPED_STRONG_VECTOR
-                                    and (
-                                        intent == "technical"
-                                        or result.get("chunk_type") not in TECHNICAL_CHUNK_TYPES
-                                    )
+                                    and not needs_lexical
                                 )
                             )
                         )
@@ -795,7 +866,14 @@ class HybridRetriever:
                         if active_scope["kind"] == "page"
                         else self.FOCUS_REPORT_PAGE_BONUS
                     )
-                elif active_scope and active_scope["kind"] == "page":
+                elif (
+                    active_scope
+                    and active_scope["kind"] == "page"
+                    and not result.get("is_dictionary")
+                ):
+                    # El diccionario no es «otra página»: documenta las
+                    # variables de todo el tablero (también las de la página
+                    # nombrada), así que no se penaliza.
                     bonus = -self.OTHER_PAGE_PENALTY
 
                 final = (
@@ -830,14 +908,24 @@ class HybridRetriever:
                     if query_tokens
                     else set()
                 )
-                coverage.append((item, in_focus, matched))
+                # Entrada del diccionario con buen apoyo léxico: la definición
+                # de la variable que nombra la pregunta (aunque la página la
+                # mencione).
+                dictionary_entry = bool(
+                    result.get("is_dictionary")
+                    and lexical >= self.SCOPED_DICTIONARY_MIN_LEXICAL
+                )
+                coverage.append((item, in_focus or dictionary_entry, matched))
 
             # Página nombrada: las demás páginas del informe solo entran si
             # aportan términos de la pregunta que la página no cubre (el
             # «semáforo» de auditoría de medicamentos está en otra página);
             # si no, solo meterían filtros/visuales ajenos.
             if active_scope and active_scope["kind"] == "page":
-                focus_items = [entry for entry in coverage if entry[1]]
+                focus_items = [
+                    entry for entry in coverage
+                    if entry[0].get("dashboard") in focus_pages
+                ]
                 if focus_items:
                     covered = set().union(*(entry[2] for entry in focus_items))
                     candidates = [
