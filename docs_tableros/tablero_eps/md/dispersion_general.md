@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [OPORTUNIDAD_TRIAGE, ADMISIONES_TRIAGE, Calendario]
 actualizado: 2026-10-28
 version: 2
-id_pagina: ReportSection22e308d3000a0c33e22c
 ---
 
 # DISPERSION GENERAL

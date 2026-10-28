@@ -6,7 +6,6 @@ bloque: Día
 tablas: [ATENCIONES_DIA, OPORTUNIDAD_TRIAGE, Calendario]
 actualizado: 2026-10-28
 version: 2
-id_pagina: ReportSection4e35846d7ed18889621b
 ---
 
 # DISPERSION DIA

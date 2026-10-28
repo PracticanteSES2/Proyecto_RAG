@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [OPORTUNIDAD_TRIAGE, ADMISIONES_TRIAGE, ATENCIONES_DIA, Calendario]
 actualizado: 2026-10-28
 version: 2
-id_pagina: ReportSection0b34ce4c5500371b02d0
 ---
 
 # %ATENCIONES/ADMISIONES

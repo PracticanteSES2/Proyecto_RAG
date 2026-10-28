@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [CONSULTAS_PRIORITARIAS, Calendario]
 actualizado: 2026-10-28
 version: 2
-id_pagina: ReportSection03881a3bf5b2717d0358
 ---
 
 # CONSULTAS PRIORITARIAS

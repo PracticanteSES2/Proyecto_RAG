@@ -6,7 +6,6 @@ bloque: Histórico
 tablas: [OPORTUNIDAD_TRIAGE, Calendario]
 actualizado: 2026-10-28
 version: 2
-id_pagina: ReportSection3164e9368e1bcc728187
 ---
 
 # MAPA DE CALOR TRIAGES
