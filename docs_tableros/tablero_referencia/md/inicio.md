@@ -4,14 +4,14 @@ pagina: INICIO
 nombre_funcional: Resumen de solicitudes de referencia recibidas
 bloque: Día
 tablas: [REFERENCIA]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # INICIO
 
 ## Propósito
-Página principal del tablero. Resume las solicitudes de referencia recibidas en los últimos 30 días: cantidad, tiempo promedio de respuesta, edad promedio, solicitudes por especialidad, por rango de tiempo de respuesta y por causa de no aceptación. Es de seguimiento reciente (bloque Día). Desde aquí se navega a NO ACEPTADOS RECEPCIÓN, ACEPTADOS RECEPCIÓN y REMISIÓN. Nombre de página en Power BI por confirmar.
+Página principal del tablero. Resume las solicitudes de referencia recibidas en los últimos 30 días: cantidad, tiempo promedio de respuesta, edad promedio, solicitudes por especialidad, por rango de tiempo de respuesta y por causa de no aceptación. Es de seguimiento reciente (bloque Día). Desde aquí se navega a NO ACEPTADOS RECEPCIÓN, ACEPTADOS RECEPCIÓN y REMISIÓN. En Power BI la página se llama INICIO.
 
 ## Fuentes de datos
 - **REFERENCIA**: Solicitudes de recepción con llamada en los últimos 30 días; incluye paciente, edad, fechas de llamada, llegada estimada, ingreso, aceptación y no aceptación, servicio, prestador, EPS, estado, causa, motivo, especialidad (GEEDESCRI) y usuarios que registran y aceptan.
@@ -37,3 +37,4 @@ Página principal del tablero. Resume las solicitudes de referencia recibidas en
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
