@@ -4,14 +4,14 @@ pagina: FACTURACION
 nombre_funcional: Atenciones y facturación por CMD, GRD y CIE10
 bloque: Histórico
 tablas: [MATRIZ 2024, FACTURACION, ONCOLOGICO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # FACTURACION
 
 ## Propósito
-Cruza los egresos con la facturación: para cada CMD, GRD y diagnóstico CIE10 muestra las atenciones, su peso porcentual, el valor facturado y su peso, y el promedio de facturación. Sirve para ver qué diagnósticos y grupos aportan más ingresos a la institución. Se llega desde el botón FACTURACIÓN de INICIO. Análisis por año y mes (bloque Histórico). Nombre de página en Power BI por confirmar.
+Cruza los egresos con la facturación: para cada CMD, GRD y diagnóstico CIE10 muestra las atenciones, su peso porcentual, el valor facturado y su peso, y el promedio de facturación. Sirve para ver qué diagnósticos y grupos aportan más ingresos a la institución. Se llega desde el botón FACTURACIÓN de INICIO. Análisis por año y mes (bloque Histórico).
 
 ## Fuentes de datos
 - **MATRIZ 2024**: Egresos con CMD, GRD, CIE10, asegurador, sexo y servicio.
@@ -42,3 +42,4 @@ Cruza los egresos con la facturación: para cada CMD, GRD y diagnóstico CIE10 m
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP (solo modelo semántico).
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

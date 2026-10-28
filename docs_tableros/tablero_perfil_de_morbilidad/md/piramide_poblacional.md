@@ -4,14 +4,14 @@ pagina: PIRAMIDE POBLACIONAL
 nombre_funcional: Pirámide poblacional de los pacientes egresados por edad y sexo
 bloque: Histórico
 tablas: [MATRIZ 2024, ONCOLOGICO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # PIRAMIDE POBLACIONAL
 
 ## Propósito
-Pirámide poblacional de los pacientes egresados: porcentaje de pacientes por rango de edad y sexo, con el total de mujeres y de hombres. Sirve para conocer la composición demográfica de la población atendida y planear servicios. Se llega desde el botón PIRAMIDE POBLACIONAL de INICIO. Análisis por año y mes (bloque Histórico). Nombre de página en Power BI por confirmar.
+Pirámide poblacional de los pacientes egresados: porcentaje de pacientes por rango de edad y sexo, con el total de mujeres y de hombres. Sirve para conocer la composición demográfica de la población atendida y planear servicios. Se llega desde el botón PIRAMIDE POBLACIONAL de INICIO. Análisis por año y mes (bloque Histórico).
 
 ## Fuentes de datos
 - **MATRIZ 2024**: Egresos con edad, rango de edad, sexo, GRD y servicio.
@@ -37,3 +37,4 @@ Pirámide poblacional de los pacientes egresados: porcentaje de pacientes por ra
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP (solo modelo semántico).
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

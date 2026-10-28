@@ -4,14 +4,14 @@ pagina: GENERAL
 nombre_funcional: Perfil epidemiológico de los egresos hospitalarios
 bloque: General
 tablas: [MATRIZ 2024, FACTURACION, ONCOLOGICO, AMBULATORIO, PERIOPERATORIA, Calendario]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # GENERAL
 
 ## Propósito
-Describe el perfil de morbilidad de la población atendida: egresos por diagnóstico (CIE10), grupo relacionado por diagnóstico (GRD) y categoría diagnóstica mayor (CMD), con edad, sexo, servicio, mortalidad y facturación. Sirve para identificar las patologías que generan más demanda y orientar recursos. La página INICIO lleva a PIRAMIDE POBLACIONAL, FACTURACION y DETALLE PERFIL DE MORBILIDAD, y también a páginas de perioperatoria y atenciones ambulatorias. Todas las tablas son importadas y el análisis es por año y mes.
+Describe el perfil de morbilidad de la población atendida: egresos por diagnóstico (CIE10), grupo relacionado por diagnóstico (GRD) y categoría diagnóstica mayor (CMD), con edad, sexo, servicio, mortalidad y facturación. Sirve para identificar las patologías que generan más demanda y orientar recursos. La página INICIO lleva a PIRAMIDE POBLACIONAL, FACTURACION y PERFIL DE MORBILIDAD, y también a páginas de perioperatoria y atenciones ambulatorias. Todas las tablas son importadas y el análisis es por año y mes.
 
 ## Fuentes de datos
 - **MATRIZ 2024**: Egresos hospitalarios, una fila por egreso. Une la matriz histórica de egresos (DW_MATRIZ_EGRESOS) con los egresos del tablero GRD (TABLEROGRD) con salida desde 2025-01-01; trae edad, sexo, asegurador, diagnósticos CIE10, CMD y GRD de ingreso y de egreso, banderas de servicio, estado del egreso y tipo de salida. Modo import.
@@ -39,8 +39,8 @@ Describe el perfil de morbilidad de la población atendida: egresos por diagnós
 - **Código CIE10 calculado**: MATRIZ 2024[COD_CIE10_R] usa el código de ingreso si el paciente pasó por urgencias y el de egreso en los demás casos; con él se relaciona ONCOLOGICO.
 
 ## Observaciones
-- **Páginas sin documentación**: INICIO tiene botones PERIOPERATORIA y ATENCIONES AMBULATORIAS, cuyas páginas no están en la documentación del propietario ni hay PBIP del informe; no se documentaron.
-- **Sin informe PBIP**: Solo existe el modelo semántico (TMDL); los visuales se describen con la documentación y sus capturas y los campos exactos de cada visual quedan por confirmar.
+- **Páginas de perioperatoria y ambulatorio**: El informe tiene siete páginas ocultas de perioperatoria y atenciones ambulatorias que la documentación del propietario no describe; sus archivos solo recogen lo que se deduce del PBIP y quedan por confirmar.
+- **PBIP sin visuales**: El PBIP del informe trae las 11 páginas, todas ocultas salvo INICIO, pero ningún visual; los visuales se describen con la documentación y sus capturas y los campos exactos de cada uno quedan por confirmar.
 - **Número de ingreso distinto por origen**: En los egresos de TABLEROGRD la columna Ingreso es el identificador interno del ingreso, mientras FACTURACION usa el consecutivo (AINCONSEC); la facturación de esos egresos podría no cruzar. Por confirmar.
 - **Posibles duplicados**: Si la matriz histórica también trae egresos de 2025, se sumarían a los de TABLEROGRD; y la unión con epicrisis puede repetir egresos con más de una epicrisis. Por confirmar.
 - **Descripción y código CIE10 desalineados**: Para pacientes de urgencias el código CIE10 calculado es el de ingreso, pero la descripción (CIE10_R) prioriza la de egreso.
@@ -48,3 +48,4 @@ Describe el perfil de morbilidad de la población atendida: egresos por diagnós
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP (solo modelo semántico).
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

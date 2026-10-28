@@ -1,17 +1,18 @@
 ---
 tablero: TABLERO PERFIL DE MORBILIDAD
-pagina: DETALLE PERFIL DE MORBILIDAD
+pagina: PERFIL DE MORBILIDAD
 nombre_funcional: Atenciones y mortalidad por mes, edad, sexo, CMD y GRD
 bloque: Histórico
 tablas: [MATRIZ 2024, ONCOLOGICO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
+id_pagina: 4a71645b0d74a42e3519
 ---
 
-# DETALLE PERFIL DE MORBILIDAD
+# PERFIL DE MORBILIDAD
 
 ## Propósito
-Detalla los egresos por mes, rango de edad y sexo, y por CMD y GRD con sus defunciones y porcentaje de mortalidad. Sirve para identificar qué diagnósticos y grupos generan mayor carga asistencial y mortalidad. En pantalla se titula «PERFIL MORBILIDAD» y se llega desde el botón PERFIL DE MORBILIDAD de INICIO. Análisis por año y mes (bloque Histórico). Nombre de página en Power BI por confirmar.
+Detalla los egresos por mes, rango de edad y sexo, y por CMD y GRD con sus defunciones y porcentaje de mortalidad. Sirve para identificar qué diagnósticos y grupos generan mayor carga asistencial y mortalidad. En pantalla se titula «PERFIL MORBILIDAD» y se llega desde el botón PERFIL DE MORBILIDAD de INICIO. Análisis por año y mes (bloque Histórico). La documentación original la llama «Detalle Perfil de Morbilidad».
 
 ## Fuentes de datos
 - **MATRIZ 2024**: Egresos con mes, edad, sexo, CMD, GRD, servicio y estado del egreso.
@@ -44,3 +45,4 @@ Detalla los egresos por mes, rango de edad y sexo, y por CMD y GRD con sus defun
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP (solo modelo semántico).
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
