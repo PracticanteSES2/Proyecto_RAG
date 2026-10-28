@@ -16,6 +16,32 @@ CONTRATO (lo implementa el agente «pbip»):
     #  "medidas": {"T[m]": "DAX"},
     #  "relaciones": ["A[x] -> B[y]", ...]}
 
+    # CAMPOS OPCIONALES (se añaden sin cambiar lo anterior; quien no los conozca los ignora):
+    #  raíz:   "marcadores": [{"id", "nombre", "pagina_id", "pagina", "visuales": [ids]}],
+    #          "medidas_detalle": {"T[m]": {"nombre", "tabla", "dax", "descripcion", "formato", "carpeta",
+    #                                      "oculta", "tipo"}},
+    #          "relaciones_detalle": [{"texto", "desde", "hacia", "activa", "ambos_sentidos",
+    #                                  "cardinalidad_desde", "cardinalidad_hacia"}],
+    #          "modelo": {"nombre", "descripcion", "cultura"},   # descripción = comentario /// del TMDL
+    #          "expresiones": {"Nombre": {"descripcion", "origen", "servidor", "base_datos", "m", "parametro"}},
+    #          "roles": {"Rol": {"permiso", "filtros": {"T": "DAX"}}},
+    #          "advertencias": ["archivo ilegible, tabla citada que no existe, ..."]
+    #  tablas["T"]: "columnas_detalle": [{"nombre", "tabla", "tipo", "oculta", "calculada", "dax", "descripcion",
+    #                  "resumen_por" (summarizeBy), "columna_origen" (sourceColumn), "formato", "carpeta",
+    #                  "categoria", "ordenar_por", "clave"}],
+    #          "medidas": [nombres], "jerarquias": [{"nombre", "oculta", "niveles"}],
+    #          "particiones": [{"nombre", "tipo": "m|calculated|entity|query", "modo"}],
+    #          "calculada": bool (tabla calculada; su DAX está en "dax"), "oculta", "descripcion",
+    #          "origen_resumen": "SQL Server, base X, servidor Y; consulta SQL de N caracteres" (nunca credenciales),
+    #          "referencia": nombre de la consulta de la que parte (origen "referencia"), "grupo_calculo": [...].
+    #          "m", "sql" y "servidor" salen sin contraseñas, usuarios de conexión ni tokens (se reemplazan por ***).
+    #  página: "tipo_pagina": "Normal" | "Tooltip" | "Drillthrough".
+    #  visual: "grupo" (nombre del grupo que lo contiene), "oculto" (propio o de un grupo), "accion"
+    #          (PageNavigation | Bookmark | Back | WebUrl...), "titulo_dinamico" (título que sale de un campo),
+    #          "texto_alternativo", "orden": ["T[c] descendente"], "segmentador": {"modo", "seleccion_unica"},
+    #          "formato_condicional" con "tipo": "reglas" | "degradado" | "campo" (color tomado de un campo).
+    #  Un botón a un marcador lleva "destino": "el marcador «X» (PÁGINA)".
+
     cambios = comparar(hechos_antes, hechos_despues)
     # -> ["Página CONSULTAS DIA: se agregó el visual Tarjeta «X» (AVERAGE(T[c])).", ...]
 
@@ -92,13 +118,28 @@ TIPOS_VISUAL = {
     "map": "Mapa",
     "filledMap": "Mapa coroplético",
     "treemap": "Mapa de árbol",
+    "ribbonChart": "Gráfico de cintas",
+    "hundredPercentStackedBarChart": "Gráfico de barras 100% apiladas",
+    "hundredPercentStackedColumnChart": "Gráfico de columnas 100% apiladas",
+    "stackedBarChart": "Gráfico de barras apiladas",
+    "stackedColumnChart": "Gráfico de columnas apiladas",
+    "azureMap": "Mapa de Azure",
+    "shapeMap": "Mapa de formas",
+    "decompositionTreeVisual": "Árbol de descomposición",
+    "keyDriversVisual": "Influenciadores clave",
+    "qnaVisual": "Preguntas y respuestas",
+    "scriptVisual": "Visual de R",
+    "pythonVisual": "Visual de Python",
+    "paginator": "Paginador",
     "grupo": "Grupo de visuales",
 }
+# Visuales personalizados: el tipo lleva un identificador hexadecimal al final.
+PERSONALIZADOS = {"textFilter": "Filtro de texto (visual personalizado)", "htmlContent": "Visual HTML (personalizado)"}
 DECORATIVOS = {"shape", "basicShape", "image"}
 SEGMENTACIONES = {"slicer", "advancedSlicerVisual"}
 TABLAS_AUTOMATICAS = ("LocalDateTable_", "DateTableTemplate_")
 OCULTA = "HiddenInViewMode"
-MODOS = {"directquery": "DirectQuery", "import": "Import", "dual": "Dual", "push": "Push"}
+MODOS = {"directquery": "DirectQuery", "import": "Import", "dual": "Dual", "push": "Push", "directlake": "DirectLake"}
 
 # Un límite superior así de grande en una regla de color es un centinela («o más»).
 CENTINELA = 999
@@ -110,6 +151,10 @@ CENTINELA = 999
 
 def _leer_json(ruta: Path) -> dict:
     return json.loads(ruta.read_text(encoding="utf-8-sig"))
+
+
+def _es_segmentador(tipo: str) -> bool:
+    return tipo in SEGMENTACIONES or _tipo_base(tipo) == "textFilter"
 
 
 def _es_automatica(tabla: str | None) -> bool:
@@ -240,8 +285,13 @@ def _base_campo(campo: dict, ctx: _Contexto | None = None) -> tuple[str, str] | 
         return ctx.entidad(nodo.get("Expression")), nodo.get("Property")
     if "Aggregation" in campo:
         return _base_campo(campo["Aggregation"].get("Expression"), ctx)
+    if "Arithmetic" in campo:
+        ar = campo["Arithmetic"]
+        return _base_campo(ar.get("Left"), ctx) or _base_campo(ar.get("Right"), ctx)
+    if "ScopedEval" in campo:
+        return _base_campo(campo["ScopedEval"].get("Expression"), ctx)
     if "HierarchyLevel" in campo:
-        jer = (campo["HierarchyLevel"].get("Expression") or {}).get("Hierarchy") or {}
+        jer =(campo["HierarchyLevel"].get("Expression") or {}).get("Hierarchy") or {}
         fuente = jer.get("Expression") or {}
         if "PropertyVariationSource" in fuente:
             pvs = fuente["PropertyVariationSource"]
@@ -292,6 +342,9 @@ def _expr(campo, ctx: _Contexto | None = None) -> str:
         return f"{_expr(da.get('Expression'), ctx)} {'+' if da.get('Amount', 0) >= 0 else '-'} {abs(da.get('Amount', 0))} {unidad}(s)"
     if "Now" in campo:
         return "ahora"
+    if "NativeVisualCalculation" in campo:
+        nv = campo["NativeVisualCalculation"]
+        return f"cálculo visual {nv.get('Name') or ''}".strip()
     if "ScopedEval" in campo:
         return f"total de {_expr(campo['ScopedEval'].get('Expression'), ctx)}"
     if "Arithmetic" in campo:
@@ -502,9 +555,21 @@ def _formato_condicional(objetos: dict, proyecciones: list[dict]) -> list[dict]:
                 if not isinstance(valor, dict):
                     continue
                 expr = ((valor.get("solid") or {}).get("color") or {}).get("expr")
-                if not isinstance(expr, dict) or not ({"Conditional", "FillRule"} & set(expr)):
+                if not isinstance(expr, dict):
                     continue
                 regla = {"objeto": clave, "propiedad": {"backColor": "fondo", "fontColor": "texto"}.get(propiedad, propiedad)}
+                if {"Measure", "Column", "Aggregation"} & set(expr):
+                    # El color sale del valor de un campo (p. ej. una medida que devuelve «#00FF00»).
+                    destino = por_ref.get(selector) or (por_base.get(tuple(_base_campo(expr) or ())) if _base_campo(expr) else None)
+                    if destino is None and not selector and proyecciones:
+                        destino = proyecciones[0]
+                    if destino is None:
+                        continue
+                    regla.update(tipo="campo", casos=[], puntos=[], campo=destino["nombre"], evalua=_expr(expr))
+                    reglas.append(regla)
+                    continue
+                if not ({"Conditional", "FillRule"} & set(expr)):
+                    continue
                 if "FillRule" in expr:
                     fr = expr["FillRule"]
                     operando = fr.get("Input")
@@ -558,7 +623,10 @@ def _semaforo(reglas: list[dict]) -> list[str]:
             colores = " → ".join(p["color"] for p in r["puntos"])
             salida.append(f"{r['campo']}{sufijo}: degradado {colores}".rstrip())
             continue
-        for caso in r["casos"]:
+        if r["tipo"] == "campo":
+            salida.append(f"{r['campo']}{sufijo}: color según {r['evalua']}")
+            continue
+        for caso in r.get("casos") or []:
             if r["propiedad"] != "fondo" and caso["color"] in ("blanco", "negro"):
                 continue
             salida.append(f"{r['campo']}{sufijo}: {caso['color']} {caso['rango']}")
@@ -582,11 +650,13 @@ def _textos_parrafos(parrafos) -> str:
 
 def _visual(datos: dict) -> dict:
     v = datos.get("visual")
+    grupo_padre = datos.get("parentGroupName")
     if not v:
         grupo = datos.get("visualGroup") or {}
         return {"id": datos.get("name"), "tipo": "grupo", "titulo": grupo.get("displayName"), "campos": [],
                 "campos_detalle": [], "filtros": [], "semaforo": [], "formato_condicional": [], "texto": None,
-                "destino": None, "destino_id": None, "accion": None, "tablas": [], "oculto": bool(datos.get("isHidden"))}
+                "destino": None, "destino_id": None, "accion": None, "tablas": [], "oculto": bool(datos.get("isHidden")),
+                "grupo": grupo_padre, "grupo_id": grupo_padre}
     tipo = v.get("visualType") or "?"
     proyecciones = []
     for rol, estado in ((v.get("query") or {}).get("queryState") or {}).items():
@@ -603,11 +673,33 @@ def _visual(datos: dict) -> dict:
     vco = v.get("visualContainerObjects") or {}
     objetos = v.get("objects") or {}
 
-    titulo = None
+    titulo, titulo_dinamico = None, None
     for t in vco.get("title") or []:
-        valor = _valor_propiedad((t.get("properties") or {}).get("text"))
+        prop = (t.get("properties") or {}).get("text")
+        valor = _valor_propiedad(prop)
         if valor:
             titulo = str(valor).strip()
+        elif isinstance(prop, dict) and isinstance(prop.get("expr"), dict) and "Literal" not in prop["expr"]:
+            titulo_dinamico = _expr(prop["expr"])
+    alt = None
+    for g in vco.get("general") or []:
+        alt = _valor_propiedad((g.get("properties") or {}).get("altText")) or alt
+
+    ordenes = []
+    for o in ((v.get("query") or {}).get("sortDefinition") or {}).get("sort") or []:
+        ordenes.append(f"{_expr(o.get('field'))} {'descendente' if o.get('direction') == 'Descending' else 'ascendente'}")
+
+    segmentador = None
+    if _es_segmentador(tipo):
+        segmentador = {}
+        for d in objetos.get("data") or []:
+            modo = _valor_propiedad((d.get("properties") or {}).get("mode"))
+            if modo:
+                segmentador["modo"] = str(modo)
+        for s in objetos.get("selection") or []:
+            unica = _valor_propiedad((s.get("properties") or {}).get("singleSelect"))
+            if unica is not None:
+                segmentador["seleccion_unica"] = bool(unica)
 
     texto = None
     if tipo == "textbox":
@@ -629,11 +721,14 @@ def _visual(datos: dict) -> dict:
         if accion == "Bookmark":
             destino_id = destino_id or _valor_propiedad(props.get("bookmark"))
         if accion == "WebUrl":
-            destino_id = destino_id or _valor_propiedad(props.get("webUrl"))
+            destino_id = destino_id or _sanear(_valor_propiedad(props.get("webUrl")))
 
     filtros, _, tablas_filtro = _filtros(datos.get("filterConfig"))
     reglas = _formato_condicional(objetos, proyecciones)
-    tablas = {p["base"][0] for p in proyecciones if p.get("base")} | tablas_filtro
+    citadas: set = set()
+    _referencias(v, {}, citadas)
+    tablas = ({p["base"][0] for p in proyecciones if p.get("base")} | tablas_filtro
+              | {t for _, t, _ in citadas})
     return {
         "id": datos.get("name"),
         "tipo": tipo,
@@ -649,6 +744,12 @@ def _visual(datos: dict) -> dict:
         "accion": accion,
         "tablas": sorted(t for t in tablas if t and not _es_automatica(t)),
         "oculto": bool(datos.get("isHidden")),
+        "grupo": grupo_padre,
+        "grupo_id": grupo_padre,
+        "titulo_dinamico": titulo_dinamico,
+        "texto_alternativo": alt,
+        "orden": ordenes,
+        "segmentador": segmentador,
     }
 
 
@@ -665,6 +766,10 @@ class _LectorCarpeta:
     def subcarpetas(self, relativa: str) -> list[str]:
         carpeta = self.definicion / relativa
         return sorted(p.name for p in carpeta.iterdir() if p.is_dir()) if carpeta.is_dir() else []
+
+    def archivos(self, relativa: str, sufijo: str) -> list[str]:
+        carpeta = self.definicion / relativa
+        return sorted(p.name for p in carpeta.iterdir() if p.is_file() and p.name.endswith(sufijo)) if carpeta.is_dir() else []
 
 
 class _LectorZip:
@@ -687,6 +792,11 @@ class _LectorZip:
         base = self.PREFIJO + relativa.rstrip("/") + "/"
         return sorted({n[len(base):].split("/", 1)[0] for n in self.nombres
                        if n.startswith(base) and "/" in n[len(base):]})
+
+    def archivos(self, relativa: str, sufijo: str) -> list[str]:
+        base = self.PREFIJO + relativa.rstrip("/") + "/"
+        return sorted(n[len(base):] for n in self.nombres
+                      if n.startswith(base) and "/" not in n[len(base):] and n.endswith(sufijo))
 
 
 def _referencias(nodo, alias: dict, salida: set):
@@ -714,45 +824,112 @@ def _referencias_visual(datos: dict, salida: set):
         _referencias(f, alias, salida)
 
 
-def _paginas(lector, referencias: set | None = None) -> tuple[list[dict], list[str]]:
-    orden = list((lector.json("pages/pages.json") or {}).get("pageOrder") or [])
-    existentes = [p for p in lector.subcarpetas("pages") if lector.json(f"pages/{p}/page.json") is not None]
+def _json_seguro(lector, relativa: str, advertencias: list):
+    """JSON del informe o None; un archivo ilegible se anota y no detiene el resto."""
+    try:
+        return lector.json(relativa)
+    except (OSError, ValueError, KeyError) as e:
+        advertencias.append(f"No se pudo leer {relativa}: {type(e).__name__}")
+        return None
+
+
+def _marcadores(lector, advertencias: list) -> list[dict]:
+    """Marcadores del informe (bookmarks/*.bookmark.json) en el orden de bookmarks.json."""
+    meta = _json_seguro(lector, "bookmarks/bookmarks.json", advertencias) or {}
+    orden = []
+    for item in meta.get("items") or []:
+        orden.append(item.get("name"))
+        orden += list(item.get("children") or [])
+    por_id = {}
+    for archivo in lector.archivos("bookmarks", ".bookmark.json"):
+        d = _json_seguro(lector, f"bookmarks/{archivo}", advertencias)
+        if not d:
+            continue
+        estado = d.get("explorationState") or {}
+        bid = d.get("name") or archivo[: -len(".bookmark.json")]
+        por_id[bid] = {
+            "id": bid,
+            "nombre": d.get("displayName") or bid,
+            "pagina_id": estado.get("activeSection"),
+            "pagina": None,
+            "visuales": list((d.get("options") or {}).get("targetVisualNames") or []),
+        }
+    ordenados = [por_id[b] for b in orden if b in por_id] + [m for b, m in por_id.items() if b not in orden]
+    return ordenados
+
+
+def _paginas(lector, referencias: set | None = None, advertencias: list | None = None,
+             marcadores: list | None = None) -> tuple[list[dict], list[str]]:
+    advertencias = advertencias if advertencias is not None else []
+    orden = list((_json_seguro(lector, "pages/pages.json", advertencias) or {}).get("pageOrder") or [])
+    existentes = [p for p in lector.subcarpetas("pages") if _json_seguro(lector, f"pages/{p}/page.json", advertencias) is not None]
     orden = [p for p in orden if p in existentes] + [p for p in existentes if p not in orden]
     referencias = referencias if referencias is not None else set()
 
     paginas = []
     for i, pid in enumerate(orden, start=1):
-        datos = lector.json(f"pages/{pid}/page.json")
+        datos = _json_seguro(lector, f"pages/{pid}/page.json", advertencias)
         filtros, detalles, _ = _filtros(datos.get("filterConfig"))
         _referencias_visual(datos, referencias)
-        visuales = []
+        crudos = []
         for vid in lector.subcarpetas(f"pages/{pid}/visuals"):
-            vd = lector.json(f"pages/{pid}/visuals/{vid}/visual.json")
+            vd = _json_seguro(lector, f"pages/{pid}/visuals/{vid}/visual.json", advertencias)
             if vd is None:
                 continue
-            _referencias_visual(vd, referencias)
-            pos = vd.get("position") or {}
-            visuales.append((round(float(pos.get("y", 0)) / 10), float(pos.get("x", 0)), _visual(vd)))
-        visuales.sort(key=lambda t: (t[0], t[1], t[2]["id"] or ""))
+            try:
+                _referencias_visual(vd, referencias)
+                pos = vd.get("position") or {}
+                crudos.append((round(float(pos.get("y", 0)) / 10), float(pos.get("x", 0)), _visual(vd), vd))
+            except Exception as e:  # un visual raro no debe tumbar el informe
+                advertencias.append(f"Página {datos.get('displayName') or pid}, visual {vid}: {type(e).__name__}: {e}")
+        # Grupos: el visual hereda lo oculto del grupo que lo contiene.
+        grupos = {t[2]["id"]: (t[2], t[3].get("parentGroupName")) for t in crudos if t[2]["tipo"] == "grupo"}
+
+        def ancestros_ocultos(v):
+            visto, actual = set(), v.get("grupo_id")
+            while actual and actual in grupos and actual not in visto:
+                visto.add(actual)
+                if grupos[actual][0]["oculto"]:
+                    return True
+                actual = grupos[actual][1]
+            return False
+
+        for _, _, v, _ in crudos:
+            if v.get("grupo_id") in grupos:
+                v["grupo"] = grupos[v["grupo_id"]][0].get("titulo") or v["grupo_id"]
+            if ancestros_ocultos(v):
+                v["oculto"] = True
+        crudos.sort(key=lambda t: (t[0], t[1], t[2]["id"] or ""))
+        binding = (datos.get("pageBinding") or {}).get("type")
         paginas.append({
             "id": datos.get("name") or pid,
             "nombre": datos.get("displayName") or pid,
             "visible": datos.get("visibility") != OCULTA,
             "orden": i,
+            "tipo_pagina": datos.get("type") or (binding if binding not in (None, "Default") else "Normal"),
             "filtros": filtros,
             "obtener_detalles": detalles,
-            "visuales": [t[2] for t in visuales],
+            "visuales": [t[2] for t in crudos],
         })
 
+    lista_marcadores = _marcadores(lector, advertencias)
     nombres = {p["id"]: p["nombre"] for p in paginas}
+    por_marcador = {m["id"]: m for m in lista_marcadores}
+    for m in lista_marcadores:
+        m["pagina"] = nombres.get(m["pagina_id"])
     for p in paginas:
         for v in p["visuales"]:
             if v["destino_id"] in nombres:
                 v["destino"] = nombres[v["destino_id"]]
+            elif v["destino_id"] in por_marcador:
+                m = por_marcador[v["destino_id"]]
+                v["destino"] = f"el marcador «{m['nombre']}»" + (f" ({m['pagina']})" if m.get("pagina") else "")
             elif v["accion"] == "Back":
                 v["destino"] = "página anterior"
+    if marcadores is not None:
+        marcadores.extend(lista_marcadores)
 
-    reporte = lector.json("report.json") or {}
+    reporte = _json_seguro(lector, "report.json", advertencias) or {}
     filtros_reporte, _, _ = _filtros(reporte.get("filterConfig"))
     _referencias_visual(reporte, referencias)
     return paginas, filtros_reporte
@@ -762,6 +939,43 @@ def _paginas(lector, referencias: set | None = None) -> tuple[list[dict], list[s
 # Modelo semántico (TMDL)
 # ---------------------------------------------------------------------------
 
+# Palabras que abren un objeto TMDL (con nombre y, a veces, «= expresión»).
+OBJETOS_TMDL = {
+    "model", "database", "table", "column", "measure", "partition", "hierarchy", "level",
+    "calculationGroup", "calculationItem", "expression", "relationship", "role", "tablePermission",
+    "perspective", "culture", "cultureInfo", "annotation", "ref", "queryGroup", "extendedProperty",
+    "dataSource", "function", "calendar", "calendarColumnGroup", "variation", "member", "translation",
+}
+# Propiedades sin valor (banderas).
+BANDERAS_TMDL = {"isHidden", "isKey", "isNullable", "isDefault", "isActive", "isPrivate", "isNameInferred",
+                 "isDataTypeInferred", "showAsVariationsOnly", "isDefaultImage", "isAvailableInMdx"}
+
+_RE_PROP = re.compile(r"^([A-Za-z_]\w*)\s*:\s*(.*)$")
+_RE_IGUAL = re.compile(r"^([A-Za-z_]\w*)\s*=\s*(.*)$")
+
+
+class _Nodo:
+    """Objeto TMDL: tipo, nombre, expresión («= ...»), propiedades, comentario /// e hijos."""
+
+    __slots__ = ("tipo", "nombre", "nivel", "expr", "doc", "props", "hijos")
+
+    def __init__(self, tipo, nombre, nivel, expr=None, doc=""):
+        self.tipo, self.nombre, self.nivel, self.expr, self.doc = tipo, nombre, nivel, expr, doc
+        self.props: dict = {}
+        self.hijos: list[_Nodo] = []
+
+    def hijos_de(self, tipo: str):
+        return [h for h in self.hijos if h.tipo == tipo]
+
+    def bandera(self, clave: str) -> bool:
+        v = self.props.get(clave)
+        return v is True or (isinstance(v, str) and v.strip().lower() == "true")
+
+    def texto(self, clave: str):
+        v = self.props.get(clave)
+        return None if v is None or v is True else _sin_comillas(str(v))
+
+
 def _nivel(linea: str) -> int:
     tabs = len(linea) - len(linea.lstrip("\t"))
     if tabs:
@@ -769,15 +983,22 @@ def _nivel(linea: str) -> int:
     return (len(linea) - len(linea.lstrip(" "))) // 4
 
 
+def _sin_comillas(valor: str) -> str:
+    valor = valor.strip()
+    m = re.fullmatch(r"'((?:[^']|'')*)'", valor)
+    return m.group(1).replace("''", "'") if m else valor
+
+
 def _separar_nombre(resto: str) -> tuple[str, str | None]:
     """«'EN ESPERA' = expr» -> ("EN ESPERA", "expr"); «X» -> ("X", None)."""
     resto = resto.strip()
-    if resto.startswith("'"):
+    if resto[:1] in ("'", '"'):
+        comilla = resto[0]
         i, buf = 1, []
         while i < len(resto):
-            if resto[i] == "'":
-                if i + 1 < len(resto) and resto[i + 1] == "'":
-                    buf.append("'")
+            if resto[i] == comilla:
+                if i + 1 < len(resto) and resto[i + 1] == comilla:
+                    buf.append(comilla)
                     i += 2
                     continue
                 i += 1
@@ -800,75 +1021,169 @@ def _desindentar(lineas: list[str]) -> str:
     return "\n".join(l[comun:] if l.strip() else "" for l in lineas).strip()
 
 
-def _expresion(lineas: list[str], j: int, primera: str, nivel_minimo: int) -> tuple[str, int]:
-    """Expresión que sigue a «= ...»: en la misma línea, en líneas más indentadas
-    o entre ``` ... ```. Devuelve (texto, índice de la siguiente línea)."""
+def _es_linea_propiedad(contenido: str) -> bool:
+    palabra = re.match(r"[A-Za-z_]\w*", contenido)
+    if not palabra:
+        return False
+    return bool(_RE_PROP.match(contenido)) or palabra.group(0) in OBJETOS_TMDL | BANDERAS_TMDL | {"changedProperty"}
+
+
+def _cuerpo(lineas: list[str], j: int, primera: str, nivel: int, objeto: bool) -> tuple[str, int]:
+    """Texto que sigue a «= ...»: en la misma línea, en líneas más indentadas o entre
+    ``` ... ```. `nivel` es el del encabezado; el cuerpo de un objeto (medida, columna)
+    va dos niveles más adentro (las propiedades, uno); el de una propiedad, uno.
+    Devuelve (texto, índice de la siguiente línea)."""
+    primera = primera.strip()
     if primera.startswith("```"):
-        buf = []
-        while j < len(lineas) and not lineas[j].strip().startswith("```"):
-            buf.append(lineas[j])
+        resto = primera[3:]
+        if "```" in resto:
+            return resto.split("```")[0].strip(), j
+        buf = [resto] if resto.strip() else []
+        while j < len(lineas):
+            l = lineas[j]
+            if l.strip().startswith("```"):
+                return _desindentar(buf), j + 1
+            if l.rstrip().endswith("```"):
+                buf.append(l.rstrip()[:-3])
+                return _desindentar(buf), j + 1
+            buf.append(l)
             j += 1
-        return _desindentar(buf), j + 1
-    if primera:
-        return primera, j
+        return _desindentar(buf), j
+    minimo = nivel + (2 if objeto else 1)
     buf = []
-    while j < len(lineas) and (not lineas[j].strip() or _nivel(lineas[j]) >= nivel_minimo):
-        buf.append(lineas[j])
-        j += 1
+    while j < len(lineas):
+        l = lineas[j]
+        if not l.strip():
+            buf.append(l)
+            j += 1
+            continue
+        niv = _nivel(l)
+        if niv >= minimo or (objeto and niv == nivel + 1 and not _es_linea_propiedad(l.strip())):
+            buf.append(l)
+            j += 1
+            continue
+        break
     while buf and not buf[-1].strip():
         buf.pop()
-    return _desindentar(buf), j
+    # Las líneas en blanco finales las consumió el cuerpo: no importa, el lector las salta.
+    cuerpo = _desindentar(buf)
+    if primera:
+        return primera + ("\n" + cuerpo if cuerpo else ""), j
+    return cuerpo, j
 
 
-def _parsear_tabla_tmdl(texto: str) -> dict:
+def _nodos_tmdl(texto: str) -> _Nodo:
+    """Árbol de objetos de un archivo TMDL (tablas, expresiones, relaciones, roles...)."""
     lineas = texto.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    tabla = {"nombre": None, "columnas": [], "calculadas": {}, "medidas": {}, "particiones": []}
+    raiz = _Nodo("raiz", None, -1)
+    pila = [raiz]
+    doc: list[str] = []
     i = 0
     while i < len(lineas):
         linea = lineas[i]
         contenido = linea.strip()
-        nivel = _nivel(linea)
-        if not contenido:
-            i += 1
-            continue
-        palabra, _, resto = contenido.partition(" ")
-        if nivel == 0 and palabra == "table":
-            tabla["nombre"], _ = _separar_nombre(resto)
-            i += 1
-            continue
-        if nivel == 1 and palabra in ("column", "measure", "partition"):
-            nombre, expr = _separar_nombre(resto)
-            i += 1
-            if expr is not None:
-                expr, i = _expresion(lineas, i, expr, 3)
-            props = {}
-            while i < len(lineas) and (not lineas[i].strip() or _nivel(lineas[i]) >= 2):
-                prop = lineas[i]
-                if not prop.strip() or _nivel(prop) != 2:
-                    i += 1
-                    continue
-                pc = prop.strip()
-                m = re.match(r"^([A-Za-z]+)\s*([:=])\s*(.*)$", pc)
-                i += 1
-                if not m:
-                    continue
-                clave, signo, valor = m.groups()
-                if signo == "=":
-                    valor, i = _expresion(lineas, i, valor.strip(), 3)
-                props[clave] = valor.strip()
-            if palabra == "column":
-                tabla["columnas"].append(nombre)
-                if expr:
-                    tabla["calculadas"][nombre] = expr
-            elif palabra == "measure":
-                tabla["medidas"][nombre] = expr or ""
-            else:
-                tipo = (expr or "").strip()
-                tabla["particiones"].append({"nombre": nombre, "tipo": tipo, "modo": props.get("mode", "import"),
-                                             "fuente": props.get("source", "")})
-            continue
         i += 1
-    return tabla
+        if not contenido:
+            continue
+        if contenido.startswith("///"):
+            doc.append(contenido[3:].strip())
+            continue
+        if contenido.startswith("//"):
+            continue
+        nivel = _nivel(linea)
+        while len(pila) > 1 and pila[-1].nivel >= nivel:
+            pila.pop()
+        padre = pila[-1]
+        m = _RE_PROP.match(contenido)
+        if m:
+            padre.props[m.group(1)] = m.group(2).strip()
+            doc = []
+            continue
+        palabra = re.match(r"\S+", contenido).group(0)
+        if palabra in OBJETOS_TMDL:
+            nombre, expr = _separar_nombre(contenido[len(palabra):])
+            if expr is not None:
+                expr, i = _cuerpo(lineas, i, expr, nivel, True)
+            nodo = _Nodo(palabra, nombre, nivel, expr, "\n".join(doc).strip())
+            padre.hijos.append(nodo)
+            pila.append(nodo)
+            doc = []
+            continue
+        m = _RE_IGUAL.match(contenido)
+        if m:
+            valor, i = _cuerpo(lineas, i, m.group(2), nivel, False)
+            padre.props[m.group(1)] = valor
+        else:
+            padre.props[contenido] = True
+        doc = []
+    return raiz
+
+
+def _parsear_tabla_tmdl(texto: str) -> dict:
+    """Lectura mínima de un archivo de tabla (nombre, columnas, calculadas, medidas,
+    particiones); `_convertir_tabla` da el detalle completo."""
+    raiz = _nodos_tmdl(texto)
+    nodo = next(iter(raiz.hijos_de("table")), None)
+    if nodo is None:
+        return {"nombre": None, "columnas": [], "calculadas": {}, "medidas": {}, "particiones": []}
+    t = _convertir_tabla(nodo)
+    return {
+        "nombre": t["nombre"],
+        "columnas": [c["nombre"] for c in t["columnas_detalle"]],
+        "calculadas": {c["nombre"]: c["dax"] for c in t["columnas_detalle"] if c["calculada"] and c["dax"]},
+        "medidas": {m["nombre"]: m["dax"] for m in t["medidas_detalle"]},
+        "particiones": [{"nombre": p["nombre"], "tipo": p["tipo"], "modo": p["modo_tmdl"], "fuente": p["fuente"]}
+                        for p in t["particiones"]],
+        "detalle": t,
+    }
+
+
+def _convertir_tabla(nodo: _Nodo) -> dict:
+    """Hechos de una tabla TMDL: columnas, medidas, jerarquías y particiones con todos sus atributos."""
+    tabla = nodo.nombre
+    columnas, medidas, jerarquias, particiones, items = [], [], [], [], []
+    for h in nodo.hijos:
+        if h.tipo == "column":
+            calculada = h.expr is not None or h.texto("type") == "calculated"
+            columnas.append({
+                "nombre": h.nombre, "tabla": tabla, "tipo": h.texto("dataType"),
+                "oculta": h.bandera("isHidden"), "calculada": bool(calculada),
+                "dax": (h.expr or None) if calculada else None,
+                "descripcion": h.doc or h.texto("description") or None,
+                "resumen_por": h.texto("summarizeBy"), "columna_origen": h.texto("sourceColumn"),
+                "formato": h.texto("formatString"), "carpeta": h.texto("displayFolder"),
+                "categoria": h.texto("dataCategory"), "ordenar_por": h.texto("sortByColumn"),
+                "clave": h.bandera("isKey"),
+            })
+        elif h.tipo == "measure":
+            medidas.append({
+                "nombre": h.nombre, "tabla": tabla, "dax": h.expr or "",
+                "descripcion": h.doc or h.texto("description") or None,
+                "formato": h.texto("formatString"), "carpeta": h.texto("displayFolder"),
+                "oculta": h.bandera("isHidden"), "tipo": h.texto("dataType"),
+            })
+        elif h.tipo == "hierarchy":
+            jerarquias.append({"nombre": h.nombre, "oculta": h.bandera("isHidden"),
+                               "niveles": [n.nombre for n in h.hijos_de("level")]})
+        elif h.tipo == "partition":
+            propios = h.props
+            fuente = propios.get("source")
+            particiones.append({
+                "nombre": h.nombre, "tipo": (h.expr or "").strip().lower(),
+                "modo_tmdl": h.texto("mode") or "import",
+                "fuente": "" if fuente in (None, True) else str(fuente),
+                "entidad": h.texto("entityName"), "esquema": h.texto("schemaName"),
+            })
+        elif h.tipo == "calculationGroup":
+            for it in h.hijos_de("calculationItem"):
+                items.append({"nombre": it.nombre, "dax": it.expr or "", "formato": None})
+    return {
+        "nombre": tabla, "oculta": nodo.bandera("isHidden"),
+        "descripcion": nodo.doc or nodo.texto("description") or None,
+        "columnas_detalle": columnas, "medidas_detalle": medidas, "jerarquias": jerarquias,
+        "particiones": particiones, "elementos_calculo": items,
+        "grupo_calculo": bool(nodo.hijos_de("calculationGroup")),
+    }
 
 
 def _cadena_m(texto: str, inicio: int) -> tuple[str, int]:
@@ -915,20 +1230,91 @@ def _siguiente_cadena(texto: str, desde: int) -> tuple[str | None, int]:
     return _decodificar_m(valor), fin
 
 
+# Datos que no deben quedar en los hechos: contraseñas, usuarios, tokens y claves en
+# cadenas de conexión, registros de credenciales de M y direcciones con usuario:clave@.
+_SECRETO = r"(?:password|pwd|passwd|secret|token|api[_-]?key|apikey|access[_-]?key|account[_-]?key|client[_-]?secret|authorization|bearer)"
+_RE_SECRETOS = [
+    # Password=abc; / Pwd='abc' / "Password": "abc"
+    (re.compile(r"(?i)(\b" + _SECRETO + r"\b[\"']?\s*[=:]\s*)(\"\"[^\"]*\"\"|\"[^\"]*\"|'[^']*'|[^;&\s,\]\)\"]+)"), r"\1***"),
+    # https://usuario:clave@host
+    (re.compile(r"(?i)(\b[a-z][a-z0-9+.-]*://)[^/\s:@\"']+:[^/\s@\"']+@"), r"\1***@"),
+]
+# Usuario de la cadena de conexión; no se aplica al SQL (user, username pueden ser columnas).
+_RE_USUARIO = re.compile(r"(?i)(\b(?:user\s*id|uid|username)\b[\"']?\s*=\s*)(\"\"[^\"]*\"\"|\"[^\"]*\"|'[^']*'|[^;&\s,\]\)\"]+)")
+
+
+def _sanear(texto, sql: bool = False):
+    """Quita credenciales (contraseñas, usuarios, tokens) de un texto de conexión, M o SQL."""
+    if not texto:
+        return texto
+    for patron, reemplazo in _RE_SECRETOS:
+        texto = patron.sub(reemplazo, texto)
+    if not sql:
+        texto = _RE_USUARIO.sub(r"\1***", texto)
+    return texto
+
+
+# Funciones de M que transforman datos: no son el origen.
+_NO_ORIGEN = ("Table.", "List.", "Text.", "Record.", "Number.", "Date.", "DateTime.", "DateTimeZone.", "Time.",
+              "Duration.", "Type.", "Splitter.", "Combiner.", "Replacer.", "Comparer.", "Int64.", "Logical.",
+              "Expression.", "Function.", "Value.", "Error.", "Currency.", "Percentage.", "Single.", "Double.",
+              "Decimal.", "Binary.", "Character.", "Uri.", "Culture.", "Diagnostics.", "Lines.", "Action.",
+              "Variable.", "Odbc.Query", "Sql.Native")
+_ORIGENES = {
+    "Sql.Database": "SQL Server", "Sql.Databases": "SQL Server", "Oracle.Database": "Oracle",
+    "PostgreSQL.Database": "PostgreSQL", "MySQL.Database": "MySQL", "Odbc.DataSource": "ODBC", "Odbc.Query": "ODBC",
+    "OleDb.DataSource": "OLE DB", "OleDb.Query": "OLE DB", "Excel.Workbook": "Excel", "Excel.CurrentWorkbook": "Excel",
+    "Csv.Document": "CSV", "Json.Document": "JSON", "Xml.Tables": "XML", "Xml.Document": "XML",
+    "SharePoint.Files": "SharePoint", "SharePoint.Tables": "SharePoint", "SharePoint.Contents": "SharePoint",
+    "Web.Contents": "Web", "Web.Page": "Web", "Folder.Files": "Carpeta", "Folder.Contents": "Carpeta",
+    "File.Contents": "Archivo", "AnalysisServices.Database": "Analysis Services", "Access.Database": "Access",
+    "Snowflake.Databases": "Snowflake", "GoogleBigQuery.Database": "BigQuery", "Teradata.Database": "Teradata",
+    "Databricks.Catalogs": "Databricks", "Lakehouse.Contents": "Lakehouse", "Fabric.Warehouse": "Warehouse",
+    "OData.Feed": "OData", "Parquet.Document": "Parquet", "Pdf.Tables": "PDF",
+}
+
+
+def _resumen_origen(info: dict, fuente: str) -> str | None:
+    """Frase corta del origen (sin credenciales) para documentar la tabla."""
+    origen = info.get("origen")
+    if not origen:
+        return None
+    if origen == "referencia":
+        return f"Referencia a la consulta {info.get('referencia')}"
+    if origen == "manual":
+        return "Datos escritos a mano en Power Query"
+    nombre = _ORIGENES.get(origen, origen)
+    partes = [nombre]
+    if info.get("base_datos"):
+        partes.append(f"base {info['base_datos']}")
+    if info.get("servidor"):
+        partes.append(f"servidor {info['servidor']}")
+    elif origen in ("Excel.Workbook", "Csv.Document", "File.Contents", "Folder.Files", "Web.Contents"):
+        destino = re.search(r"(?:File|Folder)\.(?:Contents|Files)\(\s*\"([^\"]*)\"|Web\.Contents\(\s*\"([^\"]*)\"", fuente)
+        if destino:
+            ruta = _sanear(destino.group(1) or destino.group(2))
+            host = re.match(r"(?i)https?://([^/?#]+)", ruta)
+            partes.append(f"sitio {host.group(1)}" if host else _corto(ruta, 100))
+    texto = ", ".join(partes)
+    if info.get("sql"):
+        texto += f"; consulta SQL de {len(info['sql'])} caracteres"
+    return texto
+
+
 def _analizar_m(fuente: str) -> dict:
-    """Origen, servidor, base y SQL nativo de una consulta Power Query."""
+    """Origen, servidor, base y SQL nativo de una consulta Power Query. Nada de lo
+    devuelto incluye credenciales."""
     info = {"origen": None, "servidor": None, "base_datos": None, "sql": None}
-    m = re.search(r"\b([A-Z][A-Za-z]*\.[A-Z][A-Za-z]*)\s*\(", fuente)
-    if m:
-        info["origen"] = m.group(1)
+    for m in re.finditer(r"(?<![\w.#\"])([A-Z][A-Za-z0-9]*\.[A-Z][A-Za-z0-9]*)\s*\(", fuente):
+        if m.group(1) in _ORIGENES or not m.group(1).startswith(_NO_ORIGEN):
+            info["origen"] = m.group(1)
+            break
     m = re.search(r"Sql\.Databases?\s*\(", fuente)
     if m:
         info["origen"] = "Sql.Database"
         servidor, fin = _siguiente_cadena(fuente, m.end())
         info["servidor"] = servidor
-        resto = fuente[fin:]
-        m2 = re.match(r"\s*,\s*\"", resto)
-        if m2:
+        if re.match(r"\s*,\s*\"", fuente[fin:]):
             info["base_datos"], _ = _siguiente_cadena(fuente, fin)
     m = re.search(r"Value\.NativeQuery\s*\(", fuente)
     if m:
@@ -953,53 +1339,158 @@ def _analizar_m(fuente: str) -> dict:
         if m:
             info["sql"], _ = _siguiente_cadena(fuente, m.end() - 1)
     if info["sql"] is not None:
-        info["sql"] = info["sql"].strip()
+        info["sql"] = _sanear(info["sql"].strip(), sql=True)
+    if info["servidor"]:
+        info["servidor"] = _sanear(info["servidor"])
+    if info["origen"] is None:
+        if re.search(r"#table\s*\(|\bTable\.From(?:Rows|Records|Columns)\s*\(", fuente):
+            info["origen"] = "manual"
+        else:
+            r = re.search(r"\blet\s+[^=\n]+=\s*(#\"([^\"]+)\"|([A-Za-z_]\w*))\s*[,\n]", fuente)
+            if r and (r.group(2) or r.group(3)) not in ("true", "false", "null"):
+                info["origen"] = "referencia"
+                info["referencia"] = r.group(2) or r.group(3)
     return info
 
 
-def _modelo(modelo: Path | None) -> tuple[dict, dict, list[str]]:
-    tablas, medidas, relaciones = {}, {}, []
+def _datos_tabla(t: dict) -> dict:
+    """Entrada de `tablas` a partir de la tabla convertida."""
+    parts = t["particiones"]
+    part = parts[0] if parts else {"tipo": "", "modo_tmdl": "import", "fuente": "", "nombre": None, "entidad": None, "esquema": None}
+    modo = MODOS.get(str(part["modo_tmdl"]).lower(), part["modo_tmdl"])
+    datos = {
+        "modo": modo,
+        "origen": None, "servidor": None, "base_datos": None, "sql": None, "m": None, "dax": None,
+        "columnas": [c["nombre"] for c in t["columnas_detalle"]],
+        "calculadas": {c["nombre"]: c["dax"] for c in t["columnas_detalle"] if c["calculada"] and c["dax"]},
+        "columnas_detalle": t["columnas_detalle"],
+        "medidas": [m["nombre"] for m in t["medidas_detalle"]],
+        "jerarquias": t["jerarquias"],
+        "particiones": [{"nombre": p["nombre"], "tipo": p["tipo"], "modo": MODOS.get(str(p["modo_tmdl"]).lower(), p["modo_tmdl"])}
+                        for p in parts],
+        "descripcion": t["descripcion"],
+        "oculta": t["oculta"],
+        "calculada": part["tipo"] == "calculated",
+        "origen_resumen": None,
+    }
+    if t["grupo_calculo"]:
+        datos["grupo_calculo"] = t["elementos_calculo"]
+    if part["tipo"] == "calculated":
+        datos["origen"] = "DAX"
+        datos["dax"] = part["fuente"] or None
+        datos["origen_resumen"] = "Tabla calculada con DAX"
+    elif part["tipo"] == "entity" or part.get("entidad"):
+        datos["origen"] = "Entity"
+        datos["origen_resumen"] = f"Entidad {part.get('esquema') + '.' if part.get('esquema') else ''}{part.get('entidad')}"
+    elif part["fuente"]:
+        info = _analizar_m(part["fuente"])
+        resumen = _resumen_origen(info, part["fuente"])
+        for k in ("origen", "servidor", "base_datos", "sql"):
+            datos[k] = info[k]
+        if info["sql"] is None:
+            datos["m"] = _sanear(part["fuente"])
+        if info.get("referencia"):
+            datos["referencia"] = info["referencia"]
+        datos["origen_resumen"] = resumen
+    return datos
+
+
+_PROPIEDADES_REL = re.compile(r"(?m)^[ \t]+(\w+)\s*:\s*(.+?)\s*$")
+
+
+def _relaciones(archivo_rel: Path) -> tuple[list[str], list[dict]]:
+    textos, detalle = [], []
+    raiz = _nodos_tmdl(archivo_rel.read_text(encoding="utf-8-sig"))
+    for r in raiz.hijos_de("relationship"):
+        origen, destino = _columna_rel(r.texto("fromColumn") or ""), _columna_rel(r.texto("toColumn") or "")
+        if not origen or not destino or _es_automatica(origen[0]) or _es_automatica(destino[0]):
+            continue
+        activa = (r.texto("isActive") or "true").lower() != "false"
+        ambos = (r.texto("crossFilteringBehavior") or "").lower() == "bothdirections"
+        texto = f"{origen[0]}[{origen[1]}] -> {destino[0]}[{destino[1]}]"
+        if not activa:
+            texto += " (inactiva)"
+        if ambos:
+            texto += " (filtro en ambos sentidos)"
+        textos.append(texto)
+        detalle.append({
+            "texto": texto, "desde": f"{origen[0]}[{origen[1]}]", "hacia": f"{destino[0]}[{destino[1]}]",
+            "activa": activa, "ambos_sentidos": ambos,
+            "cardinalidad_desde": r.texto("fromCardinality") or "many",
+            "cardinalidad_hacia": r.texto("toCardinality") or "one",
+        })
+    orden = sorted(range(len(textos)), key=lambda k: textos[k])
+    return [textos[k] for k in orden], [detalle[k] for k in orden]
+
+
+def _modelo(modelo: Path | None, advertencias: list | None = None) -> dict:
+    """Tablas, medidas, relaciones, expresiones compartidas y roles de la carpeta
+    <Modelo>.SemanticModel/definition. Un archivo ilegible se anota en
+    `advertencias` y no detiene el resto."""
+    salida = {"tablas": {}, "medidas": {}, "medidas_detalle": {}, "relaciones": [], "relaciones_detalle": [],
+              "modelo": {}, "expresiones": {}, "roles": {}}
+    advertencias = advertencias if advertencias is not None else []
     if modelo is None:
-        return tablas, medidas, relaciones
+        return salida
     definicion = modelo / "definition"
     for archivo in sorted((definicion / "tables").glob("*.tmdl")):
-        t = _parsear_tabla_tmdl(archivo.read_text(encoding="utf-8-sig"))
-        nombre = t["nombre"] or archivo.stem
-        if _es_automatica(nombre):
+        try:
+            raiz = _nodos_tmdl(archivo.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as e:
+            advertencias.append(f"No se pudo leer la tabla {archivo.name}: {e}")
             continue
-        part = t["particiones"][0] if t["particiones"] else {"tipo": "", "modo": "import", "fuente": ""}
-        datos = {
-            "modo": MODOS.get(str(part["modo"]).lower(), part["modo"]),
-            "origen": None, "servidor": None, "base_datos": None, "sql": None, "m": None, "dax": None,
-            "columnas": t["columnas"],
-            "calculadas": t["calculadas"],
-        }
-        if part["tipo"] == "calculated":
-            datos["origen"] = "DAX"
-            datos["dax"] = part["fuente"] or None
-        elif part["fuente"]:
-            info = _analizar_m(part["fuente"])
-            datos.update(info)
-            if info["sql"] is None:
-                datos["m"] = part["fuente"]
-        tablas[nombre] = datos
-        for m_nombre, dax in t["medidas"].items():
-            medidas[f"{nombre}[{m_nombre}]"] = dax
+        for nodo in raiz.hijos_de("table"):
+            nombre = nodo.nombre or archivo.stem
+            if _es_automatica(nombre):
+                continue
+            t = _convertir_tabla(nodo)
+            salida["tablas"][nombre] = _datos_tabla(t)
+            for m in t["medidas_detalle"]:
+                clave = f"{nombre}[{m['nombre']}]"
+                salida["medidas"][clave] = m["dax"]
+                salida["medidas_detalle"][clave] = m
 
     archivo_rel = definicion / "relationships.tmdl"
     if archivo_rel.exists():
-        for bloque in re.split(r"(?m)^relationship\s", archivo_rel.read_text(encoding="utf-8-sig"))[1:]:
-            props = dict(re.findall(r"(?m)^\s+(\w+)\s*:\s*(.+?)\s*$", bloque))
-            origen, destino = _columna_rel(props.get("fromColumn", "")), _columna_rel(props.get("toColumn", ""))
-            if not origen or not destino or _es_automatica(origen[0]) or _es_automatica(destino[0]):
-                continue
-            texto = f"{origen[0]}[{origen[1]}] -> {destino[0]}[{destino[1]}]"
-            if props.get("isActive", "").lower() == "false":
-                texto += " (inactiva)"
-            if props.get("crossFilteringBehavior", "").lower() == "bothdirections":
-                texto += " (filtro en ambos sentidos)"
-            relaciones.append(texto)
-    return tablas, medidas, sorted(relaciones)
+        try:
+            salida["relaciones"], salida["relaciones_detalle"] = _relaciones(archivo_rel)
+        except (OSError, ValueError) as e:
+            advertencias.append(f"No se pudo leer relationships.tmdl: {e}")
+
+    archivo_modelo = definicion / "model.tmdl"
+    if archivo_modelo.exists():
+        try:
+            for m in _nodos_tmdl(archivo_modelo.read_text(encoding="utf-8-sig")).hijos_de("model"):
+                salida["modelo"] = {
+                    "nombre": m.nombre, "descripcion": m.doc or m.texto("description") or None,
+                    "cultura": m.texto("culture"), "modo_defecto": m.texto("defaultMode"),
+                }
+        except (OSError, ValueError) as e:
+            advertencias.append(f"No se pudo leer model.tmdl: {e}")
+
+    archivo_expr = definicion / "expressions.tmdl"
+    if archivo_expr.exists():
+        try:
+            for e in _nodos_tmdl(archivo_expr.read_text(encoding="utf-8-sig")).hijos_de("expression"):
+                info = _analizar_m(e.expr or "")
+                salida["expresiones"][e.nombre] = {
+                    "descripcion": e.doc or None, "origen": info["origen"], "servidor": info["servidor"],
+                    "base_datos": info["base_datos"], "m": _sanear(e.expr or ""),
+                    "parametro": bool(re.search(r"meta\s*\[[^\]]*IsParameterQuery\s*=\s*true", e.expr or "", re.I)),
+                }
+        except (OSError, ValueError) as e:
+            advertencias.append(f"No se pudo leer expressions.tmdl: {e}")
+
+    for archivo in sorted((definicion / "roles").glob("*.tmdl")):
+        try:
+            for r in _nodos_tmdl(archivo.read_text(encoding="utf-8-sig")).hijos_de("role"):
+                salida["roles"][r.nombre] = {
+                    "permiso": r.texto("modelPermission"),
+                    "filtros": {p.nombre: p.props.get("filterExpression") or p.expr for p in r.hijos_de("tablePermission")},
+                }
+        except (OSError, ValueError) as e:
+            advertencias.append(f"No se pudo leer el rol {archivo.name}: {e}")
+    return salida
 
 
 _COLUMNA_REL = re.compile(r"^(?:'((?:[^']|'')*)'|([^.']+))\.(?:'((?:[^']|'')*)'|(.+))$")
@@ -1043,18 +1534,30 @@ def extraer_hechos(ruta_pbip) -> dict:
     `modelo_disponible` es False."""
     ruta = Path(ruta_pbip)
     referencias: set = set()
+    advertencias: list[str] = []
+    marcadores: list[dict] = []
     if ruta.is_file() and ruta.suffix.lower() == ".pbix":
         with zipfile.ZipFile(ruta) as zf:
             lector = _LectorZip(zf)
             if not lector.nombres:
                 raise FileNotFoundError(f"«{ruta}» no trae el informe en formato PBIR (Report/definition/).")
-            paginas, filtros_reporte = _paginas(lector, referencias)
+            paginas, filtros_reporte = _paginas(lector, referencias, advertencias, marcadores)
         nombre, modelo = ruta.stem, None
     else:
         nombre, informe, modelo = _ubicar(ruta)
-        paginas, filtros_reporte = _paginas(_LectorCarpeta(informe / "definition"), referencias)
+        paginas, filtros_reporte = _paginas(_LectorCarpeta(informe / "definition"), referencias, advertencias, marcadores)
+    extra = {}
     if modelo is not None:
-        tablas, medidas, relaciones = _modelo(modelo)
+        m = _modelo(modelo, advertencias)
+        tablas, medidas, relaciones = m["tablas"], m["medidas"], m["relaciones"]
+        extra = {"medidas_detalle": m["medidas_detalle"], "relaciones_detalle": m["relaciones_detalle"],
+                 "modelo": m["modelo"], "expresiones": m["expresiones"], "roles": m["roles"]}
+        citadas = {t for p in paginas for v in p["visuales"] for t in v.get("tablas") or []}
+        # Referencias de visuales o filtros que quedaron de tablas ya renombradas o borradas.
+        huerfanas = sorted(t for t in citadas if t not in tablas)
+        if huerfanas:
+            advertencias.append("El informe cita tablas que no están en el modelo (referencias obsoletas): "
+                                + ", ".join(huerfanas))
     else:
         (tablas, medidas), relaciones = _tablas_desde_referencias(referencias), []
     return {
@@ -1063,9 +1566,12 @@ def extraer_hechos(ruta_pbip) -> dict:
         "modelo_disponible": modelo is not None,
         "paginas": paginas,
         "filtros_reporte": filtros_reporte,
+        "marcadores": marcadores,
         "tablas": tablas,
         "medidas": medidas,
         "relaciones": relaciones,
+        **extra,
+        "advertencias": advertencias,
     }
 
 
@@ -1103,8 +1609,21 @@ def cambios_desde_instantanea(ruta_pbip, source_group: str, raiz=None) -> list[s
 # API: comparar
 # ---------------------------------------------------------------------------
 
+def _tipo_base(tipo: str) -> str:
+    """«textFilter25A4...» -> «textFilter»; «PBI_CV_16948668_...» se queda igual."""
+    m = re.fullmatch(r"([A-Za-z]+?)([0-9A-Fa-f]{32})", tipo or "")
+    return m.group(1) if m else (tipo or "")
+
+
 def _nombre_tipo(tipo: str) -> str:
-    return TIPOS_VISUAL.get(tipo, tipo)
+    if tipo in TIPOS_VISUAL:
+        return TIPOS_VISUAL[tipo]
+    base = _tipo_base(tipo)
+    if base in PERSONALIZADOS:
+        return PERSONALIZADOS[base]
+    if base != tipo or str(tipo).startswith("PBI_CV_"):
+        return f"Visual personalizado ({base[:30]})"
+    return tipo
 
 
 def _nombre_visual(v: dict) -> str:
@@ -1117,7 +1636,7 @@ def _nombre_visual(v: dict) -> str:
     if v.get("tipo") == "actionButton" and v.get("destino"):
         return f"{tipo} hacia {v['destino']}"
     detalle = v.get("campos_detalle") or []
-    if detalle and v.get("tipo") not in SEGMENTACIONES:
+    if detalle and not _es_segmentador(v.get("tipo") or ""):
         return f"{tipo} «{_corto(detalle[0]['nombre'], 60)}»"
     if detalle:
         return f"{tipo} de {detalle[0]['expresion']}"
@@ -1501,6 +2020,8 @@ def _texto_semaforo(regla: dict) -> str:
         puntos = {"min": "mínimo", "mid": "medio", "max": "máximo"}
         return "Degradado de color: " + ", ".join(f"{p['color']} en el {puntos.get(p['punto'], p['punto'])}"
                                                   for p in regla["puntos"])
+    if regla["tipo"] == "campo":
+        return f"El color se toma del campo {regla.get('evalua')}"
     casos = [c for c in regla["casos"] if not (regla["propiedad"] != "fondo" and c["color"] in ("blanco", "negro"))]
     if not casos:
         return ""
@@ -1541,7 +2062,7 @@ def _pagina_md(pagina: dict, hechos: dict, tablero: str, nombre_doc: str, llegad
     # Indicadores: campos agregados o medidas de los visuales con datos.
     vistos = set()
     for v in pagina["visuales"]:
-        if v["tipo"] in SEGMENTACIONES:
+        if _es_segmentador(v["tipo"]):
             continue
         for c in v.get("campos_detalle") or []:
             expr = c["expresion"]
@@ -1569,7 +2090,7 @@ def _pagina_md(pagina: dict, hechos: dict, tablero: str, nombre_doc: str, llegad
             continue
         if tipo in DECORATIVOS or tipo == "grupo":
             continue
-        if tipo in SEGMENTACIONES:
+        if _es_segmentador(tipo):
             segmentaciones += v.get("campos") or []
             continue
         nombre = _nombre_visual(v).replace("«", "").replace("»", "")

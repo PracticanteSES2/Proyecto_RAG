@@ -11,6 +11,7 @@ import json
 import os
 import shutil
 import tempfile
+import time
 import unittest
 import zipfile
 from pathlib import Path
@@ -391,6 +392,548 @@ class PbixTest(unittest.TestCase):
                 self.assertEqual(F.validar(texto), [])
         general = F.parsear(self.archivos["_general.md"])
         self.assertIsNotNone(general.buscar("Observaciones", "Modelo no disponible"))
+
+
+# ---------------------------------------------------------------------------
+# Fixtures sintéticos (sin datos reales) para TMDL y PBIR
+# ---------------------------------------------------------------------------
+
+def _escribir(ruta: Path, texto: str):
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    ruta.write_text(texto, encoding="utf-8", newline="")
+
+
+def _lit(valor: str) -> dict:
+    return {"expr": {"Literal": {"Value": valor}}}
+
+
+def _col(tabla: str, col: str) -> dict:
+    return {"Column": {"Expression": {"SourceRef": {"Entity": tabla}}, "Property": col}}
+
+
+def _med(tabla: str, med: str) -> dict:
+    return {"Measure": {"Expression": {"SourceRef": {"Entity": tabla}}, "Property": med}}
+
+
+def _visual_json(nombre, tipo, x=0, y=0, proyecciones=None, **extra) -> str:
+    datos = {"name": nombre, "position": {"x": x, "y": y, "width": 100, "height": 50},
+             "visual": {"visualType": tipo}}
+    if proyecciones:
+        datos["visual"]["query"] = {"queryState": {"Values": {"projections": [
+            {"field": f, "queryRef": f"q{i}", "nativeQueryRef": f"campo{i}"} for i, f in enumerate(proyecciones)]}}}
+    for clave in ("visualContainerObjects", "objects"):
+        if clave in extra:
+            datos["visual"][clave] = extra.pop(clave)
+    datos.update(extra)
+    return json.dumps(datos)
+
+
+TMDL_VENTAS = (
+    "/// Hechos de ventas del día.\n"
+    "table 'Mi ''Tabla'''\n"
+    "\tlineageTag: aaaa\n\n"
+    "\t/// Total vendido sin impuestos.\n"
+    "\tmeasure 'Total Ventas' = ```\n"
+    "\t\t\t\n"
+    "\t\t\tVAR a = SUM('Mi ''Tabla'''[Monto])  // comentario con `backticks`\n"
+    "\t\t\tRETURN a\n"
+    "\t\t\t```\n"
+    "\t\tformatString: #,0.00\n"
+    "\t\tdisplayFolder: Finanzas\\Ventas\n"
+    "\t\tisHidden\n"
+    "\t\tlineageTag: bbbb\n\n"
+    "\tmeasure Corta = SUM('Mi ''Tabla'''[Monto])\n"
+    "\t\tformatString: 0\n\n"
+    "\tmeasure Continua = DIVIDE(\n"
+    "\t\t\t[Total Ventas],\n"
+    "\t\t\t2)\n"
+    "\t\tdescription: Mitad del total\n\n"
+    "\tmeasure A_mano =\n"
+    "\t\tCALCULATE([Corta], ALL('Mi ''Tabla'''))\n"
+    "\t\tformatString: 0.0\n\n"
+    "\t/// Monto en pesos.\n"
+    "\tcolumn Monto\n"
+    "\t\tdataType: double\n"
+    "\t\tisHidden\n"
+    "\t\tsummarizeBy: sum\n"
+    "\t\tsourceColumn: MONTO_SQL\n"
+    "\t\tformatString: #,0\n\n"
+    "\tcolumn Doble = [Monto] * 2\n"
+    "\t\tdataType: double\n"
+    "\t\tdisplayFolder: Calculadas\n"
+    "\t\tsummarizeBy: none\n\n"
+    "\thierarchy Jerarquía\n"
+    "\t\tlineageTag: cccc\n\n"
+    "\t\tlevel Año\n"
+    "\t\t\tcolumn: Año\n\n"
+    "\t\tlevel Mes\n"
+    "\t\t\tcolumn: Mes\n\n"
+    "\tpartition 'Mi ''Tabla''' = m\n"
+    "\t\tmode: directQuery\n"
+    "\t\tsource =\n"
+    "\t\t\t\tlet\n"
+    "\t\t\t\t    Origen = Sql.Database(\"srv\\inst\", \"DWX\", [Query=\"SELECT MONTO_SQL FROM T WHERE X = 1\", "
+    "CommandTimeout=#duration(0,0,5,0)]),\n"
+    "\t\t\t\t    Filtrado = Table.SelectRows(Origen, each [Monto] > 0)\n"
+    "\t\t\t\tin\n"
+    "\t\t\t\t    Filtrado\n\n"
+    "\tannotation PBI_ResultType = Table\n"
+)
+
+TMDL_CALCULADA = (
+    "table Calendario\n"
+    "\tcolumn Fecha\n"
+    "\t\tdataType: dateTime\n"
+    "\t\ttype: calculatedTableColumn\n"
+    "\t\tsourceColumn: [Date]\n\n"
+    "\tcolumn Año = YEAR(Calendario[Fecha])\n"
+    "\t\tdataType: int64\n\n"
+    "\tpartition Calendario = calculated\n"
+    "\t\tmode: import\n"
+    "\t\tsource = CALENDAR(DATE(2020,1,1), TODAY())\n"
+)
+
+TMDL_ORIGENES = (
+    "table Excel\n"
+    "\tcolumn A\n\t\tdataType: string\n\n"
+    "\tpartition Excel = m\n"
+    "\t\tmode: import\n"
+    "\t\tsource =\n"
+    "\t\t\t\tlet\n"
+    "\t\t\t\t    Origen = Excel.Workbook(Web.Contents(\"https://ejemplo.sharepoint.com/sitio/libro.xlsx\"), null, true)\n"
+    "\t\t\t\tin\n"
+    "\t\t\t\t    Origen\n\n"
+    "table Secreta\n"
+    "\tcolumn A\n\t\tdataType: string\n\n"
+    "\tpartition Secreta = m\n"
+    "\t\tmode: import\n"
+    "\t\tsource =\n"
+    "\t\t\t\tlet\n"
+    "\t\t\t\t    Origen = Odbc.DataSource(\"Driver=X;Server=s;User ID=pepe;Password=Clave123;\", [HierarchicalNavigation=true]),\n"
+    "\t\t\t\t    Web = Web.Contents(\"https://u:clave@host/api?token=abc123&x=1\", [Headers=[Authorization=\"Bearer zzz\"]])\n"
+    "\t\t\t\tin\n"
+    "\t\t\t\t    Origen\n\n"
+    "table Derivada\n"
+    "\tcolumn A\n\t\tdataType: string\n\n"
+    "\tpartition Derivada = m\n"
+    "\t\tmode: import\n"
+    "\t\tsource =\n"
+    "\t\t\t\tlet\n"
+    "\t\t\t\t    Origen = Excel,\n"
+    "\t\t\t\t    Quitar = Table.RemoveColumns(Origen, {\"B\"})\n"
+    "\t\t\t\tin\n"
+    "\t\t\t\t    Quitar\n\n"
+    "table Lago\n"
+    "\tcolumn A\n\t\tdataType: string\n\n"
+    "\tpartition Lago = entity\n"
+    "\t\tmode: directLake\n"
+    "\t\tsource\n"
+    "\t\t\tentityName: dim_lago\n"
+    "\t\t\tschemaName: dbo\n"
+    "\t\t\texpressionSource: DatabaseQuery\n"
+)
+
+TMDL_REL = (
+    "relationship r1\n"
+    "\tfromColumn: 'Mi ''Tabla'''.Monto\n"
+    "\ttoColumn: Calendario.Fecha\n\n"
+    "relationship r2\n"
+    "\tisActive: false\n"
+    "\tcrossFilteringBehavior: bothDirections\n"
+    "\tfromCardinality: one\n"
+    "\ttoCardinality: one\n"
+    "\tfromColumn: Excel.A\n"
+    "\ttoColumn: Derivada.A\n\n"
+    "relationship r3\n"
+    "\tfromColumn: LocalDateTable_1234.Date\n"
+    "\ttoColumn: Excel.A\n"
+)
+
+
+def _modelo_sintetico(base: Path, nombre="DEMO") -> Path:
+    modelo = base / f"{nombre}.SemanticModel" / "definition"
+    _escribir(modelo / "tables" / "Mi Tabla.tmdl", TMDL_VENTAS)
+    _escribir(modelo / "tables" / "Calendario.tmdl", TMDL_CALCULADA)
+    _escribir(modelo / "tables" / "Origenes.tmdl", TMDL_ORIGENES)
+    _escribir(modelo / "tables" / "LocalDateTable_1234.tmdl",
+              "table LocalDateTable_1234\n\tcolumn Date\n\t\tisHidden\n\t\tdataType: dateTime\n")
+    _escribir(modelo / "relationships.tmdl", TMDL_REL)
+    _escribir(modelo / "model.tmdl",
+              "/// Modelo de prueba del hospital.\nmodel Model\n\tculture: es-CO\n\tdefaultPowerBIDataSourceVersion: powerBI_V3\n\n"
+              "annotation PBI_QueryOrder = [\"A\"]\n")
+    _escribir(modelo / "expressions.tmdl",
+              "/// Parámetro del servidor.\nexpression Servidor = \"srv\" meta [IsParameterQuery=true, Type=\"Text\"]\n"
+              "\tlineageTag: x\n\nexpression Consulta =\n\t\t\tlet\n\t\t\t    Origen = Sql.Database(\"s\", \"d\")\n\t\t\tin\n\t\t\t    Origen\n"
+              "\tlineageTag: y\n")
+    _escribir(modelo / "roles" / "Lector.tmdl",
+              "role Lector\n\tmodelPermission: read\n\n\ttablePermission Excel = [A] = \"x\"\n")
+    return base / f"{nombre}.SemanticModel"
+
+
+def _informe_sintetico(base: Path, nombre="DEMO") -> Path:
+    informe = base / f"{nombre}.Report"
+    d = informe / "definition"
+    _escribir(informe / "definition.pbir", json.dumps({"version": "4.0", "datasetReference": {
+        "byPath": {"path": f"../{nombre}.SemanticModel"}}}))
+    _escribir(d / "report.json", json.dumps({"filterConfig": {"filters": [{
+        "name": "f", "field": _col("Excel", "A"), "type": "Categorical",
+        "filter": {"Version": 2, "From": [{"Name": "e", "Entity": "Excel", "Type": 0}], "Where": [{"Condition": {"In": {
+            "Expressions": [{"Column": {"Expression": {"SourceRef": {"Source": "e"}}, "Property": "A"}}],
+            "Values": [[{"Literal": {"Value": "'ok'"}}]]}}}]}}]}}))
+    _escribir(d / "pages" / "pages.json", json.dumps({"pageOrder": ["inicio", "detalle", "tip", "vacia"]}))
+    _escribir(d / "pages" / "inicio" / "page.json", json.dumps({
+        "name": "inicio", "displayName": "INICIO",
+        "filterConfig": {"filters": [{
+            "name": "fp", "field": _col("Mi 'Tabla'", "Monto"), "type": "Advanced",
+            "filter": {"Version": 2, "From": [{"Name": "m", "Entity": "Mi 'Tabla'", "Type": 0}], "Where": [{"Condition": {
+                "Comparison": {"ComparisonKind": 1, "Left": {"Column": {"Expression": {"SourceRef": {"Source": "m"}},
+                                                                        "Property": "Monto"}},
+                               "Right": {"Literal": {"Value": "0L"}}}}}]}}]}}))
+    v = d / "pages" / "inicio" / "visuals"
+    # Tarjeta de varios campos (medida y columna agregada) con título y filtro de visual.
+    agregada = {"Aggregation": {"Expression": _col("Mi 'Tabla'", "Monto"), "Function": 1}}
+    _escribir(v / "tarjeta" / "visual.json", _visual_json(
+        "tarjeta", "multiRowCard", x=0, y=0, proyecciones=[_med("Mi 'Tabla'", "Total Ventas"), agregada],
+        visualContainerObjects={"title": [{"properties": {"text": _lit("'Ventas del día'")}}],
+                                "general": [{"properties": {"altText": _lit("'Resumen'")}}]},
+        filterConfig={"filters": [{"name": "fv", "field": _col("Excel", "A"), "type": "Categorical", "filter": {
+            "Version": 2, "From": [{"Name": "e", "Entity": "Excel", "Type": 0}], "Where": [{"Condition": {"Not": {
+                "Expression": {"In": {"Expressions": [{"Column": {"Expression": {"SourceRef": {"Source": "e"}},
+                                                                   "Property": "A"}}],
+                                      "Values": [[{"Literal": {"Value": "null"}}]]}}}}}]}}]}))
+    # Segmentador de lista desplegable.
+    _escribir(v / "seg" / "visual.json", _visual_json(
+        "seg", "slicer", x=200, y=0, proyecciones=[_col("Excel", "A")],
+        objects={"data": [{"properties": {"mode": _lit("'Dropdown'")}}],
+                 "selection": [{"properties": {"singleSelect": _lit("true")}}]}))
+    # Grupo oculto que contiene un botón hacia un marcador.
+    _escribir(v / "grupo" / "visual.json", json.dumps({
+        "name": "grupo", "position": {"x": 0, "y": 100, "width": 50, "height": 50},
+        "visualGroup": {"displayName": "Navegación", "groupMode": "ScaleMode"}, "isHidden": True}))
+    _escribir(v / "boton" / "visual.json", _visual_json(
+        "boton", "actionButton", x=0, y=100, parentGroupName="grupo",
+        visualContainerObjects={"visualLink": [{"properties": {
+            "show": _lit("true"), "type": _lit("'Bookmark'"), "bookmark": _lit("'marca1'")}}]}))
+    _escribir(v / "boton2" / "visual.json", _visual_json(
+        "boton2", "actionButton", x=100, y=100,
+        visualContainerObjects={"visualLink": [{"properties": {
+            "show": _lit("true"), "type": _lit("'PageNavigation'"), "navigationSection": _lit("'detalle'")}}]}))
+    # Tabla con formato condicional por valor de un campo (color que devuelve una medida).
+    _escribir(v / "tabla" / "visual.json", _visual_json(
+        "tabla", "tableEx", x=0, y=200, proyecciones=[_col("Excel", "A"), _med("Mi 'Tabla'", "Corta")],
+        objects={"values": [{"selector": {"metadata": "q1"}, "properties": {
+            "backColor": {"solid": {"color": {"expr": _med("Mi 'Tabla'", "Corta")}}}}}]}))
+    # Visual personalizado con identificador hexadecimal.
+    _escribir(v / "cust" / "visual.json", _visual_json("cust", "textFilter" + "A" * 32, x=300, y=200,
+                                                       proyecciones=[_col("Excel", "A")]))
+    # JSON dañado: se anota y el resto del informe se lee.
+    _escribir(v / "roto" / "visual.json", "{ esto no es json")
+    _escribir(d / "pages" / "detalle" / "page.json", json.dumps({
+        "name": "detalle", "displayName": "DETALLE", "visibility": "HiddenInViewMode",
+        "pageBinding": {"name": "pb", "type": "Drillthrough", "parameters": []},
+        "filterConfig": {"filters": [{"name": "dt", "field": _col("Excel", "A"), "type": "Categorical",
+                                      "howCreated": "Drillthrough"}]}}))
+    _escribir(d / "pages" / "tip" / "page.json", json.dumps({"name": "tip", "displayName": "TIP", "type": "Tooltip",
+                                                          "visibility": "HiddenInViewMode"}))
+    _escribir(d / "pages" / "vacia" / "page.json", json.dumps({"name": "vacia", "displayName": "VACÍA"}))
+    _escribir(d / "bookmarks" / "bookmarks.json", json.dumps({"items": [{"name": "marca1"}]}))
+    _escribir(d / "bookmarks" / "marca1.bookmark.json", json.dumps({
+        "name": "marca1", "displayName": "Vista detalle", "options": {"targetVisualNames": ["tarjeta"]},
+        "explorationState": {"version": "1.3", "activeSection": "detalle"}}))
+    return informe
+
+
+class TmdlSinteticoTest(unittest.TestCase):
+    """TMDL con comillas, backticks, /// y propiedades; sin datos reales."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="pbip_sint_")
+        cls.base = Path(cls.tmp)
+        _modelo_sintetico(cls.base)
+        _informe_sintetico(cls.base)
+        cls.hechos = pbip.extraer_hechos(cls.base)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_medidas_con_todos_sus_atributos(self):
+        m = self.hechos["medidas_detalle"]["Mi 'Tabla'[Total Ventas]"]
+        self.assertEqual(m["tabla"], "Mi 'Tabla'")
+        self.assertEqual(m["formato"], "#,0.00")
+        self.assertEqual(m["carpeta"], "Finanzas\\Ventas")
+        self.assertTrue(m["oculta"])
+        self.assertEqual(m["descripcion"], "Total vendido sin impuestos.")
+        self.assertIn("RETURN a", m["dax"])
+        self.assertIn("`backticks`", m["dax"])
+        self.assertTrue(m["dax"].startswith("VAR a"))
+        # `medidas` conserva el contrato: «T[m]» -> DAX.
+        self.assertEqual(self.hechos["medidas"]["Mi 'Tabla'[Total Ventas]"], m["dax"])
+
+    def test_medidas_de_una_linea_continuas_y_a_mano(self):
+        med = self.hechos["medidas_detalle"]
+        self.assertEqual(med["Mi 'Tabla'[Corta]"]["dax"], "SUM('Mi ''Tabla'''[Monto])")
+        self.assertEqual(med["Mi 'Tabla'[Corta]"]["formato"], "0")
+        self.assertFalse(med["Mi 'Tabla'[Corta]"]["oculta"])
+        # Expresión que sigue en líneas más indentadas.
+        self.assertEqual(med["Mi 'Tabla'[Continua]"]["dax"], "DIVIDE(\n[Total Ventas],\n2)")
+        self.assertEqual(med["Mi 'Tabla'[Continua]"]["descripcion"], "Mitad del total")
+        # Cuerpo escrito a mano un nivel por debajo de las propiedades.
+        self.assertEqual(med["Mi 'Tabla'[A_mano]"]["dax"], "CALCULATE([Corta], ALL('Mi ''Tabla'''))")
+        self.assertEqual(med["Mi 'Tabla'[A_mano]"]["formato"], "0.0")
+
+    def test_columnas(self):
+        t = self.hechos["tablas"]["Mi 'Tabla'"]
+        cols = {c["nombre"]: c for c in t["columnas_detalle"]}
+        self.assertEqual(t["columnas"], ["Monto", "Doble"])
+        self.assertTrue(cols["Monto"]["oculta"])
+        self.assertFalse(cols["Monto"]["calculada"])
+        self.assertEqual(cols["Monto"]["tipo"], "double")
+        self.assertEqual(cols["Monto"]["resumen_por"], "sum")
+        self.assertEqual(cols["Monto"]["columna_origen"], "MONTO_SQL")
+        self.assertEqual(cols["Monto"]["descripcion"], "Monto en pesos.")
+        self.assertEqual(cols["Monto"]["formato"], "#,0")
+        self.assertTrue(cols["Doble"]["calculada"])
+        self.assertEqual(cols["Doble"]["dax"], "[Monto] * 2")
+        self.assertEqual(cols["Doble"]["carpeta"], "Calculadas")
+        self.assertEqual(t["calculadas"], {"Doble": "[Monto] * 2"})
+
+    def test_tabla_modo_origen_particion_y_jerarquia(self):
+        t = self.hechos["tablas"]["Mi 'Tabla'"]
+        self.assertEqual(t["modo"], "DirectQuery")
+        self.assertEqual(t["descripcion"], "Hechos de ventas del día.")
+        self.assertEqual((t["origen"], t["servidor"], t["base_datos"]), ("Sql.Database", "srv\\inst", "DWX"))
+        self.assertEqual(t["sql"], "SELECT MONTO_SQL FROM T WHERE X = 1")
+        self.assertFalse(t["calculada"])
+        self.assertEqual(t["particiones"], [{"nombre": "Mi 'Tabla'", "tipo": "m", "modo": "DirectQuery"}])
+        self.assertEqual(t["jerarquias"], [{"nombre": "Jerarquía", "oculta": False, "niveles": ["Año", "Mes"]}])
+        self.assertEqual(t["medidas"], ["Total Ventas", "Corta", "Continua", "A_mano"])
+        self.assertIn("SQL Server", t["origen_resumen"])
+        self.assertIn("DWX", t["origen_resumen"])
+
+    def test_tabla_calculada_y_columnas_de_tabla_calculada(self):
+        t = self.hechos["tablas"]["Calendario"]
+        self.assertTrue(t["calculada"])
+        self.assertEqual(t["origen"], "DAX")
+        self.assertEqual(t["dax"], "CALENDAR(DATE(2020,1,1), TODAY())")
+        cols = {c["nombre"]: c for c in t["columnas_detalle"]}
+        # Las columnas de una tabla calculada no son «columnas calculadas»; la que tiene = sí.
+        self.assertFalse(cols["Fecha"]["calculada"])
+        self.assertEqual(cols["Fecha"]["columna_origen"], "[Date]")
+        self.assertTrue(cols["Año"]["calculada"])
+        self.assertEqual(cols["Año"]["dax"], "YEAR(Calendario[Fecha])")
+
+    def test_origenes_distintos(self):
+        t = self.hechos["tablas"]
+        self.assertEqual(t["Excel"]["origen"], "Excel.Workbook")
+        self.assertIn("sitio ejemplo.sharepoint.com", t["Excel"]["origen_resumen"])
+        # Una consulta que parte de otra no toma «Table.RemoveColumns» como origen.
+        self.assertEqual(t["Derivada"]["origen"], "referencia")
+        self.assertEqual(t["Derivada"]["referencia"], "Excel")
+        self.assertEqual(t["Derivada"]["origen_resumen"], "Referencia a la consulta Excel")
+        self.assertEqual(t["Lago"]["modo"], "DirectLake")
+        self.assertEqual(t["Lago"]["origen_resumen"], "Entidad dbo.dim_lago")
+
+    def test_no_quedan_credenciales(self):
+        s = self.hechos["tablas"]["Secreta"]
+        texto = json.dumps(self.hechos, ensure_ascii=False)
+        for secreto in ("Clave123", "pepe", "clave@", "abc123", "zzz"):
+            self.assertNotIn(secreto, texto)
+        self.assertIn("Password=***", s["m"])
+        self.assertIn("***@host", s["m"])
+        self.assertIn("token=***", s["m"])
+
+    def test_sanear_no_toca_sql_normal(self):
+        self.assertEqual(pbip._sanear("SELECT user, pass FROM T WHERE username = 'a'", sql=True),
+                         "SELECT user, pass FROM T WHERE username = 'a'")
+        self.assertEqual(pbip._sanear("Server=s;Pwd=x;"), "Server=s;Pwd=***;")
+
+    def test_relaciones(self):
+        self.assertEqual(self.hechos["relaciones"], [
+            "Excel[A] -> Derivada[A] (inactiva) (filtro en ambos sentidos)",
+            "Mi 'Tabla'[Monto] -> Calendario[Fecha]",
+        ])
+        det = {r["desde"]: r for r in self.hechos["relaciones_detalle"]}
+        r2 = det["Excel[A]"]
+        self.assertFalse(r2["activa"])
+        self.assertTrue(r2["ambos_sentidos"])
+        self.assertEqual((r2["cardinalidad_desde"], r2["cardinalidad_hacia"]), ("one", "one"))
+        self.assertEqual(det["Mi 'Tabla'[Monto]"]["cardinalidad_desde"], "many")
+
+    def test_modelo_expresiones_y_roles(self):
+        self.assertEqual(self.hechos["modelo"]["descripcion"], "Modelo de prueba del hospital.")
+        self.assertEqual(self.hechos["modelo"]["cultura"], "es-CO")
+        self.assertTrue(self.hechos["expresiones"]["Servidor"]["parametro"])
+        self.assertEqual(self.hechos["expresiones"]["Servidor"]["descripcion"], "Parámetro del servidor.")
+        self.assertEqual(self.hechos["expresiones"]["Consulta"]["base_datos"], "d")
+        self.assertEqual(self.hechos["roles"]["Lector"]["permiso"], "read")
+        self.assertEqual(self.hechos["roles"]["Lector"]["filtros"], {"Excel": '[A] = "x"'})
+
+    def test_tablas_automaticas_fuera(self):
+        self.assertFalse(any(t.startswith("LocalDateTable") for t in self.hechos["tablas"]))
+        self.assertFalse(any("LocalDateTable" in r for r in self.hechos["relaciones"]))
+
+    def test_indentacion_con_espacios_y_crlf(self):
+        texto = ("table T\r\n    measure M =\r\n            1 + 1\r\n        formatString: 0\r\n\r\n"
+                 "    column C\r\n        dataType: string\r\n")
+        t = pbip._parsear_tabla_tmdl(texto)
+        self.assertEqual(t["medidas"], {"M": "1 + 1"})
+        self.assertEqual(t["columnas"], ["C"])
+        self.assertEqual(t["detalle"]["medidas_detalle"][0]["formato"], "0")
+
+    def test_backticks_en_una_sola_linea_y_cierre_pegado(self):
+        texto = ("table T\n\tmeasure A = ``` 1 + 1 ```\n\t\tformatString: 0\n\n"
+                 "\tmeasure B = ```\n\t\t\tSUM(T[x])```\n\t\tdisplayFolder: Z\n")
+        t = pbip._parsear_tabla_tmdl(texto)["detalle"]["medidas_detalle"]
+        self.assertEqual((t[0]["dax"], t[0]["formato"]), ("1 + 1", "0"))
+        self.assertEqual((t[1]["dax"], t[1]["carpeta"]), ("SUM(T[x])", "Z"))
+
+    def test_rendimiento_modelo_grande(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            definicion = base / "G.SemanticModel" / "definition" / "tables"
+            for i in range(160):
+                medidas = "".join(
+                    f"\tmeasure M{j} = ```\n\t\t\tCALCULATE(SUM(T{i}[c{j % 5}]), T{i}[c0] > {j})\n\t\t\t```\n"
+                    f"\t\tformatString: 0\n\t\tlineageTag: x\n\n" for j in range(12))
+                columnas = "".join(f"\tcolumn c{j}\n\t\tdataType: int64\n\t\tsummarizeBy: sum\n\t\tsourceColumn: c{j}\n\n"
+                                   for j in range(30))
+                _escribir(definicion / f"T{i}.tmdl", f"table T{i}\n{medidas}{columnas}"
+                          f"\tpartition T{i} = m\n\t\tmode: import\n\t\tsource =\n\t\t\t\tlet\n"
+                          f"\t\t\t\t    Origen = Sql.Database(\"s\", \"d\", [Query=\"SELECT * FROM T{i}\"])\n"
+                          f"\t\t\t\tin\n\t\t\t\t    Origen\n")
+            informe = base / "G.Report" / "definition"
+            _escribir(informe / "pages" / "pages.json", json.dumps({"pageOrder": ["p"]}))
+            _escribir(informe / "pages" / "p" / "page.json", json.dumps({"name": "p", "displayName": "P"}))
+            inicio = time.perf_counter()
+            h = pbip.extraer_hechos(base)
+            self.assertLess(time.perf_counter() - inicio, 5)
+            self.assertEqual((len(h["tablas"]), len(h["medidas"])), (160, 1920))
+
+
+class InformeSinteticoTest(unittest.TestCase):
+    """Páginas, visuales, grupos, marcadores, filtros y formato condicional del PBIR."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="pbip_sint_")
+        base = Path(cls.tmp)
+        _modelo_sintetico(base)
+        _informe_sintetico(base)
+        cls.hechos = pbip.extraer_hechos(base)
+        cls.paginas = {p["nombre"]: p for p in cls.hechos["paginas"]}
+        cls.visuales = {v["id"]: v for p in cls.hechos["paginas"] for v in p["visuales"]}
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_paginas_tipos_y_vacias(self):
+        self.assertEqual([p["nombre"] for p in self.hechos["paginas"]], ["INICIO", "DETALLE", "TIP", "VACÍA"])
+        self.assertEqual(self.paginas["TIP"]["tipo_pagina"], "Tooltip")
+        self.assertEqual(self.paginas["DETALLE"]["tipo_pagina"], "Drillthrough")
+        self.assertEqual(self.paginas["INICIO"]["tipo_pagina"], "Normal")
+        self.assertFalse(self.paginas["DETALLE"]["visible"])
+        self.assertEqual(self.paginas["VACÍA"]["visuales"], [])
+        self.assertEqual(self.paginas["DETALLE"]["obtener_detalles"], ["Excel[A]"])
+        json.dumps(self.hechos)
+
+    def test_filtros_de_informe_pagina_y_visual(self):
+        self.assertEqual(self.hechos["filtros_reporte"], ["Excel[A] = 'ok'"])
+        self.assertEqual(self.paginas["INICIO"]["filtros"], ["Mi 'Tabla'[Monto] > 0"])
+        self.assertEqual(self.visuales["tarjeta"]["filtros"], ["Excel[A] no está vacío"])
+
+    def test_tarjeta_de_varios_campos(self):
+        v = self.visuales["tarjeta"]
+        self.assertEqual(v["campos"], ["Mi 'Tabla'[Total Ventas]", "AVERAGE(Mi 'Tabla'[Monto])"])
+        self.assertEqual(v["titulo"], "Ventas del día")
+        self.assertEqual(v["texto_alternativo"], "Resumen")
+        self.assertEqual(v["tablas"], ["Excel", "Mi 'Tabla'"])
+
+    def test_segmentador(self):
+        v = self.visuales["seg"]
+        self.assertEqual(v["campos"], ["Excel[A]"])
+        self.assertEqual(v["segmentador"], {"modo": "Dropdown", "seleccion_unica": True})
+
+    def test_grupos_ocultos_y_botones_con_destino(self):
+        boton = self.visuales["boton"]
+        self.assertEqual(boton["grupo"], "Navegación")
+        self.assertTrue(boton["oculto"])  # hereda lo oculto de su grupo
+        self.assertEqual(boton["accion"], "Bookmark")
+        self.assertEqual(boton["destino"], "el marcador «Vista detalle» (DETALLE)")
+        self.assertEqual(self.visuales["grupo"]["tipo"], "grupo")
+        self.assertEqual(self.visuales["boton2"]["destino"], "DETALLE")
+        self.assertFalse(self.visuales["boton2"]["oculto"])
+
+    def test_marcadores(self):
+        self.assertEqual(self.hechos["marcadores"], [
+            {"id": "marca1", "nombre": "Vista detalle", "pagina_id": "detalle", "pagina": "DETALLE",
+             "visuales": ["tarjeta"]}])
+
+    def test_formato_condicional_por_campo(self):
+        v = self.visuales["tabla"]
+        regla = v["formato_condicional"][0]
+        self.assertEqual(regla["tipo"], "campo")
+        self.assertEqual(regla["evalua"], "Mi 'Tabla'[Corta]")
+        self.assertEqual(v["semaforo"], ["campo1: color según Mi 'Tabla'[Corta]"])
+
+    def test_visual_personalizado_y_json_roto(self):
+        v = self.visuales["cust"]
+        self.assertTrue(v["tipo"].startswith("textFilter"))
+        self.assertEqual(pbip._nombre_tipo(v["tipo"]), "Filtro de texto (visual personalizado)")
+        self.assertEqual(pbip._nombre_tipo("PBI_CV_16948668_E17D"), "Visual personalizado (PBI_CV_16948668_E17D)")
+        self.assertNotIn("roto", self.visuales)
+        self.assertTrue(any("roto" in a for a in self.hechos["advertencias"]))
+
+    def test_comparar_y_esqueleto_funcionan_con_lo_nuevo(self):
+        self.assertEqual(pbip.comparar(self.hechos, json.loads(json.dumps(self.hechos))), [])
+        archivos = pbip.esqueleto(self.tmp, "DEMO", "demo")
+        for nombre, texto in archivos.items():
+            with self.subTest(archivo=nombre):
+                self.assertEqual(F.validar(texto), [])
+
+    def test_hechos_viejos_sin_campos_nuevos_se_comparan(self):
+        viejo = {k: v for k, v in self.hechos.items() if k in (
+            "tablero", "modelo_disponible", "paginas", "tablas", "medidas", "relaciones", "filtros_reporte")}
+        self.assertEqual(pbip.comparar(viejo, self.hechos), [])
+
+    def test_informe_solo_con_paginas_sin_visuales_y_sin_modelo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            d = base / "X.Report" / "definition"
+            _escribir(d / "pages" / "pages.json", json.dumps({"pageOrder": ["a"]}))
+            _escribir(d / "pages" / "a" / "page.json", json.dumps({"name": "a", "displayName": "CVC"}))
+            h = pbip.extraer_hechos(base)
+            self.assertFalse(h["modelo_disponible"])
+            self.assertEqual([(p["nombre"], len(p["visuales"])) for p in h["paginas"]], [("CVC", 0)])
+
+
+TABLEROS = next((Path(c) for c in (
+    os.getenv("DOCS_TABLEROS", ""), str(RAIZ_REPO / "tableros"),
+    r"C:\Users\ad6708\Documents\Proyecto_RAG\tableros") if c and Path(c).is_dir()), None)
+
+
+@unittest.skipIf(TABLEROS is None, "No existe la carpeta tableros/")
+class TablerosRealesTest(unittest.TestCase):
+    """Recorre todos los PBIP de tableros/: ninguno debe lanzar excepción y los que traen TMDL
+    devuelven el modelo. Solo lee .json y .tmdl; nunca cache.abf."""
+
+    def test_todos_los_pbip(self):
+        carpetas = [c for c in sorted(TABLEROS.iterdir()) if c.is_dir() and any(c.glob("*.Report"))]
+        if not carpetas:
+            self.skipTest("tableros/ no tiene proyectos PBIP")
+        for carpeta in carpetas:
+            with self.subTest(tablero=carpeta.name):
+                hechos = pbip.extraer_hechos(carpeta)
+                con_tmdl = any(carpeta.glob("*.SemanticModel/definition/tables/*.tmdl"))
+                if con_tmdl:
+                    self.assertTrue(hechos["modelo_disponible"])
+                    self.assertTrue(hechos["tablas"])
+                json.dumps(hechos)
+                texto = json.dumps(hechos, ensure_ascii=False).lower()
+                self.assertNotRegex(texto, r"password=(?!\*\*\*)[^;\"\\ ]+")
+                self.assertEqual(pbip.comparar(hechos, json.loads(json.dumps(hechos))), [])
 
 
 if __name__ == "__main__":
