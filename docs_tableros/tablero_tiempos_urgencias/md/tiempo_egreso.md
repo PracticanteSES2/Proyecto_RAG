@@ -4,8 +4,8 @@ pagina: TIEMPO EGRESO
 nombre_funcional: Tiempo para el egreso, histórico
 bloque: Histórico
 tablas: [TIEMPO_PARA_EGRESO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # TIEMPO EGRESO
@@ -25,6 +25,7 @@ Muestra por año y mes la cantidad de egresos válidos de urgencias y el tiempo 
 - **Tarjeta tiempo para el egreso**: Tiempo promedio para el egreso en minutos, con SUBGRUPO = URGENCIAS y VALIDADOR distinto de -1.
 - **Gráfico de egresos y tiempo por mes**: Columnas EGRESOS VÁLIDOS y línea TIEMPO PROMEDIO PARA EL EGRESO en minutos, por año y mes, con los mismos filtros que la tarjeta.
 - **Botón de regreso**: Lleva a RESUMEN.
+- **Nombres de campos**: Nombres de los campos en el informe: segmentadores de Calendario[FECHA] «Date Año», «Date Mes», «Date Día».
 
 ## Reglas de negocio
 - **Egresos válidos**: Tiempo mayor que 0 y hasta 720 minutos; los demás tienen VALIDADOR = -1 y se excluyen.
@@ -32,3 +33,4 @@ Muestra por año y mes la cantidad de egresos válidos de urgencias y el tiempo 
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

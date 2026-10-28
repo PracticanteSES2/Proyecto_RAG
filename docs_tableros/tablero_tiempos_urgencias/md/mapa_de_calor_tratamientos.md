@@ -4,8 +4,8 @@ pagina: MAPA DE CALOR TRATAMIENTOS
 nombre_funcional: Mapa de calor del tiempo para inicio de tratamiento
 bloque: Histórico
 tablas: [INICIO_TRAT_HIST]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # MAPA DE CALOR TRATAMIENTOS
@@ -23,6 +23,7 @@ Muestra el tiempo promedio para inicio de tratamiento por día de la semana y ho
 - **Segmentadores de fecha**: Año, Mes y Día sobre la jerarquía de Calendario[FECHA]; filtran por la fecha de admisión.
 - **Mapa de calor de tratamientos**: Matriz con filas tramo horario del ingreso (TramoHorario_ING), columnas día de la semana (DIA_SEMANA_TRAT, sobre la fecha de admisión) y valor el promedio de TIEMPO_INGRESO. Filtro: TIEMPO_INGRESO menor que 241; su filtro sobre CONSULTA_URGENCIAS no tiene efecto.
 - **Botón de regreso**: Lleva a INICIO TRATAMIENTO HISTORICOS.
+- **Nombres de campos**: Nombres de los campos en el informe: segmentadores de Calendario[FECHA] «Date Mes», «Date Día».
 
 ## Reglas de negocio
 - **Color del mapa de calor**: Degradado verde, amarillo y rojo relativo a los valores mostrados.
@@ -33,3 +34,4 @@ Muestra el tiempo promedio para inicio de tratamiento por día de la semana y ho
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

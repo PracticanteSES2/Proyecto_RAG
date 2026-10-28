@@ -4,8 +4,8 @@ pagina: MAPA DE CALOR ADMISIONES
 nombre_funcional: Mapa de calor del tiempo entre triage y admisión
 bloque: Histórico
 tablas: [CONSULTA_URGENCIAS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # MAPA DE CALOR ADMISIONES
@@ -23,6 +23,7 @@ Muestra el tiempo promedio entre triage y admisión por día de la semana y hora
 - **Segmentadores de fecha**: Año, Mes y Día sobre la jerarquía de Calendario[FECHA]; filtran por la fecha de admisión.
 - **Mapa de calor de admisiones**: Matriz con filas tramo horario de la admisión (TramoHorario_ADM), columnas día de la semana (DIA_SEMANA_CONSULTA) y valor el promedio de MINUTOS_ADMISION. Filtros: día de la semana no vacío y MINUTOS_ADMISION mayor o igual a 0.
 - **Botón de regreso**: Lleva a TIEMPO TRIAGE-ADMISION.
+- **Nombres de campos**: Nombres de los campos en el informe: segmentadores de Calendario[FECHA] «Date Año», «Date Mes», «Date Día».
 
 ## Reglas de negocio
 - **Color del mapa de calor**: Degradado de verde (mínimo) a rojo (máximo) relativo a los valores mostrados.
@@ -34,3 +35,4 @@ Muestra el tiempo promedio entre triage y admisión por día de la semana y hora
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

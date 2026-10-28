@@ -4,8 +4,8 @@ pagina: TIEMPO PARA CONSULTA
 nombre_funcional: Tiempo para consulta, histórico
 bloque: Histórico
 tablas: [CONSULTA_URGENCIAS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # TIEMPO PARA CONSULTA
@@ -25,6 +25,7 @@ Muestra por año y mes la cantidad de pacientes atendidos en consulta y el tiemp
 - **Segmentador clasificación triage**: Filtra por CONSULTA_URGENCIAS[TIPO_TRIAGE].
 - **Gráfico de consultas y tiempo por mes**: Columnas CANTIDAD y línea TIEMPO PROMEDIO PARA ATENCIÓN EN CONSULTA en minutos, por año y mes.
 - **Botones de navegación**: Llevan a RESUMEN (regreso) y a MAPA DE CALOR CONSULTAS.
+- **Nombres de campos**: Nombres de los campos en el informe: segmentadores de Calendario[FECHA] «Date Año», «Date Mes», «Date Día».
 
 ## Reglas de negocio
 - **Clasificaciones excluidas**: El segmentador y el gráfico excluyen EMERGENCIA OBSTETRICA - I-G, MUERTO, NO URGENTE OBSTETRICA - IV-G, URGENCIA MEDICA OBSTETRICA - II-G y URGENCIA OBSTETRICA - III-G.
@@ -35,3 +36,4 @@ Muestra por año y mes la cantidad de pacientes atendidos en consulta y el tiemp
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

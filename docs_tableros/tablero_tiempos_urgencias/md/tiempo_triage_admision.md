@@ -4,8 +4,8 @@ pagina: TIEMPO TRIAGE-ADMISION
 nombre_funcional: Tiempo entre triage y admisión, histórico
 bloque: Histórico
 tablas: [CONSULTA_URGENCIAS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # TIEMPO TRIAGE-ADMISION
@@ -26,6 +26,7 @@ Muestra por año y mes la cantidad de admisiones y el tiempo promedio entre el t
 - **Gráfico de admisiones y tiempo por mes**: Columnas ADMISIONES y línea TIEMPO PROMEDIO PARA ADMISION en minutos, por año y mes.
 - **Gráfico circular admisiones por tipo triage**: Admisiones por TIPO_TRIAGE.
 - **Botones de navegación**: Llevan a RESUMEN (regreso) y a MAPA DE CALOR ADMISIONES.
+- **Nombres de campos**: Nombres de los campos en el informe: segmentadores de Calendario[FECHA] «Date Año», «Date Día».
 
 ## Reglas de negocio
 - **Clasificaciones excluidas**: El segmentador y los dos gráficos excluyen EMERGENCIA OBSTETRICA - I-G, MUERTO, NO URGENTE OBSTETRICA - IV-G, URGENCIA MEDICA OBSTETRICA - II-G y URGENCIA OBSTETRICA - III-G.
@@ -33,3 +34,4 @@ Muestra por año y mes la cantidad de admisiones y el tiempo promedio entre el t
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

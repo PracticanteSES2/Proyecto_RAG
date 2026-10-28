@@ -4,8 +4,8 @@ pagina: RESUMEN DIA
 nombre_funcional: Resumen día, versión alterna (página oculta)
 bloque: Día
 tablas: [TRIAGES_DIA, CONSULTAS_DIA, TIEMPO_EGRESO_DIA, HOSPITALIZACION_DIA]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # RESUMEN DIA
@@ -27,6 +27,7 @@ Versión alterna del resumen del día, titulada «TIEMPOS DE ATENCIÓN EN URGENC
 - **Títulos del diagrama**: Título «TIEMPOS DE ATENCIÓN EN URGENCIAS» y rótulos «TRIAGE I, II Y III» junto al botón de consultas y «TRIAGE IV Y V» junto al botón de consultas prioritarias.
 - **Tarjetas y medidores del día**: Tiempo para triage, tiempo entre triage y admisión facturación y tiempo para consulta en minutos; medidor de egreso en minutos y medidor de hospitalización en horas.
 - **Botones de navegación**: Llevan a TIEMPOS TRIAGE DIA, ADMISIONES DIA, CONSULTAS DIA, CONSULTAS PRIORITARIAS, INGRESOS DIA, PACIENTES EN OBSERVACION, INTERCONSULTAS DIA, LABORATORIOS, IMAGENES DIA, HOSPITALIZACION DIA, EGRESOS DIA, MAPA DE CALOR TRIAGE y RESUMEN.
+- **Nombres de campos**: Nombres de los campos en el informe: tarjeta «Última fecha: FECHA»; tarjeta «TIEMPO PROMEDIO PARA CONSULTA URGENCIAS»; medidor «TIEMPO PROMEDIO PARA HOSPITALIZACIÓN»; medidor «TIEMPO PROMEDIO PARA EL EGRESO».
 
 ## Reglas de negocio
 - **Filtros de los indicadores**: Los indicadores tienen los mismos filtros que en RESUMEN_D, incluidos los que no tienen efecto.
@@ -36,3 +37,4 @@ Versión alterna del resumen del día, titulada «TIEMPOS DE ATENCIÓN EN URGENC
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

@@ -4,8 +4,8 @@ pagina: TIEMPO ASIGNACIÓN CAMAS
 nombre_funcional: Tiempo para asignación de camas, histórico
 bloque: Histórico
 tablas: [TIEMPO_PARA_EGRESO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # TIEMPO ASIGNACIÓN CAMAS
@@ -24,6 +24,7 @@ Muestra por año y mes la cantidad de pacientes de urgencias con orden de salida
 - **Segmentadores de fecha**: Año, Mes y Día sobre la jerarquía de Calendario[FECHA]; filtran por la fecha de la orden de salida.
 - **Gráfico de pacientes y tiempo por mes**: Columnas PACIENTES y línea TIEMPO PARA ASIGNACIÓN DE CAMA en minutos, por año y mes. Filtro: SUBGRUPO = URGENCIAS.
 - **Botón de regreso**: Lleva a RESUMEN.
+- **Nombres de campos**: Nombres de los campos en el informe: segmentadores de Calendario[FECHA] «Date Año», «Date Mes», «Date Día».
 
 ## Reglas de negocio
 - **Mes del indicador**: El mes corresponde a la fecha de la orden de salida, no a la de admisión.
@@ -35,3 +36,4 @@ Muestra por año y mes la cantidad de pacientes de urgencias con orden de salida
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
