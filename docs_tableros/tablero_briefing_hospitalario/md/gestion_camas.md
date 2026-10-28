@@ -1,6 +1,6 @@
 ---
 tablero: BRIEFING HOSPITALARIO
-pagina: DETALLE GESTIÓN CAMAS
+pagina: GESTIÓN CAMAS
 nombre_funcional: Capacidad y ocupación de camas por servicio en tiempo real
 bloque: Día
 tablas: [CAMAS DISPONIBLES, ORDEN CAMAS, SERVICIOS, REPS]
@@ -8,7 +8,7 @@ actualizado: 2026-10-20
 version: 1
 ---
 
-# DETALLE GESTIÓN CAMAS
+# GESTIÓN CAMAS
 
 ## Propósito
 Muestra el estado actual de la capacidad hospitalaria: total de camas, ocupadas, disponibles, en transición, porcentaje de ocupación y capacidad instalada REPS, con el listado de camas por servicio coloreado por estado. Apoya la asignación de camas y la detección de cuellos de botella. Se llega desde el botón DETALLE GESTIÓN CAMAS del visual %OCUPACIÓN POR SERVICIO en INICIO.
@@ -44,7 +44,7 @@ Muestra el estado actual de la capacidad hospitalaria: total de camas, ocupadas,
 - **Ocupadas que no cuadran**: En la captura, la tarjeta CAMAS OCUPADAS (235) no coincide con OCUPADA más CAMA SOLICITADA del gráfico de estados (233). Por confirmar si usan filtros distintos.
 - **Marcador CAMAS_ACV**: El PBIP tiene un marcador CAMAS_ACV (camas de la ruta ACV, columna RUTA_ACV) que no aparece en la documentación. Por confirmar si hay botón visible.
 - **Columna MOSTRAR_6TO**: Su origen y regla no están documentados. Por confirmar.
-- **Nombre de página**: La página del PBIP no tiene nombre visible en la copia local; se usa el texto del botón de INICIO. Nombre de página en Power BI por confirmar.
+- **Nombre de página**: La página se llama GESTIÓN CAMAS en Power BI; el botón de INICIO dice DETALLE GESTIÓN CAMAS.
 - **Página homónima**: Existe otra página GESTIÓN DE CAMAS (flujo de aseo y alistamiento de camas), distinta de esta.
 
 ## Historial de cambios

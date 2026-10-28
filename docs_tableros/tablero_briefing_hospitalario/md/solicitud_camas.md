@@ -1,6 +1,6 @@
 ---
 tablero: BRIEFING HOSPITALARIO
-pagina: DETALLE SOLICITUD CAMAS
+pagina: SOLICITUD CAMAS
 nombre_funcional: Solicitudes de cama pendientes por servicio, sexo y aseguradora
 bloque: Día
 tablas: [SOLICITUD CAMAS, SERVICIO SOLICITUD]
@@ -8,7 +8,7 @@ actualizado: 2026-10-20
 version: 1
 ---
 
-# DETALLE SOLICITUD CAMAS
+# SOLICITUD CAMAS
 
 ## Propósito
 Lista las solicitudes de cama hospitalaria que aún no tienen cama asignada, con el total, la división por sexo y el detalle por paciente, servicio y EPS. Sirve para priorizar la asignación según antigüedad, servicio y aseguradora. Se llega desde el botón DETALLE SOLICITUD CAMAS del visual CAMAS SOLICITADAS POR SERVICIO en INICIO.
@@ -38,7 +38,7 @@ Lista las solicitudes de cama hospitalaria que aún no tienen cama asignada, con
 ## Observaciones
 - **Propósito copiado**: El texto de propósito de la documentación original es el mismo de GESTIÓN CAMAS (habla de camas ocupadas y disponibles); se redactó de nuevo a partir de los visuales.
 - **Significado de estados**: El significado de los estados 2, 3, 4, 5 y 8 de la solicitud no está documentado. Por confirmar.
-- **Nombre de página**: La página no está en la copia local del PBIP; se usa el texto del botón de INICIO. Nombre de página en Power BI por confirmar.
+- **Nombre de página**: La página se llama SOLICITUD CAMAS en Power BI; el botón de INICIO dice DETALLE SOLICITUD CAMAS.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
