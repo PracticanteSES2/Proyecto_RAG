@@ -4,8 +4,8 @@ pagina: OBSERVACIÓN HISTORICO
 nombre_funcional: Observación, histórico
 bloque: Histórico
 tablas: [OBSERV_HIST]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # OBSERVACIÓN HISTORICO
@@ -24,6 +24,7 @@ Muestra por año y mes la cantidad de pacientes que pasaron por observación y e
 - **Segmentadores de fecha**: Año, Mes y Día sobre la jerarquía de Calendario[FECHA]; filtran por la fecha de egreso.
 - **Gráfico de observados y tiempo por mes**: Columnas PACIENTES OBSERVADOS y línea TIEMPO EN OBSERVACIÓN en minutos, por año y mes. Sus filtros sobre CONSULTA_URGENCIAS e INICIO_TRAT_HIST no tienen efecto.
 - **Botón de regreso**: Lleva a RESUMEN.
+- **Nombres de campos**: Nombres de los campos en el informe: segmentadores de Calendario[FECHA] «Date Año», «Date Mes», «Date Día».
 
 ## Reglas de negocio
 - **Fecha de la tabla**: El filtro por año y mes usa la fecha de egreso del paciente.
@@ -34,3 +35,4 @@ Muestra por año y mes la cantidad de pacientes que pasaron por observación y e
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

@@ -4,8 +4,8 @@ pagina: MAPA DE CALOR TRIAGE
 nombre_funcional: Mapa de calor de tiempos de triage
 bloque: Histórico
 tablas: [OPORTUNIDAD_TRIAGE]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # MAPA DE CALOR TRIAGE
@@ -25,6 +25,7 @@ Muestra el tiempo promedio para triage por día de la semana y hora del triage, 
 - **Mapa de calor de triage**: Matriz con filas tramo horario del triage (TramoHorario), columnas día de la semana (DIA_SEMANA) y valor el promedio de MIN en minutos.
 - **Gráfico circular por clasificación**: Cantidad de triages por DESCRI_TRIGE, sin clasificaciones obstétricas ni MUERTO.
 - **Botones de navegación**: Llevan a RESUMEN (regreso), a TIEMPO TRIAGE y a LLEGADAS.
+- **Nombres de campos**: Nombres de los campos en el informe: segmentadores de Calendario[FECHA] «Date Año», «Date Mes», «Date Día».
 
 ## Reglas de negocio
 - **Color del mapa de calor**: Degradado relativo a los valores mostrados, verde para el mínimo y rojo para el máximo; no hay umbrales fijos.
@@ -33,3 +34,4 @@ Muestra el tiempo promedio para triage por día de la semana y hora del triage, 
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

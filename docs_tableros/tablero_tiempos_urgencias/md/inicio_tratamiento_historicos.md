@@ -4,8 +4,8 @@ pagina: INICIO TRATAMIENTO HISTORICOS
 nombre_funcional: Inicio de tratamiento, histórico
 bloque: Histórico
 tablas: [INICIO_TRAT_HIST]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # INICIO TRATAMIENTO HISTORICOS
@@ -24,6 +24,7 @@ Muestra por año y mes la cantidad de ingresos y el tiempo promedio para el inic
 - **Segmentadores de fecha**: Año, Mes y Día sobre la jerarquía de Calendario[FECHA]; filtran por la fecha de admisión.
 - **Gráfico de ingresos y tiempo por mes**: Columnas INGRESOS y línea TIEMPO PROMEDIO PARA INICIO DE TRATAMIENTO en minutos, por año y mes. Filtro: TIEMPO_INGRESO menor que 241; su filtro sobre CONSULTA_URGENCIAS[TIPO_TRIAGE] no tiene efecto.
 - **Botones de navegación**: Llevan a RESUMEN (regreso) y a MAPA DE CALOR TRATAMIENTOS.
+- **Nombres de campos**: Nombres de los campos en el informe: segmentadores de Calendario[FECHA] «Date Año», «Date Mes», «Date Día».
 
 ## Reglas de negocio
 - **Límite de 4 horas**: Se excluyen del gráfico los tiempos de 241 minutos o más; los valores negativos no se excluyen.
@@ -33,3 +34,4 @@ Muestra por año y mes la cantidad de ingresos y el tiempo promedio para el inic
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

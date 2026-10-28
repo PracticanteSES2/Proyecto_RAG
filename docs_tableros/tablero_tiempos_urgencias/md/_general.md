@@ -3,8 +3,8 @@ tablero: TABLERO TIEMPOS URGENCIAS
 pagina: GENERAL
 nombre_funcional: Tiempos de Urgencias: visión general del tablero
 bloque: General
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # GENERAL
@@ -15,7 +15,7 @@ Tiene dos bloques. El bloque Día muestra en tiempo real los pacientes en espera
 La página de inicio es RESUMEN_D; las demás páginas están ocultas en modo lectura y se abren con botones.
 
 ## Fuentes de datos
-- **Servidor y base de datos**: SQL Server «LS-COBRA,1433\dinamica», base DWSES. Es la única conexión del modelo; todas las tablas se cargan con sentencias SQL nativas.
+- **Servidor y base de datos**: SQL Server del hospital, base DWSES. Es la única conexión del modelo; todas las tablas se cargan con sentencias SQL nativas.
 - **Bodega DWSES**: Tablas de la bodega con prefijos DIM_ y FACT_, por ejemplo DIM_TRIAGE, DIM_INGRESO, DIM_FOLIO, DIM_ORDEN_SALIDA y FACT_ESTANCIA.
 - **Base DGEMPRES10**: Tablas operativas del sistema Dinámica Gerencial leídas por nombre de tres partes, por ejemplo ADNINGRESO, HCNTRIAGE, HCNFOLIO, HPNESTANC, HCNSOLEXA, HCNINTERC y CMNCITMED.
 - **Base PLANILLAUSUARIO**: Aporta el digiturno (AdmisionTriage), las solicitudes de hospitalización (DnSoliServicio_new), las remisiones (Con_RemisionMaestro_new), el censo de urgencias (Et_ConsultaGrl) y el seguimiento de imágenes (segimagenes, segTOMADO, seginterpre).
@@ -85,6 +85,7 @@ La página de inicio es RESUMEN_D; las demás páginas están ocultas en modo le
 - **Medida %MEDIDO_DIA**: Igual que %MEDIDO sobre TIEMPO_EGRESO_DIA (órdenes de salida de hoy); sin uso en visuales.
 - **Medida PRUEBA**: (SUM(CONSULTA_URGENCIAS[MINUTOS_ADMISION]) + SUM(CONSULTA_URGENCIAS[MINUTOS_CONSULTA])) / COUNT(CONSULTA_URGENCIAS[DOCUMENTO]). Medida de prueba sin uso; se sugiere eliminarla.
 - **Páginas con el mismo nombre**: Hay dos páginas llamadas INTERCONSULTAS en Power BI; aquí se documentan como INTERCONSULTAS DIA e INTERCONSULTAS HISTORICO. Se recomienda renombrarlas.
+- **Diccionario**: Las tablas, medidas, columnas y relaciones del modelo están en _diccionario.md y _diccionario_columnas.md.
 - **Páginas sin botón de llegada**: RESUMEN DIA y TIEMPO ASIGNACIÓN CAMAS no tienen ningún botón que lleve a ellas; solo se ven en modo edición.
 - **Columna con nombre engañoso**: TIEMPO_URGENCIAS[TiempoMinutosSalidaUrgencias] está en horas. Solo tiene valor si facturación recibió la historia antes de la orden de salida y vale 0 si enfermería la entregó después. Por confirmar la regla.
 - **Tablas del día en Import**: ADMISIONES_DIA e INGRESOS_DIA no se actualizan en tiempo real como las demás tablas del día. Por confirmar si es intencional.
@@ -100,3 +101,4 @@ La página de inicio es RESUMEN_D; las demás páginas están ocultas en modo le
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

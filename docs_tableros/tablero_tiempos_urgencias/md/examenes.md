@@ -4,8 +4,8 @@ pagina: EXAMENES
 nombre_funcional: Exámenes de laboratorio, histórico
 bloque: Histórico
 tablas: [EXAMENES]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # EXAMENES
@@ -25,6 +25,7 @@ Muestra por año y mes la cantidad de solicitudes de exámenes con respuesta y e
 - **Tarjeta tiempo de respuesta**: Tiempo promedio de respuesta a exámenes en minutos.
 - **Gráfico de solicitudes y tiempo por mes**: Columnas CANTIDAD SOLICITUDES y línea TIEMPO DE RESPUESTA PROMEDIO en minutos, por año y mes.
 - **Botón de regreso**: Lleva a RESUMEN.
+- **Nombres de campos**: Nombres de los campos en el informe: segmentadores de Calendario[FECHA] «Date Año», «Date Mes», «Date Día».
 
 ## Reglas de negocio
 - **Solo exámenes respondidos**: EXAMENES solo carga solicitudes con respuesta (unión interna con DIM_RESPUESTA_EXAMENES).
@@ -36,3 +37,4 @@ Muestra por año y mes la cantidad de solicitudes de exámenes con respuesta y e
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

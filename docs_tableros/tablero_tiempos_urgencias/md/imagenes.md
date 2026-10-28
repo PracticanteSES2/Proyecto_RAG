@@ -4,8 +4,8 @@ pagina: IMAGENES
 nombre_funcional: Imágenes diagnósticas, histórico
 bloque: Histórico
 tablas: [IMAGENES]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # IMAGENES
@@ -25,6 +25,7 @@ Muestra por año y mes la cantidad de imágenes diagnósticas con resultado y el
 - **Tarjetas de imágenes y tiempo**: Imágenes tomadas y tiempo promedio de respuesta en minutos.
 - **Gráfico de imágenes y tiempo por mes**: Columnas IMÁGENES TOMADAS y línea TIEMPO PROMEDIO DE RESPUESTA en minutos, por año y mes.
 - **Botón de regreso**: Lleva a RESUMEN.
+- **Nombres de campos**: Nombres de los campos en el informe: segmentadores de Calendario[FECHA] «Date Año», «Date Mes».
 
 ## Reglas de negocio
 - **Solicitudes consideradas**: Solicitudes con confirmación de resultado en HCNRESSVFC, desde folios del área de urgencias, con una fila por ingreso.
@@ -32,3 +33,4 @@ Muestra por año y mes la cantidad de imágenes diagnósticas con resultado y el
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

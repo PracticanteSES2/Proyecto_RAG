@@ -4,8 +4,8 @@ pagina: RESUMEN
 nombre_funcional: Datos históricos: resumen (inicio del bloque histórico)
 bloque: Histórico
 tablas: [OPORTUNIDAD_TRIAGE, CONSULTA_URGENCIAS, TIEMPO_PARA_EGRESO, TIEMPO_URGENCIAS, TIEMPO_HOSPI]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # RESUMEN
@@ -35,6 +35,7 @@ Página de inicio del bloque histórico. Resume para el periodo elegido el tiemp
 - **Medidor de egreso**: Tiempo promedio para el egreso en minutos; escala de 0 a 60.
 - **Tarjetas de tiempo en urgencias**: Tiempo promedio en urgencias del egreso y de la hospitalización, en horas.
 - **Botones de navegación**: Llevan a RESUMEN_D (regreso), TIEMPO TRIAGE, TIEMPO TRIAGE-ADMISION, TIEMPO PARA CONSULTA, INICIO TRATAMIENTO HISTORICOS, OBSERVACIÓN HISTORICO, EXAMENES, IMAGENES, INTERCONSULTAS HISTORICO, TIEMPO EGRESO, TIEMPO HOSPI y TIEMPO ESTANCIA.
+- **Nombres de campos**: Nombres de los campos en el informe: segmentadores de Calendario[FECHA] «Date Año», «Date Mes».
 
 ## Reglas de negocio
 - **Fecha de cada tabla**: OPORTUNIDAD_TRIAGE se filtra por fecha del triage, CONSULTA_URGENCIAS y TIEMPO_HOSPI por fecha de admisión, y TIEMPO_PARA_EGRESO y TIEMPO_URGENCIAS por fecha de la orden de salida.
@@ -46,3 +47,4 @@ Página de inicio del bloque histórico. Resume para el periodo elegido el tiemp
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

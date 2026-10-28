@@ -4,8 +4,8 @@ pagina: TIEMPO ESTANCIA
 nombre_funcional: Tiempo total en urgencias, histórico
 bloque: Histórico
 tablas: [TIEMPO_URGENCIAS, TIEMPO_HOSPI]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # TIEMPO ESTANCIA
@@ -26,6 +26,7 @@ Muestra la permanencia de los pacientes en urgencias, en horas: el tiempo total 
 - **Tarjetas de estancia**: Tiempo promedio de estancia en urgencias y tiempo promedio en urgencias de pacientes hospitalizados, en horas.
 - **Gráfico de líneas por mes**: Dos líneas en horas por año y mes: TIEMPO EN URGENCIAS y TIEMPO EN URGENCIAS PACIENTES HOSPITALIZADOS.
 - **Botón de regreso**: Lleva a RESUMEN.
+- **Nombres de campos**: Nombres de los campos en el informe: segmentadores de Calendario[FECHA] «Date Año», «Date Mes», «Date Día»; tarjeta «TIEMPO PROMEDIO EN URGENCIAS PACIENTES HOSPITALIZADOS».
 
 ## Reglas de negocio
 - **Fechas distintas por tabla**: El tiempo total se ubica en el mes de la orden de salida; el de hospitalizados, en el mes de la admisión.
@@ -37,3 +38,4 @@ Muestra la permanencia de los pacientes en urgencias, en horas: el tiempo total 
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

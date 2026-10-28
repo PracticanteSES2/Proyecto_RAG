@@ -4,8 +4,8 @@ pagina: RESUMEN_D
 nombre_funcional: Resumen día (página de inicio del tablero)
 bloque: Día
 tablas: [TRIAGES_DIA, CONSULTAS_DIA, TIEMPO_EGRESO_DIA, HOSPITALIZACION_DIA]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # RESUMEN_D
@@ -34,6 +34,7 @@ Página de inicio del tablero y única visible en modo lectura. Muestra el recor
 - **Tarjeta tiempo para consulta**: Promedio de CONSULTAS_DIA[TIEMPO_CONSULTA] en minutos. Su filtro (excluye MUERTO, II-G y III-G) está sobre CONSULTA_URGENCIAS, tabla sin relación, y no tiene efecto.
 - **Medidor de egreso**: Promedio de TIEMPO_EGRESO_DIA[TIEMPO_EGRESO_OK] en minutos con SUBGRUPO = URGENCIAS y VALIDADOR distinto de -1; escala de 0 a 60.
 - **Medidor de hospitalización**: Promedio de HOSPITALIZACION_DIA[TIEMPO_PARA_HOSPITALIZACION] en horas; escala de 0 a 60. Su filtro sobre TIEMPO_PARA_EGRESO[SUBGRUPO] no tiene efecto.
+- **Nombres de campos**: Nombres de los campos en el informe: tarjeta «Última fecha: FECHA».
 
 ## Reglas de negocio
 - **Recálculo en tiempo real**: Los cuatro indicadores se recalculan al abrir o actualizar la página porque sus tablas están en DirectQuery.
@@ -46,3 +47,4 @@ Página de inicio del tablero y única visible en modo lectura. Muestra el recor
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
