@@ -4,8 +4,8 @@ pagina: AUDITORES EXTERNOS
 nombre_funcional: Tiempo de gestión en auditores externos
 bloque: Histórico
 tablas: [FACTURACION PERFILES, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # AUDITORES EXTERNOS
@@ -19,7 +19,7 @@ Muestra cuánto tardan las cuentas en el perfil AUDITORES EXTERNOS, es decir en 
 ## Indicadores
 - **Tiempo promedio de gestión de factura**: Promedio en horas de 'FACTURACION PERFILES'[TIEMPO], es decir de las horas entre que el perfil recibe la cuenta y la entrega. Agregación: promedio de la columna.
 - **Tiempo hospitalario**: Medida TIEMPO_FACTURACION_HOSPITALIZACION = CALCULATE(AVERAGE('FACTURACION PERFILES'[TIEMPO]), 'FACTURACION PERFILES'[TIPO INGRESO] = "HOSPITALARIO"). Unidad: horas.
-- **Tiempo ambulatorio**: Promedio de TIEMPO para TIPO INGRESO = "AMBULATORIO" (TIEMPO_FACTURACION_AMBULATORIO). Definición por confirmar; en la documentación aparece comentada.
+- **Tiempo ambulatorio**: Medida TIEMPO_FACTURACION_AMBULATORIO: promedio de TIEMPO de las cuentas con TIPO INGRESO = AMBULATORIO. Unidad: horas.
 
 ## Visuales
 - **Filtros**: Segmentadores SERVICIO, Año y Mes; botón de inicio (casa).
@@ -33,6 +33,9 @@ Muestra cuánto tardan las cuentas en el perfil AUDITORES EXTERNOS, es decir en 
 
 ## Observaciones
 - **Sin datos en la captura**: En la captura de la documentación la tarjeta aparece «(En blanco)» y los gráficos vacíos. Por confirmar si el perfil tiene registros.
+- **Sin página en el PBIP**: El PBIP local no trae esta página: el botón AUDITORES EXTERNOS de RESUMEN FACTURACION no tiene destino configurado. Describe la documentación del propietario.
+- **Horas por día**: FACTURACION PERFILES convierte FECHA_RECIBE y FECHA_ENTREGA a fecha sin hora, por lo que el tiempo de gestión en horas es siempre un múltiplo de 24 (equivale a días por 24)
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

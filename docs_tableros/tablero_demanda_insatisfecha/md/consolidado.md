@@ -4,14 +4,14 @@ pagina: CONSOLIDADO
 nombre_funcional: Resumen de la demanda insatisfecha institucional
 bloque: Histórico
 tablas: [TRIAGE, TRIAGES_REALIZADOS, REFERENCIA, REFERENCIA_ACEPTADO, CIRUGÍAS, CIRUGIAS REALIZADAS, CITAS MEDICAS, CITAS_REALIZADAS, SOLICITUD DE CAMAS, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # CONSOLIDADO
 
 ## Propósito
-Página de inicio del tablero. Resume la demanda insatisfecha total y por componente (triages, referencia, cirugías, citas canceladas y hospitalización), su evolución mensual, su distribución por asegurador y por tipo de servicio, y cinco indicadores normalizados por cada 100 o 1.000 eventos. Es de análisis histórico por año y mes. Nombre de página en Power BI por confirmar.
+Página de inicio del tablero. Resume la demanda insatisfecha total y por componente (triages, referencia, cirugías, citas canceladas y hospitalización), su evolución mensual, su distribución por asegurador y por tipo de servicio, y cinco indicadores normalizados por cada 100 o 1.000 eventos. Es de análisis histórico por año y mes.
 
 ## Fuentes de datos
 - **Tablas de componentes**: Usa las tablas de las páginas de detalle (TRIAGE, REFERENCIA, CIRUGÍAS, CITAS MEDICAS y SOLICITUD DE CAMAS); sus consultas se describen en cada página.
@@ -21,7 +21,7 @@ Página de inicio del tablero. Resume la demanda insatisfecha total y por compon
 ## Indicadores
 - **Total demanda insatisfecha**: Suma de los cinco componentes. DAX: DISTINCTCOUNT(TRIAGE[OID]) + DISTINCTCOUNT(REFERENCIA[OID]) + COUNT('CIRUGÍAS'[PROCEDIMIENTO]) + DISTINCTCOUNT('CITAS MEDICAS'[OID]) + SUM('SOLICITUD DE CAMAS'[DEMANDA_INS]).
 - **Promedio mensual**: Total demanda insatisfecha dividido por el número del mes actual. DAX: DIVIDE([TOTAL_DEMANDA_INSATISFECHA], MONTH(TODAY())).
-- **Tarjetas por componente**: TRIAGES, REFERENCIA, CIRUGÍAS, CITAS CANCELADAS y HOSPITALIZACIÓN muestran el total de cada componente con el mismo cálculo que el total.
+- **Tarjetas por componente**: TRIAGES, REFERENCIA, CIRUGÍAS, CITAS CANCELADAS y HOSPITALIZACIÓN muestran el total de cada componente: DISTINCTCOUNT(TRIAGE[OID]), DISTINCTCOUNT(REFERENCIA[OID]), COUNT(CIRUGÍAS[PROCEDIMIENTO]), DISTINCTCOUNT('CITAS MEDICAS'[OID]) y SUM('SOLICITUD DE CAMAS'[DEMANDA_INS]) con filtros de visual (sin fecha de asignación de cama, con fecha de egreso y sin cama)
 - **Participación por componente**: Medidas %TRIAGE, %REFERENCIA, %CIRUGIAS y %CITAS; cada una divide el total del componente entre [TOTAL_DEMANDA_INSATISFECHA].
 - **No atendidos por cada 100 triages**: Medida RELACIÓN TRIAGES. DAX: (DISTINCTCOUNT(TRIAGE[OID]) / DISTINCTCOUNT(TRIAGES_REALIZADOS[OID])) * 100.
 - **Canceladas por cada 1.000 citas asignadas**: Medida RELACIÓN CITAS. Citas canceladas entre citas realizadas distintas de ENFERMERIA, por 1.000. DAX: DIVIDE(DISTINCTCOUNT('CITAS MEDICAS'[OID]), CALCULATE(DISTINCTCOUNT(CITAS_REALIZADAS[OID]), CITAS_REALIZADAS[GEEDESCRI] <> "ENFERMERIA")) * 1000.
@@ -31,23 +31,26 @@ Página de inicio del tablero. Resume la demanda insatisfecha total y por compon
 
 ## Visuales
 - **Tarjetas superiores**: Siete tarjetas: TOTAL DEMANDA INSATISFECHA, PROMEDIO MENSUAL, TRIAGES, REFERENCIA, CIRUGÍAS, CITAS CANCELADAS y HOSPITALIZACIÓN.
-- **Gráfico de barras mensual**: Columnas con la demanda insatisfecha total por mes (enero a diciembre).
-- **Treemap por asegurador**: Titulado «DEMANDA INSATISFECHA por ASEGURADOR»; reparte el total según el asegurador del paciente.
-- **Gráfico circular por tipo de servicio**: Participación porcentual de TRIAGES, CIRUGIAS, CITAS y REFERENCIA en el total.
+- **Gráfico combinado mensual**: Gráfico combinado de líneas y columnas con el título de campo «Date Mes» y la medida TOTAL DEMANDA INSATISFECHA por mes.
+- **Treemap por asegurador**: Titulado «DEMANDA INSATISFECHA por ASEGURADOR»; reparte el total según TERCEROS[TERNOMCOM], el asegurador del paciente, sin vacíos.
+- **Gráfico circular por tipo de servicio**: Participación de TRIAGES, CIRUGIAS, CITAS, REFERENCIA y HOSPITALIZACIÓN en el total; HOSPITALIZACIÓN usa la medida TOTAL_SOLICITUD_CAMAS y CITAS usa COUNT de CITAS MEDICAS[OID].
 - **Indicadores normalizados**: Cinco tarjetas a la derecha: NO ATENDIDOS / 100 TRIAGES, CANCELADAS / 1000 CITAS ASIGNADAS, NO ACEPTADOS / 100 ACEPTADOS, NO OPORTUNAS / 100 OPORTUNAS y NO ASIGNADAS/100 CAMAS ASIGNADAS.
-- **Filtros y botones**: Segmentadores de Año y Mes y botones de navegación TRIAGES, REFERENCIA, CIRUGÍAS, AMBULATORIO y HOSPITALIZACIÓN (camas).
+- **Filtros y botones**: Segmentadores «Date Año» y «Date Mes» (CALENDARIO[Date]) y botones de navegación TRIAGES, REFERENCIA, CIRUGÍAS, AMBULATORIO (página CITAS) y HOSPITALIZACIÓN (camas) (página SOLICITUD CAMAS)
 
 ## Reglas de negocio
 - **Componente hospitalización**: Cuenta solo las solicitudes de cama marcadas en la columna DEMANDA_INS (ver página SOLICITUD CAMAS).
 - **Citas de enfermería**: Se excluyen del denominador de citas asignadas (GEEDESCRI distinto de ENFERMERIA).
-- **Cirugía oportuna**: Para el indicador de cirugías, una cirugía realizada es oportuna si TIEMPO_CIRUGÍA_R es 45 o menos. Unidad del tiempo por confirmar.
+- **Cirugía oportuna**: Una cirugía es oportuna si TIEMPO_CIRUGÍA_R es de 45 días o menos y no oportuna si TIEMPO_CIRUGÍA es de más de 45 días; ambos miden los días desde que el paciente queda en espera de programación hasta que llega a sala de espera (o hasta hoy)
+- **Filtros de la página**: Referencia sin las causas vacía, «Aceptado por otra institución», «Es de menor complejidad», «No contratación» y «NO HABILITACIÓN»; cirugías con TIEMPO_CIRUGÍA mayor de 45 días y sin ANESTESIOLOGIA ni JUNTA MEDICA; citas solo con causa CALAMIDAD DEL ESPECIALISTA, DAÑO DE EQUIPO, ERROR EN HABILITACION DE AGENDA, FALTA DE INSUMOS o MANTENIMIENTO DE EQUIPO; camas solo de QUIROFANOS, SALA AZUL 3 PISO, UCI ADULTOS, URGENCIAS y CUIDADO INTERMEDIO SUR.
 
 ## Observaciones
-- **Hospitalización fuera del circular**: El gráfico circular no incluye hospitalización (camas), aunque sí suma en el total.
 - **Etiqueta de camas**: La tarjeta dice «NO ASIGNADAS/100 CAMAS ASIGNADAS», pero el denominador son todas las solicitudes de cama, no solo las asignadas.
 - **División sin DIVIDE**: RELACIÓN TRIAGES usa el operador / en lugar de DIVIDE; puede dar error si no hay triages realizados en el filtro.
-- **Tablas de realizados**: Las consultas de TRIAGES_REALIZADOS, REFERENCIA_ACEPTADO, CIRUGIAS REALIZADAS y CITAS_REALIZADAS no están documentadas; por confirmar.
 - **Promedio mensual**: Divide por el mes actual aunque el total incluya todos los años filtrados; con Año en «Todas» el promedio no corresponde a un promedio real por mes.
+- **Triages sin filtro de estado**: CONSOLIDADO no filtra TRIAGE[HCCESTADO] = 2 como la página TRIAGES; el total de triages puede diferir entre ambas. Por confirmar.
+- **Reglas de cama distintas**: La tarjeta HOSPITALIZACIÓN usa DEMANDA_INS (estado 4) y el circular usa TOTAL_SOLICITUD_CAMAS (estado distinto de 4); pueden no coincidir. Por confirmar.
+- **Cirugías realizadas**: CIRUGIAS REALIZADAS (denominador de oportunas) incluye todas las solicitudes planeadas, no solo las operadas. Por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.

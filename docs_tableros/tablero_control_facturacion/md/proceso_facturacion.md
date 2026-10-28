@@ -4,8 +4,8 @@ pagina: PROCESO FACTURACION
 nombre_funcional: Egresos gestionados y gestiones por usuario en el proceso de facturación
 bloque: Histórico
 tablas: [FACTURACION_PERFILES, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-10-28
+version: 2
 ---
 
 # PROCESO FACTURACION
@@ -38,6 +38,10 @@ Muestra el volumen de trabajo del proceso de facturación: egresos gestionados, 
 - **Formato del total**: En la captura de la documentación TOTAL FACTURADO se ve como «7,96500 mil»; formato por revisar.
 - **Unión de facturas**: La consulta une SLNFACTUR_DW sin agrupar; un ingreso con varias facturas puede duplicar filas. Por confirmar.
 - **Mayúsculas**: En la tabla algunos nombres salen en mayúsculas y otros no, según el origen (historia o auditoría).
+- **Sin página en el PBIP**: El PBIP local no trae una página llamada PROCESO FACTURACION: el botón PROCESO FACTURACIÓN de INICIO lleva a la página FACTURACION. La página «Duplicado de INICIO» (tabla NOMBRE COMPLETO y GESTIONES, MONTO FACTURADO, PERFIL, TIEMPO DE GESTIÓN) parece una versión de esta página. Por confirmar.
+- **Tabla**: La documentación escribe FACTURACION_PERFILES; la tabla del modelo se llama 'FACTURACION PERFILES'.
+- **Horas por día**: FACTURACION PERFILES convierte FECHA_RECIBE y FECHA_ENTREGA a fecha sin hora, por lo que el tiempo de gestión en horas es siempre un múltiplo de 24 (equivale a días por 24)
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
+- **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
