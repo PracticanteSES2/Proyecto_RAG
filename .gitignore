@@ -8,3 +8,13 @@ tableros
 /tests/eval/out/
 # Salidas del evaluador del actualizador (tests/docs_md)
 /tests/docs_md/out/
+# Locales: config de Claude Code, salida de graphify, descargas y zips de documentación
+/.claude/
+/graphify-out/
+/__data/
+/Documentacion/
+/Documentacion.zip
+/OneDrive_*.zip
+# Bloqueo y metadatos que genera Qdrant al abrir la base de fixtures
+/tests/sim/fixtures/data/vector_db/qdrant/.lock
+/tests/sim/fixtures/data/vector_db/qdrant/meta.json
