@@ -153,14 +153,23 @@ def build_coverage_report(data_root, *, specs, import_report, ingest_result, ski
     for slug, spec in specs.items():
         model_dir = metadata_root / slug
         sync = _load_json(model_dir / "_metadata_sync.json", {}) or {}
-        models.append({
+        entry = {
             "semantic_model": spec["semantic_model"],
             "semantic_model_key": slug,
             "source": sync.get("source") or spec["source"],
             "inferred": bool(sync.get("inferred")),
             "has_report_pbir": bool(spec.get("report_paths")),
             **_model_counts(model_dir),
-        })
+        }
+        completion = sync.get("completed_from_documentation")
+        if completion:
+            # Informe real incompleto completado con la documentación (ver complete_reports.py).
+            entry["completed_from_documentation"] = {
+                key: completion.get(key)
+                for key in ("status", "real_report", "empty_pages", "inferred_pages",
+                            "added_measures", "report_path", "reason")
+            }
+        models.append(entry)
 
     documents = []
     for item in import_report.get("results", []) or []:
@@ -239,6 +248,14 @@ def print_coverage_report(report):
             f"{model['columns_user']} / {model['measures']} "
             f"(DAX {model['measures_with_dax']}) / {model['relationships']}"
         )
+        completion = model.get("completed_from_documentation")
+        if completion:
+            pages = completion.get("inferred_pages") or []
+            print(
+                f"      informe incompleto ({len(completion.get('empty_pages') or [])} páginas vacías) "
+                f"-> {completion.get('status')}: {len(pages)} páginas inferidas de la documentación, "
+                f"{len(completion.get('added_measures') or [])} medidas nuevas"
+            )
 
     print("\nDOCUMENTOS POR TABLERO:")
     for item in report["documents_by_dashboard"]:

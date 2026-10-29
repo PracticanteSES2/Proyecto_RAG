@@ -346,7 +346,7 @@ class DocumentedReportInference:
     def _schema_unknown(self, table):
         """Tabla sin columnas del SQL ni del reporte (solo citadas en DAX)."""
         return not any(
-            self.origins.get((table["name"], column["name"])) in ("sql", "report")
+            self.origins.get((table["name"], column["name"])) in ("sql", "report", "tmdl")
             for column in table["columns"]
         )
 
@@ -476,6 +476,11 @@ class DocumentedReportInference:
         head = phrase_tokens[0]
 
         match = self._match_measure(phrase_tokens)
+        # «Promedio de edad» no es la medida Moda_Edad_...: otra estadística en
+        # el nombre de la medida contradice el indicador documentado.
+        if match and lead == "Promedio" and re.search(
+                r"\b(moda|maximo|minimo|mediana|max|min)\b", split_identifier(match[1]["name"])):
+            match = None
         if match:
             table, measure = match
             return {"kind": "measure", "table": table["name"], "measure": measure["name"],

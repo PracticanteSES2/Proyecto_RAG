@@ -286,6 +286,87 @@ def write_model_registry(specs, data_root, results, reference_slugs):
     return registry
 
 
+def complete_incomplete_report(spec, documents, data_root, owner_root, model_dir):
+    """
+    Informe real con páginas sin visuales (copia incompleta del publicado):
+    completa esas páginas con los visuales inferidos de la documentación (ver
+    complete_reports.py). Devuelve el registro de lo hecho (o None si el
+    informe está completo / no hay modelo TMDL) y lo deja en _metadata_sync.json.
+    """
+    from tools.local_data.complete_reports import (
+        COMPLETION_REASON, apply_added_measures, empty_pages, infer_completion,
+        redirect_manifests, report_page_status, write_completed_report,
+    )
+    from tools.local_data.metadata_format import write_model_metadata
+
+    model = spec.get("model")
+    if model is None or not spec.get("report_paths"):
+        return None
+
+    record = None
+    for real_report in spec["report_paths"]:
+        status = report_page_status(real_report)
+        empties = empty_pages(status)
+        if not empties:
+            continue
+        completion = infer_completion(model, documents, status)
+        record = {
+            "reason": COMPLETION_REASON,
+            "real_report": real_report.name,
+            "real_pages": len(status),
+            "empty_pages": [page["display_name"] for page in empties],
+            "useful_pages": len(status) - len(empties),
+            "inferred_pages": [
+                {"page": page["name"], "replaces": completion["replaced"].get(page["name"]),
+                 "visuals": len(page["visuals"])}
+                for page in completion["pages"]
+            ],
+            "added_measures": completion["added_measures"],
+            "documents": len(documents),
+        }
+        if not completion["pages"]:
+            record["status"] = "not_completed"
+            record["note"] = (
+                "Informe parcial (tiene páginas con visuales): las páginas vacías no se completan "
+                "porque la inferencia sobre el modelo real completo no es fiable; se usa tal cual."
+                if record["useful_pages"] else
+                "La documentación no permite inferir visuales: el informe se usa tal cual."
+            )
+            break
+
+        apply_added_measures(model, completion)
+        report_dir = write_completed_report(
+            real_report, completion["pages"], status, data_root / "pbir",
+            semantic_model=spec["semantic_model"],
+        )
+        record["status"] = "completed"
+        record["report_path"] = report_dir.relative_to(owner_root).as_posix()
+        record["manifests"] = redirect_manifests(
+            data_root / "raw", spec["semantic_model_key"], report_dir, owner_root)
+        break
+
+    if record is None:
+        return None
+
+    sync_path = Path(model_dir) / "_metadata_sync.json"
+    sync = json.loads(sync_path.read_text(encoding="utf-8"))
+    extra = {key: sync[key] for key in ("source_details", "limitations") if key in sync}
+    extra["completed_from_documentation"] = record
+    if record["added_measures"]:
+        record["counts"] = write_model_metadata(model, model_dir, source=sync["source"], extra=extra)
+    else:
+        sync["completed_from_documentation"] = record
+        save_json(sync, sync_path)
+
+    visuals = sum(page["visuals"] for page in record["inferred_pages"])
+    log(
+        f"  Informe incompleto {record['real_report']}: {len(record['empty_pages'])} páginas vacías; "
+        f"{record['status']} con {len(record['inferred_pages'])} páginas / {visuals} visuales "
+        f"inferidos y {len(record['added_measures'])} medidas nuevas"
+    )
+    return dict(record)
+
+
 # ============================================================
 # 2-4. PIPELINE DEL PROPIETARIO (con rutas redirigidas)
 # ============================================================
@@ -415,6 +496,7 @@ def build(args):
                 model_name=spec["semantic_model"], folder_name=slug,
             )
             results[slug] = {"counts": converted["counts"], "warnings": converted["warnings"]}
+            spec["model"] = converted["model"]
         elif spec["source"] == "git_history":
             results[slug] = {"counts": write_history_metadata(
                 spec, project_root, args.history_commit, model_dir,
@@ -441,6 +523,11 @@ def build(args):
                 spec["semantic_model"], metadata_root / slug)
             if saved:
                 log(f"Valores documentados {spec['semantic_model']!r}: {saved} columnas")
+            completion = complete_incomplete_report(
+                spec, documents, data_root, owner_root, metadata_root / slug)
+            if completion:
+                results[slug]["counts"] = completion.pop("counts", results[slug]["counts"])
+                spec["completed_from_documentation"] = completion
             continue
         inferred = build_inferred_metadata(
             spec["semantic_model"], metadata_root / slug,
