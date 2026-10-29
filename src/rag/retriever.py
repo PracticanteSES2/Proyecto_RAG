@@ -7,7 +7,6 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import (
     FieldCondition,
     Filter,
-    HasIdCondition,
     MatchValue,
 )
 
@@ -22,6 +21,7 @@ from src.rag.ranking import (
     type_prior,
 )
 from src.rag.source_labels import (  # noqa: F401  (reexportadas)
+    entry_identifier,
     is_dictionary_name,
     is_dictionary_source,
     source_label,
@@ -139,6 +139,14 @@ class HybridRetriever:
     # Página nombrada: las entradas del diccionario del mismo informe siguen
     # siendo candidatas si coinciden bien con la pregunta.
     SCOPED_DICTIONARY_MIN_LEXICAL = 0.50
+    # La pregunta nombra exactamente la entrada que define el chunk («cómo
+    # se calcula el turno ok» -> LAVANDERIA[TURNO_OK]): su definición pesa
+    # más que los indicadores o visuales que solo la mencionan.
+    NAMED_ENTRY_BONUS = 0.12
+    # Entre dos entradas nombradas, la más específica (FACTURACION_NETA frente
+    # a NETA en «facturación neta») gana por cada término extra que cubre.
+    NAMED_ENTRY_TOKEN_BONUS = 0.01
+    NAMED_ENTRY_INTENTS = {"calculation", "definition", "general"}
     # Sin tablero: el coseno debe superar min_score Y estar respaldado por
     # coincidencia léxica (o ser alto). Así «capital de Francia» o «clima en
     # Manizales» (coseno 0.35-0.45 contra textos genéricos, sin términos en
@@ -356,13 +364,16 @@ class HybridRetriever:
 
         corpus = []
         documents = []
+        entry_tokens = []
         scope_index = ScopeIndex()
         pages_by_group = {}
+        dictionary_pages = set()
 
         for point in points:
             result = self._point_to_result(point)
             result["id"] = point.id
             corpus.append(result)
+            entry_tokens.append(frozenset(tokenize(entry_identifier(result))))
 
             documents.append(
                 tokenize(
@@ -380,6 +391,9 @@ class HybridRetriever:
             group = result.get("source_group") or ""
             page = result.get("dashboard")
 
+            if page and result.get("is_dictionary"):
+                dictionary_pages.add(page)
+
             if page:
                 scope_index.add_page(group, page)
                 group_pages = pages_by_group.setdefault(group, {})
@@ -394,8 +408,10 @@ class HybridRetriever:
 
         self._corpus = corpus
         self._lexical_index = LexicalIndex(documents)
+        self._entry_tokens = entry_tokens
         self._scope_index = scope_index
         self._pages_by_group = pages_by_group
+        self._dictionary_pages = dictionary_pages
 
     def refresh_metadata(self):
         self._load_corpus()
@@ -472,7 +488,13 @@ class HybridRetriever:
 
     def _main_page(self, source_group, report_tokens):
         """Página representativa de un informe (para detect_dashboard)."""
-        pages = self._pages_by_group.get(source_group) or {}
+        # El diccionario («DICCIONARIO TABLERO X») contiene todos los tokens
+        # del informe, pero no es una página del tablero: no la representa.
+        pages = {
+            page: count
+            for page, count in (self._pages_by_group.get(source_group) or {}).items()
+            if page not in getattr(self, "_dictionary_pages", ())
+        }
         if not pages:
             return None
 
@@ -610,19 +632,28 @@ class HybridRetriever:
 
         # Las medidas del diccionario de variables repiten las del modelo
         # (mismo nombre, otro «tablero»): crearían candidatos duplicados o
-        # falsos. La resolución de métricas usa solo las del catálogo.
-        dictionary_ids = self._dictionary_point_ids()
-        if dictionary_ids:
-            query_filter = Filter(
-                must=(query_filter.must if query_filter else None),
-                must_not=[HasIdCondition(has_id=dictionary_ids)],
-            )
+        # falsos. La resolución de métricas usa solo las del catálogo. Se
+        # excluyen en Qdrant por la marca `is_dictionary` y por el nombre
+        # (índices anteriores a la marca) y, por si el cliente no aplica
+        # `must_not`, también al leer los resultados.
+        dictionary_pages = sorted(getattr(self, "_dictionary_pages", None) or ())
+        exclusions = [
+            FieldCondition(key="is_dictionary", match=MatchValue(value=True)),
+            *(
+                FieldCondition(key="dashboard", match=MatchValue(value=page))
+                for page in dictionary_pages
+            ),
+        ]
+        query_filter = Filter(
+            must=(query_filter.must if query_filter else None),
+            must_not=exclusions,
+        )
 
         response = self.client.query_points(
             collection_name=self.collection_name,
             query=query_vector.tolist(),
             query_filter=query_filter,
-            limit=limit + len(dictionary_ids),
+            limit=limit + self._dictionary_measure_count(),
             with_payload=True,
         )
 
@@ -636,13 +667,13 @@ class HybridRetriever:
             if not result.get("is_dictionary")
         ][:limit]
 
-    def _dictionary_point_ids(self):
-        """Ids de los chunks del diccionario de variables (del corpus en memoria)."""
-        return [
-            result["id"]
+    def _dictionary_measure_count(self):
+        """Medidas del diccionario en el corpus en memoria (margen del límite)."""
+        return sum(
+            1
             for result in getattr(self, "_corpus", None) or []
-            if result.get("is_dictionary") and result.get("id") is not None
-        ]
+            if result.get("is_dictionary") and result.get("chunk_type") == "measure"
+        )
 
     # --------------------------------------------------------
     # BÚSQUEDA ESTRUCTURADA
@@ -807,6 +838,20 @@ class HybridRetriever:
         residual_terms = query_terms(question, exclude=scope_tokens, intent=intent)
 
         vector_scores = self._vector_scores(question)
+        question_tokens = set(tokenize(question))
+        entry_tokens = getattr(self, "_entry_tokens", None) or []
+
+        def named_entry_bonus(index, query_tokens):
+            """Bonificación si el identificador del chunk cubre los términos de
+            la pregunta (sin las variantes de intención, que son tuplas) y
+            todas sus palabras están en ella."""
+            if intent not in self.NAMED_ENTRY_INTENTS or index >= len(entry_tokens):
+                return 0.0
+            name = entry_tokens[index]
+            plain = {term for term in query_tokens if isinstance(term, str)}
+            if not name or not plain or not plain <= name <= question_tokens:
+                return 0.0
+            return self.NAMED_ENTRY_BONUS + self.NAMED_ENTRY_TOKEN_BONUS * (len(name) - 1)
 
         def score_candidates(active_scope):
             candidates = []
@@ -875,6 +920,8 @@ class HybridRetriever:
                     # variables de todo el tablero (también las de la página
                     # nombrada), así que no se penaliza.
                     bonus = -self.OTHER_PAGE_PENALTY
+
+                bonus += named_entry_bonus(index, query_tokens)
 
                 final = (
                     self.VECTOR_WEIGHT * vector

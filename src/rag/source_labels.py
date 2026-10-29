@@ -67,7 +67,7 @@ def dictionary_board(name):
     return text[len(DICTIONARY_PREFIX):].strip()
 
 
-def _entry_name(source):
+def entry_name(source):
     """Nombre de la entrada del diccionario: [Medida], TABLA[COLUMNA] o el
     nombre que encabeza el texto («EN_ESPERA[TramoHorario]: …»)."""
     measure = str(source.get("measure") or "").strip()
@@ -92,6 +92,16 @@ def _entry_name(source):
     return ""
 
 
+def entry_identifier(source):
+    """Identificador que define el chunk, sin tabla: «TURNO_OK» para
+    [TURNO_OK] o LAVANDERIA[TURNO_OK]; «» para relaciones o sin nombre."""
+    name = entry_name(source)
+    if not name or "→" in name:
+        return ""
+    match = re.fullmatch(r"(?:[^\[\]]*)\[(?P<id>[^\[\]]+)\]", name)
+    return (match.group("id") if match else name).strip()
+
+
 def dictionary_section(source):
     section = str(source.get("section") or "").strip()
     return DICTIONARY_SECTION_LABELS.get(section, section)
@@ -114,7 +124,7 @@ def source_label(source):
     section = dictionary_section(source)
     if section and section != "Resumen":
         parts.append(section)
-    entry = _entry_name(source)
+    entry = entry_name(source)
     if entry:
         parts.append(entry)
     return " › ".join(parts)
