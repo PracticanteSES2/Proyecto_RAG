@@ -33,6 +33,30 @@ Todas las suites en verde (se corren por módulo: `python -m tests.<paquete>.<mo
   Patrón visto: «mes pasado» / «2025» → «No hay datos para esos filtros» cuando sí hay datos.
 - Banco del simulador (`tests.eval.run --harness realistic --llm fake`): 117/158 con la data real (antes 113).
 
+## Auditoría del banco real (rama `agente/qa-real`, commit 069b99a, WIP)
+Recuento auditado de la corrida db2f1af: **25/67 (37 %)**, con 3 casos inconclusos (AI03, DI02, TU12).
+Criterio: la verdad es la cifra que el usuario ve en el tablero (medida + filtros de visual y de página + periodo);
+una contrapregunta solo es legítima si varias fuentes responden con cifras distintas.
+
+Causas raíz de las fallas reales (líneas en db2f1af):
+1. Filtros de página nunca aplicados; los de visual se pierden si el indicador está en varios visuales —
+   `query_plan_builder._visual_filter_clauses` (~l.687), `_with_visual_filters` (~l.723),
+   `query_engine._note_same_measure_pages` (~l.3973). Ej.: BH01 ocupación 75 % vs 92 %; FM01 2.439 vs 278.
+2. Filtros espurios por coincidencia parcial («total»→SALUD TOTAL, «interconsultas»→INTERCONSULTAS SAS) —
+   `_resolve_implicit_filter` (~l.3255), `_resolve_implicit_value` (~l.3434).
+3. Columna de fecha equivocada — `_best_date_field` (~l.3631) (TRIAGES por CONSULTAS PRIORITARIAS[FECHA]).
+4. Contrapreguntas innecesarias — `_unresolved_words_clarification` (~l.2675), `_build_clarification_choices`
+   (~l.2431), `_query_plan_failure` (~l.3293).
+5. Indicador equivocado — `_resolve_metric` (~l.1180) (TU03, AC03, BH08, BH09, FC05, LV01, DI01).
+6. Preguntas de datos enviadas a RAG — `looks_numeric` (~l.4082) (FM03, AB04, LV02, LV03).
+7. Opciones mal rotuladas — `option_describer`, `_visual_title`.
+8. Agrupación ignorada — `_requested_group_tail` (~l.5241) (TU12).
+
+Pendiente de esa rama (ver `tests/real/RETOMAR.md`):
+- aplicar las correcciones del banco y del comparador;
+- pedir la corrida `--solo AI03,DI02,TU12,BH03,TU05,TU10,AI01,AI06,AI08`;
+- escribir `INFORME.md`.
+
 ## Pendiente (en orden)
 1. Rama `agente/qa-real`: auditoría de la verdad y del comparador del banco real (ver `tests/real/RETOMAR.md`
    en esa rama). Integrarla cuando esté.
