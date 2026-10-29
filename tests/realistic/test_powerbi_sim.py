@@ -455,7 +455,9 @@ def test_real_metadata_if_present():
     models = set(s.list_models())
     assert CONSOLIDADO in models
     assert CAMAS in models or "TABLERO_GESTION_CAMAS" in models
-    assert len(_models_with_measure(s, "Total Egresos")) >= 3
+    # Indicadores homónimos entre modelos: con la data real sincronizada
+    # %OCUPACION está en BRIEFING HOSPITALARIO y Dashboard Gestion.
+    assert len(_models_with_measure(s, "%OCUPACION")) >= 2
     model = "TABLERO DE ATENCIONES INSTITUCIONALES"
     schema = s.models[model]
     approximate, invalid = 0, []
