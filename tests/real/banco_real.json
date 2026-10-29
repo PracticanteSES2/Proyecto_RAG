@@ -1,0 +1,1457 @@
+{
+ "version": 1,
+ "casos": [
+  {
+   "id": "BH01",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "cual es el nivel de ocupacion?",
+   "turnos_extra": [],
+   "elegir": "BRIEFING",
+   "contrapregunta_aceptable": true,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "GESTIÓN CAMAS",
+    "visual": "06f2271d25d40aa1e082",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([%OCUPACION],\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL                   \", \"BLOQUEAR - CUIDADO BASICO NEONATAL                \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL             \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL            \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE               \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS          \", \"BLOQUEAR - URGENCIAS OBS SALA 2                   \", \"BLOQUEAR - URGENCIAS OBS SALA 3                 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO         \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))),\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"})))))",
+    "unidad": "%",
+    "tolerancia": 0.02,
+    "porcentaje": true,
+    "filtros_no_traducidos": []
+   },
+   "nota": "Tarjeta %OCUPACION de GESTIÓN CAMAS. Conversación real del usuario."
+  },
+  {
+   "id": "BH02",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "cuantas camas disponibles hay ahorita",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "GESTIÓN CAMAS",
+    "visual": "04c3f320b40299303088",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]),\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL                   \", \"BLOQUEAR - CUIDADO BASICO NEONATAL                \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL             \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL            \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE               \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS          \", \"BLOQUEAR - URGENCIAS OBS SALA 2                   \", \"BLOQUEAR - URGENCIAS OBS SALA 3                 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO         \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))),\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"}))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[ESTADOS_CAM]), 'CAMAS DISPONIBLES'[ESTADOS_CAM] IN {\"DISPONIBLE\"})),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"EXP\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"OH\")))))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "BH03",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "cuántas camas ocupadas tenemos?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "GESTIÓN CAMAS",
+    "visual": "e8da3d43077a771d4c89",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]),\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL                   \", \"BLOQUEAR - CUIDADO BASICO NEONATAL                \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL             \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL            \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE               \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS          \", \"BLOQUEAR - URGENCIAS OBS SALA 2                   \", \"BLOQUEAR - URGENCIAS OBS SALA 3                 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO         \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))),\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"}))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[ESTADOS_CAM]), 'CAMAS DISPONIBLES'[ESTADOS_CAM] IN {\"OCUPADA\", \"CAMA SOLICITADA\"}))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "BH04",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "cuantas camas tiene el hospital en total",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "GESTIÓN CAMAS",
+    "visual": "3a9714665e097d231a23",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]),\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL                   \", \"BLOQUEAR - CUIDADO BASICO NEONATAL                \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL             \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL            \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE               \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS          \", \"BLOQUEAR - URGENCIAS OBS SALA 2                   \", \"BLOQUEAR - URGENCIAS OBS SALA 3                 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO         \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))),\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"}))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"EXP\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"OH\")))))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "BH05",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "lista",
+   "pregunta": "dame una lista de las areas que tiene el hospital",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "GESTIÓN CAMAS",
+    "visual": "d7cc5ae83dea62107544",
+    "dax": "EVALUATE CALCULATETABLE(VALUES(SERVICIOS[NOM_SERV]), KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL                   \", \"BLOQUEAR - CUIDADO BASICO NEONATAL                \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL             \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL            \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE               \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS          \", \"BLOQUEAR - URGENCIAS OBS SALA 2                   \", \"BLOQUEAR - URGENCIAS OBS SALA 3                 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO         \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"}))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), 'SERVICIOS'[NOM_SERV] IN {\"ATENCION DOMICILIARIA\", \"CUARTO PISO NORTE                                 \", \"CUARTO PISO SUR                                   \", \"CUIDADO INTERMEDIO NORTE\", \"CUIDADO INTERMEDIO SUR\", \"GINECOBSTETRICIA\", \"HOSPITALIZACION NEONATOS\", \"QUINTO PISO NORTE                                 \", \"QUINTO PISO SUR\", \"SALA AZUL 3 PISO\", \"SEGUNDO PISO SUR\", \"URGENCIAS\", \"CUIDADO ESPECIAL\", \"SEXTO PISO\", \"UCI NORTE\", \"UNIDAD DE CUIDADO CRITICO\", \"UNIDAD DE CUIDADO INTENSIVO\"})))",
+    "unidad": "",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "cobertura_minima": 0.5
+   },
+   "nota": "Conversación real. Verdad: servicios del segmentador SERVICIO de GESTIÓN CAMAS."
+  },
+  {
+   "id": "BH06",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "cuantas interconsultas hay sin responder?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "INTERCONSULTAS",
+    "visual": "582d978a007e443658b1",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(INTERCONSULTAS[OID_SOLICITUD]),\n    KEEPFILTERS(FILTER(ALL('INTERCONSULTAS'[OID_RESPUESTA]), ISBLANK('INTERCONSULTAS'[OID_RESPUESTA])))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "BH07",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "agrupado",
+   "pregunta": "interconsultas pendientes por especialidad",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "INTERCONSULTAS",
+    "visual": "38374005eae24ba064e3",
+    "dax": "EVALUATE SUMMARIZECOLUMNS(INTERCONSULTAS[GEEDESCRI], KEEPFILTERS(FILTER(ALL('INTERCONSULTAS'[OID_RESPUESTA]), ISBLANK('INTERCONSULTAS'[OID_RESPUESTA]))), \"v\", DISTINCTCOUNT(INTERCONSULTAS[OID_SOLICITUD]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   }
+  },
+  {
+   "id": "BH08",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "cuantos egresos probables hay para hoy",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "EGRESOS PROBABLES",
+    "visual": "76f79896573d21108d56",
+    "dax": "EVALUATE ROW(\"v\", DISTINCTCOUNT('EGRESOS PROBABLES'[AINCONSEC]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "BH09",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "cuantos pacientes hay hospitalizados en este momento",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "INICIO",
+    "visual": "9cd6df47bd35217add22",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT('PACIENTES X ASEGURADORA'[ADNINGRESO]),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))),\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), 'SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"CUARTO PISO NORTE                                 \", \"CUARTO PISO SUR                                   \", \"CUIDADO INTERMEDIO NORTE\", \"CUIDADO INTERMEDIO SUR\", \"HOSPITALIZACION NEONATOS\", \"OBSTETRICIA                                       \", \"QUINTO PISO NORTE                                 \", \"QUINTO PISO SUR\", \"SALA AZUL 3 PISO\", \"SEXTO PISO\", \"UNIDAD DE CUIDADO INTENSIVO\", \"URGENCIAS\", \"URGENCIAS 2 PISO\"})),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0})))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "BH10",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "agrupado",
+   "pregunta": "cantidad de pacientes por aseguradora",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "INICIO",
+    "visual": "4442e99002b1560192b7",
+    "dax": "EVALUATE SUMMARIZECOLUMNS('PACIENTES X ASEGURADORA'[TERNOMCOM], KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), 'SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"CUARTO PISO NORTE                                 \", \"CUARTO PISO SUR                                   \", \"CUIDADO INTERMEDIO NORTE\", \"CUIDADO INTERMEDIO SUR\", \"HOSPITALIZACION NEONATOS\", \"OBSTETRICIA                                       \", \"QUINTO PISO NORTE                                 \", \"QUINTO PISO SUR\", \"SALA AZUL 3 PISO\", \"SEXTO PISO\", \"UNIDAD DE CUIDADO INTENSIVO\", \"URGENCIAS\", \"URGENCIAS 2 PISO\"})), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), \"v\", DISTINCTCOUNT('PACIENTES X ASEGURADORA'[ADNINGRESO]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   }
+  },
+  {
+   "id": "BH11",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "cuantas solicitudes de cama estan pendientes?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "SOLICITUD CAMAS",
+    "visual": "6245fa3c1d7e780c00c5",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT('SOLICITUD CAMAS'[oid]),\n    KEEPFILTERS(FILTER(ALL('SOLICITUD CAMAS'[camaoid]), ISBLANK('SOLICITUD CAMAS'[camaoid]))),\n    KEEPFILTERS(FILTER(ALL('SOLICITUD CAMAS'[estadooid]), 'SOLICITUD CAMAS'[estadooid] IN {2, 3})),\n    KEEPFILTERS(FILTER(ALL('SOLICITUD CAMAS'[ssfechafin]), ISBLANK('SOLICITUD CAMAS'[ssfechafin])))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "BH12",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "como esta el nedocs hoy?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "INICIO",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([TotalN],\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))),\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), 'SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"CUARTO PISO NORTE                                 \", \"CUARTO PISO SUR                                   \", \"CUIDADO INTERMEDIO NORTE\", \"CUIDADO INTERMEDIO SUR\", \"HOSPITALIZACION NEONATOS\", \"OBSTETRICIA                                       \", \"QUINTO PISO NORTE                                 \", \"QUINTO PISO SUR\", \"SALA AZUL 3 PISO\", \"SEXTO PISO\", \"UNIDAD DE CUIDADO INTENSIVO\", \"URGENCIAS\", \"URGENCIAS 2 PISO\"})),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0})))))",
+    "unidad": "",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "BH13",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "definicion",
+   "pregunta": "que significa el NEDOCS y como se calcula?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "todas": [
+     "nedocs"
+    ],
+    "alguna": [
+     "85.8",
+     "85,8",
+     "600",
+     "13.4",
+     "13,4",
+     "5.64",
+     "5,64",
+     "sobreocupación",
+     "saturación"
+    ]
+   },
+   "fuente": "docs_tableros/tablero_briefing_hospitalario/md/detalle_nedocs.md"
+  },
+  {
+   "id": "BH14",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "cuantos egresos hubo ayer",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "INGRESOS Y EGRESOS",
+    "visual": "679969d6d20ed0211ba6",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(EGRESOS[INGRESO]),\n    KEEPFILTERS(FILTER(ALL('EGRESOS'[SERVICIO]), NOT ('EGRESOS'[SERVICIO] IN {\"HOSPITALIZACION PARCIAL\"}))),\n    KEEPFILTERS(FILTER(ALL('EGRESOS'[SERVICIO]), NOT ('EGRESOS'[SERVICIO] IN {\"HOSPITALIZACION PARCIAL\"})))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "nota": "La tabla EGRESOS del briefing trae solo el día anterior (verificado: MIN = MAX = ayer)."
+  },
+  {
+   "id": "BH15",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "cuantos triages van en urgencias segun el briefing",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "URGENCIAS",
+    "visual": "e45fda46778f618639fd",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(TRIAGES[OID_TRIAGE]),\n    KEEPFILTERS(FILTER(ALL('TRIAGES'[DESCRI_TRIGE]), (NOT (CONTAINSSTRING('TRIAGES'[DESCRI_TRIGE], \"MUERTO\")) && NOT (CONTAINSSTRING('TRIAGES'[DESCRI_TRIGE], \"OBSTETRICA\")))))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "BH16",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "agrupado",
+   "pregunta": "atenciones por servicio de este año en el briefing",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "ATENCIONES POR ASEGURADOR",
+    "visual": "1c5a986b730c0ef61613",
+    "dax": "EVALUATE SUMMARIZECOLUMNS(ATENCIONES_SERVICIO[SERVICIO], KEEPFILTERS(FILTER(ALL('ATENCIONES_SERVICIO'[SERVICIO]), NOT ('ATENCIONES_SERVICIO'[SERVICIO] IN {\"BLOQUEADO\"}))), KEEPFILTERS(FILTER(ALL(ATENCIONES_SERVICIO[FECHA]), ATENCIONES_SERVICIO[FECHA] >= {INI_ANO} && ATENCIONES_SERVICIO[FECHA] <= {HOY})), \"v\", SUM(ATENCIONES_SERVICIO[TOTAL_ATENCIONES]))",
+    "unidad": "",
+    "tolerancia": 0.005,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   }
+  },
+  {
+   "id": "BH17",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "cuantas atenciones hubo el mes pasado por asegurador en total?",
+   "turnos_extra": [],
+   "elegir": "BRIEFING",
+   "contrapregunta_aceptable": true,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "ATENCIONES POR ASEGURADOR",
+    "visual": "4cf7ead0712b011261e6",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(ATENCIONES_SERVICIO[TOTAL_ATENCIONES]),\n    KEEPFILTERS(FILTER(ALL('ATENCIONES_SERVICIO'[SERVICIO]), NOT ('ATENCIONES_SERVICIO'[SERVICIO] IN {\"BLOQUEADO\"}))),\n    KEEPFILTERS(FILTER(ALL(ATENCIONES_SERVICIO[FECHA]), ATENCIONES_SERVICIO[FECHA] >= {INI_MES_PASADO} && ATENCIONES_SERVICIO[FECHA] <= {FIN_MES_PASADO}))))",
+    "unidad": "",
+    "tolerancia": 0.005,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "BH18",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "comportamiento",
+   "pregunta": "necsito saber que tantas especialidades se estan manejando en el area e urgencias y a cantidad de paciente que tiene cada una",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "no_inventar": true,
+    "aceptable": "Tabla de especialidades con pacientes en urgencias desde una fuente real (p. ej. PACIENTES X ASEGURADORA[ESPECIALIDAD] con HSUNOMBRE URGENCIAS, casi siempre en blanco) o una contrapregunta útil; nunca cifras sin fuente."
+   },
+   "nota": "Conversación real del usuario. No hay un visual que responda exactamente; se evalúa que no invente."
+  },
+  {
+   "id": "TU01",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "numero",
+   "pregunta": "cual es el tiempo promedio para triage hoy?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "RESUMEN_D",
+    "visual": "feed769997e3b0244b9e",
+    "dax": "EVALUATE ROW(\"v\", AVERAGE(TRIAGES_DIA[TIEMPO_PARA_TRIAGE_DIA]))",
+    "unidad": "min",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "TU02",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "numero",
+   "pregunta": "tiempo promedio de atencion en consulta de urgencias el mes pasado",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "RESUMEN",
+    "visual": "7909eb29acca72dcb3c5",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(AVERAGE(CONSULTA_URGENCIAS[MINUTOS_CONSULTA]),\n    KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[TIPO_TRIAGE]), 'CONSULTA_URGENCIAS'[TIPO_TRIAGE] IN {\"I\", \"II\", \"III\", \"IV\", \"V\"})),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {INI_MES_PASADO} && Calendario[FECHA] <= {FIN_MES_PASADO}))))",
+    "unidad": "min",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "TU03",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "numero",
+   "pregunta": "cuanto se demoran en hacer el triage en promedio el mes pasado",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "RESUMEN",
+    "visual": "3d3e950347e7ce76fbd1",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(AVERAGE(OPORTUNIDAD_TRIAGE[MIN]),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {INI_MES_PASADO} && Calendario[FECHA] <= {FIN_MES_PASADO}))))",
+    "unidad": "min",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "TU03b",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "numero",
+   "pregunta": "cuanto se demoran en hacer el triage en promedio el mes pasado",
+   "turnos_extra": [
+    "texto: y en agosto?"
+   ],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "RESUMEN",
+    "visual": "3d3e950347e7ce76fbd1",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(AVERAGE(OPORTUNIDAD_TRIAGE[MIN]),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {INI_AGO} && Calendario[FECHA] <= {FIN_AGO}))))",
+    "unidad": "min",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "nota": "Seguimiento: la verdad es la del último turno (agosto)."
+  },
+  {
+   "id": "TU04",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "numero",
+   "pregunta": "cuantos triages se han hecho este mes en urgencias",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "TIEMPO TRIAGE",
+    "visual": "243f9e3d309d7f83a06b",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {INI_MES} && Calendario[FECHA] <= {HOY}))))",
+    "unidad": "",
+    "tolerancia": 0.005,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "TU05",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "numero",
+   "pregunta": "porcentaje de interconsultas atendidas este mes",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "INTERCONSULTAS",
+    "visual": "863052495540ed6b02b4",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([%ATENDIDO],\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {INI_MES} && Calendario[FECHA] <= {HOY}))))",
+    "unidad": "%",
+    "tolerancia": 0.02,
+    "porcentaje": true,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "TU06",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "agrupado",
+   "pregunta": "tiempo promedio de respuesta de interconsultas por especialidad el mes pasado",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "INTERCONSULTAS",
+    "visual": "c47807f0d4cb574950a3",
+    "dax": "EVALUATE TOPN(15, SUMMARIZECOLUMNS(INTERCONSULTA[GEEDESCRI], KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[TIPO_TRIAGE]), NOT ('CONSULTA_URGENCIAS'[TIPO_TRIAGE] IN {\"NO URGENTE OBSTETRICA - IV-G\", \"URGENCIA MEDICA OBSTETRICA - II-G\", \"URGENCIA OBSTETRICA - III-G\"}))), KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {INI_MES_PASADO} && Calendario[FECHA] <= {FIN_MES_PASADO})), \"v\", AVERAGE(INTERCONSULTA[TIEMPO_RESPUESTA_INTERCONSULTA])), [v], DESC)",
+    "unidad": "h",
+    "tolerancia": 0.03,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   }
+  },
+  {
+   "id": "TU07",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "numero",
+   "pregunta": "tiempo promedio para el egreso en urgencias este año",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "TIEMPO EGRESO",
+    "visual": "8713e601ba911d07552d",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(AVERAGE(TIEMPO_PARA_EGRESO[TIEMPO_EGRESO_OK]),\n    KEEPFILTERS(FILTER(ALL('TIEMPO_PARA_EGRESO'[VALIDADOR]), NOT ('TIEMPO_PARA_EGRESO'[VALIDADOR] IN {-1}))),\n    KEEPFILTERS(FILTER(ALL('TIEMPO_PARA_EGRESO'[SUBGRUPO]), 'TIEMPO_PARA_EGRESO'[SUBGRUPO] IN {\"URGENCIAS\"})),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {INI_ANO} && Calendario[FECHA] <= {HOY}))))",
+    "unidad": "min",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "TU08",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "numero",
+   "pregunta": "cuantas imagenes se tomaron en urgencias el mes pasado",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "IMAGENES",
+    "visual": "ab87ed97e644f8b830f1",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(IMAGENES[SOLICITUDES_CANT]),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {INI_MES_PASADO} && Calendario[FECHA] <= {FIN_MES_PASADO}))))",
+    "unidad": "",
+    "tolerancia": 0.005,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "TU09",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "numero",
+   "pregunta": "cual es el tiempo de respuesta de los examenes este mes",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "EXAMENES",
+    "visual": "bd24bcec419c6150eb3a",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(AVERAGE(EXAMENES[TIEMPO_RESPUESTA]),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {INI_MES} && Calendario[FECHA] <= {HOY}))))",
+    "unidad": "",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "TU10",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "comparacion",
+   "pregunta": "compara el tiempo promedio de triage de agosto contra el del mes pasado",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "RESUMEN",
+    "visual": "3d3e950347e7ce76fbd1",
+    "dax": "EVALUATE ROW(\"agosto\", CALCULATE(AVERAGE(OPORTUNIDAD_TRIAGE[MIN]),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {INI_AGO} && Calendario[FECHA] <= {FIN_AGO}))), \"mes_pasado\", CALCULATE(AVERAGE(OPORTUNIDAD_TRIAGE[MIN]),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {INI_MES_PASADO} && Calendario[FECHA] <= {FIN_MES_PASADO}))))",
+    "unidad": "min",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "TU11",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "definicion",
+   "pregunta": "como se calcula el tiempo para triage?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "todas": [
+     "triage"
+    ],
+    "alguna": [
+     "digiturno",
+     "turno",
+     "minutos"
+    ]
+   },
+   "fuente": "docs_tableros/tablero_tiempos_urgencias/md/resumen_d.md"
+  },
+  {
+   "id": "TU12",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "agrupado",
+   "pregunta": "identifica la cantidad de interconsultas del día de ayer y su respectiva especialidad",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "INTERCONSULTAS",
+    "visual": "91b9e8de4c7c5c75e5a7",
+    "dax": "EVALUATE SUMMARIZECOLUMNS(INTERCONSULTA[GEEDESCRI], KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {AYER} && Calendario[FECHA] <= {AYER})), \"v\", SUM(INTERCONSULTA[SOLICITUDES]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   },
+   "nota": "Conversación real del usuario. Verdad: tarjeta INTERCONSULTAS SOLICITADAS por especialidad, día de ayer."
+  },
+  {
+   "id": "TU13",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "numero",
+   "pregunta": "cuanto tiempo duran los pacientes en urgencias en promedio el mes pasado",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "TIEMPO ESTANCIA",
+    "visual": "7e37f9857f3581b31d22",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(AVERAGE(TIEMPO_URGENCIAS[TiempoMinutosSalidaUrgencias]),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {INI_MES_PASADO} && Calendario[FECHA] <= {FIN_MES_PASADO}))))",
+    "unidad": "min",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "AI01",
+   "tablero": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "numero",
+   "pregunta": "cuantos egresos hubo el mes pasado",
+   "turnos_extra": [],
+   "elegir": "ATENCIONES",
+   "contrapregunta_aceptable": true,
+   "verdad": {
+    "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "pagina": "INDICADORES",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([Total Egresos],\n    KEEPFILTERS(FILTER(ALL('DIM_SERVICIO'[SERVICIO_HOMOLOGADO]), NOT (('DIM_SERVICIO'[SERVICIO_HOMOLOGADO] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEADO\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO\", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"CIRUGIA GENERAL\", \"CUIDADO ESPECIAL\", \"ENDOSCOPIA TERAPEUTICA\", \"HOSPITALIZACIÓN CUIDADO ESPECIAL (3 SUR)\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SERVICIOS DE HOSPITALIZACIÓN EN EL DOMICILIO\", \"UNIDAD CARDIO NEURO VASCULAR\", \"URGENCIAS\", \"URGENCIAS 2 PISO\", \"URGENCIAS 2 SUR\", \"URGENCIAS EXPANSION\", \"URGENCIAS SALA AZUL\"} || ISBLANK('DIM_SERVICIO'[SERVICIO_HOMOLOGADO]))))),\n    KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= {INI_MES_PASADO} && 'Calendario'[Date] <= {FIN_MES_PASADO}))))",
+    "unidad": "",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "AI02",
+   "tablero": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "numero",
+   "pregunta": "cuantas cirugias se han hecho en lo que va del año",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "pagina": "CIRUGIAS",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([TOTAL_CIRUGIAS],\n    KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= {INI_ANO} && 'Calendario'[Date] <= {HOY}))))",
+    "unidad": "",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "AI03",
+   "tablero": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "numero",
+   "pregunta": "cual fue el giro cama del mes pasado",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "pagina": "INDICADORES",
+    "visual": "a43efaa60d077ddb2e3b",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([GIRO_CAMA1],\n    KEEPFILTERS(FILTER(ALL('DIM_SERVICIO'[SERVICIO_HOMOLOGADO]), NOT (('DIM_SERVICIO'[SERVICIO_HOMOLOGADO] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEADO\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO\", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"CIRUGIA GENERAL\", \"CUIDADO ESPECIAL\", \"ENDOSCOPIA TERAPEUTICA\", \"HOSPITALIZACIÓN CUIDADO ESPECIAL (3 SUR)\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SERVICIOS DE HOSPITALIZACIÓN EN EL DOMICILIO\", \"UNIDAD CARDIO NEURO VASCULAR\", \"URGENCIAS\", \"URGENCIAS 2 PISO\", \"URGENCIAS 2 SUR\", \"URGENCIAS EXPANSION\", \"URGENCIAS SALA AZUL\"} || ISBLANK('DIM_SERVICIO'[SERVICIO_HOMOLOGADO]))))),\n    KEEPFILTERS(FILTER(ALL('FACT_EGRESOS'[SERVICIO]), NOT (('FACT_EGRESOS'[SERVICIO] IN {\"CIRUGIA GENERAL\", \"HOSPITALIZACION PARCIAL\", \"SERVICIOS DE HOSPITALIZACIÓN EN EL DOMICILIO\", \"URGENCIAS 2 SUR\"} || ISBLANK('FACT_EGRESOS'[SERVICIO]))))),\n    KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= {INI_MES_PASADO} && 'Calendario'[Date] <= {FIN_MES_PASADO}))))",
+    "unidad": "",
+    "tolerancia": 0.03,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "AI04",
+   "tablero": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "numero",
+   "pregunta": "cuantos triages hubo en 2025",
+   "turnos_extra": [],
+   "elegir": "ATENCIONES",
+   "contrapregunta_aceptable": true,
+   "verdad": {
+    "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "pagina": "TRIAGE",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([TOTAL_TRIAGES],\n    KEEPFILTERS(FILTER(ALL('OPORTUNIDAD_TRIAGE'[DESCRI_TRIGE]), NOT (('OPORTUNIDAD_TRIAGE'[DESCRI_TRIGE] IN {\"MUERTO\"} || ISBLANK('OPORTUNIDAD_TRIAGE'[DESCRI_TRIGE]))))),\n    KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= {INI_ANO_PASADO} && 'Calendario'[Date] <= {FIN_ANO_PASADO}))))",
+    "unidad": "",
+    "tolerancia": 0.005,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "AI05",
+   "tablero": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "numero",
+   "pregunta": "cuantas consultas de urgencias se hicieron el mes pasado",
+   "turnos_extra": [],
+   "elegir": "ATENCIONES",
+   "contrapregunta_aceptable": true,
+   "verdad": {
+    "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "pagina": "URGENCIAS",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([Total_consultas_urgencias],\n    KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[FECHA_FOLIO]), NOT (ISBLANK('CONSULTA_URGENCIAS'[FECHA_FOLIO])))),\n    KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[CLASIFICACION_TRIAGE]), NOT ('CONSULTA_URGENCIAS'[CLASIFICACION_TRIAGE] IN {\"MUERTO\"}))),\n    KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[SERVICIO_ATENCION]), 'CONSULTA_URGENCIAS'[SERVICIO_ATENCION] IN {\"URGENCIAS\"})),\n    KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= {INI_MES_PASADO} && 'Calendario'[Date] <= {FIN_MES_PASADO}))))",
+    "unidad": "",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "AI06",
+   "tablero": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "numero",
+   "pregunta": "cuantos partos van este año",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "pagina": "PARTOS",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(COUNTROWS(PARTOS_DRIVE),\n    KEEPFILTERS(FILTER(ALL('PARTOS_DRIVE'[Tipo de parto]), NOT ('PARTOS_DRIVE'[Tipo de parto] IN {\"ABORTO\", \"IVE\", \"IVE EXTRA INSTITUCIONAL\", \"IVE EXTRAINSTITUCIONAL\"}))),\n    KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= {INI_ANO} && 'Calendario'[Date] <= {HOY}))))",
+    "unidad": "",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": [
+     "('Calendario', 'Date'): el lado derecho no es un literal"
+    ]
+   }
+  },
+  {
+   "id": "AI07",
+   "tablero": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "numero",
+   "pregunta": "cuantos reportes de patologia van este año",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "pagina": "LABORATORIO PATOLOGICO",
+    "visual": "29d29f52e871d103ef64",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(COUNT(LABORATORIOS_PATOLOGICOS[Consecutivo]),\n    KEEPFILTERS(FILTER(ALL(LABORATORIOS_PATOLOGICOS[FechaSolicitud]), YEAR(LABORATORIOS_PATOLOGICOS[FechaSolicitud]) = YEAR({HOY})))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [
+     "('LABORATORIOS_PATOLOGICOS', 'FechaSolicitud'): el lado derecho no es un literal"
+    ]
+   }
+  },
+  {
+   "id": "AI08",
+   "tablero": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "agrupado",
+   "pregunta": "egresos por servicio del mes pasado",
+   "turnos_extra": [],
+   "elegir": "ATENCIONES",
+   "contrapregunta_aceptable": true,
+   "verdad": {
+    "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "pagina": "INDICADORES",
+    "visual": null,
+    "dax": "EVALUATE SUMMARIZECOLUMNS(DIM_SERVICIO[SERVICIO_HOMOLOGADO], KEEPFILTERS(FILTER(ALL('DIM_SERVICIO'[SERVICIO_HOMOLOGADO]), NOT (('DIM_SERVICIO'[SERVICIO_HOMOLOGADO] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEADO\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO\", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"CIRUGIA GENERAL\", \"CUIDADO ESPECIAL\", \"ENDOSCOPIA TERAPEUTICA\", \"HOSPITALIZACIÓN CUIDADO ESPECIAL (3 SUR)\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SERVICIOS DE HOSPITALIZACIÓN EN EL DOMICILIO\", \"UNIDAD CARDIO NEURO VASCULAR\", \"URGENCIAS\", \"URGENCIAS 2 PISO\", \"URGENCIAS 2 SUR\", \"URGENCIAS EXPANSION\", \"URGENCIAS SALA AZUL\"} || ISBLANK('DIM_SERVICIO'[SERVICIO_HOMOLOGADO]))))), KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= {INI_MES_PASADO} && 'Calendario'[Date] <= {FIN_MES_PASADO})), \"v\", [Total Egresos])",
+    "unidad": "",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   }
+  },
+  {
+   "id": "AI09",
+   "tablero": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "definicion",
+   "pregunta": "que es el giro cama?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "todas": [
+     "cama"
+    ],
+    "alguna": [
+     "egresos",
+     "egreso"
+    ]
+   },
+   "fuente": "docs_tableros/tablero_de_atenciones_institucionales/md/indicadores.md"
+  },
+  {
+   "id": "AC01",
+   "tablero": "ASIGNACION DE CITAS",
+   "tipo": "numero",
+   "pregunta": "cuantas citas hay en espera?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "ASIGNACION DE CITAS",
+    "informe": "ASIGNACION DE CITAS",
+    "pagina": "INICIO",
+    "visual": "6f0275b08569b0e80539",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(EN_ESPERA[OID_CITA]),\n    KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), NOT ('EN_ESPERA'[CCEESTADO] IN {2}))),\n    KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), 'EN_ESPERA'[CCEESTADO] IN {0}))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "AC02",
+   "tablero": "ASIGNACION DE CITAS",
+   "tipo": "numero",
+   "pregunta": "cuantas consultas asignadas hay",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "ASIGNACION DE CITAS",
+    "informe": "ASIGNACION DE CITAS",
+    "pagina": "INICIO",
+    "visual": "5a1dd7910c64c2da41b1",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(CITAS_ASIGNADAS[OID_CITA]),\n    KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), NOT ('EN_ESPERA'[CCEESTADO] IN {2})))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "AC03",
+   "tablero": "ASIGNACION DE CITAS",
+   "tipo": "numero",
+   "pregunta": "cual es el porcentaje de inasistencia de las citas",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "ASIGNACION DE CITAS",
+    "informe": "ASIGNACION DE CITAS",
+    "pagina": "OFERTA ESPECIALIDADES",
+    "visual": "daa1f6613ee698a68c8c",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([%INASISTENCIA],\n    KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), NOT (('EN_ESPERA'[CCEESTADO] IN {2} || ISBLANK('EN_ESPERA'[CCEESTADO])))))))",
+    "unidad": "%",
+    "tolerancia": 0.02,
+    "porcentaje": true,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "AC04",
+   "tablero": "ASIGNACION DE CITAS",
+   "tipo": "agrupado",
+   "pregunta": "citas en espera por especialidad",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "ASIGNACION DE CITAS",
+    "informe": "ASIGNACION DE CITAS",
+    "pagina": "EN ESPERA X ESPECIALIDAD",
+    "visual": "c920868794ad0a9c5f6e",
+    "dax": "EVALUATE SUMMARIZECOLUMNS(EN_ESPERA[GEEDESCRI], KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), 'EN_ESPERA'[CCEESTADO] IN {0})), \"v\", DISTINCTCOUNT(EN_ESPERA[OID_CITA]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   }
+  },
+  {
+   "id": "AC05",
+   "tablero": "ASIGNACION DE CITAS",
+   "tipo": "numero",
+   "pregunta": "cuantos dias se demora en promedio la asignacion de una cita",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "ASIGNACION DE CITAS",
+    "informe": "ASIGNACION DE CITAS",
+    "pagina": "INICIO",
+    "visual": "46eab9f217953bc5adc2",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(AVERAGE(EN_ESPERA[Tiempo_Asignacion]),\n    KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), NOT ('EN_ESPERA'[CCEESTADO] IN {2}))),\n    KEEPFILTERS(FILTER(ALL('EN_ESPERA'[Tiempo_Asignacion]), 'EN_ESPERA'[Tiempo_Asignacion] >= 0))))",
+    "unidad": "días",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "EP01",
+   "tablero": "TABLERO EPS",
+   "tipo": "numero",
+   "pregunta": "cual es la ocupacion de urgencias",
+   "turnos_extra": [],
+   "elegir": "EPS",
+   "contrapregunta_aceptable": true,
+   "verdad": {
+    "modelo": "TABLERO EPS",
+    "informe": "TABLERO EPS",
+    "pagina": "TRIAGES ATENDIDOS",
+    "visual": "4d40a4f67ba188041e3a",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([%OCUPACIONALC],\n    KEEPFILTERS(FILTER(ALL('%OCUPACIONAL'[SERVICIO]), '%OCUPACIONAL'[SERVICIO] IN {\"URGENCIAS\", \"SEXTO PISO\"})),\n    KEEPFILTERS(FILTER(ALL('%OCUPACIONAL'[codcama]), NOT (CONTAINSSTRING('%OCUPACIONAL'[codcama], \"EXP\"))))))",
+    "unidad": "%",
+    "tolerancia": 0.02,
+    "porcentaje": true,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "EP02",
+   "tablero": "TABLERO EPS",
+   "tipo": "numero",
+   "pregunta": "cuantos triages atendidos hay en el tablero eps",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO EPS",
+    "informe": "TABLERO EPS",
+    "pagina": "TRIAGES ATENDIDOS",
+    "visual": "d1794c751c09b2bb612c",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(COUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE]),\n    KEEPFILTERS(FILTER(ALL('OPORTUNIDAD_TRIAGE'[DESCRI_TRIGE]), NOT ('OPORTUNIDAD_TRIAGE'[DESCRI_TRIGE] IN {\"EMERGENCIA OBSTETRICA\", \"MUERTO\", \"NO URGENTE OBSTETRICA\", \"URGENCIA MEDICA OBSTETRICA\", \"URGENCIA OBSTETRICA\", \"CONSULTA EXTERNA OBSTETRICA\"})))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "EP03",
+   "tablero": "TABLERO EPS",
+   "tipo": "numero",
+   "pregunta": "cuantos pacientes observados hay en urgencias",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": true,
+   "verdad": {
+    "modelo": "TABLERO EPS",
+    "informe": "TABLERO EPS",
+    "pagina": "TRIAGES ATENDIDOS",
+    "visual": "8cf5bd8f438431ae5d70",
+    "dax": "EVALUATE ROW(\"v\", COUNT(PACIENTES_OBSERVADOS[HCENTRIAGE]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "EP04",
+   "tablero": "TABLERO EPS",
+   "tipo": "numero",
+   "pregunta": "cuantas consultas prioritarias confirmadas hay",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": true,
+   "verdad": {
+    "modelo": "TABLERO EPS",
+    "informe": "TABLERO EPS",
+    "pagina": "TRIAGES ATENDIDOS",
+    "visual": "b272611ab547ea5020c0",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(COUNT(CONSULTAS_PRIORITARIAS[PACNUMDOC]),\n    KEEPFILTERS(FILTER(ALL('CONSULTAS_PRIORITARIAS'[ESTADO_NOMBRE]), 'CONSULTAS_PRIORITARIAS'[ESTADO_NOMBRE] IN {\"CONFIRMADO\"}))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "FM01",
+   "tablero": "TABLERO_FARMACIA",
+   "tipo": "numero",
+   "pregunta": "cuantos suministros pendientes hay en farmacia",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_FARMACIA",
+    "informe": "TABLERO_FARMACIA",
+    "pagina": "INICIO",
+    "visual": "a7cca487d35dc5fbfac5",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(PENDIENTES_FARMACIA[HCNFOLIO]),\n    KEEPFILTERS(FILTER(ALL('PENDIENTES_FARMACIA'[FECHA_CIERRE]), ISBLANK('PENDIENTES_FARMACIA'[FECHA_CIERRE])))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "FM02",
+   "tablero": "TABLERO_FARMACIA",
+   "tipo": "numero",
+   "pregunta": "cuantos productos estan por debajo del inventario minimo",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_FARMACIA",
+    "informe": "TABLERO_FARMACIA",
+    "pagina": "INICIO",
+    "visual": "7f327b479dc6334ae2e8",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(CANTIDAD_MINIMA[CODIGO]),\n    KEEPFILTERS(FILTER(ALL('ALMACENES'[IALNOMBRE]), NOT ('ALMACENES'[IALNOMBRE] IN {\"STOCK URGENCIAS \"}))),\n    KEEPFILTERS(FILTER(ALL('CANTIDAD_MINIMA'[falta]), 'CANTIDAD_MINIMA'[falta] IN {1}))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "FM03",
+   "tablero": "TABLERO_FARMACIA",
+   "tipo": "numero",
+   "pregunta": "medicamentos que se vencen en los proximos 30 dias",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_FARMACIA",
+    "informe": "TABLERO_FARMACIA",
+    "pagina": "MEDICAMENTOS VENCIDOS",
+    "visual": "76fe7ef9727ff90aad41",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(VENCIMIENTO_PRODUCTOS[IPRCODIGO]),\n    KEEPFILTERS(FILTER(ALL('VENCIMIENTO_PRODUCTOS'[mes]), 'VENCIMIENTO_PRODUCTOS'[mes] <= 1))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "FM04",
+   "tablero": "TABLERO_FARMACIA",
+   "tipo": "numero",
+   "pregunta": "cual fue la oportunidad de dispensacion del mes pasado",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_FARMACIA",
+    "informe": "TABLERO_FARMACIA",
+    "pagina": "OPORTUNIDAD DISPENSACIÓN",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(AVERAGE('TIEMPOS_DISPENSACIÓN'[OportunidadHor]),\n    KEEPFILTERS(FILTER(ALL('TIEMPOS_DISPENSACIÓN'[hcfecfol]), 'TIEMPOS_DISPENSACIÓN'[hcfecfol] >= {INI_MES_PASADO} && 'TIEMPOS_DISPENSACIÓN'[hcfecfol] <= {FIN_MES_PASADO}))))",
+    "unidad": "h",
+    "tolerancia": 0.03,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "FC01",
+   "tablero": "Tablero Control Facturacion",
+   "tipo": "numero",
+   "pregunta": "cual es el valor estimado de facturacion",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Tablero Control Facturacion",
+    "informe": "Tablero Control de Facturacion",
+    "pagina": "INICIO",
+    "visual": "c159d258360e91566173",
+    "dax": "EVALUATE ROW(\"v\", SUM(ULT_GESTION[FACTURADO]))",
+    "unidad": "$",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "FC02",
+   "tablero": "Tablero Control Facturacion",
+   "tipo": "agrupado",
+   "pregunta": "valor estimado por aseguradora, las 5 mas altas",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Tablero Control Facturacion",
+    "informe": "Tablero Control de Facturacion",
+    "pagina": "INICIO",
+    "visual": "fe6c7fa9b99e82039263",
+    "dax": "EVALUATE TOPN(5, SUMMARIZECOLUMNS(ULT_GESTION[TERNOMCOM], \"v\", SUM(ULT_GESTION[FACTURADO])), [v], DESC)",
+    "unidad": "$",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   }
+  },
+  {
+   "id": "FC03",
+   "tablero": "Tablero Control Facturacion",
+   "tipo": "numero",
+   "pregunta": "cual es el tiempo promedio de gestion de una factura",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Tablero Control Facturacion",
+    "informe": "Tablero Control de Facturacion",
+    "pagina": "RESUMEN FACTURACION",
+    "visual": "c4a24a8084747c156a63",
+    "dax": "EVALUATE ROW(\"v\", AVERAGE('FACTURACION PERFILES'[TIEMPO]))",
+    "unidad": "",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "FC04",
+   "tablero": "Tablero Control Facturacion",
+   "tipo": "numero",
+   "pregunta": "cuantas cuentas hay en proceso de facturacion",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Tablero Control Facturacion",
+    "informe": "Tablero Control de Facturacion",
+    "pagina": "EN PROCESO FACTURACION",
+    "visual": "6025102c828040bd528a",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([PROCESO_FACTURACION],\n    KEEPFILTERS(FILTER(ALL('ENPROCESO_FACTURACION'[TIPO INGRESO]), 'ENPROCESO_FACTURACION'[TIPO INGRESO] IN {\"HOSPITALARIO\"})),\n    KEEPFILTERS(FILTER(ALL('ENPROCESO_FACTURACION'[PERFIL]), 'ENPROCESO_FACTURACION'[PERFIL] IN {\"FACTURACION\"})),\n    KEEPFILTERS(FILTER(ALL('ENPROCESO_FACTURACION'[ESTADO_FACTURA]), 'ENPROCESO_FACTURACION'[ESTADO_FACTURA] IN {\"OTRO\"}))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "FC05",
+   "tablero": "Tablero Control Facturacion",
+   "tipo": "numero",
+   "pregunta": "cuanto se facturo el mes pasado",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": true,
+   "verdad": {
+    "modelo": "Tablero Control Facturacion",
+    "informe": "Tablero Control de Facturacion",
+    "pagina": "INICIO",
+    "visual": "c159d258360e91566173",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(ULT_GESTION[FACTURADO]),\n    KEEPFILTERS(FILTER(ALL(CALENDARIO[Date]), CALENDARIO[Date] >= {INI_MES_PASADO} && CALENDARIO[Date] <= {FIN_MES_PASADO}))))",
+    "unidad": "$",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "FC06",
+   "tablero": "Tablero Control Facturacion",
+   "tipo": "definicion",
+   "pregunta": "que mide el tiempo promedio de gestion de factura?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "todas": [
+     "factura"
+    ],
+    "alguna": [
+     "tiempo",
+     "días",
+     "dias",
+     "horas"
+    ]
+   },
+   "fuente": "docs_tableros/tablero_control_facturacion/md/resumen_facturacion.md"
+  },
+  {
+   "id": "DI01",
+   "tablero": "Demanda Insatisfecha",
+   "tipo": "numero",
+   "pregunta": "cual es la demanda insatisfecha total de este año",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Demanda Insatisfecha",
+    "informe": "Demanda Insatisfecha",
+    "pagina": "CONSOLIDADO",
+    "visual": "87e601ddc8fc43f57002",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([TOTAL_DEMANDA_INSATISFECHA],\n    KEEPFILTERS(FILTER(ALL('REFERENCIA'[CAUSA]), NOT (('REFERENCIA'[CAUSA] IN {\"Aceptado por otra institución\", \"Es de menor complejidad\", \"No contratación\", \"NO HABILITACIÓN\"} || ISBLANK('REFERENCIA'[CAUSA]))))),\n    KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[ESPECIALIDAD]), NOT ('CIRUGÍAS'[ESPECIALIDAD] IN {\"ANESTESIOLOGIA\", \"JUNTA MEDICA\"}))),\n    KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45)),\n    KEEPFILTERS(FILTER(ALL('CITAS MEDICAS'[CCCDESCRI]), 'CITAS MEDICAS'[CCCDESCRI] IN {\"CALAMIDAD DEL ESPECIALISTA\", \"DAÑO DE EQUIPO\", \"ERROR EN HABILITACION DE AGENDA\", \"FALTA DE INSUMOS\", \"MANTENIMIENTO DE EQUIPO\"})),\n    KEEPFILTERS(FILTER(ALL('SOLICITUD DE CAMAS'[GDPNOMBRE]), 'SOLICITUD DE CAMAS'[GDPNOMBRE] IN {\"QUIROFANOS\", \"SALA AZUL 3 PISO\", \"UCI ADULTOS\", \"URGENCIAS\", \"CUIDADO INTERMEDIO SUR\"})),\n    KEEPFILTERS(FILTER(ALL(CALENDARIO[Date]), CALENDARIO[Date] >= {INI_ANO} && CALENDARIO[Date] <= {HOY}))))",
+    "unidad": "",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "DI02",
+   "tablero": "Demanda Insatisfecha",
+   "tipo": "numero",
+   "pregunta": "cuantas citas cancelo la institucion el mes pasado",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Demanda Insatisfecha",
+    "informe": "Demanda Insatisfecha",
+    "pagina": "CITAS",
+    "visual": "66e6dd12d613a960264f",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT('CITAS MEDICAS'[OID]),\n    KEEPFILTERS(FILTER(ALL('CITAS MEDICAS'[CCCDESCRI]), 'CITAS MEDICAS'[CCCDESCRI] IN {\"CALAMIDAD DEL ESPECIALISTA\", \"DAÑO DE EQUIPO\", \"FALTA DE INSUMOS\", \"MANTENIMIENTO DE EQUIPO\", \"ERROR EN HABILITACION DE AGENDA\"})),\n    KEEPFILTERS(FILTER(ALL(CALENDARIO[Date]), CALENDARIO[Date] >= {INI_MES_PASADO} && CALENDARIO[Date] <= {FIN_MES_PASADO}))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "DI03",
+   "tablero": "Demanda Insatisfecha",
+   "tipo": "numero",
+   "pregunta": "triages no atendidos este año",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Demanda Insatisfecha",
+    "informe": "Demanda Insatisfecha",
+    "pagina": "TRIAGES",
+    "visual": "b06ae3bd3903956a2950",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(TRIAGE[OID]),\n    KEEPFILTERS(FILTER(ALL('TRIAGE'[HCCESTADO]), 'TRIAGE'[HCCESTADO] = 2)),\n    KEEPFILTERS(FILTER(ALL(CALENDARIO[Date]), CALENDARIO[Date] >= {INI_ANO} && CALENDARIO[Date] <= {HOY}))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "DI04",
+   "tablero": "Demanda Insatisfecha",
+   "tipo": "definicion",
+   "pregunta": "que significa demanda insatisfecha?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "todas": [
+     "demanda insatisfecha"
+    ],
+    "alguna": [
+     "triage",
+     "referencia",
+     "cirug",
+     "citas",
+     "camas"
+    ]
+   },
+   "fuente": "docs_tableros/tablero_demanda_insatisfecha/md/_general.md"
+  },
+  {
+   "id": "AB01",
+   "tablero": "TABLERO_ANTIBIOTICOS",
+   "tipo": "numero",
+   "pregunta": "cuantos pacientes activos con antibiotico hay",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_ANTIBIOTICOS",
+    "informe": "TABLERO_ANTIBIOTICOS",
+    "pagina": "ANTIBIOTICOS",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", [PAC_ACT])",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "AB02",
+   "tablero": "TABLERO_ANTIBIOTICOS",
+   "tipo": "agrupado",
+   "pregunta": "pacientes con antibiotico por servicio",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_ANTIBIOTICOS",
+    "informe": "TABLERO_ANTIBIOTICOS",
+    "pagina": "MONITOREO_ANTIBIOTICO",
+    "visual": null,
+    "dax": "EVALUATE SUMMARIZECOLUMNS(ANTIBIOTICOS[SERVICIO], \"v\", [PAC_ACT])",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   },
+   "nota": "PBIR local más nuevo que el modelo publicado (ANTIBIOTICOSN no existe): verdad con ANTIBIOTICOS[PAC_ACT]."
+  },
+  {
+   "id": "AB03",
+   "tablero": "TABLERO_ANTIBIOTICOS",
+   "tipo": "numero",
+   "pregunta": "total de dosis de antibioticos suministradas",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_ANTIBIOTICOS",
+    "informe": "TABLERO_ANTIBIOTICOS",
+    "pagina": "ANTIBIOTICOS",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", [TOTAL DOSIS SUMINISTRADAS])",
+    "unidad": "",
+    "tolerancia": 0.005,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   }
+  },
+  {
+   "id": "AB04",
+   "tablero": "TABLERO_ANTIBIOTICOS",
+   "tipo": "agrupado",
+   "pregunta": "cual es el antibiotico que mas se esta usando?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_ANTIBIOTICOS",
+    "informe": "TABLERO_ANTIBIOTICOS",
+    "pagina": "MONITOREO_ANTIBIOTICO",
+    "visual": null,
+    "dax": "EVALUATE TOPN(3, SUMMARIZECOLUMNS(ANTIBIOTICOS[ANTIBIOTICO], \"v\", [PAC_ACT]), [v], DESC)",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 1
+   },
+   "nota": "PBIR local más nuevo que el modelo publicado (ANTIBIOTICOSN no existe): verdad con ANTIBIOTICOS[PAC_ACT]."
+  },
+  {
+   "id": "LV01",
+   "tablero": "Tablero_lavanderia",
+   "tipo": "numero",
+   "pregunta": "cuantos kilos de ropa se lavaron el mes pasado",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Tablero_lavanderia",
+    "informe": "Tablero_lavanderia",
+    "pagina": "Página 1",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(LAVANDERIA[Peso]),\n    KEEPFILTERS(FILTER(ALL(LAVANDERIA[Fecha]), LAVANDERIA[Fecha] >= {INI_MES_PASADO} && LAVANDERIA[Fecha] <= {FIN_MES_PASADO}))))",
+    "unidad": "kg",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "alternativas": [
+     "EVALUATE ROW(\"v\", CALCULATE(SUM(LAVANDERIA[Peso]),\n    KEEPFILTERS(FILTER(ALL(LAVANDERIA[FechaRegistro]), LAVANDERIA[FechaRegistro] >= {INI_MES_PASADO} && LAVANDERIA[FechaRegistro] <= {FIN_MES_PASADO}))))"
+    ]
+   },
+   "nota": "No está documentado si el filtro usa Fecha o FechaRegistro: se acepta cualquiera."
+  },
+  {
+   "id": "LV02",
+   "tablero": "Tablero_lavanderia",
+   "tipo": "agrupado",
+   "pregunta": "peso de ropa por servicio en lo que va del año",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Tablero_lavanderia",
+    "informe": "Tablero_lavanderia",
+    "pagina": "Página 1",
+    "visual": null,
+    "dax": "EVALUATE TOPN(10, SUMMARIZECOLUMNS(LAVANDERIA[SERVICIO], KEEPFILTERS(FILTER(ALL(LAVANDERIA[Fecha]), LAVANDERIA[Fecha] >= {INI_ANO} && LAVANDERIA[Fecha] <= {HOY})), \"v\", SUM(LAVANDERIA[Peso])), [v], DESC)",
+    "unidad": "kg",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   }
+  },
+  {
+   "id": "LV03",
+   "tablero": "Tablero_lavanderia",
+   "tipo": "agrupado",
+   "pregunta": "en que turno se lava mas ropa?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Tablero_lavanderia",
+    "informe": "Tablero_lavanderia",
+    "pagina": "Página 1",
+    "visual": null,
+    "dax": "EVALUATE TOPN(4, SUMMARIZECOLUMNS(LAVANDERIA[TURNO_OK], \"v\", SUM(LAVANDERIA[Peso])), [v], DESC)",
+    "unidad": "kg",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 1
+   }
+  }
+ ]
+}
