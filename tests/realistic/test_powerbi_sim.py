@@ -450,7 +450,11 @@ def test_real_metadata_if_present():
     s = PowerBISimulator([data / "model_metadata", (SYNTHETIC, "synthetic")],
                          registry_path=data / "catalog" / "model_registry.json", today=TODAY)
     assert "TABLERO DE ATENCIONES INSTITUCIONALES" in s.list_models()
-    assert {CONSOLIDADO, CAMAS} <= set(s.list_models())
+    # Desde la sincronización real (2026-10-29) el workspace trae sus propios
+    # CONSOLIDADO y TABLERO_GESTION_CAMAS: el modelo real tapa al sintético.
+    models = set(s.list_models())
+    assert CONSOLIDADO in models
+    assert CAMAS in models or "TABLERO_GESTION_CAMAS" in models
     assert len(_models_with_measure(s, "Total Egresos")) >= 3
     model = "TABLERO DE ATENCIONES INSTITUCIONALES"
     schema = s.models[model]
