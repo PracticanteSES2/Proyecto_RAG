@@ -5363,6 +5363,189 @@
           }
         }
       ]
+    },
+    {
+      "id": "b_interconsultas_respondidas_ayer",
+      "category": "b_kpi_periodo",
+      "tablero": "Tiempos Urgencias",
+      "descripcion": "Conversación real del usuario con Power BI del propietario (2026-10-29).",
+      "fuente": {
+        "docx": "32 DOCUMENTACION TABLERO TIEMPOS DE URGENCIAS/1 Documentacion Tablero Resumen Dia.docx",
+        "seccion": "Interconsultas"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "turns": [
+        {
+          "user": "cuántas interconsultas respondidas hubo ayer",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "answer_none": [
+              "rechazó",
+              "cannot be found"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_lista_areas_hospital",
+      "category": "c_kpi_filtro",
+      "tablero": "Control Facturacion",
+      "descripcion": "Conversación real del usuario con Power BI del propietario (2026-10-29).",
+      "fuente": {
+        "docx": "16 DOCUMENTACION TABLERO CONTROL FACTURACION/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Áreas de servicio"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "turns": [
+        {
+          "user": "dame una lista de las areas que tiene el hospital",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "answer_all": [
+              "fuente: columna"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "v_lista_especialidades",
+      "category": "c_kpi_filtro",
+      "tablero": "Atenciones Institucionales",
+      "descripcion": "Conversación real del usuario con Power BI del propietario (2026-10-29).",
+      "fuente": {
+        "docx": "5 DOCUMENTACION TABLERO DE ATENCIONES INSTITUCIONALES/1 Documentacion Tablero Inicio.docx",
+        "seccion": "Especialidades"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "turns": [
+        {
+          "user": "cuáles son las especialidades del hospital",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "answer_any": [
+              "especialidades"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "e_hospital_nivel_ocupacion_sin_informe",
+      "category": "e_ambiguo",
+      "tablero": "Briefing Hospitalario",
+      "descripcion": "Conversación real del usuario con Power BI del propietario (2026-10-29).",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/1. Documentacion Inicio.docx",
+        "seccion": "Porcentaje de ocupación"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "turns": [
+        {
+          "user": "cual es el nivel de ocupacion?",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "models_any": [
+              "briefing"
+            ],
+            "answer_none": [
+              "No pude aplicar"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d_hospital_pacientes_especialidad_urgencias_cada_una",
+      "category": "d_agrupado",
+      "tablero": "Briefing Hospitalario",
+      "descripcion": "Conversación real del usuario con Power BI del propietario (2026-10-29).",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/12. Documentacion Urgencias.docx",
+        "seccion": "Pacientes por especialidad"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "turns": [
+        {
+          "user": "necsito saber que tantas especialidades se estan manejando en el area e urgencias y a cantidad de paciente que tiene cada una",
+          "expect": {
+            "route": [
+              "powerbi"
+            ],
+            "result_type": "table",
+            "models_any": [
+              "briefing"
+            ],
+            "group_by_any": [
+              "ESPECIALIDAD"
+            ],
+            "answer_none": [
+              "No pude aplicar"
+            ],
+            "forbid": [
+              "constant_table"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "i_hospital_interconsultas_ayer_especialidad",
+      "category": "i_multiturno",
+      "tablero": "Briefing Hospitalario",
+      "descripcion": "Conversación real del usuario con Power BI del propietario (2026-10-29).",
+      "fuente": {
+        "docx": "3 DOCUMENTACION TABLERO BRIEFING HOSPITALARIO/15. Documentacion Interconsultas.docx",
+        "seccion": "Interconsultas"
+      },
+      "arneses": [
+        "realistic"
+      ],
+      "turns": [
+        {
+          "user": "identifica la cantidad de interconsultas del día de ayer y su respectiva especialidad",
+          "expect": {
+            "route": [
+              "clarification"
+            ],
+            "options_all": [
+              "SOLICITADAS"
+            ],
+            "has_none_option": true
+          }
+        },
+        {
+          "button": 2,
+          "expect": {
+            "route": [
+              "powerbi",
+              "powerbi_empty"
+            ],
+            "group_by_any": [
+              "GEEDESCRI"
+            ]
+          }
+        }
+      ]
     }
   ]
 }
