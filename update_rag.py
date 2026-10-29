@@ -8,6 +8,10 @@ Ejecuta, en orden y deteniéndose en el primer error:
   3. build_powerbi_catalogs.py      Construye los catálogos de cada tablero.
   4. ingest_rag.py                  Procesa, genera chunks y actualiza Qdrant.
 
+Paso opcional (tras los catálogos; si falla, avisa y sigue):
+     sync_powerbi_links.py          Enlaces «Abrir en Power BI» (solo GET).
+                                    Se omite con --skip-links.
+
 Ejemplos:
   python update_rag.py "C:/ruta/Documentacion"
   python update_rag.py "C:/ruta/Documentacion" --force-sync
@@ -23,7 +27,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 
-def run_step(label, script, args, dry_run):
+def run_step(label, script, args, dry_run, optional=False):
     command = [sys.executable, "-X", "utf8", str(PROJECT_ROOT / script), *args]
     print("\n" + "=" * 60)
     print(label)
@@ -35,6 +39,14 @@ def run_step(label, script, args, dry_run):
 
     started = time.time()
     result = subprocess.run(command, cwd=PROJECT_ROOT)
+
+    if result.returncode != 0 and optional:
+        print(
+            f"\nAVISO: {label} falló (código {result.returncode}); es opcional, "
+            "se continúa con la actualización.",
+            flush=True,
+        )
+        return
 
     if result.returncode != 0:
         raise SystemExit(
@@ -66,6 +78,8 @@ def build_parser():
                        help="No construye catálogos (paso 3).")
     skips.add_argument("--skip-ingest", action="store_true",
                        help="No ejecuta la ingesta (paso 4).")
+    skips.add_argument("--skip-links", action="store_true",
+                       help="No sincroniza los enlaces «Abrir en Power BI» (opcional).")
 
     parser.add_argument("--dry-run", action="store_true",
                         help="Solo muestra los comandos que se ejecutarían.")
@@ -140,6 +154,13 @@ def main():
         catalog_args = ["--source", args.only_source] if args.only_source else []
         run_step("[3/4] Construir catálogos de los tableros",
                  "build_powerbi_catalogs.py", catalog_args, args.dry_run)
+
+    if not args.skip_links:
+        try:
+            run_step("[opcional] Enlaces «Abrir en Power BI» (solo lectura)",
+                     "sync_powerbi_links.py", [], args.dry_run, optional=True)
+        except Exception as error:  # nunca detiene la actualización
+            print(f"\nAVISO: no se sincronizaron los enlaces: {error}", flush=True)
 
     if not args.skip_ingest:
         ingest_args = []

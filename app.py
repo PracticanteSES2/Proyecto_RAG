@@ -53,6 +53,7 @@ from src.semantic.multi_model_components import (
     MultiModelDAXValidator,
 )
 from src.providers.powerbi_provider import PowerBIProvider
+from src.providers.powerbi_links import enlace_para_opcion, enlace_para_resultado
 from src.llm.medgemma_provider import MedGemmaProvider
 from src.semantic.query_semantic_planner import (
     QuerySemanticPlanner
@@ -380,16 +381,100 @@ def queue_option(option_id, label):
     st.session_state.queued_option = {"id": option_id, "label": label}
 
 
+POWERBI_LINK_LABEL = "Abrir en Power BI ›"
+
+
+def safe_link(compute, *args):
+    # El enlace es un extra: si algo falla, la respuesta se muestra sin él.
+    try:
+        return compute(*args)
+    except Exception:
+        traceback.print_exc()
+        return None
+
+
+def render_powerbi_link(link, key):
+    """Botón «Abrir en Power BI ›» al informe/página donde está el dato
+    (data/catalog/report_links.json, generado por sync_powerbi_links.py).
+    `key` único por mensaje: dos respuestas pueden enlazar la misma página."""
+    if not link or not link.get("url"):
+        return
+    place = str(link.get("etiqueta") or "").removeprefix("Abrir ").strip()
+    if link.get("filtrado"):
+        place += " · con los filtros de la consulta"
+    st.link_button(POWERBI_LINK_LABEL, link["url"], help=link.get("etiqueta"), key=key)
+    if place:
+        st.caption(place)
+
+
+def link_markdown(link):
+    place = str(link.get("etiqueta") or "").removeprefix("Abrir ").strip()
+    text = f"{POWERBI_LINK_LABEL} {place}".strip()
+    return f"[{text}]({link['url']})"
+
+
+def messages_with_links(messages):
+    """Copia del historial para exportar (.md): el enlace de cada respuesta va
+    al final del texto y el de cada opción, junto a su descripción."""
+    exported = []
+    for message in messages:
+        link = message.get("powerbi_link")
+        buttons = message.get("buttons") or []
+        if not (link and link.get("url")) and not any(b.get("link") for b in buttons):
+            exported.append(message)
+            continue
+        copy = dict(message)
+        if link and link.get("url"):
+            copy["content"] = f"{message.get('content') or ''}\n\n{link_markdown(link)}"
+        if buttons:
+            copy["buttons"] = [
+                {**b, "caption": " · ".join(
+                    part for part in (b.get("caption"), b.get("link") and link_markdown(b["link"])) if part
+                ) or None}
+                for b in buttons
+            ]
+        exported.append(copy)
+    return exported
+
+
+def attach_option_links(buttons, result):
+    # Cada opción de la contrapregunta lleva el enlace de su informe/página.
+    options = {
+        str(option.get("id")): option
+        for option in result.get("clarification_options") or []
+        if isinstance(option, dict)
+    }
+    for button in buttons:
+        link = safe_link(enlace_para_opcion, options.get(str(button["id"])))
+        if link:
+            button["link"] = {"url": link["url"], "etiqueta": link["etiqueta"]}
+    return buttons
+
+
 def render_clarification_buttons(pending):
-    # Un botón por opción, con su descripción corta debajo.
+    # Un botón por opción, con su descripción corta debajo. Si la opción tiene
+    # informe en Power BI, un enlace al lado (abrirlo no recarga la app).
     for index, button in enumerate(pending["buttons"]):
-        st.button(
-            button["label"],
-            key=f"clarification_{pending['id']}_{index}",
-            on_click=queue_option,
-            args=(button["id"], button["label"]),
-            use_container_width=True,
-        )
+        link = button.get("link")
+        if link:
+            left, right = st.columns([5, 2], vertical_alignment="center")
+        else:
+            left, right = st.container(), None
+        with left:
+            st.button(
+                button["label"],
+                key=f"clarification_{pending['id']}_{index}",
+                on_click=queue_option,
+                args=(button["id"], button["label"]),
+                use_container_width=True,
+            )
+        if right is not None:
+            with right:
+                st.link_button(
+                    "Power BI ›", link["url"], help=link.get("etiqueta"),
+                    key=f"powerbi_option_{pending['id']}_{index}",
+                    use_container_width=True,
+                )
         if button.get("caption"):
             st.caption(button["caption"])
 
@@ -564,9 +649,14 @@ def execute_turn(user_text, runner, via="texto"):
 
         st.markdown(answer)
 
+        powerbi_link = None if error_text else safe_link(enlace_para_resultado, result)
+        # Mismo índice que tendrá el mensaje en el historial.
+        render_powerbi_link(powerbi_link, key=f"powerbi_link_{len(st.session_state.messages)}")
+
         buttons = clarification_buttons(result)
         clarification_id = None
         if buttons:
+            attach_option_links(buttons, result)
             st.session_state.clarification_counter += 1
             clarification_id = st.session_state.clarification_counter
             st.session_state.pending_clarification = {
@@ -658,6 +748,7 @@ def execute_turn(user_text, runner, via="texto"):
         "buttons": buttons, "clarification_id": clarification_id,
         "reasoning": reasoning_text,
         "status": result.get("status"), "route": result.get("route"),
+        "powerbi_link": powerbi_link,
     })
 
 
@@ -726,9 +817,10 @@ queued = st.session_state.queued_option
 pending = st.session_state.pending_clarification
 active_id = pending["id"] if pending and not prompt and not queued else None
 
-for message in st.session_state.messages:
+for message_index, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+        render_powerbi_link(message.get("powerbi_link"), key=f"powerbi_link_{message_index}")
         if message.get("buttons"):
             if message.get("clarification_id") == active_id:
                 # Rerun por otro widget: botones de la contrapregunta vigente.
@@ -777,7 +869,7 @@ with st.sidebar:
     st.subheader("Exportar conversación")
     include_reasoning = st.checkbox("Incluir el razonamiento", value=True)
     exported = export_conversation_markdown(
-        st.session_state.messages,
+        messages_with_links(st.session_state.messages),
         meta={
             "MedGemma": f"{medgemma_status.get('status')} ({medgemma_status.get('model')})",
             "Power BI": powerbi_connection.get("status"),
