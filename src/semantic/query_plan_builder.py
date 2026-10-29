@@ -67,6 +67,11 @@ REQUEST_WORDS = {
     "indiqueme", "dimelo", "muestrame", "mostrarme", "regalame", "dar",
     "darme", "decir", "decirme", "hola", "gracias", "nos", "dato", "datos",
     "cifra", "cifras",
+    # Imperativos de petición («identifica la cantidad de...», «calcula...»).
+    "identifica", "identificame", "identificar", "indica", "indicar", "calcula", "calculame",
+    "calcular", "revisa", "revisame", "busca", "buscame", "trae", "traeme", "averigua",
+    "averiguame", "determina", "determinar", "senala", "senalame", "reporta", "reportame",
+    "informame", "entregame", "genera", "generame",
 }
 STOPWORDS |= REQUEST_WORDS
 
@@ -92,6 +97,8 @@ STOPWORDS |= {
     "esos", "esas", "eso", "esto", "ellos", "ellas", "aquel", "aquella",
     "aquellos", "aquellas",
 }
+# «qué tanto/tantas» = «cuánto/cuántas»: interrogativo, no sustantivo.
+STOPWORDS |= {"tanto", "tanta", "tantos", "tantas"}
 
 # Sinónimos de negocio por palabra (genéricos, no de un tablero concreto):
 # «kilos de ropa» o «cuánto pesaron» preguntan por el PESO.
@@ -370,11 +377,25 @@ PHRASE_SYNONYMS = (
 )
 
 
+# Perífrasis verbal con gerundio («se están manejando», «están atendiendo»,
+# «van llegando»): es el verbo de la pregunta, nunca un indicador ni un valor
+# de filtro. Se quita (solo con el auxiliar delante: un gerundio suelto podría
+# ser parte de un nombre).
+PROGRESSIVE_VERB_RE = re.compile(
+    r"(?<![a-z0-9])(?:se\s+|nos\s+|les?\s+)?(?:esta|estan|estaba|estaban|estamos|estuvo|estuvieron|"
+    r"sigue|siguen|seguimos|va|van|vamos|viene|vienen|venimos|anda|andan)\s+"
+    r"[a-z]{3,}(?:ando|iendo|yendo)(?![a-z0-9])"
+)
+
+
 def canonical_phrases(text):
     """(texto, [(frase original, reemplazo)]) con las frases equivalentes unificadas."""
     original = str(text or "")
     normalized = normalize_text(original)
     changes = []
+    for match in PROGRESSIVE_VERB_RE.finditer(normalized):
+        changes.append((match.group(0), ""))
+    normalized = re.sub(r"\s{2,}", " ", PROGRESSIVE_VERB_RE.sub(" ", normalized)).strip()
     for pattern, replacement in PHRASE_SYNONYMS:
         for match in pattern.finditer(normalized):
             if match.group(0) != replacement:
@@ -1823,6 +1844,8 @@ class QueryPlanBuilder:
         "cantidad": "amount", "numero": "amount", "conteo": "amount", "suma": "amount",
         "sumatoria": "amount", "recuento": "amount",
     }
+    # Formas genéricas de nombrar un indicador, de cualquier tipo de dato.
+    _INDICATOR_FORM_WORDS = {"nivel", "niveles", "indice", "indices", "grado", "indicador"}
     _AVERAGE_FUNCTION_RE = re.compile(r"\b(?:AVERAGE|AVERAGEX|AVERAGEA|MEDIAN|MEDIANX)\s*\(", re.IGNORECASE)
     _AMOUNT_FUNCTION_RE = re.compile(
         r"\b(?:SUM|SUMX|COUNT|COUNTA|COUNTX|COUNTAX|COUNTROWS|DISTINCTCOUNT|DISTINCTCOUNTNOBLANK)\s*\(",
@@ -1866,10 +1889,18 @@ class QueryPlanBuilder:
         """Palabras de la pregunta que solo dicen el tipo de dato y que el
         indicador elegido da («porcentaje» con %INASISTENCIA): no son filtros."""
         kinds = self._metric_measure_kinds(metric or {})
-        if not kinds:
-            return []
+        words = normalize_text(question).split()
         found = []
-        for word in normalize_text(question).split():
+        for index, word in enumerate(words):
+            following = words[index + 1] if index + 1 < len(words) else ""
+            # «nivel de ocupación», «índice de rotación», «grado de...»: forma
+            # de nombrar un indicador (cualquier tipo), nunca un filtro. Solo
+            # seguida de «de/del» («nivel 3» sí puede ser un valor).
+            if word in self._INDICATOR_FORM_WORDS and following in ("de", "del"):
+                found.append(word)
+                continue
+            if not kinds:
+                continue
             kind = self._MEASURE_TYPE_WORDS.get(word) or self._MEASURE_TYPE_WORDS.get(canonical_token(word))
             if kind and kind in kinds:
                 found.append(word)
@@ -2448,6 +2479,19 @@ class QueryPlanBuilder:
             if len(cache) > 5000:
                 cache.clear()
             used = {normalize_text(name) for name in self._expression_tables(model, metric)}
+            if metric.get("visual_filters") and metric.get("base_dax_expression"):
+                # Un filtro del visual sobre una tabla sin relación con la del
+                # indicador no la conecta (TOTAL DE PACIENTES de PACIENTES
+                # EMERGENCIA con un filtro de INTERCONSULTAS no se desglosa por
+                # la especialidad de INTERCONSULTAS): solo cuenta la medida base
+                # y las tablas de filtros que el modelo relaciona con ella.
+                base = {**metric, "dax_expression": metric["base_dax_expression"], "visual_filters": None}
+                base_used = {normalize_text(name) for name in self._expression_tables(model, base)}
+                if self._has_relationship_metadata(model):
+                    reachable = set()
+                    for name in {normalize_text(table)} | base_used:
+                        reachable |= {normalize_text(t) for t in self._related_tables(model, name)}
+                    used = base_used | {name for name in used if name in reachable}
             related = None
             if self._has_relationship_metadata(model):
                 if self._expression_uses_table(self._measure_expression(model, metric), table):
@@ -3725,6 +3769,13 @@ class QueryPlanBuilder:
         if period:
             phrases.append(period["phrase"])
             tokens.update(canonical_token(word) for word in TO_DATE_WORDS)
+            # «el día de ayer», «del día de hoy»: «día de» es parte del periodo.
+            day_of = re.search(
+                r"(?<![a-z0-9])(?:(?:el|del)\s+)?dia\s+de\s+(?=" + re.escape(normalize_text(period["phrase"])) + r")",
+                normalized,
+            )
+            if day_of:
+                phrases.append(day_of.group(0).strip())
         if granularity:
             phrases.append(granularity["phrase"])
         for phrase in phrases:
@@ -6056,6 +6107,18 @@ class QueryPlanBuilder:
             return lambda metric: True
         return lambda metric: self._group_field_in(tail, self._metric_dimensions(metric)) is not None
 
+    def _model_has_report(self, semantic_model):
+        """¿El modelo tiene algún informe publicado (algún indicador suyo en un
+        visual o página documentada)? «Dashboard Gestion» no tiene ninguno."""
+        models = self.__dict__.get("_models_with_report")
+        if models is None:
+            models = {
+                normalize_text(metric.get("semantic_model")) for metric in self.metrics
+                if metric.get("appearances") or self._metric_pages(metric)
+            }
+            self._models_with_report = models
+        return normalize_text(semantic_model) in models
+
     def _same_name_ambiguity(self, question, source_context, metric_result):
         """Regla: si el indicador elegido tiene el mismo nombre (o casi:
         sin «total», años ni mayúsculas/guiones) que otros de OTRO modelo o
@@ -6147,6 +6210,29 @@ class QueryPlanBuilder:
                         "question": question, "source_context": source_context,
                         "metric_resolution": {"status": "ambiguous", "candidates": items},
                     }
+        # Solo uno de los homónimos es de un modelo con informe; los demás son
+        # de modelos SIN ningún informe («Dashboard Gestion»), que el usuario
+        # no ve: se responde con el del informe, sin contrapreguntar. Si dos o
+        # más modelos tienen informe (aunque esa medida no esté en un visual),
+        # la ambigüedad es real y se pregunta.
+        documented = [item for item in items if self._model_has_report(item["metric"].get("semantic_model"))]
+        if len(documented) == 1:
+            chosen = documented[0]
+            others = [item for item in items if item is not chosen]
+            self._note(
+                f"«{metric_result.get('matched_name')}» existe con el mismo nombre en "
+                + ", ".join(f"{i['metric'].get('label')} ({i['metric'].get('semantic_model')}, modelo sin informe)"
+                            for i in others)
+                + f"; solo {chosen['metric'].get('label')} ({chosen['metric'].get('semantic_model')}) está en "
+                "un tablero con informe: se usa ese sin contrapreguntar"
+            )
+            if chosen["metric"] is best:
+                return None
+            return {
+                "status": "ambiguous", "stage": "metric", "reason": None,
+                "question": question, "source_context": source_context,
+                "metric_resolution": {"status": "ambiguous", "candidates": [chosen]},
+            }
         self._note(
             f"«{metric_result.get('matched_name')}» existe con el mismo nombre en varios tableros/modelos "
             f"({', '.join(sorted({str(i['metric'].get('semantic_model')) for i in items}))}) y la "
@@ -6914,8 +7000,17 @@ class QueryPlanBuilder:
                     "matched_name": member.get("title") or member["metric"].get("label"),
                     "page": page.get("page"),
                 })
-        items = items[: self._SUGGESTION_LIMIT]
         how = "por su tema" if topic else "con «tablero/página de»"
+        narrowed = self._narrow_page_options(question, items)
+        if len(narrowed) < len(items) and len({self._logical_key(i["metric"]) for i in narrowed}) == 1:
+            chosen = narrowed[0]
+            return self._forced_plan(
+                question, intent_result, {key: value for key, value in chosen.items() if key != "page"},
+                f"la pregunta nombra la página {chosen.get('page')} {how}; es su único indicador que "
+                "responde la forma pedida (conteo / desglose)",
+                consumed_tokens=set(canonical_tokens(chosen.get("page"))),
+            )
+        items = narrowed[: self._SUGGESTION_LIMIT]
         if len(items) == 1 and len(groups) == 1 and groups[0][3]:
             page, _, principal, _ = groups[0]
             label = items[0]["metric"].get("label")
@@ -6963,6 +7058,27 @@ class QueryPlanBuilder:
                 "candidates": [{key: value for key, value in item.items() if key != "page"} for item in items],
             },
         }
+
+    def _narrow_page_options(self, question, items):
+        """Opciones de una página nombrada que responden la FORMA de la
+        pregunta: «cantidad de X» descarta porcentajes, promedios y sumas de
+        tiempo; «X por especialidad» descarta las que no se desglosan por la
+        especialidad. Nunca deja la lista vacía."""
+        kept = self._count_question_options(question, items) or list(items)
+        tail = self._requested_group_tail(question)
+        if tail and len(kept) > 1:
+            groupable = [
+                item for item in kept
+                if self._group_field_in(tail, self._metric_dimensions(item.get("metric") or {})) is not None
+            ]
+            if groupable and len(groupable) < len(kept):
+                self._note(
+                    f"opciones de la página depuradas: "
+                    + ", ".join(str(i["metric"].get("label")) for i in kept if i not in groupable)
+                    + f" no se desglosa(n) por «{tail}»"
+                )
+                kept = groupable
+        return kept
 
     def _topic_offered_elsewhere(self, pages, offered):
         """¿Alguna opción ya ofrecida nombra el tema de la página pero está
@@ -8060,7 +8176,10 @@ class QueryPlanBuilder:
         original_question = question
         question, rewrites = canonical_phrases(question)
         for phrase, replacement in rewrites:
-            notes.append(f"«{phrase}» se interpretó como «{replacement}»")
+            notes.append(
+                f"«{phrase}» se interpretó como «{replacement}»" if replacement
+                else f"«{phrase}» es el verbo de la pregunta (no es un indicador ni un filtro): se ignora"
+            )
         try:
             plan = self._build_plan(question, intent_result, selected_metric_id)
             if rewrites and isinstance(plan, dict) and plan.get("question") == question:
