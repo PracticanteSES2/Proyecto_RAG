@@ -99,7 +99,42 @@ Regresiones frente a la data anterior (19), por causa:
   va a RAG aunque la página inferida tiene «Cantidad de solicitudes» por GEEDESCRI.
 
 XFAIL con el motivo verificado en el TMDL/PBIR real: `a_naos_pacientes_pendientes`, `a_cvc_compras_aumento`,
-`i_ninguna_boton_y_elige` (con la data anterior salen como XPASS). MedGemma no respondía el 2026-10-29: no
+`i_ninguna_boton_y_elige` (con la data anterior salen como XPASS).
+
+#### Línea base tras `agente/dic-chatbot` (2026-10-29, `--llm fake`)
+
+`data/` se volvió a construir a las 9:25 (el diccionario de variables entra al RAG): con esa data y el código
+de `desarrollo` (1f05809) el banco daba **109 pasan, 45 fallan, 4 XFAIL** (la documentación respondía «peso por
+servicio en lavandería» y otras preguntas de datos). Con los arreglos de la rama:
+
+| Data | Antes (1f05809) | Después |
+| --- | --- | --- |
+| TMDL real (`data/` 9:25) | 109 pasan, 45 fallan, 4 XFAIL | **128 pasan, 24 fallan, 6 XFAIL** |
+| Anterior (respaldo 2026-10-28) | 136 (3 XPASS) | **139 pasan**, 18 fallan, 1 XFAIL (5 XPASS: los xfail de la data real) |
+
+Arreglos (todos en `src/semantic/query_plan_builder.py` salvo el último; pruebas en
+`tests/resolution/test_tmdl_real.py`): desempate por el nombre que la pregunta dice entero
+(`_options_named_by_question`); «M por X» con variantes del mismo conteo → la que un visual muestra por X
+(`_group_shown_option`); rivales de nombre igual/parecido o de calificativo que no se desglosan por X no se ofrecen
+(`_rival_group_check`); «areas de servicio» = AREA_SERVICIO (`_alias_prefix`); columnas de tablas relacionadas como
+respaldo para agrupar (`_own_table_fallback_fields`, REFERENCIA[GEEDESCRI]); tablero nombrado + dimensión/periodo →
+Power BI (`_names_metric_of_named_board`, `_refine_options`); la base de una participación no es un porcentaje
+(`_is_ratio_metric`); «cuántos» descarta promedios/porcentajes/sumas de tiempo (`_count_question_options`); «en el
+hospital» no es palabra distintiva (`_option_words`); y en `src/chatbot/query_engine.py`
+(`_fallback_has_analytic_intent`) el respaldo del Query Plan sin intención analítica responde fuera de alcance.
+
+Casos ajustados con motivo verificado: `b_cirugias_canceladas_ene_2025` y `d_cirugias_canceladas_por_asegurador`
+(xfail: no hay medida de cirugías canceladas y la página CANCELACIONES del PBIR no trae visuales) y
+`d_pacientes_observados_por_aseguradora` (BRIEFING también tiene PACIENTES OBSERVADOS con ASEGURADORA: la
+contrapregunta es legítima). El arnés agrega filas fijas de SERVICIOS y HPNSUBGRU (relación real con CAMAS
+DISPONIBLES) para que el listado de camas no salga vacío.
+
+Siguen fallando (también con la data anterior salvo los marcados *): camas de BRIEFING (dos medidas CAMAS en la
+misma tabla), «cantidad de pacientes» (CANTIDAD DE PACIENTES / TOTAL DE PACIENTES / PACIENTES de NAOS: varios
+tableros, `i_propietario_*`*, `i_seguimiento_anaforico_desglose`*, `i_ctx_propietario_mes_pasado`*),
+`v_agrupado_pacientes_por_especialidad`* (PACIENTES HOSPITALIZADOS no tiene especialidad),
+`v_listado_interconsultas_medicina_interna`*, lavandería* (el informe real solo tiene la tarjeta «PESO TOTAL por
+Mes» = DISTINCTCOUNT(OID); colaborador es columna con nombres) y `f_semaforo_auditoria_medicamentos`* (RAG). MedGemma no respondía el 2026-10-29: no
 hay línea base `--llm real`.
 
 ## Qué hace con cada caso
