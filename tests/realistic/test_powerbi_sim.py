@@ -786,6 +786,15 @@ def test_catalog_patches_alias_for_inferred_table():
     assert "Sum(SOLICITUD_CAMAS.DEMANDA_INS)" in refs and "SOLICITUD_CAMAS.TOTAL_SOLICITUD_CAMAS" in refs, refs
 
 
+def test_fixed_hospitalized_patients_match_insurer_patients():
+    """PACIENTES HOSPITALIZADOS (tabla propia en el modelo real) = los mismos 43 pacientes."""
+    from tests.realistic import catalog_patches
+    tables = catalog_patches.briefing_sim_tables()["tables"]
+    hosp, pac = tables["PACIENTES HOSPITALIZADOS"], tables["PACIENTES X ASEGURADORA"]
+    docs = lambda spec: {row[spec["columns"].index("PACNUMDOC")] for row in spec["rows"]}
+    assert docs(hosp) == docs(pac) and len(docs(hosp)) == 43
+
+
 FARMACIA = "TABLERO_FARMACIA"
 
 

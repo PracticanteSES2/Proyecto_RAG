@@ -195,7 +195,13 @@ def briefing_sim_tables():
     # ESTADOS_CAM, MOSTRAR y OCUPADAS son calculadas: el simulador las evalúa con su DAX (ESTADO,
     # HCAESTADO); ESTADOS_CAM solo queda en camas() para las pruebas.
     beds = [{k: v for k, v in row.items() if k != "ESTADOS_CAM"} for row in camas()]
-    return {"tables": {"CAMAS DISPONIBLES": _fixture(beds), "PACIENTES X ASEGURADORA": _fixture(pacientes())}}
+    # En el modelo real «PACIENTES HOSPITALIZADOS» es DISTINCTCOUNT de su propia tabla (PACNUMDOC,
+    # ASEGURADORA, GDENOMBRE, FECHA): los mismos 43 pacientes, para que ambos conteos coincidan.
+    # La data inferida anterior no tiene esa tabla (el simulador la ignora).
+    hospitalizados = [{"PACNUMDOC": p["PACNUMDOC"], "ASEGURADORA": p["TERNOMCOM"], "GDENOMBRE": p["GDENOMBRE"],
+                       "FECHA": "today"} for p in pacientes()]
+    return {"tables": {"CAMAS DISPONIBLES": _fixture(beds), "PACIENTES X ASEGURADORA": _fixture(pacientes()),
+                       "PACIENTES HOSPITALIZADOS": _fixture(hospitalizados)}}
 
 
 # ----------------------------------------------------------------------------
