@@ -394,8 +394,149 @@ def test_documented_values_sql_case_and_filters():
     assert "IALCODIGO" not in items and "NOMBRE_PACIENTE" not in items, items
 
 
+TABLE_LAVANDERIA = """table LAVANDERIA
+
+\tcolumn OID
+\t\tdataType: int64
+\t\tsourceColumn: OID
+
+\tcolumn Peso
+\t\tdataType: double
+\t\tsummarizeBy: sum
+\t\tsourceColumn: Peso
+
+\tcolumn Fecha
+\t\tdataType: dateTime
+\t\tsourceColumn: Fecha
+
+\tcolumn Turno
+\t\tdataType: int64
+\t\tsourceColumn: Turno
+
+\tcolumn SERVICIO
+\t\tdataType: string
+\t\tsourceColumn: SERVICIO
+
+\tcolumn usu_nombres
+\t\tdataType: string
+\t\tsourceColumn: usu_nombres
+
+\tcolumn usu_apellidos
+\t\tdataType: string
+\t\tsourceColumn: usu_apellidos
+
+\tcolumn NOMBRE_COMPLETO = CONCATENATE(LAVANDERIA[usu_nombres],CONCATENATE(" ",LAVANDERIA[usu_apellidos]))
+\t\tdataType: string
+
+\tcolumn TURNO_OK = IF(LAVANDERIA[Turno]=1, "MAÑANA", IF(LAVANDERIA[Turno]=2,"TARDE", IF(LAVANDERIA[Turno]=3,"NOCHE")))
+\t\tdataType: string
+"""
+
+
+def _incomplete_pbip(root, *, useful_page=False):
+    """PBIP como los locales: TMDL real + informe con «Página 1» de visuales vacíos."""
+    import json
+
+    definition = root / "tableros" / "Lav" / "Lav.SemanticModel" / "definition"
+    (definition / "tables").mkdir(parents=True)
+    (definition / "tables" / "LAVANDERIA.tmdl").write_text(TABLE_LAVANDERIA, encoding="utf-8")
+    report = root / "tableros" / "Lav" / "Lav.Report"
+    pages = report / "definition" / "pages"
+    (pages / "p1" / "visuals" / "vacio1").mkdir(parents=True)   # carpeta sin visual.json
+    (pages / "p1" / "page.json").write_text(json.dumps({"name": "p1", "displayName": "Página 1"}),
+                                            encoding="utf-8")
+    order = ["p1"]
+    if useful_page:
+        visual = pages / "p2" / "visuals" / "v1"
+        visual.mkdir(parents=True)
+        (pages / "p2" / "page.json").write_text(json.dumps({"name": "p2", "displayName": "REAL"}),
+                                                encoding="utf-8")
+        (visual / "visual.json").write_text(json.dumps({"name": "v1", "visual": {
+            "visualType": "card", "query": {"queryState": {"Values": {"projections": [{
+                "field": {"Column": {"Expression": {"SourceRef": {"Entity": "LAVANDERIA"}},
+                                     "Property": "OID"}},
+                "queryRef": "LAVANDERIA.OID"}]}}}}}), encoding="utf-8")
+        order.append("p2")
+    (pages / "pages.json").write_text(json.dumps({"pageOrder": order, "activePageName": "p1"}),
+                                      encoding="utf-8")
+    return definition.parent, report
+
+
+def _complete(root, *, useful_page=False):
+    import json
+    from tools.local_data.build_local_data import complete_incomplete_report
+
+    semantic_model, report = _incomplete_pbip(root, useful_page=useful_page)
+    data_root = root / "data"
+    converted = convert(semantic_model, data_root / "model_metadata", model_name="Lav", folder_name="lav")
+    raw = data_root / "raw" / "tablero_lav"
+    raw.mkdir(parents=True)
+    (raw / "manifest.json").write_text(json.dumps({
+        "report": "TABLERO LAV", "semantic_model_key": "lav",
+        "pbir_path": "tableros/Lav/Lav.Report"}), encoding="utf-8")
+    spec = {"semantic_model": "Lav", "semantic_model_key": "lav", "model": converted["model"],
+            "report_paths": [report]}
+    record = complete_incomplete_report(spec, [LAVANDERIA_DOC], data_root, root,
+                                        data_root / "model_metadata" / "lav")
+    manifest = json.loads((raw / "manifest.json").read_text(encoding="utf-8"))
+    sync = json.loads((data_root / "model_metadata" / "lav" / "_metadata_sync.json").read_text(encoding="utf-8"))
+    return record, manifest, sync, data_root
+
+
+def test_incomplete_real_report_is_completed_from_documentation():
+    from src.semantic.visual_catalog_builder import PBIRVisualCatalogBuilder
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        record, manifest, sync, data_root = _complete(root)
+        assert record["status"] == "completed", record
+        assert record["empty_pages"] == ["Página 1"]
+        assert [p["page"] for p in record["inferred_pages"]] == ["LAVANDERIA"], record
+        assert record["added_measures"] == []        # Sum(Peso) implícito: el modelo real no cambia
+        # Trazabilidad: _metadata_sync.json conserva el origen TMDL y anota la completitud.
+        assert sync["source"] == "tmdl" and sync["completed_from_documentation"]["status"] == "completed"
+        # El manifest apunta a la copia completada (relativa a la raíz del pipeline).
+        assert manifest["pbir_path"] == "data/pbir/Lav.Report", manifest
+        assert manifest["pbir_path_original"] == "tableros/Lav/Lav.Report"
+        report = data_root / "pbir" / "Lav.Report"
+        assert not (report / "definition" / "pages" / "p1").exists()   # página vacía quitada
+        assert (report / "definition" / "_completed_from_documentation.json").exists()
+        catalog = PBIRVisualCatalogBuilder(report, metadata_dir=data_root / "model_metadata" / "lav",
+                                           semantic_model="Lav").build()
+        # «peso total» vuelve a existir como métrica del tablero.
+        assert any(m["dax_expression"] == "SUM('LAVANDERIA'[Peso])" for m in catalog["metrics"]), catalog["metrics"]
+        # El informe real del PBIP no se toca.
+        assert (root / "tableros" / "Lav" / "Lav.Report" / "definition" / "pages" / "p1").exists()
+
+
+def test_partial_real_report_is_not_completed():
+    with tempfile.TemporaryDirectory() as tmp:
+        record, manifest, sync, data_root = _complete(Path(tmp), useful_page=True)
+        assert record["status"] == "not_completed" and record["useful_pages"] == 1, record
+        assert manifest["pbir_path"] == "tableros/Lav/Lav.Report"
+        assert not (data_root / "pbir").exists()
+        assert sync["completed_from_documentation"]["status"] == "not_completed"
+
+
+def test_promedio_does_not_match_moda_measure():
+    from tools.local_data.infer_visuals import infer_documented_report
+    from tools.local_data.metadata_format import new_column, new_measure, new_table
+
+    table = new_table("MATRIZ")
+    table["columns"] = [new_column("OID", data_type="Integer"), new_column("Edad", data_type="Integer"),
+                        new_column("Sexo", data_type="Text")]
+    table["measures"] = [new_measure("Moda_Edad_en_Rango_Moda", expression="MAXX(...)")]
+    model = {"name": "M", "tables": [table], "relationships": []}
+    origins = {("MATRIZ", c["name"]): "tmdl" for c in table["columns"]}
+    inference = infer_documented_report(model, [{"dashboards": [{
+        "name": "PERFIL", "visuals": ["Tarjeta de edad: Muestra el promedio de edad de los pacientes."],
+    }]}], origins=origins)
+    refs = [f["queryRef"] for p in inference.pages for v in p["visuals"] for f in v["fields"]]
+    assert "MATRIZ.Moda_Edad_en_Rango_Moda" not in refs, refs
+
+
 def main():
-    tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
+    tests =[(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     failed = 0
     for name, func in tests:
         try:

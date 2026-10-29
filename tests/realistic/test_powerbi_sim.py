@@ -454,9 +454,16 @@ def test_real_metadata_if_present():
     assert len(_models_with_measure(s, "Total Egresos")) >= 3
     model = "TABLERO DE ATENCIONES INSTITUCIONALES"
     schema = s.models[model]
-    approximate = 0
+    approximate, invalid = 0, []
     for measure in list(schema.measures.values())[:60]:
         out = s.execute(model, f'EVALUATE ROW("v", [{measure.name}])')
+        reasons = " ".join(str(n.get("reason")) for n in out.get("notes") or [] if isinstance(n, dict))
+        # El TMDL real (2026-10-28) trae medidas rotas que también fallan en Power BI: columnas que
+        # ya no existen (CONSULTA_URGENCIAS[OID_TRIAGE], IMAGENES_CARDIOLOGIA[Column1]) o sin
+        # expresión (PROYECCIÓN_QX). No son límites del simulador.
+        if out["approximate"] and ("cannot be found" in reasons or not measure.expression.strip()):
+            invalid.append(measure.name)
+            continue
         approximate += bool(out["approximate"])
     assert approximate <= 10, f"demasiadas medidas aproximadas: {approximate}"
 
@@ -673,6 +680,119 @@ def test_catalog_patches_apply_on_copy():
     assert manifest["pbir_path"] == "data/pbir/BRIEFING HOSPITALARIO.Report"
     original = json.loads((page / "page.json").read_text(encoding="utf-8"))
     assert original["displayName"] == "GESTIÓN DE CAMAS", "el PBIR original no cambia"
+
+
+def _demanda_fixture(base, table_name):
+    """data/ con Demanda Insatisfecha (modelo real: 'SOLICITUD DE CAMAS', o inferido: SOLICITUD_CAMAS)
+    y su PBIR en <base>/checkout/tableros (fuera de la data, como en el checkout principal)."""
+    data_root = base / "copia" / "data"
+    folder = data_root / "model_metadata" / "demanda_insatisfecha"
+    folder.mkdir(parents=True)
+
+    def write(name, headers, rows):
+        with open(folder / name, "w", encoding="utf-8", newline="") as file:
+            writer = csv.writer(file, delimiter=";")
+            writer.writerow(headers)
+            writer.writerows(rows)
+
+    real = table_name == "SOLICITUD DE CAMAS"
+    tables = [[1, table_name, "False", ""]] + ([[2, "TERCEROS", "False", ""], [3, "CALENDARIO", "False", ""]]
+                                               if real else [])
+    write("tables.csv", ["ID", "Name", "IsHidden", "Expression"], tables)
+    columns = [[10, "Oid", table_name, "Integer", "Data", ""], [11, "OID_TERCERO", table_name, "Integer", "Data", ""]]
+    if real:
+        columns += [[12, "DEMANDA_INS", table_name, "Integer", "Data", ""], [13, "OID", "TERCEROS", "Integer", "Data", ""],
+                    [14, "TERNOMCOM", "TERCEROS", "Text", "Data", ""], [15, "Date", "CALENDARIO", "Date", "Data", ""]]
+    write("columns.csv", ["ID", "Name", "Table", "DataType", "Type", "Expression"], columns)
+    measures = [[20, "TOTAL_SOLICITUD_CAMAS", "CALENDARIO", "Integer",
+                 "DISTINCTCOUNT('SOLICITUD DE CAMAS'[Oid])", "0"]] if real else []
+    write("measures.csv", ["ID", "Name", "Table", "DataType", "Expression", "FormatString"], measures)
+    relationships = [[30, "SOLICITUD DE CAMAS", "OID_TERCERO", "TERCEROS", "OID"]] if real else []
+    write("relationships.csv", ["ID", "FromTable", "FromColumn", "ToTable", "ToColumn"], relationships)
+    (folder / "_metadata_sync.json").write_text('{"semantic_model": "Demanda Insatisfecha"}', encoding="utf-8")
+
+    report = base / "checkout" / "tableros" / "Demanda Insatisfecha" / "Demanda Insatisfecha.Report"
+    pages = report / "definition" / "pages"
+
+    def visual(page, name, refs):
+        target = pages / page / "visuals" / name
+        target.mkdir(parents=True)
+        projections = [{"field": {}, "queryRef": ref} for ref in refs]
+        (target / "visual.json").write_text(json.dumps({"name": name, "visual": {
+            "visualType": "card", "query": {"queryState": {"Values": {"projections": projections}}}}}),
+            encoding="utf-8")
+
+    for page in ("CONSOLIDADO", "SOLICITUD CAMAS"):
+        (pages / page).mkdir(parents=True)
+        (pages / page / "page.json").write_text(json.dumps({"name": page, "displayName": page}), encoding="utf-8")
+    if real:
+        visual("CONSOLIDADO", "v1", ["Sum(SOLICITUD DE CAMAS.DEMANDA_INS)"])
+        visual("CONSOLIDADO", "v2", ["CountNonNull(TRIAGE.OID)", "CALENDARIO.TOTAL_SOLICITUD_CAMAS"])
+        visual("CONSOLIDADO", "v3", ["TERCEROS.TERNOMCOM", "CALENDARIO.TOTAL_DEMANDA_INSATISFECHA"])
+        visual("SOLICITUD CAMAS", "v4", ["Sum(SOLICITUD DE CAMAS.DEMANDA_INS)"])
+    raw = data_root / "raw" / "tablero_demanda_insatisfecha"
+    raw.mkdir(parents=True)
+    (raw / "manifest.json").write_text(json.dumps({
+        "report": "DEMANDA INSATISFECHA", "semantic_model_key": "demanda_insatisfecha",
+        "source_group": "tablero_demanda_insatisfecha",
+        "pbir_path": "tableros/Demanda Insatisfecha/Demanda Insatisfecha.Report"}), encoding="utf-8")
+    return data_root, report
+
+
+def _apply_demanda(table_name):
+    import shutil
+    from tests.realistic import catalog_patches, harness
+    base = Path(tempfile.mkdtemp(prefix="pbi_patch_demanda_"))
+    data_root, report = _demanda_fixture(base, table_name)
+    root = base / "cache" / "root"
+    shutil.copytree(data_root / "model_metadata", root / "data" / "model_metadata")
+    (root / "data" / "catalog").mkdir(parents=True)
+    patches = [p for p in catalog_patches.PATCHES if p["semantic_model_key"] == "demanda_insatisfecha"]
+    original = harness.main_checkout
+    harness.main_checkout = lambda: base / "checkout"   # la copia de data/ no está junto a tableros/
+    try:
+        done = catalog_patches.apply_patches(data_root, root, patches)[0]
+    finally:
+        harness.main_checkout = original
+    return done, data_root, root
+
+
+def test_catalog_patches_skip_what_the_real_model_has():
+    """Modelo real de Demanda Insatisfecha: tablas, columnas, medida (en CALENDARIO), relación y
+    visuales ya existen -> no se duplica nada ni se reconstruye el catálogo. El pbir_path relativo de
+    una copia de data/ se resuelve contra el checkout principal."""
+    done, data_root, root = _apply_demanda("SOLICITUD DE CAMAS")
+    folder = root / "data" / "model_metadata" / "demanda_insatisfecha"
+    for name in ("tables.csv", "columns.csv", "measures.csv", "relationships.csv"):
+        assert (folder / name).read_bytes() == (data_root / "model_metadata" / "demanda_insatisfecha" / name).read_bytes(), name
+    assert done["metadata_added"] == [] and done["status"] == "metadata", done
+    assert done["reason"] == "el informe ya trae los visuales del parche", done
+    assert len(done["visuals_skipped"]) == 4, done
+    assert not list((root / "data" / "pbir").glob("*.Report")), "sin copia del informe"
+
+
+def test_catalog_patches_alias_for_inferred_table():
+    """Data inferida anterior (SOLICITUD_CAMAS): se agrega lo que falta sobre la tabla existente."""
+    done, _data_root, root = _apply_demanda("SOLICITUD_CAMAS")
+    assert done["status"] == "metadata+pbir", done
+    assert "columna SOLICITUD_CAMAS[DEMANDA_INS]" in done["metadata_added"], done
+    assert "columna SOLICITUD_CAMAS[OID_TERCERO]" not in done["metadata_added"], done
+    assert "medida SOLICITUD_CAMAS[TOTAL_SOLICITUD_CAMAS]" in done["metadata_added"], done
+    tables = (root / "data" / "model_metadata" / "demanda_insatisfecha" / "tables.csv").read_text(encoding="utf-8")
+    assert "SOLICITUD DE CAMAS" not in tables, "no se crea la tabla real junto a la inferida"
+    refs = {p["queryRef"] for v in (root / "data" / "pbir").rglob("visual.json")
+            for role in json.loads(v.read_text(encoding="utf-8"))["visual"]["query"]["queryState"].values()
+            for p in role["projections"]}
+    assert "Sum(SOLICITUD_CAMAS.DEMANDA_INS)" in refs and "SOLICITUD_CAMAS.TOTAL_SOLICITUD_CAMAS" in refs, refs
+
+
+def test_fixed_hospitalized_patients_match_insurer_patients():
+    """PACIENTES HOSPITALIZADOS (tabla propia en el modelo real) = los mismos 43 pacientes."""
+    from tests.realistic import catalog_patches
+    tables = catalog_patches.briefing_sim_tables()["tables"]
+    hosp, pac = tables["PACIENTES HOSPITALIZADOS"], tables["PACIENTES X ASEGURADORA"]
+    docs = lambda spec: {row[spec["columns"].index("PACNUMDOC")] for row in spec["rows"]}
+    assert docs(hosp) == docs(pac) and len(docs(hosp)) == 43
 
 
 FARMACIA = "TABLERO_FARMACIA"

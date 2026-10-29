@@ -128,6 +128,9 @@
     },
     {
       "id": "a_naos_pacientes_pendientes",
+      "xfail": {
+        "realistic": "Modelo real (TMDL/PBIR 2026-10-28): el informe NAOS trae dos indicadores «PACIENTES» distintos (tarjeta = PACIENTES[AINCONSEC] en LISTADO; gráficos = PACIENTES[ADNINGRESO] por HSUNOMBRE/TIPO_PACIENTE): la contrapregunta entre ambos es legítima con el modelo real"
+      },
       "category": "a_kpi_simple",
       "tablero": "NAOS",
       "fuente": {
@@ -209,6 +212,9 @@
     },
     {
       "id": "a_cvc_compras_aumento",
+      "xfail": {
+        "realistic": "Modelo real (TMDL 2026-10-28): CVC no tiene un conteo de compras con aumento; solo calendario[Aumento_Valor]/[Aumento_Porcentaje] (montos). El PBIR local de CVC no trae visuales y la página inferida de la documentación no reconstruye la tarjeta «Total de compras con aumento» (sin tabla «compras» identificable en el TMDL)"
+      },
       "category": "a_kpi_simple",
       "tablero": "CVC",
       "fuente": {
@@ -2328,6 +2334,9 @@
     },
     {
       "id": "i_ninguna_boton_y_elige",
+      "xfail": {
+        "realistic": "Modelo real (PBIR 2026-10-28): la primera opción tras «Ninguna» es la tarjeta «CIRUGÍAS» de Demanda Insatisfecha › CONSOLIDADO, que en el informe real es Min(CIRUGÍAS[PROCEDIMIENTO]) (texto): con filtro 2024 da vacío (powerbi_empty)"
+      },
       "category": "i_multiturno",
       "tablero": "Atenciones Institucionales",
       "fuente": {

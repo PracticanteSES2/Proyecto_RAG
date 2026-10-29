@@ -64,6 +64,44 @@ El arnés se importa de forma perezosa: `--harness realistic` necesita `tests/re
 que `tests/sim/harness.py` (`build_engine(...)` → `(engine, cm, formatter, llm_status, powerbi_connection, dax_log)`,
 `ask`, `new_conversation`). A `build_engine` solo se le pasan los argumentos que acepte (`llm`, `ollama_up`, `quiet`).
 
+### Línea base con la data TMDL real (2026-10-29, `--llm fake`)
+
+`data/` reconstruido con `tools/local_data` desde los PBIP de `tableros/` (15 modelos TMDL; los informes
+sin visuales se completan con la documentación, ver `tools/local_data/README.md`). PowerShell, desde la raíz:
+
+```powershell
+$env:PYTHONDONTWRITEBYTECODE=1; $env:PYTHONIOENCODING="utf-8"
+$env:SIM_DATA_ROOT="<ruta>\data"; $env:SIM_CACHE_DIR="<caché propia por corrida>"
+python -X utf8 -m tests.eval.run --harness realistic --llm fake --out <carpeta fuera del repo>
+```
+
+| Data | Aplicables (158) |
+| --- | --- |
+| Anterior (respaldo 2026-10-28, metadata inferida) | 136 pasan, 21 fallan, 1 XFAIL (3 XPASS: los xfail de abajo) |
+| TMDL real sin completar informes (`data/` del 2026-10-28) | 89 pasan, 68 fallan |
+| **TMDL real + informes completados (línea base)** | **116 pasan, 38 fallan, 4 XFAIL** |
+
+Regresiones frente a la data anterior (19), por causa:
+- Varios indicadores con el mismo nombre o casi en el modelo real y el chatbot contrapregunta en vez de
+  elegir el que pide la pregunta (`TRIAGES PEDIATRICOS 2025` frente a sus promedios, `CANCELADAS`, `MONTO
+  FACTURADO POR ÁREA DE SERVICIO`, `PACIENTES por ASEGURADORA`, `PACIENTES OBSERVADOS` frente a `... POR MES`,
+  tiempos de triage, «cantidad de pacientes» por especialidad). Afecta a `b_triages_pediatricos_2025`,
+  `b/d_cirugias_canceladas_*`, `d_naos_por_servicio`, `d_hospital_pacientes_por_aseguradora`,
+  `d_pacientes_observados_por_aseguradora`, `v_escalar_*`, `v_agrupado_facturado_por_areas`,
+  `v_agrupado_pacientes_por_especialidad`, `v2_triage_por_eps_no_es_facturacion` y los
+  `i_*especialidad*`/`i_ctx_propietario_mes_pasado`. Es un problema del resolutor de indicadores
+  (`metric_resolver`/`query_engine`).
+- Fuera de alcance (`g_consejo_clinico`, `g_codigo`): con los nombres de los visuales reales («PACIENTES»,
+  «… POR DÍA», «PRODUCTOS POR DEBAJO DE INVENTARIO MINIMO») hay candidatos y se contrapregunta en vez de
+  responder fuera de alcance.
+- `i_hospital_camas_disponibles_boton`: el total (6) es correcto, pero no lista las camas.
+  `h_participacion_nueva_eps`: vacío con ASEGURADORA = NUEVA EPS. `v_agrupado_referencia_por_especialidades`:
+  va a RAG aunque la página inferida tiene «Cantidad de solicitudes» por GEEDESCRI.
+
+XFAIL con el motivo verificado en el TMDL/PBIR real: `a_naos_pacientes_pendientes`, `a_cvc_compras_aumento`,
+`i_ninguna_boton_y_elige` (con la data anterior salen como XPASS). MedGemma no respondía el 2026-10-29: no
+hay línea base `--llm real`.
+
 ## Qué hace con cada caso
 
 1. Conversación nueva (`harness.new_conversation`).
