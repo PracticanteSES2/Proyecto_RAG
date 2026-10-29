@@ -241,6 +241,16 @@ class PowerBIProvider:
         # NO usar Interactive Login=Always aquí: ese valor desactiva
         # explícitamente el flujo silencioso y fuerza login interactivo
         # cada vez que ADOMD abre una conexión nueva.
+        #
+        # Con POWERBI_AUTH=device_code (procesos sin escritorio: tareas
+        # programadas, pruebas) se usa el token en caché de powerbi_token.
+        from src.providers import powerbi_token
+
+        if powerbi_token.modo_sin_ventana():
+            return connection_string + (
+                f"User ID=;Password={powerbi_token.obtener_token()};"
+            )
+
         connection_string += (
             "Interactive Login=Enabled;"
             "Identity Mode=Process;"

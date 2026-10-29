@@ -17,6 +17,21 @@ def _is_timeout(error):
     return "timed out" in text or "timeout" in text
 
 
+def _auth_headers():
+    """Encabezado de autenticación desde el .env (vacío si no hay token).
+
+    MEDGEMMA_API_KEY     token entregado por el administrador del servidor.
+    MEDGEMMA_AUTH_HEADER nombre del encabezado (por defecto Authorization).
+    MEDGEMMA_AUTH_SCHEME prefijo del valor (por defecto Bearer; vacío = token solo).
+    """
+    token = os.getenv("MEDGEMMA_API_KEY", "").strip()
+    if not token:
+        return {}
+    header = os.getenv("MEDGEMMA_AUTH_HEADER", "").strip() or "Authorization"
+    scheme = os.getenv("MEDGEMMA_AUTH_SCHEME", "Bearer").strip()
+    return {header: f"{scheme} {token}" if scheme else token}
+
+
 class MedGemmaProvider:
     """Adaptador remoto para MedGemma servido por Ollama."""
 
@@ -71,9 +86,14 @@ class MedGemmaProvider:
 
         self.host = self.host.rstrip("/")
 
+        # Token del servidor (MEDGEMMA_API_KEY en el .env): viaja en cada
+        # petición como encabezado y nunca se escribe en logs ni trazas.
+        self.headers = _auth_headers()
+
         self.client = Client(
             host=self.host,
             timeout=self.timeout,
+            headers=self.headers,
         )
 
         # Un cliente por tiempo límite (se reutilizan: cada uno guarda su
@@ -91,7 +111,7 @@ class MedGemmaProvider:
         with self._clients_lock:
             client = self._clients.get(key)
             if client is None:
-                client = Client(host=self.host, timeout=key)
+                client = Client(host=self.host, timeout=key, headers=self.headers)
                 self._clients[key] = client
             return client
 
