@@ -6107,10 +6107,17 @@ class QueryPlanBuilder:
             return lambda metric: True
         return lambda metric: self._group_field_in(tail, self._metric_dimensions(metric)) is not None
 
-    def _has_report(self, metric):
-        """¿El indicador está en un informe (un visual o una página documentada)?"""
-        metric = metric or {}
-        return bool(metric.get("appearances") or self._metric_reports(metric) or self._metric_pages(metric))
+    def _model_has_report(self, semantic_model):
+        """¿El modelo tiene algún informe publicado (algún indicador suyo en un
+        visual o página documentada)? «Dashboard Gestion» no tiene ninguno."""
+        models = self.__dict__.get("_models_with_report")
+        if models is None:
+            models = {
+                normalize_text(metric.get("semantic_model")) for metric in self.metrics
+                if metric.get("appearances") or self._metric_pages(metric)
+            }
+            self._models_with_report = models
+        return normalize_text(semantic_model) in models
 
     def _same_name_ambiguity(self, question, source_context, metric_result):
         """Regla: si el indicador elegido tiene el mismo nombre (o casi:
@@ -6203,20 +6210,21 @@ class QueryPlanBuilder:
                         "question": question, "source_context": source_context,
                         "metric_resolution": {"status": "ambiguous", "candidates": items},
                     }
-        # Solo uno de los homónimos está en un informe (visual o página
-        # documentada); los demás son medidas de un modelo sin informe que el
-        # usuario no ve: se responde con el del informe, sin contrapreguntar.
-        # Si dos o más tienen informe, la ambigüedad es real y se pregunta.
-        documented = [item for item in items if self._has_report(item["metric"])]
+        # Solo uno de los homónimos es de un modelo con informe; los demás son
+        # de modelos SIN ningún informe («Dashboard Gestion»), que el usuario
+        # no ve: se responde con el del informe, sin contrapreguntar. Si dos o
+        # más modelos tienen informe (aunque esa medida no esté en un visual),
+        # la ambigüedad es real y se pregunta.
+        documented = [item for item in items if self._model_has_report(item["metric"].get("semantic_model"))]
         if len(documented) == 1:
             chosen = documented[0]
             others = [item for item in items if item is not chosen]
             self._note(
                 f"«{metric_result.get('matched_name')}» existe con el mismo nombre en "
-                + ", ".join(f"{i['metric'].get('label')} ({i['metric'].get('semantic_model')}, sin informe)"
+                + ", ".join(f"{i['metric'].get('label')} ({i['metric'].get('semantic_model')}, modelo sin informe)"
                             for i in others)
                 + f"; solo {chosen['metric'].get('label')} ({chosen['metric'].get('semantic_model')}) está en "
-                "un informe: se usa ese sin contrapreguntar"
+                "un tablero con informe: se usa ese sin contrapreguntar"
             )
             if chosen["metric"] is best:
                 return None

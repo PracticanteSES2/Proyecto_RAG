@@ -90,6 +90,9 @@ METRICS = [
             visual_type="tableEx"),
     _metric("a_camas", ATEN, "CAMAS OCUPADAS", "CAMAS", "COUNT('CAMAS'[ID])", page="CAMAS"),
     _metric("q_camas", QX, "CAMAS OCUPADAS", "CAMAS", "COUNT('CAMAS'[ID])", page="QUIROFANOS"),
+    # EGRESOS: en un visual de BRIEF y como medida sin visual de ATEN (que SÍ tiene informe).
+    _metric("b_egr", BRIEF, "EGRESOS", "CAMAS DISPONIBLES", "COUNT('CAMAS DISPONIBLES'[HCACODIGO])", page="INICIO"),
+    _metric("a_egr", ATEN, "EGRESOS", "CAMAS", "COUNT('CAMAS'[ID])", source_type="explicit_measure"),
 ]
 
 TABLES = {
@@ -216,7 +219,7 @@ def test_homonym_without_report_is_not_offered():
     plan = builder().build("cual es el nivel de ocupacion?")
     assert plan["status"] == "ready", (plan["status"], _candidate_ids(plan), _notes(plan))
     assert plan["metric"]["metric_id"] == "b_ocup", plan["metric"]["metric_id"]
-    assert "está en un informe" in _notes(plan), _notes(plan)
+    assert "está en un tablero con informe" in _notes(plan), _notes(plan)
     assert not plan.get("unapplied_terms"), plan.get("unapplied_terms")
 
 
@@ -224,6 +227,10 @@ def test_homonyms_with_report_still_ask():
     plan = builder().build("cuantas camas ocupadas hay")
     assert plan["status"] == "ambiguous", (plan["status"], _notes(plan))
     assert set(_candidate_ids(plan)) == {"a_camas", "q_camas"}, _candidate_ids(plan)
+    # La medida sin visual de un modelo que SÍ tiene informe sigue compitiendo.
+    plan = builder().build("cuantos egresos hubo")
+    assert plan["status"] == "ambiguous", (plan["status"], _notes(plan))
+    assert set(_candidate_ids(plan)) == {"b_egr", "a_egr"}, _candidate_ids(plan)
 
 
 # ---------------------------------------------------------------- 2. forma del indicador
