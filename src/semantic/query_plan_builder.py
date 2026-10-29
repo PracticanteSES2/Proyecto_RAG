@@ -337,13 +337,28 @@ def _alias_prefix(text, alias):
     alias_words = normalize_text(alias).split()
     if not alias_words or len(text_words) < len(alias_words):
         return None
-    for word, other in zip(text_words, alias_words):
+
+    def same(word, other):
         if word == other or canonical_token(word) == canonical_token(other):
-            continue
-        if min(len(word), len(other)) >= 5 and _stem_token(word) == _stem_token(other):
-            continue
-        return None
-    return " ".join(text_words[:len(alias_words)])
+            return True
+        return min(len(word), len(other)) >= 5 and _stem_token(word) == _stem_token(other)
+
+    # Un conector entre dos palabras del nombre técnico («areas DE servicio»
+    # = AREA_SERVICIO) no rompe la coincidencia; antes de la primera, sí.
+    position = 0
+    for index, other in enumerate(alias_words):
+        while (
+            index and position < len(text_words) and text_words[position] in _ALIAS_CONNECTORS
+            and not same(text_words[position], other)
+        ):
+            position += 1
+        if position >= len(text_words) or not same(text_words[position], other):
+            return None
+        position += 1
+    return " ".join(text_words[:position])
+
+
+_ALIAS_CONNECTORS = {"de", "del", "la", "el", "los", "las"}
 
 
 # Frases equivalentes con la MISMA polaridad («sin responder» = «sin
@@ -2474,28 +2489,42 @@ class QueryPlanBuilder:
             return []
         model = metric.get("semantic_model")
         seen = {(normalize_text(f.get("table")), normalize_text(f.get("column"))) for f in existing}
+        # Después de las propias, las de las tablas que la filtran por una
+        # relación activa declarada (REFERENCIA[GEEDESCRI] filtra
+        # DETALLE_RECEPCIONES): «solicitudes por especialidad» se puede
+        # desglosar aunque ningún visual muestre esa columna. Sin metadata de
+        # relaciones no se supone ninguna.
+        tables = [(entry, 8)]
+        if self._has_relationship_metadata(model):
+            own = normalize_text(entry.get("name"))
+            related = self._related_tables(model, entry.get("name")) - {own}
+            for item in self._technical_catalog(model).get("tables", []) or []:
+                name = normalize_text(item.get("name"))
+                if name in related and not self._CALENDAR_TABLE_RE.match(name.replace(" ", "")):
+                    tables.append((item, 6))
         result = []
-        for column in entry.get("columns", []) or []:
-            name = column.get("name")
-            lowered = str(name or "").lower()
-            if not name or any(part in lowered for part in self._PRIVATE_COLUMN_PARTS):
-                continue
-            column_type = self._classify_data_type(column.get("data_type"))
-            words = set(normalize_text(name).split())
-            if column_type in ("number", "date") or words & TEMPORAL_WORDS:
-                continue
-            key = (normalize_text(entry.get("name")), normalize_text(name))
-            if key in seen:
-                continue
-            seen.add(key)
-            aliases = self._technical_column_aliases(model, entry.get("name"), name)
-            result.append({
-                "semantic_model": model, "report": None, "source_group": None,
-                "page": None, "visual_id": None, "visual_type": "technical_catalog",
-                "role": None, "kind": "column", "table": entry.get("name"), "column": name,
-                "level": None, "query_ref": f"{entry.get('name')}.{name}",
-                "aliases": aliases, "relevance_score": 8, "own_fallback": True,
-            })
+        for table, relevance in tables:
+            for column in table.get("columns", []) or []:
+                name = column.get("name")
+                lowered = str(name or "").lower()
+                if not name or any(part in lowered for part in self._PRIVATE_COLUMN_PARTS):
+                    continue
+                column_type = self._classify_data_type(column.get("data_type"))
+                words = set(normalize_text(name).split())
+                if column_type in ("number", "date") or words & TEMPORAL_WORDS:
+                    continue
+                key = (normalize_text(table.get("name")), normalize_text(name))
+                if key in seen:
+                    continue
+                seen.add(key)
+                aliases = self._technical_column_aliases(model, table.get("name"), name)
+                result.append({
+                    "semantic_model": model, "report": None, "source_group": None,
+                    "page": None, "visual_id": None, "visual_type": "technical_catalog",
+                    "role": None, "kind": "column", "table": table.get("name"), "column": name,
+                    "level": None, "query_ref": f"{table.get('name')}.{name}",
+                    "aliases": aliases, "relevance_score": relevance, "own_fallback": True,
+                })
         return result
 
     def _metric_dimensions(self, metric, dropped=None):
@@ -4090,12 +4119,37 @@ class QueryPlanBuilder:
         metric_result = self._resolve_metric_flexible(question, source_context)
         if metric_result.get("status") in ("resolved", "ambiguous"):
             return True
+        if (has_group or has_period) and self._names_metric_of_named_board(question, source_context):
+            return True
         # Ningún indicador coincide, pero la pregunta nombra una página que sí
         # tiene indicadores («hospitalizaciones parciales de marzo»).
         pages = self._named_pages(source_context) or (
             [] if source_context.get("board_mentions") else self._topic_pages(question)
         )
         return any(self._page_members(page) for page in pages)
+
+    def _names_metric_of_named_board(self, question, source_context):
+        """«peso por servicio en lavandería»: la pregunta nombra un tablero
+        (routing fuerte) y su sustantivo principal es una palabra del nombre o
+        la tabla de un indicador visible de ese tablero (PESO TOTAL por Mes):
+        con «por <dimensión>» o un periodo pide datos, no documentación, aunque
+        el nombre completo del indicador no coincida."""
+        if not (
+            source_context.get("status") == "resolved"
+            and source_context.get("routing_strength") == "strong"
+            and self._board_named_explicitly(question, source_context)
+        ):
+            return False
+        head = self._head_token(question, source_context)
+        if not head:
+            return False
+        model = normalize_text(source_context.get("semantic_model"))
+        return any(
+            metric.get("validation_status") == "approved" and metric.get("appearances")
+            and normalize_text(metric.get("semantic_model")) == model
+            and self._explains(head, self._metric_vocabulary_tokens(metric, with_pages=False))
+            for metric in self._dedupe_metrics(self.metrics)
+        )
 
     def _detail_list_question(self, question, dashboard=None):
         """Pregunta de listado («qué <entidad> hay/están», «lista de …») cuya
@@ -4290,6 +4344,8 @@ class QueryPlanBuilder:
                 continue
             if not metric.get("dax_expression"):
                 continue
+            if self._is_ratio_metric(metric):
+                continue  # un porcentaje/promedio no es la base de una participación
             pool.append(metric)
         if not pool:
             return {"status": "not_found", "candidates": []}
@@ -4401,6 +4457,17 @@ class QueryPlanBuilder:
             mentions = self._distinct_mentions(
                 self._mentioned_metrics(rest_text, source_context)
             )
+            # «qué porcentaje de las atenciones...»: «atenciones» nombra tal
+            # cual %ATENCIONES, pero la participación divide un total entre
+            # otro; un porcentaje o promedio no es su base.
+            ratios = [m for m in mentions if self._is_ratio_metric(m["metric"])]
+            if ratios:
+                self._note(
+                    "en la participación no se usa como base "
+                    + ", ".join(str(m["metric"].get("label")) for m in ratios)
+                    + " (porcentaje o promedio)"
+                )
+                mentions = [m for m in mentions if m not in ratios]
 
         share_note = None
         if share and selections.get("share"):
@@ -4570,6 +4637,26 @@ class QueryPlanBuilder:
         signatures = {self._grouping_signature(plan) for plan in plans}
         return len(signatures) == 1 and None not in signatures
 
+    def _is_ratio_metric(self, metric):
+        """¿El indicador es un porcentaje o un promedio (no se puede sumar)?
+        Además de `_metric_measure_kinds`: «%» en el nombre sin normalizar o
+        en el formato, o una división entre dos agregaciones
+        («DISTINCTCOUNT(...)/DISTINCTCOUNT(...)», sin DIVIDE)."""
+        metric = metric or {}
+        if self._metric_measure_kinds(metric) & {"percent", "average"}:
+            return True
+        names = f"{metric.get('label') or ''} {metric.get('measure') or ''}"
+        fmt = str(metric.get("format_string") or metric.get("format") or "")
+        if "%" in names or "%" in fmt:
+            return True
+        expression = " ".join(
+            str(value) for value in (
+                metric.get("base_dax_expression") or metric.get("dax_expression"), metric.get("model_expression"),
+                self._measure_expression(metric.get("semantic_model"), metric),
+            ) if value
+        )
+        return bool(re.search(r"\)\s*/\s*\(?\s*[A-Z]+\s*\(", expression, re.IGNORECASE))
+
     def _share_base_metric(self, question, rest_text, intent_result, source_context):
         """Métrica base de una participación sin indicador nombrado literalmente.
 
@@ -4584,12 +4671,36 @@ class QueryPlanBuilder:
         default = self._default_share_metric(source_context)
         plan = self.build(rest_text, intent_result=intent_result)
         status = plan.get("status")
+        if status == "ready" and self._is_ratio_metric(plan["metric"]):
+            # Una participación divide el total con el filtro entre el total
+            # sin él: con un porcentaje o un promedio («%ATENCIONES» para «qué
+            # porcentaje de las atenciones fueron de nueva eps») esa división
+            # no tiene sentido. Se buscan los conteos/sumas que también
+            # nombran la pregunta.
+            additive = [
+                candidate for candidate in self.alternative_metrics(
+                    rest_text, intent_result, exclude_ids=[plan["metric"].get("metric_id")], limit=8,
+                )
+                if not self._is_ratio_metric(candidate.get("metric") or {})
+                and float(candidate.get("business_score") or 0.0) >= self.min_metric_score
+            ]
+            if additive:
+                self._note(
+                    f"{plan['metric'].get('label')} es un porcentaje/promedio: no sirve de base para una "
+                    "participación; se prueban los indicadores que cuentan o suman: "
+                    + ", ".join(str(c["metric"].get("label")) for c in additive[:5])
+                )
+                plan = {**plan, "status": "ambiguous",
+                        "metric_resolution": {**(plan.get("metric_resolution") or {}), "candidates": additive}}
+                status = "ambiguous"
         if status == "ready":
             return {"status": "resolved", "metric": plan["metric"]}
         if status == "ambiguous":
             viable, seen = [], set()
             for candidate in (plan.get("metric_resolution") or {}).get("candidates") or []:
                 metric = candidate.get("metric") or {}
+                if self._is_ratio_metric(metric):
+                    continue
                 key = metric.get("metric_id")
                 if not key or key in seen:
                     continue
@@ -5295,6 +5406,55 @@ class QueryPlanBuilder:
             visible_note=note, group_sibling=True,
         )
 
+    _VALUE_ROLES = {"values", "y", "y2", "size", "tooltips", "tooltip"}
+
+    def _shown_by_field(self, metric, field):
+        """¿Algún visual del tablero muestra este indicador desglosado por esa
+        columna (eje, categoría, filas o leyenda del MISMO visual)?"""
+        visual_ids = {str(value) for value in self._metric_visual_ids(metric)}
+        if not visual_ids or not field:
+            return False
+        model = normalize_text(metric.get("semantic_model"))
+        table, column = normalize_text(field.get("table")), normalize_text(field.get("column"))
+        return any(
+            str(item.get("visual_id")) in visual_ids
+            and normalize_text(item.get("semantic_model")) == model
+            and normalize_text(item.get("table")) == table
+            and normalize_text(item.get("column")) == column
+            and normalize_text(item.get("role")) not in self._VALUE_ROLES
+            for item in self.dimension_fields or []
+        )
+
+    def _group_shown_option(self, question, intent_result, plan, groupable, tail):
+        """«M por X» y todas las opciones se desglosan por X: si todas miden la
+        misma tabla del mismo modelo (variantes del mismo conteo: PACIENTES
+        de NAOS como DISTINCTCOUNT de AINCONSEC en la tarjeta y de ADNINGRESO en
+        la dona por servicio) y un solo indicador aparece en un visual
+        desglosado por X, ese es el que el tablero usa para responder: se
+        responde con él. Opciones de tablas o modelos distintos siguen siendo
+        una ambigüedad real (None: se contrapregunta)."""
+        owners = {
+            (normalize_text(item["metric"].get("semantic_model")), normalize_text(self._metric_fact_table(item["metric"])))
+            for item in groupable
+        }
+        if len(owners) != 1:
+            return None
+        shown = []
+        for item in groupable:
+            field = self._group_field_in(tail, self._metric_dimensions(item["metric"]))
+            if self._shown_by_field(item["metric"], field):
+                shown.append(item)
+        if len({self._logical_key(item["metric"]) for item in shown}) != 1 or len(shown) == len(groupable):
+            return None
+        chosen = shown[0]
+        source_context = plan.get("source_context") or {}
+        return self._forced_plan(
+            question, intent_result, chosen,
+            f"todas las opciones miden la tabla {self._metric_fact_table(chosen['metric'])}; solo esta aparece "
+            f"en un visual del tablero desglosada por «{tail}»: se responde con ella",
+            consumed_tokens=self._option_words(question, source_context),
+        )
+
     def _group_feasible_options(self, question, intent_result, plan):
         """Contrapregunta de «M por X» (sin opción elegida): las opciones que no
         se pueden desglosar por X no responden la pregunta.
@@ -5319,7 +5479,7 @@ class QueryPlanBuilder:
                 question, intent_result, [item["metric"] for item in items], tail, source_context,
             )
         if len(groupable) == len(items):
-            return None
+            return self._group_shown_option(question, intent_result, plan, groupable, tail)
         others = [item["metric"] for item in items if item not in groupable]
         text = self._ungroupable_text(others, tail, question)
         self._note(f"opciones depuradas: {text}")
@@ -5885,6 +6045,17 @@ class QueryPlanBuilder:
             },
         }
 
+    def _rival_group_check(self, question, best):
+        """Filtro para los rivales de nombre igual o parecido en «M por X»: si
+        el indicador elegido se desglosa por X, un rival que no se puede
+        desglosar por X no responde la pregunta y no se ofrece (PACIENTES
+        OBSERVADOS de BRIEFING, tabla sin aseguradora, frente a PACIENTES
+        OBSERVADOS POR MES de CONSULTAS PRIORITARIAS para «... por aseguradora»)."""
+        tail = self._requested_group_tail(question)
+        if not tail or self._group_field_in(tail, self._metric_dimensions(best)) is None:
+            return lambda metric: True
+        return lambda metric: self._group_field_in(tail, self._metric_dimensions(metric)) is not None
+
     def _same_name_ambiguity(self, question, source_context, metric_result):
         """Regla: si el indicador elegido tiene el mismo nombre (o casi:
         sin «total», años ni mayúsculas/guiones) que otros de OTRO modelo o
@@ -5926,7 +6097,7 @@ class QueryPlanBuilder:
             logical = self._logical_key(metric)
             if logical in seen:
                 continue
-            names = [metric.get("label"), metric.get("measure")] + [
+            names =[metric.get("label"), metric.get("measure")] + [
                 appearance.get("visual_title") for appearance in metric.get("appearances") or []
             ]
             if not any(name and self._name_key(name) in keys for name in names):
@@ -5952,6 +6123,30 @@ class QueryPlanBuilder:
         items = self._collapse_year_variants(items, question)[: self._SUGGESTION_LIMIT]
         if len(items) < 2:
             return None
+        # «M por X»: entre los del mismo nombre solo responden los que se
+        # desglosan por X. Si queda uno, es la respuesta (aunque no sea el
+        # que puntuó más); si es el elegido, no hay nada que preguntar.
+        tail = self._requested_group_tail(question)
+        if tail:
+            groupable = [
+                item for item in items
+                if self._group_field_in(tail, self._metric_dimensions(item["metric"])) is not None
+            ]
+            if groupable and len(groupable) < len(items):
+                self._note(
+                    f"«{metric_result.get('matched_name')}» existe en varios tableros; solo "
+                    + ", ".join(f"{i['metric'].get('label')} ({i['metric'].get('semantic_model')})" for i in groupable)
+                    + f" se desglosa(n) por «{tail}»"
+                )
+                items = groupable
+                if len(items) == 1:
+                    if items[0]["metric"] is best:
+                        return None
+                    return {
+                        "status": "ambiguous", "stage": "metric", "reason": None,
+                        "question": question, "source_context": source_context,
+                        "metric_resolution": {"status": "ambiguous", "candidates": items},
+                    }
         self._note(
             f"«{metric_result.get('matched_name')}» existe con el mismo nombre en varios tableros/modelos "
             f"({', '.join(sorted({str(i['metric'].get('semantic_model')) for i in items}))}) y la "
@@ -6095,6 +6290,67 @@ class QueryPlanBuilder:
         """Palabras de `words` que explica el indicador (nombres, tabla o página)."""
         vocabulary = self._metric_vocabulary_tokens(metric or {})
         return {word for word in words if self._explains(word, vocabulary)}
+
+    def _options_named_by_question(self, question, source_context, candidates):
+        """Desempate por la frase que nombra la pregunta. Entre opciones que
+        explican todas sus palabras distintivas, se quedan las que la pregunta
+        nombra enteras: cada palabra de su nombre (sin conectores, «total» ni
+        años) está en la pregunta. «cuántos triages pediátricos hubo en 2025»
+        nombra TRIAGES_PEDIATRICOS_2025, no PROMEDIO_TRIAGES_PEDIATRICOS_2025
+        ni PROM_TRIAGE_PEDIATRICOS (añaden «promedio», que no se dijo). Si varias
+        quedan, solo las de nombre más largo (más específico); si ninguna o
+        todas, devuelve [] (lo deciden otras reglas). Dos indicadores del mismo
+        nombre en tableros distintos siguen siendo ambiguos."""
+        words = self._option_words(question, source_context)
+        units = {canonical_token(word) for word in self._OPTION_UNIT_WORDS}
+        core = [word for word in words if word not in units] or words
+        if not core:
+            return []
+        question_tokens = set(canonical_tokens(self._metric_business_question(question, source_context)))
+
+        def said(token):
+            return any(_tokens_match_loosely(token, other) for other in question_tokens)
+
+        considered, named = [], []
+        for item in candidates:
+            metric = item.get("metric") or {}
+            if float(item.get("business_score") or 0.0) < self.min_metric_score:
+                continue
+            considered.append(item)
+            if len(self._option_coverage(metric, core)) < len(core):
+                continue
+            keys = [self._name_key(metric.get("label")), self._name_key(item.get("matched_name"))]
+            sizes = [len(key) for key in keys if key and all(said(token) for token in key)]
+            if sizes:
+                named.append((item, max(sizes)))
+        if len(considered) < 2 or not named:
+            return []
+        top = max(size for _, size in named)
+        kept = [item for item, size in named if size == top]
+        if len(kept) == len(considered):
+            return []
+        return kept
+
+    def options_explain_question(self, question, candidates, source_context=None):
+        """¿Las opciones de una contrapregunta explican la pregunta lo bastante
+        como para que tenga intención analítica? Al menos una opción debe
+        explicar (nombre, tabla o página) la mitad de sus palabras distintivas
+        sin contar las de unidad («pacientes»). «¿Qué medicamento le doy a un
+        paciente con fiebre?» solo comparte «paciente» y «escríbeme un código
+        en Python» solo «código» (una columna): no se contrapregunta por
+        indicadores, se responde fuera de alcance. Sin palabras distintivas
+        no se juzga (True)."""
+        if source_context is None:
+            source_context = self._source_context(question)
+        units = {canonical_token(word) for word in self._OPTION_UNIT_WORDS}
+        core = [word for word in self._option_words(question, source_context) if word not in units]
+        if not core:
+            return True
+        best = max(
+            (len(self._option_coverage(item.get("metric") or {}, core)) for item in candidates or []),
+            default=0,
+        )
+        return 2 * best >= len(core)
 
     def _prune_unrelated_options(self, question, source_context, metric_result):
         """Depura las opciones de una contrapregunta:
@@ -6817,6 +7073,7 @@ class QueryPlanBuilder:
 
         best_model = normalize_text(best.get("semantic_model"))
         best_table_explains = any(table_explains(best, word) for word in core)
+        groups_by = self._rival_group_check(question, best)
         rivals, seen = [], {self._logical_key(best)}
         for metric in self._dedupe_metrics(self.metrics):
             if metric.get("validation_status") != "approved":
@@ -6840,6 +7097,8 @@ class QueryPlanBuilder:
             ):
                 continue
             if len(self._option_coverage(metric, core)) < len(core):
+                continue
+            if not groups_by(metric):
                 continue
             # En el MISMO modelo, las tarjetas de nombre parecido suelen ser
             # variantes del propio tablero (CITAS ASIGNADAS / ASIGNADAS): no se
@@ -6953,6 +7212,33 @@ class QueryPlanBuilder:
                     question, intent_result, full[0],
                     f"único indicador del tablero nombrado ({board}) que explica la pregunta",
                 )
+        if (
+            strong and status == "not_found" and plan.get("reason") is None
+            and self._board_named_explicitly(question, source_context)
+        ):
+            # «peso por servicio en lavandería»: ningún nombre alcanzó el
+            # puntaje, pero el tablero nombrado tiene UN indicador visible que
+            # explica todas las palabras distintivas (PESO TOTAL por Mes): es
+            # ese, no una contrapregunta de una sola opción ni la documentación.
+            words = self._option_words(question, source_context)
+            seen, full = set(), []
+            for item in [*(resolution.get("candidates") or []), *(resolution.get("suggestions") or [])]:
+                metric = item.get("metric") or {}
+                key = self._logical_key(metric)
+                if (
+                    key in seen or not metric.get("appearances")
+                    or normalize_text(metric.get("semantic_model")) != board_model
+                ):
+                    continue
+                seen.add(key)
+                if words and len(self._option_coverage(metric, words)) == len(words):
+                    full.append(item)
+            if len(full) == 1:
+                board = source_context.get("report") or source_context.get("semantic_model")
+                return self._forced_plan(
+                    question, intent_result, full[0],
+                    f"único indicador visible del tablero nombrado ({board}) que explica la pregunta",
+                )
         if strong and plan.get("reason") is None and self._board_named_explicitly(question, source_context):
             offered =[*(resolution.get("candidates") or []), *(resolution.get("suggestions") or [])]
             if offered and not any(
@@ -6994,6 +7280,14 @@ class QueryPlanBuilder:
             plan = grouped
             resolution = plan["metric_resolution"]
         candidates = resolution.get("candidates") or []
+        if status == "ambiguous" and plan.get("reason") is None and len(candidates) > 1:
+            named = self._options_named_by_question(question, source_context, candidates)
+            if len({self._logical_key(item["metric"]) for item in named}) == 1:
+                return self._forced_plan(
+                    question, intent_result, named[0],
+                    "la pregunta dice su nombre completo; las demás opciones añaden palabras que "
+                    "la pregunta no dice: se responde sin contrapreguntar",
+                )
         if (
             status == "ambiguous" and plan.get("reason") is None and len(candidates) == 1
             and float(candidates[0].get("business_score") or 0.0) >= self.min_metric_score

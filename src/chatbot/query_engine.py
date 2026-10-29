@@ -3875,6 +3875,29 @@ class QueryEngine:
         except Exception:
             return None
 
+    def _fallback_has_analytic_intent(self, question, response):
+        """Respaldo del Query Plan para una pregunta que no parecía numérica y
+        sin evidencia en la documentación: solo se contrapregunta si alguna
+        opción explica buena parte de la pregunta (intención analítica). Con
+        catálogos reales casi cualquier palabra («paciente», «código») es el
+        nombre de algún visual o columna."""
+        judge = getattr(self.query_plan_builder, "options_explain_question", None)
+        if not callable(judge):
+            return True
+        plan = response.get("query_plan") or {}
+        candidates = (plan.get("metric_resolution") or {}).get("candidates") or []
+        try:
+            enough = judge(question, candidates, plan.get("source_context"))
+        except Exception:
+            return True
+        if not enough:
+            self._think(
+                "Sin intención analítica",
+                "las opciones solo comparten palabras sueltas con la pregunta (menos de la mitad de "
+                "sus palabras distintivas): no se contrapregunta por indicadores",
+            )
+        return enough
+
     def _has_pending_clarification(self):
         state = getattr(self.conversation_manager, "state", None)
         return bool(
@@ -5721,6 +5744,12 @@ class QueryEngine:
                     fallback_response, fallback_status = self._run_query_plan(
                         original_question, intent_result, "query_plan_fallback"
                     )
+                    if (
+                        fallback_status == "ambiguous"
+                        and fallback_response.get("status") == "needs_clarification"
+                        and not self._fallback_has_analytic_intent(original_question, fallback_response)
+                    ):
+                        fallback_status = "no_analytic_intent"
                     if fallback_status in ("ready", "composite", "ambiguous"):
                         return fallback_response
                     if fallback_response.get("status") == "needs_clarification":
