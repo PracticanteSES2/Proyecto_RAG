@@ -125,10 +125,11 @@ class RAGAnswerEngine:
         "documentación de los tableros disponibles."
     )
 
-    def _fallback_answer(self, results):
-        """Resumen extractivo legible (sin prefijos técnicos ni DAX); si no
-        se puede armar, el texto de las fuentes como antes."""
-        readable = readable_fallback(results)
+    def _fallback_answer(self, results, question=None):
+        """Resumen extractivo legible (sin prefijos técnicos ni DAX): primero
+        la entrada más pertinente a la pregunta y solo las de su mismo tablero;
+        si no se puede armar, el texto de las fuentes como antes."""
+        readable = readable_fallback(results, question=question)
         if readable:
             return readable
         contexts = [r.get("text", "") for r in results if r.get("text")]
@@ -155,7 +156,7 @@ class RAGAnswerEngine:
         queda en self.last_synthesis_issue (lo muestra el razonamiento)."""
         self.last_synthesis_issue = None
         if self.answer_synthesizer is None:
-            return self._fallback_answer(results), "extractive", False
+            return self._fallback_answer(results, question), "extractive", False
 
         # El historial solo se pasa si existe: los sintetizadores que no lo
         # aceptan (dobles de prueba antiguos) siguen funcionando.
@@ -168,7 +169,7 @@ class RAGAnswerEngine:
             return synthesis.get("answer"), "llm", bool(synthesis.get("no_evidence"))
 
         self.last_synthesis_issue = self._synthesis_issue(synthesis)
-        return self._fallback_answer(results), "extractive", False
+        return self._fallback_answer(results, question), "extractive", False
 
     def _not_found_response(self, sources=None, synthesis_mode="none", reason="no_relevant_context"):
         return {

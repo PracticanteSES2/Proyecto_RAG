@@ -8,6 +8,7 @@ from src.chatbot.conversation_memory import ConversationMemory
 from src.chatbot.intent_parser import ordinal_choice_index
 from src.chatbot.reasoning_trace import ReasoningTrace, format_score, short
 from src.chatbot.runtime_stats import STATS, degradation_lines, status_line
+from src.dax.column_guard import GuardedQueryPlanDAXGenerator, ModelSchema, unknown_references
 from src.chatbot.response_formatter import (
     NONE_OF_THE_ABOVE_ID, format_filters_line, format_value_es, group_header,
 )
@@ -100,6 +101,13 @@ class QueryEngine:
         self.query_plan_dax_generator = (
             query_plan_dax_generator
         )
+        # Columnas del plan verificadas contra la metadata del modelo de la
+        # medida antes de generar el DAX (src/dax/column_guard.py).
+        catalog_of = getattr(query_plan_builder, "_technical_catalog", None)
+        if query_plan_dax_generator is not None and callable(catalog_of):
+            self.query_plan_dax_generator = GuardedQueryPlanDAXGenerator(
+                query_plan_dax_generator, catalog_of,
+            )
 
         # LLM que describe en una frase qué consultaría cada opción de una
         # contrapregunta. Sin él se usa la descripción del catálogo.
@@ -510,6 +518,8 @@ class QueryEngine:
         lines = [f"generación DAX: {dax_result.get('status')}"]
         if dax_result.get("dax"):
             lines.append("DAX: " + " ".join(str(dax_result.get("dax")).split()))
+        for repair in dax_result.get("column_repairs") or []:
+            lines.append(f"columna corregida: {repair['from']} → {repair['to']} ({repair['why']})")
         if dax_result.get("status") != "generated":
             lines.append(f"detalle: {short(dax_result, 300)}")
         if powerbi_result is not None:
@@ -524,6 +534,182 @@ class QueryEngine:
                     f"error de Power BI: {short(powerbi_result.get('error') or powerbi_result, 300)}"
                 )
         self._think(title, *lines)
+
+    # ========================================================
+    # VALIDACIÓN PREVIA DE COLUMNAS Y EJECUCIÓN DAX
+    # ========================================================
+
+    def _model_schema(self, semantic_model):
+        """Metadata (tablas, columnas, medidas) del modelo, o un esquema vacío."""
+        if isinstance(self.query_plan_dax_generator, GuardedQueryPlanDAXGenerator):
+            return self.query_plan_dax_generator.schema(semantic_model)
+        catalog_of = getattr(self.query_plan_builder, "_technical_catalog", None)
+        try:
+            return ModelSchema(catalog_of(semantic_model) if callable(catalog_of) and semantic_model else {})
+        except Exception:
+            return ModelSchema({})
+
+    @staticmethod
+    def _unknown_columns_message(missing, semantic_model=None):
+        listed = ", ".join(missing[:3]) + ("…" if len(missing) > 3 else "")
+        where = f"el modelo «{semantic_model}»" if semantic_model else "el modelo del tablero"
+        return (
+            f"No pude consultar este dato: la consulta usaría {listed}, que no existe en {where}, "
+            "así que no la envié a Power BI. Puede que el tablero haya cambiado; avisa al "
+            "administrador para actualizar el catálogo."
+        )
+
+    def _execute_dax(self, dax, semantic_model=None, **kwargs):
+        """Ejecuta el DAX en Power BI solo si todas sus columnas 'T'[C] existen
+        en la metadata del modelo. Si no, no se envía y se devuelve un error
+        explicable (error_type="unknown_columns")."""
+        missing = unknown_references(dax, self._model_schema(semantic_model))
+        if missing:
+            self._think(
+                "Consulta bloqueada antes de Power BI",
+                f"columnas que no existen en {semantic_model}: {', '.join(missing)}",
+                "no se envía la consulta (Power BI la rechazaría)",
+            )
+            return {
+                "status": "error", "error_type": "unknown_columns",
+                "unknown_columns": missing, "semantic_model": semantic_model,
+                "error": self._unknown_columns_message(missing, semantic_model),
+            }
+        return self.powerbi_provider.execute_dax(dax=dax, semantic_model=semantic_model, **kwargs)
+
+    # ========================================================
+    # LISTA DE VALORES DE UNA DIMENSIÓN («qué áreas tiene el hospital»)
+    # ========================================================
+
+    _DIMENSION_ALTERNATIVES = 4
+
+    def _dimension_listing(self, question):
+        """«Dame una lista de las áreas que tiene el hospital», «cuáles son las
+        especialidades», «qué aseguradoras hay»: valores distintos de la
+        columna más canónica de esa dimensión, consultados en Power BI, con la
+        fuente (tablero, tabla[columna]) y los otros tableros que también la
+        tienen. None si la pregunta no es solo eso o no hay columna clara."""
+        from src.semantic.detail_list import (
+            detail_max_rows, dimension_list_request, dimension_plural, dimension_values,
+            rank_dimension_columns,
+        )
+
+        builder = self.query_plan_builder
+        fields = getattr(builder, "dimension_fields", None)
+        request = dimension_list_request(question)
+        if not request or not fields:
+            return None
+        column_type = getattr(builder, "_column_type", None)
+
+        def exists(model, table, column):
+            schema = self._model_schema(model)
+            return not schema or schema.column(table, column) is not None
+
+        ranked = rank_dimension_columns(
+            fields, request, column_type=column_type if callable(column_type) else None, exists=exists,
+        )
+        plural = dimension_plural(request)
+        if not ranked:
+            self._think(
+                "Pregunta por la lista de una dimensión",
+                f"«{request['phrase']}» pide los valores de {plural}, pero ningún tablero muestra una "
+                "columna de texto para listarlos: se responde con la documentación",
+            )
+            return None
+        chosen = ranked[0]
+        others = []
+        for item in ranked[1:]:
+            if item["semantic_model"] != chosen["semantic_model"] and item["semantic_model"] not in [
+                other["semantic_model"] for other in others
+            ]:
+                others.append(item)
+        self._think(
+            "Pregunta por la lista de una dimensión",
+            f"«{request['phrase']}» pide los valores distintos de {plural} (no un indicador): "
+            "se consultan en Power BI",
+            f"columna elegida: {chosen['table']}[{chosen['column']}] de {chosen['semantic_model']} "
+            f"(puntaje {chosen['score']}: "
+            + ", ".join(part for part in (
+                "nombre con la palabra pedida" if chosen["literal"] else "",
+                f"{chosen['slicers']} segmentador(es)" if chosen["slicers"] else "",
+                f"{chosen['visuals']} visual(es)",
+            ) if part) + ")",
+            *(["otras columnas: " + "; ".join(
+                f"{item['semantic_model']} {item['table']}[{item['column']}] ({item['score']})"
+                for item in ranked[1:6]
+            )] if len(ranked) > 1 else []),
+        )
+        self._activity("Trayendo la lista de valores de Power BI")
+        try:
+            raw = builder._get_values(chosen["semantic_model"], chosen["table"], chosen["column"], essential=True)
+        except Exception as error:
+            self._think("La consulta de valores falló", f"{type(error).__name__}: {error}")
+            raw = None
+        if raw is None:
+            answer = (
+                f"No pude traer de Power BI la lista de {plural} ({chosen['table']}[{chosen['column']}] "
+                f"del tablero «{chosen['semantic_model']}»). Intenta de nuevo en un momento."
+            )
+            return {
+                "status": "success", "route": "powerbi", "result_type": "table", "answer": answer,
+                "rows": [], "semantic_model": chosen["semantic_model"], "dimension_listing": chosen,
+            }
+        cap = detail_max_rows()
+        values, total, truncated = dimension_values(raw, cap)
+        source = (
+            f"columna {chosen['table']}[{chosen['column']}] del tablero «{chosen['semantic_model']}»"
+            + (f" (segmentador «{chosen['header']}»" + (
+                f" de la página {chosen['pages'][0]})" if chosen["pages"] else ")"
+            ) if chosen.get("header") else (f" (página {chosen['pages'][0]})" if chosen["pages"] else ""))
+        )
+        if not values:
+            answer = f"Power BI no devolvió valores de {plural} en la {source}."
+        else:
+            head = f"Power BI registra {total} {plural}" + (
+                f" (se muestran {len(values)}, en orden alfabético)" if truncated else ""
+            )
+            answer = f"{head} (fuente: {source}):\n\n" + "\n".join(f"- {value}" for value in values)
+        if others:
+            listed = others[:self._DIMENSION_ALTERNATIVES]
+            answer += (
+                f"\n\nOtros tableros también tienen {plural}, con sus propios nombres: "
+                + "; ".join(f"«{item['semantic_model']}» ({item['table']}[{item['column']}])" for item in listed)
+                + ". Si quieres la lista de uno de ellos, nómbralo en la pregunta."
+            )
+        return {
+            "status": "success", "route": "powerbi", "result_type": "table", "answer": answer,
+            "question": question, "semantic_model": chosen["semantic_model"],
+            "report": chosen.get("report"),
+            "rows": [{chosen["column"]: value} for value in values], "total_rows": total,
+            "dimension_listing": {**chosen, "truncated": truncated, "alternatives": others},
+        }
+
+    def _unknown_columns_response(self, plan, details, stage):
+        """Respuesta legible (nunca el error crudo) cuando el plan o su DAX
+        nombra columnas que no existen en el modelo."""
+        missing = details.get("unknown_columns") or []
+        semantic_model = (plan or {}).get("semantic_model")
+        temporal = any(
+            item.get("type") == "date_range" and f"{item.get('table')}[{item.get('column')}]" in missing
+            for item in (plan or {}).get("filters") or []
+        )
+        explanation = self._unknown_columns_message(missing, semantic_model)
+        if temporal:
+            explanation = (
+                "Identifiqué la métrica, pero no encontré en su modelo una fecha con la que aplicar "
+                "ese período (" + ", ".join(missing) + " no existe en «" + str(semantic_model)
+                + "»), así que no consulté Power BI. Prueba sin período o con otro indicador."
+            )
+        return {
+            "status": "unsupported_filter", "route": "powerbi", "stage": stage,
+            "query_plan": plan, "details": {
+                "status": "unsupported_filter",
+                "reason": "date_dimension_not_found_in_report" if temporal
+                else "requested_dimension_not_found_in_report",
+                "explanation": explanation, "unknown_columns": missing,
+            },
+            "answer": explanation,
+        }
 
     # ========================================================
     # NORMALIZACIÓN
@@ -1240,8 +1426,8 @@ class QueryEngine:
         # La expresión fue leída de master_metrics.json
         # y solo se ejecutan métricas approved.
         powerbi_result = (
-            self.powerbi_provider
-            .execute_dax(
+            self
+            ._execute_dax(
                 dax=
                     dax_result.get(
                         "dax"
@@ -1698,6 +1884,8 @@ class QueryEngine:
         )
         if dax_result.get("status") != "generated":
             self._trace_dax("Consulta a Power BI", dax_result)
+            if dax_result.get("reason") == "unknown_columns":
+                return self._unknown_columns_response(plan, dax_result, "query_plan_dax")
             return {
                 "status": "dax_not_generated",
                 "route": "powerbi",
@@ -1706,11 +1894,13 @@ class QueryEngine:
                 "details": dax_result,
             }
 
-        powerbi_result = self.powerbi_provider.execute_dax(
+        powerbi_result = self._execute_dax(
             dax=dax_result.get("dax"),
             semantic_model=plan.get("semantic_model"),
         )
         self._trace_dax("Consulta a Power BI", dax_result, powerbi_result)
+        if powerbi_result.get("error_type") == "unknown_columns":
+            return self._unknown_columns_response(plan, powerbi_result, "query_plan_powerbi")
         if powerbi_result.get("status") != "success":
             return {
                 "status": "powerbi_error",
@@ -2024,12 +2214,12 @@ class QueryEngine:
                         "dax": dax_result["dax"]}
         self._activity("Trayendo la lista de detalle de Power BI")
         try:
-            powerbi_result = self.powerbi_provider.execute_dax(
+            powerbi_result = self._execute_dax(
                 dax=dax_result["dax"], semantic_model=plan.get("semantic_model"),
                 timeout_s=detail_timeout_s(),
             )
         except TypeError:
-            powerbi_result = self.powerbi_provider.execute_dax(
+            powerbi_result = self._execute_dax(
                 dax=dax_result["dax"], semantic_model=plan.get("semantic_model"),
             )
         except Exception as error:
@@ -3297,6 +3487,11 @@ class QueryEngine:
         return " ".join([answer, *notes])
 
     def _composite_failure(self, stage, plan, dax_result=None, powerbi_result=None):
+        for details in (dax_result, powerbi_result):
+            if isinstance(details, dict) and (
+                details.get("reason") == "unknown_columns" or details.get("error_type") == "unknown_columns"
+            ):
+                return self._unknown_columns_response(plan, details, stage)
         if dax_result is not None and dax_result.get("status") != "generated":
             return {
                 "status": "dax_not_generated", "route": "powerbi",
@@ -3382,7 +3577,7 @@ class QueryEngine:
                 last_failure = self._composite_failure("query_plan_dax", plan, dax_result)
                 failed_labels.append(item["label"])
                 continue
-            powerbi_result = self.powerbi_provider.execute_dax(
+            powerbi_result = self._execute_dax(
                 dax=dax_result.get("dax"),
                 semantic_model=plan.get("semantic_model"),
             )
@@ -3488,7 +3683,7 @@ class QueryEngine:
             )
             powerbi_result = None
             if dax_result.get("status") == "generated":
-                powerbi_result = self.powerbi_provider.execute_dax(
+                powerbi_result = self._execute_dax(
                     dax=dax_result.get("dax"),
                     semantic_model=items[0]["plan"].get("semantic_model"),
                 )
@@ -3527,7 +3722,7 @@ class QueryEngine:
                 failed.append(item["label"])
                 columns.append(None)
                 continue
-            powerbi_result = self.powerbi_provider.execute_dax(
+            powerbi_result = self._execute_dax(
                 dax=dax_result.get("dax"), semantic_model=plan.get("semantic_model"),
             )
             self._trace_dax(f"Consulta a Power BI: {item['label']}", dax_result, powerbi_result)
@@ -5488,6 +5683,16 @@ class QueryEngine:
                     )
 
 
+
+        # ----------------------------------------------------
+        # 0b. LISTA DE VALORES DE UNA DIMENSIÓN
+        # ----------------------------------------------------
+        # «Lista de las áreas del hospital»: valores de la columna en Power
+        # BI, no un indicador ni fragmentos de la documentación.
+        if self.query_plan_builder is not None:
+            listing = self._dimension_listing(message)
+            if listing is not None:
+                return listing
 
         # ----------------------------------------------------
         # 1. QUERY PLAN ANTES DEL PARSER LEGACY

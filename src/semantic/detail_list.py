@@ -608,3 +608,154 @@ def consistency(total, counts, truncated, function):
     if truncated:
         return "unknown"
     return "ok" if abs(sum(values) - total) < 1e-6 else "mismatch"
+
+
+# ---------------------------------------------------------------------------
+# Lista de valores de una DIMENSIÓN («qué áreas tiene el hospital»)
+# ---------------------------------------------------------------------------
+#
+# «Dame una lista de las áreas que tiene el hospital», «cuáles son las
+# especialidades», «qué aseguradoras hay» no piden un indicador: piden los
+# valores distintos de la columna de esa dimensión. Se consultan en Power BI
+# (dominio de la columna, con su tope de filas y tiempo) y se dice de qué
+# tablero y columna salen. Solo dimensiones que no son personas (servicio /
+# área, especialidad, aseguradora): un listado de médicos o usuarios sería un
+# listado de nombres (PII).
+
+# Concepto -> palabras con que se nombra en la pregunta (singular y plural).
+LISTABLE_DIMENSIONS = {
+    "servicio": {"servicio", "servicios", "area", "areas", "unidad", "unidades", "dependencia", "dependencias"},
+    "especialidad": {"especialidad", "especialidades"},
+    "aseguradora": {
+        "aseguradora", "aseguradoras", "asegurador", "aseguradores", "eps", "pagador", "pagadores",
+    },
+}
+# Nombre en plural para la respuesta (con la palabra que usó la pregunta).
+DIMENSION_PLURAL = {"servicio": "servicios", "especialidad": "especialidades", "aseguradora": "aseguradoras"}
+_ENTITY_PLURAL = {
+    "area": "áreas", "areas": "áreas", "servicio": "servicios", "unidad": "unidades",
+    "dependencia": "dependencias", "especialidad": "especialidades", "aseguradora": "aseguradoras",
+    "asegurador": "aseguradores", "eps": "EPS", "pagador": "pagadores",
+}
+
+
+def dimension_plural(request):
+    """«áreas», «servicios», «EPS»... según la palabra de la pregunta."""
+    entity = str((request or {}).get("entity") or "")
+    if entity in _ENTITY_PLURAL:
+        return _ENTITY_PLURAL[entity]
+    singular = re.sub(r"(?:es|s)$", "", entity)
+    for key in (singular, singular + "e" if singular.endswith("d") else singular):
+        if key in _ENTITY_PLURAL:
+            return _ENTITY_PLURAL[key]
+    return entity or DIMENSION_PLURAL.get((request or {}).get("concept"), "valores")
+# Palabras que no cambian lo que se lista («del hospital», «que tiene», «hay»...).
+_LIST_NEUTRAL_WORDS = {
+    "dame", "da", "dar", "me", "nos", "puedes", "podrias", "puede", "quiero", "quisiera", "necesito",
+    "saber", "conocer", "ver", "mostrar", "muestrame", "mostrarme", "dime", "decir", "decirme", "una",
+    "un", "la", "el", "las", "los", "lo", "de", "del", "en", "con", "que", "cuales", "cual", "son",
+    "es", "hay", "existen", "existe", "tiene", "tienen", "tenemos", "maneja", "manejan", "atiende",
+    "atienden", "ofrece", "ofrecen", "presta", "prestan", "hospital", "institucion", "clinica",
+    "nuestro", "nuestra", "nuestros", "nuestras", "su", "sus", "todas", "todos", "toda", "todo",
+    "lista", "listado", "listar", "listame", "enumera", "enumerame", "nombres", "nombre",
+    "actuales", "actualmente", "registradas", "registrados", "por", "favor", "porfa", "hola", "y",
+    "a", "al", "para", "se", "le", "les", "distintas", "distintos", "diferentes", "existentes",
+}
+# Tabla de dimensión por su nombre («DIM_SERVICIO»).
+_DIM_TABLE_RE = re.compile(r"^dim(?:[^a-z]|$)")
+
+
+def dimension_list_request(question):
+    """{"concept", "entity", "phrase"} si la pregunta pide SOLO la lista de
+    valores de una dimensión («lista de las áreas que tiene el hospital»); si
+    nombra además un indicador, un tablero, un periodo o un filtro, None (lo
+    resuelve el Query Plan)."""
+    request = detail_request(question)
+    if not request or request.get("strength") != "explicit":
+        return None
+    entity = request.get("entity") or ""
+    concept = next((name for name, forms in LISTABLE_DIMENSIONS.items() if entity in forms), None)
+    if concept is None:
+        return None
+    rest = [
+        word for word in request.get("question_words") or []
+        if word not in _LIST_NEUTRAL_WORDS and word not in LISTABLE_DIMENSIONS[concept]
+    ]
+    if rest:
+        return None
+    return {"concept": concept, "entity": entity, "phrase": request.get("phrase")}
+
+
+def _field_names(field):
+    return [field.get("display_name"), field.get("native_query_ref"), field.get("column")]
+
+
+def rank_dimension_columns(fields, request, column_type=None, exists=None):
+    """Columnas candidatas a la lista, de la más canónica a la menos.
+
+    `fields`: campos de los visuales (QueryPlanBuilder.dimension_fields, con
+    `aliases`). Se exige texto, que exista en el modelo y que no sea un dato de
+    persona ni técnica. Puntaje: la palabra pedida en el nombre de la columna o
+    en su nombre visible («áreas» -> AREA_SERVICIO), tabla de dimensión
+    (DIM_SERVICIO, ESPECIALIDADES), segmentador (la lista de valores del
+    tablero) y número de visuales que la usan.
+    """
+    forms = LISTABLE_DIMENSIONS[request["concept"]]
+    entity = request.get("entity") or ""
+    stem = re.sub(r"(?:es|s)$", "", entity) if len(entity) > 4 else entity
+    grouped = {}
+    for field in fields or []:
+        aliases = {re.sub(r"[^a-z0-9]+", " ", _fold(alias)).strip() for alias in field.get("aliases") or []}
+        if not aliases & forms:
+            continue
+        model, table, column = field.get("semantic_model"), field.get("table"), field.get("column")
+        if not model or not table or not column:
+            continue
+        header = field.get("display_name") or field.get("native_query_ref")
+        if is_private_column(column, header, table) or is_technical_column(column):
+            continue
+        key = (compact(model), compact(table), compact(column))
+        entry = grouped.setdefault(key, {
+            "semantic_model": model, "table": table, "column": column, "header": None,
+            "report": field.get("report"), "pages": [], "slicers": 0, "visuals": 0, "literal": False,
+        })
+        entry["visuals"] += 1
+        if str(field.get("visual_type") or "").lower() == "slicer":
+            entry["slicers"] += 1
+            entry["header"] = entry["header"] or (str(header).strip() if header else None)
+        if field.get("page") and field["page"] not in entry["pages"]:
+            entry["pages"].append(field["page"])
+        if any(stem and stem in compact(name) for name in _field_names(field)):
+            entry["literal"] = True
+    ranked = []
+    for entry in grouped.values():
+        if column_type is not None and column_type(
+            entry["semantic_model"], entry["table"], entry["column"],
+        ) not in (None, "text"):
+            continue
+        if exists is not None and not exists(entry["semantic_model"], entry["table"], entry["column"]):
+            continue
+        table_words = words(entry["table"])
+        dimension_table = _DIM_TABLE_RE.match(_fold(entry["table"])) or (table_words and table_words <= forms)
+        score = (
+            (120 if entry["literal"] else 0) + (100 if dimension_table else 0)
+            + 5 * min(entry["slicers"], 6) + min(entry["visuals"], 10)
+        )
+        ranked.append({**entry, "score": score})
+    ranked.sort(key=lambda item: (-item["score"], _fold(item["semantic_model"]), _fold(item["table"])))
+    return ranked
+
+
+def dimension_values(values, cap):
+    """(valores ordenados sin vacíos ni repetidos, total, recortada)."""
+    seen, clean = set(), []
+    for value in values or []:
+        text = str(value).strip() if value is not None else ""
+        if not text or text.casefold() in {"blank", "none", "nan", "null", "(en blanco)"}:
+            continue
+        if text.casefold() in seen:
+            continue
+        seen.add(text.casefold())
+        clean.append(text)
+    clean.sort(key=_fold)
+    return clean[:cap], len(clean), len(clean) > cap
