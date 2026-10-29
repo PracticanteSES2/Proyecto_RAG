@@ -202,9 +202,17 @@ def pick_button(buttons, spec):
     if text.casefold() in ("__none__", "ninguna"):
         return next((b for b in buttons if str(b["id"]) == "__none__"), None)
     folded = _fold(text)
-    for b in buttons:
-        if folded and folded in _fold(b["label"]):
-            return b
+    if not folded:
+        return None
+    real = [b for b in buttons if str(b["id"]) != "__none__"]
+    # 1) etiqueta exacta, 2) contenida en la etiqueta, 3) contenida en la
+    # descripción corta (el usuario también la ve: allí va el tablero).
+    for test in (lambda b: _fold(b["label"]) == folded,
+                 lambda b: folded in _fold(b["label"]),
+                 lambda b: folded in _fold(b.get("caption"))):
+        for b in real:
+            if test(b):
+                return b
     return None
 
 
