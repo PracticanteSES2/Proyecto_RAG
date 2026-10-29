@@ -7330,6 +7330,15 @@ class QueryPlanBuilder:
         candidates = resolution.get("candidates") or []
         if status == "ambiguous" and plan.get("reason") is None and len(candidates) > 1:
             counting = self._count_question_options(question, candidates)
+            # Con solo palabras genéricas («cuántos pendientes hay») la pregunta
+            # no nombra ningún indicador: no se reduce a una sola opción.
+            _, generic = self._weak_token_sets()
+            generic_only = all(
+                word in generic or word in {canonical_token(w) for w in self._OPTION_TOPIC_WORDS}
+                for word in self._option_words(question, source_context)
+            )
+            if generic_only and len(counting) < 2:
+                counting = []
             if counting and len(counting) < len(candidates):
                 plan = {**plan, "metric_resolution": {**resolution, "candidates": counting}}
                 resolution = plan["metric_resolution"]

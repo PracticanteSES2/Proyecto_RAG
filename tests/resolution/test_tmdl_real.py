@@ -361,6 +361,28 @@ def test_count_question_drops_time_sums_and_averages():
     assert qpb._count_question_options("pacientes hospitalizados", options) == []
     assert qpb._is_duration_or_ratio(_item("t_prom2")["metric"])   # AVERAGE
     assert not qpb._is_duration_or_ratio(_item("n_card")["metric"])
+    # En el plan: «cuántos pacientes hospitalizados» responde con el conteo.
+    plan = qpb.build("cuantos pacientes hospitalizados hay en el hospital")
+    assert plan["status"] == "ready" and plan["metric"]["metric_id"] == "h_pac", (
+        plan.get("status"), plan.get("resolution_notes"))
+
+
+def test_generic_word_count_question_still_asks():
+    """«cuántos pendientes hay» solo dice una palabra genérica: aunque descartar
+    el porcentaje deje una opción, se sigue preguntando (no se elige por descarte)."""
+    import src.semantic.query_plan_builder as module
+
+    qpb = builder()
+    pend = {**_item("n_card")["metric"], "metric_id": "p_cnt", "label": "PENDIENTES1", "measure": "PENDIENTES1"}
+    pct = {**_item("e_pct")["metric"], "metric_id": "p_pct", "label": "%PENDIENTE", "measure": "%PENDIENTE"}
+    plan = {"status": "ambiguous", "reason": None, "source_context": {}, "question": "cuantos pendientes hay",
+            "metric_resolution": {"status": "ambiguous", "candidates": [
+                {"metric": pend, "score": 1.0, "business_score": 1.0, "matched_name": "PENDIENTES1"},
+                {"metric": pct, "score": 1.0, "business_score": 1.0, "matched_name": "%PENDIENTE"}]}}
+    assert module.QueryPlanBuilder._count_question_options(qpb, "cuantos pendientes hay",
+                                                           plan["metric_resolution"]["candidates"])
+    refined = qpb._refine_options("cuantos pendientes hay", {}, plan)
+    assert refined["status"] == "ambiguous", refined.get("status")
 
 
 # ---------------------------------------------------------------- 10. alcance y dimensiones en las opciones
