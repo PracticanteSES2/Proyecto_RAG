@@ -388,6 +388,7 @@
         "seccion": "Tablero Cancelaciones – conteo mensual"
       },
       "arneses": ["realistic"],
+      "xfail": {"realistic": "Data TMDL real (2026-10-29): el modelo de Atenciones no tiene medida de cirugías canceladas (solo la columna de fecha 'OPORTUNIDAD CIRUGIA'[Paciente Cancelado]) y la página CANCELACIONES del PBIR no trae visuales; con la data inferida pasaba con CANCELADAS de citas filtrada por especialidad (artefacto). Hoy contrapregunta entre CANCELADAS (citas), CIRUGÍAS y Cirugías realizadas."},
       "turns": [
         {
           "user": "cirugias canceladas en enero del 2025",
@@ -1210,6 +1211,7 @@
         "seccion": "Tablero Cancelaciones – cirugías canceladas por asegurador"
       },
       "arneses": ["realistic"],
+      "xfail": {"realistic": "Data TMDL real (2026-10-29): no hay medida de cirugías canceladas en Atenciones (solo 'OPORTUNIDAD CIRUGIA'[Paciente Cancelado], fecha) y la página CANCELACIONES del PBIR no trae visuales; con la data inferida respondía CANCELADAS de citas filtrada por especialidad (artefacto)."},
       "turns": [
         {
           "user": "cirugias canceladas por asegurador en 2025",
@@ -3958,21 +3960,33 @@
       "arneses": [
         "realistic"
       ],
-      "descripcion": "La agrupación debe usar una columna que filtre la tabla de la medida: PACIENTES OBSERVADOS POR MES = COUNT('CONSULTAS PRIORITARIAS'[ASEGURADOR]) se agrupa por 'CONSULTAS PRIORITARIAS'[ASEGURADOR] (o su TERNOMCOM), no por 'EGRESOS_POR_SERVICIO'[TERNOMCOM] (tabla sin relación: el mismo 2.410 en cada fila).",
+      "descripcion": "La agrupación debe usar una columna que filtre la tabla de la medida: PACIENTES OBSERVADOS POR MES = COUNT('CONSULTAS PRIORITARIAS'[ASEGURADOR]) se agrupa por 'CONSULTAS PRIORITARIAS'[ASEGURADOR] (o su TERNOMCOM), no por 'EGRESOS_POR_SERVICIO'[TERNOMCOM] (tabla sin relación: el mismo 2.410 en cada fila). Data TMDL real (2026-10-29): BRIEFING tiene además PACIENTES OBSERVADOS sobre su tabla 'PACIENTES OBSERVADOS', que sí tiene ASEGURADORA: hay dos indicadores que responden y la contrapregunta es legítima (como en «cuantos pacientes observados hay»). Si se elige POR MES, se agrupa por la columna de CONSULTAS PRIORITARIAS; si responde directo, por una columna de la tabla de la medida.",
       "turns": [
         {
           "user": "cuantos pacientes observados hay por aseguradora",
           "expect": {
             "route": [
-              "powerbi"
+              "powerbi", "clarification"
             ],
+            "options_all": ["POR MES"],
             "result_type": "table",
             "metrics_any": [
               "OBSERVADOS"
             ],
             "group_by_any": [
-              "CONSULTAS PRIORITARIAS"
-            ]
+              "CONSULTAS PRIORITARIAS", "PACIENTES OBSERVADOS"
+            ],
+            "forbid": ["constant_table"]
+          }
+        },
+        {
+          "button": {"label_any": ["POR MES"]},
+          "opcional": true,
+          "expect": {
+            "route": ["powerbi"],
+            "result_type": "table",
+            "metrics_any": ["OBSERVADOS POR MES"],
+            "group_by_any": ["CONSULTAS PRIORITARIAS"]
           }
         }
       ]

@@ -6261,6 +6261,8 @@ class QueryPlanBuilder:
             for word in (self._GENERIC_MEASURE_WORDS | self._TECHNICAL_NAME_WORDS) - self._OPTION_TOPIC_WORDS
         }
         ignored = set(content_free) | aggregation | set(self._period_words(text)) | set(board_tokens)
+        # «en el hospital», «en general»: alcance, no un rasgo del indicador.
+        ignored |= {canonical_token(word) for word in self._scope_words(text, {})}
         if (
             source_context.get("status") == "resolved"
             and source_context.get("routing_strength") == "strong"
@@ -6290,6 +6292,41 @@ class QueryPlanBuilder:
         """Palabras de `words` que explica el indicador (nombres, tabla o página)."""
         vocabulary = self._metric_vocabulary_tokens(metric or {})
         return {word for word in words if self._explains(word, vocabulary)}
+
+    _COUNT_QUESTION_RE = re.compile(r"(?<![a-z0-9])(?:cuant[oa]s|cantidad\s+de|numero\s+de)(?![a-z0-9])")
+    _DURATION_WORDS = {"tiempo", "tiempos", "minutos", "minuto", "horas", "hora", "dias", "duracion", "estancia",
+                       "min"}
+
+    def _is_duration_or_ratio(self, metric):
+        """Promedio, porcentaje o suma/promedio de una duración (TIEMPO_PARA_...,
+        MIN, DIAS_ESTANCIA): no responde «cuántos»."""
+        if self._is_ratio_metric(metric):
+            return True
+        names = set(normalize_text(f"{metric.get('label') or ''} {metric.get('measure') or ''}").split())
+        expression = str(metric.get("base_dax_expression") or metric.get("dax_expression") or "")
+        columns = set(normalize_text(" ".join(re.findall(r"\[([^\]]+)\]", expression))).split())
+        return bool((names | columns) & self._DURATION_WORDS)
+
+    def _count_question_options(self, question, candidates):
+        """«¿Cuántos pacientes hospitalizados...?» pide un conteo: entre las
+        opciones, las que cuentan (no un promedio, un porcentaje ni la suma
+        de un tiempo: PACIENTES HOSPITALIZADOS = suma de
+        TIEMPO_PARA_HOSPITALIZACION en TIEMPOS URGENCIAS). Devuelve [] si la
+        pregunta no pide un conteo, si todas cuentan o si ninguna lo hace."""
+        normalized = normalize_text(question)
+        if not self._COUNT_QUESTION_RE.search(normalized):
+            return []
+        if set(normalized.split()) & (self._DURATION_WORDS | {"promedio", "porcentaje", "tasa"}):
+            return []  # «cuántos minutos...», «cuántos días de estancia»: sí pide un tiempo
+        kept = [item for item in candidates if not self._is_duration_or_ratio(item.get("metric") or {})]
+        if not kept or len(kept) == len(candidates):
+            return []
+        self._note(
+            "la pregunta pide un conteo: se descartan "
+            + ", ".join(str((item.get("metric") or {}).get("label")) for item in candidates if item not in kept)
+            + " (promedio, porcentaje o suma de un tiempo)"
+        )
+        return kept
 
     def _options_named_by_question(self, question, source_context, candidates):
         """Desempate por la frase que nombra la pregunta. Entre opciones que
@@ -7231,7 +7268,14 @@ class QueryPlanBuilder:
                 ):
                     continue
                 seen.add(key)
-                if words and len(self._option_coverage(metric, words)) == len(words):
+                # Una palabra que nombra una columna del indicador («el servicio
+                # con más peso») también la explica: es la dimensión pedida.
+                covered = self._option_coverage(metric, words)
+                pending = [word for word in words if word not in covered]
+                if pending:
+                    dimensions = self._metric_dimensions(metric)
+                    covered |= {word for word in pending if self._group_field_in(word, dimensions) is not None}
+                if words and len(covered) == len(words):
                     full.append(item)
             if len(full) == 1:
                 board = source_context.get("report") or source_context.get("semantic_model")
@@ -7280,6 +7324,12 @@ class QueryPlanBuilder:
             plan = grouped
             resolution = plan["metric_resolution"]
         candidates = resolution.get("candidates") or []
+        if status == "ambiguous" and plan.get("reason") is None and len(candidates) > 1:
+            counting = self._count_question_options(question, candidates)
+            if counting and len(counting) < len(candidates):
+                plan = {**plan, "metric_resolution": {**resolution, "candidates": counting}}
+                resolution = plan["metric_resolution"]
+                candidates = counting
         if status == "ambiguous" and plan.get("reason") is None and len(candidates) > 1:
             named = self._options_named_by_question(question, source_context, candidates)
             if len({self._logical_key(item["metric"]) for item in named}) == 1:
@@ -7674,6 +7724,10 @@ class QueryPlanBuilder:
         found = self._qualifier_candidates(
             question, source_context, qualifiers, core, exclude={self._logical_key(metric)},
         )
+        # «M por X»: si el elegido se desglosa por X, un indicador que no se
+        # puede desglosar no responde la pregunta aunque nombre el calificativo.
+        groups_by = self._rival_group_check(question, metric)
+        found = [item for item in found if groups_by(item["metric"])]
         if not found:
             return None
         top = found[0]

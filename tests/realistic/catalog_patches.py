@@ -120,8 +120,17 @@ def camas():
                 "HCACODIGO": code, "HSUNOMBRE": servicio, "SERVICIOS": servicio, "ESTADOS_CAM": estado,
                 "ESTADO": numero, "HCAESTADO": numero, "MOSTRAR_6TO": 0 if code in SEXTO_PISO_NO_HABILITADO else 1,
                 "Orden": int(orden), "RUTA_ACV": "SI" if code in ("UCI-01", "UCI-02", "UCI-03") else "NO",
+                # En el modelo real 'CAMAS DISPONIBLES'[HPNSUBGRU] *<-1 SERVICIOS[OID]: la tabla del
+                # visual de GESTIÓN CAMAS lista SERVICIOS[NOM_SERV] junto a HCACODIGO.
+                "HPNSUBGRU": int(orden),
             })
     return rows
+
+
+def servicios():
+    """Filas de SERVICIOS (OID = HPNSUBGRU de las camas), coherentes con camas()."""
+    return [{"OID": int(orden), "HSUCODIGO": f"S{orden}", "HSUNOMBRE": servicio, "NOM_SERV": servicio}
+            for servicio, orden, _, _ in CAMAS]
 
 
 def pacientes():
@@ -201,7 +210,7 @@ def briefing_sim_tables():
     hospitalizados = [{"PACNUMDOC": p["PACNUMDOC"], "ASEGURADORA": p["TERNOMCOM"], "GDENOMBRE": p["GDENOMBRE"],
                        "FECHA": "today"} for p in pacientes()]
     return {"tables": {"CAMAS DISPONIBLES": _fixture(beds), "PACIENTES X ASEGURADORA": _fixture(pacientes()),
-                       "PACIENTES HOSPITALIZADOS": _fixture(hospitalizados)}}
+                       "PACIENTES HOSPITALIZADOS": _fixture(hospitalizados), "SERVICIOS": _fixture(servicios())}}
 
 
 # ----------------------------------------------------------------------------

@@ -79,12 +79,19 @@ METRICS = [
             appearances=[("INICIO", "e_card", "card")]),
     _metric("e_tot", EPS, "TOTAL ATENCIONES", "OPORTUNIDAD_TRIAGE", "DISTINCTCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE])",
             appearances=[("INICIO", "e_card2", "card")]),
+    _metric("h_pac", BRIEF, "PACIENTES HOSPITALIZADOS", "PACIENTES HOSPITALIZADOS",
+            "DISTINCTCOUNT('PACIENTES HOSPITALIZADOS'[PACNUMDOC])",
+            appearances=[("URGENCIAS", "h_card", "card")], source_type="visual_aggregation"),
+    _metric("h_tiempo", ATEN, "PACIENTES HOSPITALIZADOS", "HOSPITALIZACION_DIA",
+            "SUM('HOSPITALIZACION_DIA'[TIEMPO_PARA_HOSPITALIZACION])",
+            appearances=[("HOSPITALIZACION DIA", "h_bar", "card")], source_type="visual_aggregation"),
 ]
 
 TABLES = {
     ATEN: [("OPORTUNIDAD_TRIAGE", ["ID", "N", "ESPECIALIDAD"]),
-           ("CONSULTAS PRIORITARIAS", ["ASEGURADOR", "SERVICIO", "GEEDESCRI"]), ("Calendario", ["Date"])],
-    BRIEF: [("OBSERV_HIST", ["ID", "CAMA"])],
+           ("CONSULTAS PRIORITARIAS", ["ASEGURADOR", "SERVICIO", "GEEDESCRI"]), ("Calendario", ["Date"]),
+           ("HOSPITALIZACION_DIA", ["TIEMPO_PARA_HOSPITALIZACION"])],
+    BRIEF: [("OBSERV_HIST", ["ID", "CAMA"]), ("PACIENTES HOSPITALIZADOS", ["PACNUMDOC", "ASEGURADORA"])],
     NAOS: [("PACIENTES", ["AINCONSEC", "ADNINGRESO", "HSUNOMBRE", "GDENOMBRE"])],
     REF: [("DETALLE_RECEPCIONES", ["Oid", "RecepcionSegOid", "ESTADO_RECEPCION"]),
           ("REFERENCIA", ["OID", "GEEDESCRI", "ESTADO"])],
@@ -336,6 +343,36 @@ def test_ratio_metric_is_not_a_share_base():
     context = {"status": "resolved", "routing_strength": "strong", "semantic_model": EPS, "report": EPS}
     default = qpb._default_share_metric(context)
     assert default.get("status") == "resolved" and default["metric"]["metric_id"] == "e_tot", default
+
+
+# ---------------------------------------------------------------- 9. «cuántos» pide un conteo
+def test_count_question_drops_time_sums_and_averages():
+    qpb = builder()
+    options = [_item("h_pac"), _item("h_tiempo")]
+    kept = qpb._count_question_options("cuantos pacientes hospitalizados hay en el hospital", options)
+    assert [item["metric"]["metric_id"] for item in kept] == ["h_pac"], kept
+    # Pide un tiempo o no pide un conteo: no se descarta nada.
+    assert qpb._count_question_options("cuantos minutos tardan los pacientes hospitalizados", options) == []
+    assert qpb._count_question_options("pacientes hospitalizados", options) == []
+    assert qpb._is_duration_or_ratio(_item("t_prom2")["metric"])   # AVERAGE
+    assert not qpb._is_duration_or_ratio(_item("n_card")["metric"])
+
+
+# ---------------------------------------------------------------- 10. alcance y dimensiones en las opciones
+def test_scope_place_is_not_an_option_word():
+    qpb = builder()
+    question = "cual es el tiempo promedio de atencion en triage en el hospital"
+    words = qpb._option_words(question, qpb._source_context(question))
+    assert "hospital" not in words and "triage" in words, words
+    # «hospital día» sí puede ser un valor: no se quita.
+    question = "atenciones de hospital dia"
+    assert "hospital" in qpb._option_words(question, qpb._source_context(question))
+
+
+def test_named_board_ranking_word_names_a_dimension():
+    plan = builder().build("cual fue el servicio con mas peso en lavanderia")
+    assert plan["status"] == "ready", (plan.get("status"), plan.get("resolution_notes"))
+    assert plan["metric"]["metric_id"] == "l_peso"
 
 
 def main():
