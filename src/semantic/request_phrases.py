@@ -69,6 +69,38 @@ _BREAKDOWN_RE = re.compile(
     r"\s+(?:por|segun|de\s+acuerdo\s+(?:a|con))\s+(?:(?:cada|el|la|los|las|su|sus)\s+)?" + _DIM
 )
 _SEGUN_RE = re.compile(r"(?<![a-z0-9])segun\s+(?:(?:el|la|los|las|su|sus)\s+)?" + _DIM)
+# «y su respectiva especialidad», «con sus respectivos servicios», «y su
+# especialidad»: el dato de cada fila junto a su dimensión = «por <dimensión>».
+_RESPECTIVE_RE = re.compile(
+    r"(?<![a-z0-9])(?:(?:y|con|junto\s+con|ademas\s+de)\s+(?:(?:el|la|los|las)\s+)?(?:su|sus)\s+"
+    r"(?:respectiv[oa]s?\s+|correspondientes?\s+)?"
+    r"|(?:su|sus)\s+(?:respectiv[oa]s?|correspondientes?)\s+)" + _DIM
+)
+# «... que tiene cada una», «por cada uno», «de cada una» SIN nombrar la
+# dimensión: se refiere a la dimensión plural nombrada antes en la pregunta
+# («cuántas especialidades ... y los pacientes que tiene cada una»).
+_ANAPHORIC_CADA_RE = re.compile(
+    r"(?<![a-z0-9])"
+    r"(?:(?:que\s+)?(?:tiene|tienen|tuvo|tuvieron|hay|hubo|habia|corresponde|corresponden|lleva|llevan|"
+    r"registra|registran|atiende|atienden|maneja|manejan)\s+)?"
+    r"(?:(?:a|de|en|para|por|segun)\s+)?"
+    r"(?:en\s+)?cada\s+(?P<pron>un[oa])(?![a-z0-9])(?!\s+de\s)"
+)
+_ANTECEDENT_DETERMINERS = {
+    "cuantas", "cuantos", "tantas", "tantos", "las", "los", "sus", "varias", "varios", "diferentes",
+    "distintas", "distintos", "todas", "todos", "estas", "estos", "esas", "esos", "algunas", "algunos",
+}
+_FEMININE_END = re.compile(r"(?:a|as|dad|dades|cion|ciones|sion|siones|tud|tudes|ez)$")
+_MASCULINE_END = re.compile(r"(?:o|os|or|ores|al|ales|el|eles)$")
+
+
+def _gender(word):
+    word = singular(word)
+    if _FEMININE_END.search(word):
+        return "f"
+    if _MASCULINE_END.search(word):
+        return "m"
+    return None
 
 
 def fold(text):
@@ -168,6 +200,40 @@ def without_requester(text, phrase):
     return _cleanup(rest.lstrip(" ,"))
 
 
+def _anaphoric_grouping(text, recognizer):
+    """(texto, nota) para «que tiene cada una» / «por cada uno» sin dimensión:
+    el antecedente es el sustantivo plural más cercano ANTES de la frase que
+    sea una dimensión y concuerde en género con «uno/una» («cuántas
+    especialidades ... los pacientes que tiene cada una» -> por especialidad).
+    Nunca es un valor de filtro. None si no hay antecedente claro."""
+    folded = fold(text)
+    for match in _ANAPHORIC_CADA_RE.finditer(folded):
+        gender = "f" if match.group("pron") == "una" else "m"
+        before = list(re.finditer(r"[a-z]+", folded[: match.start()]))
+        found = []
+        for position in range(len(before) - 1, -1, -1):
+            word = before[position].group(0)
+            if len(word) < 3 or not word.endswith("s") or _gender(word) != gender:
+                continue
+            name = recognizer(word)
+            if name:
+                previous = before[position - 1].group(0) if position else ""
+                found.append((previous in _ANTECEDENT_DETERMINERS, name))
+        # Primero el sustantivo introducido por un cuantificador o artículo
+        # («qué tantas especialidades»), no el que va tras una preposición
+        # («en el área de urgencias»); entre ellos, el más cercano.
+        name = next((n for introduced, n in found if introduced), None) or (found[0][1] if found else None)
+        if not name:
+            continue
+        phrase = text[match.start(): match.end()].strip()
+        rewritten = _append_grouping(_cleanup(text[: match.start()] + " " + text[match.end():]), name)
+        return rewritten, (
+            f"«{phrase}» se refiere a la dimensión nombrada antes ({name}): se agrupa por {name} "
+            "(no es un valor de filtro)"
+        )
+    return None
+
+
 def rewrite_request(text, dimension=None):
     """(texto, notas). `dimension(texto) -> nombre o None` reconoce una
     dimensión (singular o plural); sin él se usa una lista de dimensiones
@@ -201,7 +267,8 @@ def rewrite_request(text, dimension=None):
             )
 
     # 2) Agrupación con «cada», «desglose por», «discriminado por», «según».
-    for pattern in (_CADA_RE, _BREAKDOWN_RE, _SEGUN_RE):
+    grouped = False
+    for pattern in (_CADA_RE, _BREAKDOWN_RE, _SEGUN_RE, _RESPECTIVE_RE):
         folded = fold(current)
         for match in pattern.finditer(folded):
             span = _dimension_span(match, recognizer)
@@ -216,10 +283,18 @@ def rewrite_request(text, dimension=None):
             current = current[: match.start()] + " " + current[stop:]
             current = _append_grouping(_cleanup(current), name)
             notes.append(f"«{phrase}» pide el desglose por {name}: se agrupa por {name}")
+            grouped = True
             break
         else:
             continue
         break
+
+    # 3) «... que tiene cada una»: la dimensión es la nombrada antes.
+    if not grouped:
+        anaphoric = _anaphoric_grouping(current, recognizer)
+        if anaphoric is not None:
+            current, note = anaphoric
+            notes.append(note)
 
     if not notes:
         return original, []

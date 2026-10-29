@@ -353,13 +353,15 @@ def test_second_measure_is_not_taken_as_a_value():
 # ---------------------------------------------------------------- mismo nombre en varios tableros (punto 4)
 def test_same_name_in_two_models_asks_with_year_variants_grouped():
     plan = plan_for("cuantos triages hubo en 2025")
-    assert plan["status"] == "ambiguous", plan["status"]
-    assert plan["reason"] == "same_name_in_several_boards", plan.get("reason")
-    ids = option_ids(plan)
-    assert ids[0] == "b_triages", ids
-    # TRIAGES_2024/2025 y TOTAL_TRIAGES (sin visual, mismo modelo) son UNA opción: la base.
-    assert ids[1:] == ["a_total_triages"], ids
-    assert any("variantes por año" in note for note in plan.get("resolution_notes", []))
+    # TRIAGES_2024/2025 y TOTAL_TRIAGES (sin visual, mismo modelo) son UNA
+    # opción; como solo TRIAGES de Briefing está en un informe, se responde
+    # con ella sin contrapreguntar (regla 2026-10-29: «%OCUPACION» de un
+    # modelo sin informe no compite con el del tablero).
+    assert plan["status"] == "ready", plan["status"]
+    assert plan["metric"]["metric_id"] == "b_triages", plan["metric"]["metric_id"]
+    notes = plan.get("resolution_notes", [])
+    assert any("variantes por año" in note for note in notes), notes
+    assert any("está en un informe" in note for note in notes), notes
 
 
 def test_named_board_breaks_the_same_name_tie():
