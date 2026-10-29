@@ -52,9 +52,10 @@ constantes de ruta (`PROJECT_ROOT`, `RAW_DIR`...) a la raíz elegida.
 Prioridad: **TMDL > historial git > inferida**. El campo `source` de
 `_metadata_sync.json` y de `model_registry.json` lo indica:
 
-- `tmdl`: proyectos PBIP con `*.SemanticModel/definition` (ASIGNACION DE
-  CITAS, TABLERO PERFIL DE MORBILIDAD). Metadata real. Nunca se abre
-  `.pbi/cache.abf`.
+- `tmdl`: proyectos PBIP con `*.SemanticModel/definition` (desde 2026-10-28,
+  los 15 tableros de `tableros/`). Metadata real. Nunca se abre
+  `.pbi/cache.abf`. Si su informe llega sin visuales, ver «Informes PBIR
+  locales incompletos».
 - `git_history`: export real de INFO.VIEW del propietario guardado en el
   commit `3bf7b9f` (TABLERO DE ATENCIONES INSTITUCIONALES). Los CSV se copian
   byte a byte; solo se añade `_metadata_sync.json`.
@@ -94,6 +95,56 @@ Las páginas se escriben como PBIR mínimo en `data/pbir/<Reporte>.Report`
 (`visual.json` con `"inferred"`), y `PowerBICatalogManager` (sin cambios) lo
 encuentra por nombre y genera catálogo visual, apariciones y
 `master_metrics.json` como con un reporte real.
+
+### Informes PBIR locales incompletos (`complete_reports.py`)
+
+Con los PBIP de `tableros/` (2026-10-28) los 15 modelos salen del TMDL real,
+pero varios informes llegan **sin visuales**: carpetas `visuals/<id>/` sin
+`visual.json` o páginas sin un solo visual con campos. Sin visuales no hay
+métricas de tablero (p. ej. «peso total» de Lavandería, que no tiene medidas y
+solo existía como `Sum(LAVANDERIA.Peso)` en sus visuales).
+
+| Informe local | Páginas | Tratamiento |
+| --- | --- | --- |
+| Tablero_lavanderia | «Página 1» vacía | completado: página LAVANDERIA inferida (Peso por servicio, colaborador y turno) |
+| TABLERO_CVC | CVC vacía | completado |
+| TABLERO PERFIL DE MORBILIDAD | 11/11 vacías | completado (lo que la documentación respalda) |
+| TABLERO_REFERENCIA | 6/6 vacías | completado |
+| TABLERO DE ATENCIONES INSTITUCIONALES | 33/37 vacías | **no** completado (informe parcial) |
+| TABLERO TIEMPOS URGENCIAS | 4/31 vacías | **no** completado (informe parcial) |
+| TABLERO_FARMACIA | 2/6 vacías | **no** completado (informe parcial) |
+| Demanda Insatisfecha, ANTIBIOTICOS, EPS, NAOS (antes inferidos) | todas con visuales | se usan tal cual |
+
+Decisión del coordinador (2026-10-29): un informe local sin ninguna página
+útil es una **copia incompleta** del publicado, porque la documentación del
+propietario sí describe sus visuales. Entonces:
+
+- el modelo es el TMDL real (no se cambia nada de lo que trae);
+- las páginas vacías se reemplazan por las inferidas de la documentación con
+  `infer_visuals.py` (mismas reglas de arriba; todas las columnas del TMDL
+  cuentan como esquema conocido, así que no se agregan columnas); solo se
+  agregan las medidas que usan esas páginas, con DisplayFolder
+  `inferred_from_documentation`;
+- el informe se escribe en `data/pbir/<Informe>.Report` (copia del real sin
+  las páginas vacías + páginas y visuales marcados `"inferred"`, más
+  `definition/_completed_from_documentation.json`) y el `manifest.json` del
+  grupo se redirige allí (`pbir_path_original` conserva el anterior);
+- `_metadata_sync.json` (`completed_from_documentation`) y
+  `local_build_report.json` (`models[].completed_from_documentation`) dejan
+  la traza: páginas vacías, páginas inferidas, medidas nuevas y motivo.
+
+Los informes **parciales** no se completan: sobre un modelo real con decenas
+de tablas la inferencia empareja indicadores con medidas de otras tablas
+(«total de triages del año actual» → `Triages_Año_Anterior`); quedan con
+`status: not_completed` y su nota.
+
+**Pregunta abierta para el propietario**: ¿los PBIP de `tableros/` sin
+visuales (Lavandería, CVC, Perfil de morbilidad, Referencia, y las páginas
+vacías de Atenciones, Tiempos de urgencias y Farmacia) son copias incompletas
+del informe publicado, o el informe publicado también está así? Si son
+copias incompletas, lo ideal es volver a exportar esos PBIP; si el publicado
+es igual, hay que quitar la completitud (`complete_incomplete_report` en
+`build_local_data.py`) y las métricas de esos tableros dejan de existir.
 
 ### Valores categóricos documentados (`documented_values.py`)
 
