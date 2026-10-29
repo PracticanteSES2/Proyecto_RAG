@@ -230,6 +230,11 @@ def test_same_name_in_two_boards_is_still_ambiguous():
     # indicador (_name_key la ignora): los dos tienen la misma clave y la
     # pregunta no decide.
     assert qpb._options_named_by_question(question, qpb._source_context(question), options) == []
+    # Un nombre de una sola palabra no decide («cuántos pacientes hay»: PACIENTES de NAOS
+    # frente a PACIENTES OBSERVADOS, que añade «observados»).
+    question = "cuantos pacientes hay"
+    options = [_item("n_card"), _item("o_brief")]
+    assert qpb._options_named_by_question(question, qpb._source_context(question), options) == []
 
 
 def test_plan_answers_with_the_named_option():

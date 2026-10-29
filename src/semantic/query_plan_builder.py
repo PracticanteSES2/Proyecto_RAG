@@ -6363,6 +6363,10 @@ class QueryPlanBuilder:
         if len(considered) < 2 or not named:
             return []
         top = max(size for _, size in named)
+        if top < 2:
+            # Un nombre de una sola palabra («PENDIENTES», «CIRUGÍAS») no
+            # distingue: «cuántos pendientes hay» sigue siendo ambiguo.
+            return []
         kept = [item for item, size in named if size == top]
         if len(kept) == len(considered):
             return []
