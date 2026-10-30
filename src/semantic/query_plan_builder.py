@@ -6299,8 +6299,12 @@ class QueryPlanBuilder:
                     r"(?:el\s+|la\s+|los\s+|las\s+)?" + re.escape(alias) + r"(?![a-z0-9])",
                     " ", stripped,
                 )
-        stripped = re.sub(r"\s+", " ", stripped).strip()
-        if not stripped or stripped == text:
+        if stripped == text:
+            return None
+        # El ranking pospuesto («, las 5 más altas») tampoco elige el indicador.
+        stripped = self._POSTFIX_TOP_RE.sub(" ", stripped)
+        stripped = re.sub(r"\s+", " ", stripped).strip(" ,;")
+        if not stripped:
             return None
         alternative = self._resolve_metric_flexible(stripped, source_context)
         if (
@@ -8255,7 +8259,7 @@ class QueryPlanBuilder:
                         question, intent_result, {key: value for key, value in chosen.items() if key != "page"},
                         f"la pregunta nombra la página {chosen.get('page')} {how}; es el único indicador "
                         "de esas páginas que explica todo lo que la pregunta pide",
-                        consumed_tokens=set(canonical_tokens(chosen.get("page"))),
+                        consumed_tokens=self._page_choice_consumed(question, source_context, chosen),
                     )
         narrowed = self._narrow_page_options(question, items)
         if len(narrowed) < len(items) and len({self._logical_key(i["metric"]) for i in narrowed}) == 1:
@@ -8264,7 +8268,7 @@ class QueryPlanBuilder:
                 question, intent_result, {key: value for key, value in chosen.items() if key != "page"},
                 f"la pregunta nombra la página {chosen.get('page')} {how}; es su único indicador que "
                 "responde la forma pedida (conteo / desglose)",
-                consumed_tokens=set(canonical_tokens(chosen.get("page"))),
+                consumed_tokens=self._page_choice_consumed(question, source_context, chosen),
             )
         items = narrowed[: self._SUGGESTION_LIMIT]
         if len(items) == 1 and len(groups) == 1 and groups[0][3]:
@@ -8281,7 +8285,7 @@ class QueryPlanBuilder:
                 canonical_token(word) for word in self._GENERIC_MEASURE_WORDS | self._TECHNICAL_NAME_WORDS
                 | FILTER_NEUTRAL_WORDS
             }
-            consumed = set(canonical_tokens(page.get("page"))) | {
+            consumed = self._page_choice_consumed(question, source_context, items[0], page) | {
                 token for token in canonical_tokens(question) if token in generic
             }
             forced = self._forced_plan(
@@ -8315,12 +8319,35 @@ class QueryPlanBuilder:
             },
         }
 
+    def _page_choice_consumed(self, question, source_context, item, page=None):
+        """Palabras que ya explicó elegir este indicador de la página: el nombre
+        de la página y las palabras de la pregunta que su nombre explica
+        («atendidas» con %ATENDIDO, «pendientes» con SIN RESPUESTA)."""
+        name = (page or {}).get("page") or item.get("page")
+        words = self._option_words(question, source_context)
+        return set(canonical_tokens(name)) | set(self._option_coverage(item.get("metric") or {}, words))
+
     def _narrow_page_options(self, question, items):
         """Opciones de una página nombrada que responden la FORMA de la
         pregunta: «cantidad de X» descarta porcentajes, promedios y sumas de
         tiempo; «X por especialidad» descarta las que no se desglosan por la
         especialidad. Nunca deja la lista vacía."""
         kept = self._count_question_options(question, items) or list(items)
+        # Sin pedir un tiempo, promedio ni porcentaje, un indicador de ese tipo
+        # no responde «interconsultas pendientes por especialidad» (TIEMPO EN
+        # ESPERA también es «pendiente», pero mide horas).
+        said = set(normalize_text(question).split())
+        if len(kept) > 1 and not said & (self._DURATION_WORDS | {
+            "promedio", "porcentaje", "tasa", "proporcion", "media", "cuanto", "demora", "demoran",
+        }):
+            plain = [item for item in kept if not self._is_duration_or_ratio(item.get("metric") or {})]
+            if plain and len(plain) < len(kept):
+                self._note(
+                    "opciones de la página depuradas: "
+                    + ", ".join(str(i["metric"].get("label")) for i in kept if i not in plain)
+                    + " (tiempo, promedio o porcentaje que la pregunta no pide)"
+                )
+                kept = plain
         tail = self._requested_group_tail(question)
         if tail and len(kept) > 1:
             groupable = [
@@ -8537,6 +8564,19 @@ class QueryPlanBuilder:
         items = self._collapse_year_variants(items, question)[: self._SUGGESTION_LIMIT]
         if len(items) < 2:
             return None
+        # Igual que con los homónimos: solo fuentes que responden y que el
+        # usuario ve en un tablero.
+        narrowed = self._homonyms_that_answer(question, {"matched_name": best.get("label")}, items)
+        if narrowed is not None:
+            if len(narrowed) <= 1:
+                if not narrowed or narrowed[0]["metric"] is best:
+                    return None
+                return self._forced_plan(
+                    question, None, narrowed[0],
+                    "es la única de las fuentes de nombre casi igual que responde la pregunta "
+                    "y que muestra un tablero",
+                )
+            items = narrowed
         self._note(
             f"«{best.get('label')}» tiene un nombre casi igual a otros indicadores distintos ("
             + ", ".join(f"{i['metric'].get('label')} de {i['metric'].get('semantic_model')}" for i in items[1:])
