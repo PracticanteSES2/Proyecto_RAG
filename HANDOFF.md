@@ -68,6 +68,14 @@ Pendiente de esa rama (ver `tests/real/RETOMAR.md`):
   indicador (BH09), ruta a RAG (AB04). En curso: agente `agente/r2-indicador-2` (BH09, BH18, TU06, FC04).
 - La app se puede levantar sin ventana: `POWERBI_AUTH=device_code` en el entorno del proceso.
 
+## Actualización 2026-10-30 (tarde)
+- Integradas también: r2-indicador-2 (BH09, BH18, TU06, FC04), r3 (contrapreguntas por ventana «Día», comparaciones,
+  filtro de mes, página nombrada, ranking, etiqueta BH18) y r4 (regresiones FC05/AC01/AC04; `_general_indicator`
+  no cambia a una tarjeta cuyo nombre trae palabras que la pregunta no dice).
+- **Banco real: 83 % → 90 % (r3) → 96 % (67/70, r4), sin regresiones.** Fallan solo AI01, AI05, AI06 (PBIP de
+  ATENCIONES incompleto: pedir el completo al propietario). Salidas `Documents/banco_real_out_v7_*`.
+- En curso: banco **holdout** (`tests/real/banco_holdout.json`, ~40 preguntas nuevas) para medir generalización.
+
 ## Pendiente (en orden)
 1. Rama `agente/qa-real`: auditoría de la verdad y del comparador del banco real (ver `tests/real/RETOMAR.md`
    en esa rama). Integrarla cuando esté.
