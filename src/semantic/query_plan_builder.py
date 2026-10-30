@@ -3734,6 +3734,14 @@ class QueryPlanBuilder:
             )
             return {"group_by": [best], "explicit_filters": [], "phrase": matched_alias}
         remainder = re.sub(r"^(?:de|del|en|igual a|=)\s+", "", remainder).strip()
+        # «por aseguradora, las 5 más altas»: un ranking, no un valor.
+        top, _ = self._postfix_top(remainder)
+        if top is not None and not remainder[:top.start()].strip(" ,;"):
+            self._note(
+                f"«{matched_alias} {remainder}»: «{top.group(0)}» pide un ranking, no un valor de "
+                f"{best.get('table')}[{best.get('column')}]; se agrupa"
+            )
+            remainder = remainder[top.end():].strip(" ,;")
         # «por asegurador en total / en general»: forma de la pregunta, no el
         # valor SALUD TOTAL EPS; se agrupa.
         if remainder and all(
