@@ -2373,12 +2373,23 @@ class QueryPlanBuilder:
             return {token for token in content if self._explains(token, names)}
 
         sets = [explained(item) for item in candidates]
+        # Solo importa si el exacto es el que va a ganar: a uno que ya va
+        # detrás no se le quita nada (sigue como alternativa cercana).
+        top = max(item["score"] for item in candidates)
         for item, mine in zip(candidates, sets):
-            if not item.get("_name_priority") or not mine:
+            if not item.get("_name_priority") or not mine or item["score"] < top:
                 continue
+            # Solo un rival que el usuario ve en un tablero y que nombra lo
+            # de más con su propia etiqueta (no con un alias ni una medida
+            # auxiliar: «camas disponibles» sigue siendo CAMAS + un filtro).
             wider = [
                 other for other, theirs in zip(candidates, sets)
                 if other is not item and theirs > mine and other["business_score"] >= self.min_metric_score
+                and other["metric"].get("appearances")
+                and all(
+                    self._explains(token, set(canonical_tokens(other["metric"].get("label"))))
+                    for token in theirs - mine
+                )
             ]
             if wider:
                 item["score"] = round(item["score"] - item["_name_priority"], 4)
