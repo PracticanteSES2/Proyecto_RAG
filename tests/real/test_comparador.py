@@ -264,6 +264,20 @@ class Auditoria(unittest.TestCase):
         v = auditoria.verdict(other, audit, case())
         self.assertEqual((v["veredicto"], v["fuente"]), ("falla", "automático"))
 
+    def test_contrapregunta_auditada_no_se_hereda_si_ya_no_se_pregunta(self):
+        # TU08: se auditó «cifra correcta tras una contrapregunta innecesaria»;
+        # si la corrida nueva responde directo con el mismo texto, vale el automático.
+        answer = "**IMAGENES TOMADAS** en septiembre: **851**"
+        audit = {"casos": {"T08": {"veredicto": "falla", "fallas": ["contrapregunta"], "causas": ["4"],
+                                   "huella": auditoria.huella(answer)}}}
+        direct = self._result("T08", answer, True)
+        v = auditoria.verdict(direct, audit, case())
+        self.assertEqual((v["veredicto"], v["fuente"]), ("acierto", "automático"))
+        asked = {**direct, "turnos": [turn("¿Cuál?", status="needs_clarification", buttons=["A", "B"]),
+                                      turn(answer, via="botón")]}
+        v = auditoria.verdict(asked, audit, case())
+        self.assertEqual((v["veredicto"], v["fuente"]), ("falla", "auditado"))
+
     def test_resumen_por_tablero_y_causa(self):
         audit = {"casos": {"A": {"veredicto": "falla", "fallas": ["filtro"], "causas": ["1"], "huella": auditoria.huella("a")},
                            "C": {"veredicto": "inconcluso", "huella": auditoria.huella("c")}}}

@@ -56,6 +56,16 @@ def _last_answer(result):
     return (turns[-1].get("answer") if turns else None) or ""
 
 
+def _asked_back(result):
+    """¿El bot contrapreguntó en algún turno? (botones o estado de aclaración)."""
+    for t in result.get("turnos") or []:
+        if t.get("status") == "needs_clarification" or t.get("estado") == "needs_clarification":
+            return True
+        if t.get("buttons") or t.get("opciones"):
+            return True
+    return False
+
+
 def auto_verdict(result):
     ev = result["eval"]
     if ev["correcto"] is None:
@@ -68,6 +78,10 @@ def auto_verdict(result):
 def verdict(result, audit, case=None):
     """{"veredicto", "fuente": auditado|automático, "fallas", "causas"}."""
     item = (audit or {}).get("casos", {}).get(result["id"])
+    if item and "contrapregunta" in (item.get("fallas") or []) and not _asked_back(result):
+        # Se auditó una contrapregunta innecesaria y esta corrida ya no la
+        # hace: la misma respuesta final no basta para heredar la falla (TU08).
+        item = None
     if item and item.get("huella") == huella(_last_answer(result)):
         return {"veredicto": item["veredicto"], "fuente": "auditado", "fallas": item.get("fallas") or [],
                 "causas": [str(c) for c in item.get("causas") or []], "nota": item.get("nota")}
