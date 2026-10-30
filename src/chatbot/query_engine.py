@@ -4294,20 +4294,61 @@ class QueryEngine:
         if len(places) > self._PAGES_IN_NOTE:
             pages += f" y {len(places) - self._PAGES_IN_NOTE} más"
         where = self._board_phrase(reports[0], "del") if len(reports) == 1 else "de varios tableros"
-        note = (
-            f"Este indicador aparece en {len(places)} páginas {where} ({pages}); "
-            + ("cada una le aplica filtros distintos y ninguna es la principal, así que "
-               if metric.get("board_filters_note") else "")
-            + "es el valor general, sin los filtros propios de cada página."
+        filtered = self._pages_with_own_filters(metric, key)
+        self._think(
+            "La misma medida aparece en varias páginas",
+            f"{metric.get('label')}: misma medida (modelo, tabla y expresión) en {len(places)} páginas "
+            f"({pages}); se responde una vez con el valor general en lugar de contrapreguntar por página"
+            + (f"; páginas con filtros propios: {', '.join(filtered)}" if filtered
+               else "; ninguna le aplica filtros propios, así que la cifra es la misma en todas y no se agrega nota"),
         )
+        if not filtered:
+            return  # la cifra es la misma en todas las páginas: la nota no aporta
+        note = self._same_measure_note(where, filtered, len(places))
         notes = list(plan.get("notes") or [])
         if note not in notes:
             plan["notes"] = [*notes, note]
-        self._think(
-            "La misma medida aparece en varias páginas",
-            f"{metric.get('label')}: misma medida (modelo, tabla y expresión) en {len(places)} páginas; "
-            "se responde una vez con el valor general en lugar de contrapreguntar por página",
-        )
+
+    _FILTERED_PAGES_IN_NOTE = 3
+
+    def _same_measure_note(self, where, filtered, total):
+        """Nota corta de «valor general»: solo se escribe cuando alguna página
+        filtra la cifra (si no, es la misma en todas)."""
+        shown = ", ".join(filtered[: self._FILTERED_PAGES_IN_NOTE])
+        if len(filtered) > self._FILTERED_PAGES_IN_NOTE:
+            shown += f" y {len(filtered) - self._FILTERED_PAGES_IN_NOTE} más"
+        if len(filtered) >= total:
+            return (f"Es el valor general, sin los filtros de cada página {where} "
+                    f"({shown}), donde puede verse distinto.")
+        return (f"Es el valor general; en {'la página' if len(filtered) == 1 else 'las páginas'} "
+                f"{shown} {where} se ve con filtros propios y puede ser distinto.")
+
+    def _pages_with_own_filters(self, metric, key):
+        """Páginas donde la misma medida se muestra con filtros de visual o de
+        página (según QueryPlanBuilder._choose_board_filters). Si no se puede
+        saber, se asume que sí filtran (la nota es la opción prudente)."""
+        builder = self.query_plan_builder
+        chooser = getattr(builder, "_choose_board_filters", None)
+        key_of = getattr(builder, "_logical_key", None)
+        pages = []
+        for other in getattr(builder, "metrics", None) or []:
+            if other.get("validation_status") not in (None, "approved") or key_of(other) != key:
+                continue
+            own = [str(a.get("page_display_name") or "").strip() for a in other.get("appearances") or []]
+            own = [page for page in own if page]
+            if other.get("metric_id") == metric.get("metric_id") and metric.get("board_filters_note"):
+                filtered = True
+            elif not callable(chooser):
+                filtered = True
+            else:
+                try:
+                    clauses, reason = chooser(other)
+                except Exception:
+                    clauses, reason = None, "error"
+                filtered = bool(clauses) or (clauses is None and reason not in ("sin visuales",))
+            if filtered:
+                pages.extend(page for page in own if page not in pages)
+        return pages
 
     # ========================================================
     # PROCESS

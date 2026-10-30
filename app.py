@@ -676,6 +676,15 @@ def execute_turn(user_text, runner, via="texto"):
                     st.write("**Modelo semántico:**", result.get("semantic_model"))
                 if result.get("metric"):
                     st.write("**Métrica:**", result.get("metric"))
+                board_filters = ((result.get("query_plan") or {}).get("metric") or {}).get("visual_filters") or []
+                if board_filters:
+                    # Detalle técnico de los filtros del tablero; la respuesta
+                    # solo lleva la frase corta en lenguaje de negocio.
+                    st.write("**Filtros del tablero aplicados:**")
+                    st.markdown("\n".join(
+                        f"- `{item.get('table')}[{item.get('column')}]`: {item.get('text')}"
+                        for item in board_filters
+                    ))
                 if result.get("synthesis_mode"):
                     st.write("**Síntesis:**", result.get("synthesis_mode"))
         elif result.get("status") == "not_found" and result.get("route") == "out_of_scope":

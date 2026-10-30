@@ -1282,7 +1282,7 @@ def test_same_measure_on_several_pages_is_answered_once_with_its_pages():
     engine.query_plan_builder = builder
     engine._note_same_measure_pages(plan)
     note = plan["notes"][-1]
-    assert note.startswith("Este indicador aparece en 3 páginas del tablero CONTROL FACTURACION"), note
+    assert note.startswith("Es el valor general, sin los filtros de cada página del tablero CONTROL FACTURACION"), note
     for page in ("Escaneo fotocopias", "Estacion enfermeria", "Urgencias"):
         assert page in note, note
     # Una medida en una sola página no lleva la nota.
