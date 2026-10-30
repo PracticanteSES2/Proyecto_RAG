@@ -295,6 +295,74 @@ def test_counted_noun_that_is_a_concept_still_matters():
     assert unit is None, unit
 
 
+# ------------------------------------------------- 5) opciones de la contrapregunta
+def _engine():
+    from src.chatbot.query_engine import QueryEngine
+    return QueryEngine(
+        conversation_manager=None, master_metric_resolver=None,
+        master_metric_dax_generator=None, metric_resolver=None,
+        filter_resolver=None, business_filter_resolver=None,
+        dax_generator=None, dax_validator=None,
+        powerbi_provider=None, rag_answer_engine=None,
+        query_plan_builder=builder(), query_plan_dax_generator=None,
+    )
+
+
+def _option(metric_id, label, table, expression, model="TABLERO TIEMPOS URGENCIAS", page="RESUMEN"):
+    return {
+        "metric_id": metric_id, "label": label, "measure": label, "semantic_model": model,
+        "report": model, "reports": [model], "table": table, "dax_expression": expression,
+        "validation_status": "approved",
+        "appearances": [{"report": model, "page_display_name": page, "visual_title": label}],
+    }
+
+
+def test_typo_twin_with_same_computation_is_one_option():
+    # TU12: «INTERCONSULTAS SOLICITDAS» es una errata del modelo de la misma medida.
+    a = _option("s1", "INTERCONSULTAS SOLICITADAS", "INTERCONSULTA", "DISTINCTCOUNT('INTERCONSULTA'[OID])")
+    b = _option("s2", "INTERCONSULTAS SOLICITDAS", "INTERCONSULTA", "DISTINCTCOUNT('INTERCONSULTA'[OID])",
+                page="INTERCONSULTAS")
+    choices = _engine()._build_clarification_choices([{"metric": m, "score": 1.0} for m in (a, b)], margin=None)
+    assert [c["id"] for c in choices] == ["s1"], [c["label"] for c in choices]
+
+
+def test_reordered_names_with_different_computation_are_told_apart():
+    # Mismas palabras en otro orden, cálculos distintos: dos opciones que dicen de dónde es cada una.
+    a = _option("r1", "TIEMPO PROMEDIO DE RESPUESTA", "INTERCONSULTA",
+                "AVERAGE('INTERCONSULTA'[HORAS])", model="TABLERO TIEMPOS URGENCIAS")
+    b = _option("r2", "PROMEDIO TIEMPO RESPUESTA", "INTERCONSULTA",
+                "AVERAGE('INTERCONSULTA'[HORAS])", model="BRIEFING HOSPITALARIO")
+    engine = _engine()
+    assert engine._equivalent_names(a, b)
+    choices = engine._build_clarification_choices([{"metric": m, "score": 1.0} for m in (a, b)], margin=None)
+    labels = [c["label"] for c in choices]
+    assert len(choices) == 2, labels
+    assert "TABLERO TIEMPOS URGENCIAS" in labels[0] and "BRIEFING HOSPITALARIO" in labels[1], labels
+    # Nombres distintos de verdad no son equivalentes.
+    assert not engine._equivalent_names(
+        _option("x1", "INTERCONSULTAS SOLICITADAS", "T", "SUM('T'[A])"),
+        _option("x2", "INTERCONSULTAS RESPONDIDAS", "T", "SUM('T'[A])"),
+    )
+
+
+def test_option_on_unrelated_table_is_dropped():
+    # TU06: «... de interconsultas» no se ofrece una medida de la tabla IMAGENES.
+    imagenes = _option("i1", "TIEMPO PROMEDIO DE RESPUESTA", "IMAGENES", "AVERAGE('IMAGENES'[MIN])")
+    inter = _option("i2", "TIEMPO PROMEDIO DE RESPUESTA A INTERCONSULTA", "INTERCONSULTA",
+                    "AVERAGE('INTERCONSULTA'[HORAS])")
+    choices = _engine()._build_clarification_choices(
+        [{"metric": m, "score": 1.0} for m in (imagenes, inter)], margin=None,
+        question="tiempo promedio de respuesta de interconsultas por especialidad",
+    )
+    assert [c["id"] for c in choices] == ["i2"], [c["label"] for c in choices]
+    # Sin nombrar una tabla, las dos siguen.
+    choices = _engine()._build_clarification_choices(
+        [{"metric": m, "score": 1.0} for m in (imagenes, inter)], margin=None,
+        question="tiempo promedio de respuesta",
+    )
+    assert len(choices) == 2, [c["label"] for c in choices]
+
+
 # ---------------------------------------------------------------- Runner mínimo
 def main():
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
