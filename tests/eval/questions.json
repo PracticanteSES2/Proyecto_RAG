@@ -1402,14 +1402,14 @@
         "seccion": "Egresos (Inicio Atenciones, Ingresos y egresos, Perfil de morbilidad, Tiempos de urgencias)"
       },
       "arneses": ["realistic"],
+      "descripcion": "Ronda r3: EGRESOS del Briefing solo se ve en páginas del bloque «Día» (último corte diario), así que no responde «febrero de 2026»; una sola fuente lo responde y no se contrapregunta (criterio del banco real, AI01/AI08).",
       "turns": [
         {
           "user": "cuantos egresos hubo en febrero de 2026",
           "expect": {
-            "options_any": ["egreso"],
-            "route": ["clarification"],
-            "min_options": 2,
-            "has_none_option": true
+            "route": ["powerbi", "powerbi_empty"],
+            "metrics_any": ["egreso"],
+            "answer_none": ["BRIEFING"]
           }
         }
       ]
