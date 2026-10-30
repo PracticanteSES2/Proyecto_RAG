@@ -2278,6 +2278,9 @@ class QueryPlanBuilder:
         # coincide, se marca para decirlo en vez de usar el de otra página.
         page_missing = None
         routed_page = self._routed_page(source_context) if strong and not hint_ignored else None
+        if routed_page is None and strong and not hint_ignored:
+            # Informe nombrado y, además, una de sus páginas por su nombre completo.
+            routed_page = self._page_named_in_report(business_question, source_context)
         if routed_page is not None:
             member_keys = {self._logical_key(member["metric"]) for member in self._page_members(routed_page)}
             valid = [item for item in candidates if item["business_score"] >= self.min_metric_score]
@@ -9278,6 +9281,42 @@ class QueryPlanBuilder:
                 "report": context.get("report")}
         return None if self._is_report_page(page) else page
 
+    def _page_named_in_report(self, question, source_context):
+        """Con el informe nombrado («en el tablero eps»), la página de ese
+        modelo cuyo nombre completo (dos o más palabras con contenido) va
+        seguido en la pregunta: «cuántos TRIAGES ATENDIDOS hay en el tablero
+        eps» -> página TRIAGES ATENDIDOS. La de más palabras; None si no hay
+        o si empatan."""
+        context = source_context or {}
+        if not (
+            context.get("status") == "resolved" and context.get("routing_strength") == "strong"
+            and context.get("semantic_model")
+        ):
+            return None
+        model = normalize_text(context.get("semantic_model"))
+        connectors = {"de", "del", "la", "el", "los", "las", "y", "a", "al", "en", "por"}
+        question_seq = [token for token in canonical_tokens(question) if token not in connectors]
+        ignored = {canonical_token(word) for word in self._PAGE_IGNORED_NAME_WORDS} | set(GENERIC_PAGE_WORDS)
+        best, best_size, tie = None, 0, False
+        for (page_model, _), item in self._page_index().items():
+            if page_model != model or not item.get("visual"):
+                continue
+            page_seq = [token for token in canonical_tokens(item["page"]) if token not in connectors]
+            content = [token for token in page_seq if token not in ignored and not token.isdigit()]
+            if len(content) < 2 or not any(
+                question_seq[start:start + len(page_seq)] == page_seq
+                for start in range(len(question_seq) - len(page_seq) + 1)
+            ):
+                continue
+            page = {"semantic_model": item["semantic_model"], "page": item["page"], "report": item.get("report")}
+            if self._is_report_page(page):
+                continue
+            if len(content) > best_size:
+                best, best_size, tie = page, len(content), False
+            elif len(content) == best_size:
+                tie = True
+        return None if tie else best
+
     def _named_page_rejection(self, question, source_context, metric_result, page):
         """Página nombrada y el indicador elegido no está en ella: no se
         responde con el de otra página. Se ofrecen los de la página que
@@ -10504,6 +10543,30 @@ class QueryPlanBuilder:
 
         # Página nombrada sin ese indicador: no se usa el de otra página.
         if exploring and metric_result.get("page_hint_ignored"):
+            # La página tiene un indicador principal para la pregunta (única
+            # tarjeta que la explica sin palabras de más): se responde con él.
+            page = metric_result["page_hint_ignored"]
+            try:
+                choice = self._page_choices(question, source_context, page, [])
+            except Exception:
+                choice = {}
+            if choice.get("direct") and len(choice.get("items") or []) == 1:
+                member = choice["items"][0]
+                self._note(
+                    f"la pregunta nombra la página {self._page_label(page)}: se usa su indicador "
+                    f"{member.get('title') or member['metric'].get('label')}"
+                )
+                forced = {
+                    "status": "resolved", "metric": member["metric"],
+                    "matched_name": member.get("title") or member["metric"].get("label"),
+                    "score": metric_result.get("score"), "final": True,
+                    "candidates": [{"metric": member["metric"], "score": metric_result.get("score"),
+                                    "business_score": metric_result.get("score"),
+                                    "matched_name": member.get("title") or member["metric"].get("label")}],
+                }
+                plan = self._build_plan(question, intent_result, forced_resolution=forced)
+                if isinstance(plan, dict) and plan.get("status") == "ready":
+                    return plan
             return self._named_page_rejection(
                 question, source_context, metric_result, metric_result["page_hint_ignored"],
             )
