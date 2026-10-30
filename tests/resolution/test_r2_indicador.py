@@ -68,6 +68,13 @@ METRICS = [
      "dax_expression": "SUM('FACTURAS'[VALOR])", "validation_status": "approved",
      "appearances": [_appearance(FAC, "RESUMEN", "v_fac", "VALOR FACTURADO")]},
 ]
+# Otros «TOTAL ...» del catálogo: «total» es una palabra común (peso IDF bajo).
+METRICS += [
+    {"metric_id": f"otro_{i}", "label": f"TOTAL {name}", "measure": f"TOTAL_{name}", "aliases": [],
+     "source_type": "explicit_measure", "semantic_model": ATEN, "table": "OPORTUNIDAD_TRIAGE",
+     "dax_expression": f"[TOTAL_{name}]", "validation_status": "approved", "appearances": []}
+    for i, name in enumerate(["CIRUGIAS", "EGRESOS", "INGRESOS", "CITAS", "PARTOS", "CONSULTAS"])
+]
 
 TECHNICAL = {
     "lav": {"semantic_model": LAV, "relationships": [], "tables": [{"name": "LAVANDERIA", "measures": [], "columns": [
@@ -223,7 +230,8 @@ def test_indicator_name_and_title_citation():
     assert indicator_name("Peso total mensual: Suma de LAVANDERIA[Peso] por mes", "LAVANDERIA", "Peso") == \
         "Peso total mensual"
     assert text_cites_title(["... en las columnas de PESO TOTAL por Mes."], "PESO TOTAL por Mes")
-    assert not text_cites_title(["... PESO TOTAL por Mes."], "PESO")
+    assert not text_cites_title(["... PESO TOTAL por Mes."], "PESO por TURNO")
+    assert not text_cites_title(["... PESO TOTAL por Mes."], "MES")   # título demasiado corto
     entries = documented_aggregations(DOCS.values())
     peso = [e for e in entries if e["column"] == "Peso"]
     assert len(peso) == 1 and peso[0]["aggregation"] == "Sum", entries
@@ -307,6 +315,21 @@ def test_ranking_by_shift_uses_the_dictionary_description():
     assert resolution.get("dictionary_match")
 
 
+def test_ranking_by_shift_plans_a_grouped_top_one():
+    plan = builder().build("en que turno se lava mas ropa?")
+    assert plan.get("status") == "ready", (plan.get("status"), plan.get("reason"), plan.get("resolution_notes"))
+    assert [field.get("column") for field in plan.get("group_by") or []] == ["TURNO_OK"]
+    ranking = plan.get("ranking") or {}
+    assert ranking.get("direction") == "desc" and ranking.get("limit") == 1, ranking
+
+
+def test_asked_dimension_is_not_a_dimension_value_filter():
+    qpb = builder()
+    candidates = qpb._metric_dimensions(_metric("lav_oid"))
+    specs = qpb._detect_explicit_dimension_filters("en que turno se lava mas ropa", candidates)
+    assert not specs, [(spec["field"].get("column"), spec["value_hint"]) for spec in specs]
+
+
 def test_dictionary_does_not_invent_when_nothing_describes_the_question():
     resolution = resolve("en que turno se atienden mas partos?")
     assert resolution.get("status") != "resolved" or resolution["metric"]["metric_id"] != "lav_oid"
@@ -314,9 +337,16 @@ def test_dictionary_does_not_invent_when_nothing_describes_the_question():
 
 # ---------------------------------------------------------------- 4. periodo que la tabla no trae
 def test_year_not_in_yesterday_table_prefers_measure_that_covers_it():
-    resolution = resolve("cuantos triages hubo en 2025")
-    assert resolution.get("status") == "resolved", (resolution.get("status"), _ranking(resolution))
-    assert resolution["metric"]["metric_id"] == "a_total", _ranking(resolution)
+    # TRIAGES (tabla del día anterior) y TOTAL_TRIAGES son el mismo indicador
+    # en dos tableros; solo el segundo trae 2025, aunque no tenga visual.
+    plan = builder().build("cuantos triages hubo en 2025")
+    metric = plan.get("metric") or {}
+    if not metric:
+        candidates = (plan.get("metric_resolution") or {}).get("candidates") or []
+        assert len(candidates) == 1, (plan.get("status"), _ranking(plan.get("metric_resolution") or {}))
+        metric = candidates[0]["metric"]
+    assert metric.get("metric_id") == "a_total", (plan.get("status"), metric.get("label"),
+                                                   plan.get("resolution_notes"))
 
 
 def test_recent_period_keeps_the_board_metric():

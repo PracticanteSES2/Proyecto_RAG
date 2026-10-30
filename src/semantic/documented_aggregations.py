@@ -90,10 +90,7 @@ def indicator_name(text, table, column):
     match = _NAME_RE.match(" ".join(str(text or "").split()))
     if not match:
         return None
-    name = match.group("name").strip()
-    if _normalize(name) in {_normalize(f"{table} {column}"), _normalize(column)} and "[" in str(text):
-        return None
-    return name
+    return match.group("name").strip()
 
 
 def documented_aggregations(documents):

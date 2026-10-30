@@ -2168,7 +2168,7 @@ class QueryPlanBuilder:
         # Periodo que la tabla del indicador no trae («triages en 2025» con la
         # tabla de triages del día anterior): pierde frente a otro candidato,
         # de cualquier modelo y aunque no tenga visual, que sí lo cubre.
-        self._penalize_uncovered_period(business_question, candidates)
+        candidates = self._drop_uncovered_period(business_question, candidates)
 
         # Informe nombrado explícitamente y la métrica existe allí: solo
         # compiten las métricas de ese informe. Si no existe allí, el
@@ -2341,7 +2341,6 @@ class QueryPlanBuilder:
         }
 
     # ---- ventana de datos de la tabla frente al periodo pedido ----
-    _PERIOD_COVERAGE_PENALTY = 0.30
 
     def _metric_coverage_tables(self, metric):
         """Tablas de hechos del indicador (las que nombra la expresión de una
@@ -2373,17 +2372,39 @@ class QueryPlanBuilder:
                 return table
         return None
 
-    def _penalize_uncovered_period(self, business_question, candidates):
-        """Resta _PERIOD_COVERAGE_PENALTY a los candidatos cuya tabla no trae el
-        periodo pedido, solo si otro candidato con nombre suficiente sí lo
-        trae (si ninguno lo trae, el orden no cambia y el plan lo explica)."""
+    def _requested_period_bounds(self, business_question):
         try:
             period = self._analyze_periods(business_question).get("period")
         except Exception:
             period = None
         start = as_date((period or {}).get("start"))
         end = as_date((period or {}).get("end"))
-        if not start or not end:
+        return (period, start, end) if start and end else (None, None, None)
+
+    def _items_covering_period(self, business_question, items):
+        """Los ítems cuya tabla trae el periodo pedido; None si la pregunta no
+        tiene periodo con fechas o si ninguno lo trae (no se descarta nada)."""
+        period, start, end = self._requested_period_bounds(business_question)
+        if period is None:
+            return None
+        missing = [self._metric_misses_period(item["metric"], start, end) for item in items]
+        kept = [item for item, table in zip(items, missing) if table is None]
+        if not kept or len(kept) == len(items):
+            return None
+        self._note(
+            f"«{period.get('label')}»: se descartan opciones cuya tabla no trae ese periodo según su "
+            "documentación: " + ", ".join(
+                f"{item['metric'].get('label')} ({table})" for item, table in zip(items, missing) if table
+            )
+        )
+        return kept
+
+    def _drop_uncovered_period(self, business_question, candidates):
+        """Quita los candidatos cuya tabla no trae el periodo pedido, solo si
+        otro candidato con nombre suficiente sí lo trae (si ninguno lo trae,
+        no cambia nada y el plan lo explica)."""
+        period, start, end = self._requested_period_bounds(business_question)
+        if period is None:
             return candidates
         missing = [self._metric_misses_period(item["metric"], start, end) for item in candidates]
         if not any(missing):
@@ -2393,18 +2414,14 @@ class QueryPlanBuilder:
             for item, table in zip(candidates, missing)
         ):
             return candidates
-        dropped = []
-        for item, table in zip(candidates, missing):
-            if table is None:
-                continue
-            item["score"] = round(item["score"] - self._PERIOD_COVERAGE_PENALTY, 4)
-            item["_period_uncovered"] = table
-            dropped.append(f"{item['metric'].get('label')} ({table})")
+        dropped = [
+            f"{item['metric'].get('label')} ({table})" for item, table in zip(candidates, missing) if table
+        ]
         self._note(
-            f"«{period.get('label')}»: la tabla de estos indicadores no trae ese periodo según su "
-            f"documentación, se prefieren los que sí: {', '.join(dict.fromkeys(dropped[:6]))}"
+            f"«{period.get('label')}»: se descartan indicadores cuya tabla no trae ese periodo según su "
+            f"documentación: {', '.join(dict.fromkeys(dropped[:6]))}"
         )
-        return candidates
+        return [item for item, table in zip(candidates, missing) if table is None]
 
     def alternative_metrics(self, question, intent_result=None, exclude_ids=(),
                             limit=_SUGGESTION_LIMIT):
@@ -2674,7 +2691,12 @@ class QueryPlanBuilder:
             referenced.update(canonical_tokens(column))
         for table in re.findall(r"COUNTROWS\s*\(\s*'?([^'(),\[\]]+?)'?\s*\)", expression, re.IGNORECASE):
             referenced.update(canonical_tokens(table))
-        return self._explains(head, {token for token in referenced if len(token) >= 3})
+        if self._explains(head, {token for token in referenced if len(token) >= 3}):
+            return True
+        # El diccionario de variables dice qué es cada fila de la tabla contada
+        # («Etapa actual de cada CUENTA» en ENPROCESO_FACTURACION): un conteo
+        # sobre ella cuenta cuentas aunque el nombre diga PROCESO_FACTURACION.
+        return self._explains(head, self._dictionary_tokens(metric))
 
     # ---------------- valores categóricos documentados ----------------
     def _documented_values_index(self):
@@ -4134,6 +4156,11 @@ class QueryPlanBuilder:
                 )
                 match = re.search(pattern, normalized)
                 if not match:
+                    continue
+                # «en qué turno se lava más ropa», «cuál servicio tuvo más»: la
+                # dimensión es lo que se pregunta (agrupación), no «<dimensión>
+                # <valor>».
+                if re.search(r"(?<![a-z0-9])(?:que|cual|cuales)\s*$", normalized[:match.start()]):
                     continue
                 hint = re.split(
                     r"\b(?:en|durante|para el|para la|del tablero|del informe|y|con|pero)\b",
@@ -6503,7 +6530,11 @@ class QueryPlanBuilder:
         """Plan not_found si el indicador se eligió solo por las palabras de la
         agrupación o de un filtro («citas asignadas por especialidad» no es
         CIRUGÍAS REALIZADAS aunque una de sus visuales se llame «Cirugías por
-        especialidad»). Con ello se contrapregunta en lugar de responder."""
+        especialidad»). Con ello se contrapregunta en lugar de responder.
+        Un indicador elegido por el diccionario de variables
+        (_dictionary_resolution) ya tiene su respaldo: lo que mide."""
+        if (metric_result or {}).get("dictionary_match"):
+            return None
         ignored = {
             canonical_token(word)
             for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS | set(MONTHS)
@@ -6912,7 +6943,8 @@ class QueryPlanBuilder:
         Devuelve None si la pregunta no pide un ranking.
         """
         text = normalize_text(question)
-        if not self._mentions_ranking(text):
+        informal = self._informal_ranking(text)
+        if not (self._mentions_ranking(text) or informal):
             return None
         verb = (
             r"(?:con|que\s+(?:tuvo|tiene|tuvieron|tienen|registro|registraron|hizo|hicieron)|"
@@ -6939,6 +6971,15 @@ class QueryPlanBuilder:
                     r"(?<![a-z0-9])" + escaped + r"(?![a-z0-9])\s+" + verb,
                     text,
                 )
+                if not match and informal:
+                    # «en qué turno se lava más ropa», «cuál es el antibiótico
+                    # que más se usa»: el elemento con más/menos de algo.
+                    match = re.search(
+                        r"(?<![a-z0-9])(?:que|cual|cuales)\s+(?:es\s+|son\s+|fue\s+|fueron\s+)?"
+                        r"(?:el\s+|la\s+|los\s+|las\s+)?" + escaped
+                        + r"(?![a-z0-9])\s+(?:[a-z]+\s+){0,4}?(?P<dir>mas|menos)(?![a-z0-9])(?!\s+o\s+menos)",
+                        text,
+                    )
                 top = None
                 if not match:
                     top = re.search(
@@ -7573,6 +7614,20 @@ class QueryPlanBuilder:
         items = self._collapse_year_variants(items, question)[: self._SUGGESTION_LIMIT]
         if len(items) < 2:
             return None
+        # «triages en 2025»: entre los del mismo nombre no responden los que
+        # trabajan sobre una tabla que no trae el periodo (TRIAGES del día
+        # anterior); si solo queda uno, es la respuesta aunque no tenga visual.
+        covering = self._items_covering_period(business_question, items)
+        if covering is not None and len(covering) < len(items):
+            items = covering
+            if len(items) == 1:
+                if items[0]["metric"] is best:
+                    return None
+                return {
+                    "status": "ambiguous", "stage": "metric", "reason": None,
+                    "question": question, "source_context": source_context,
+                    "metric_resolution": {"status": "ambiguous", "candidates": items},
+                }
         # «M por X»: entre los del mismo nombre solo responden los que se
         # desglosan por X. Si queda uno, es la respuesta (aunque no sea el
         # que puntuó más); si es el elegido, no hay nada que preguntar.
@@ -7638,7 +7693,11 @@ class QueryPlanBuilder:
         principal («cuánto PESO hay...» con el indicador Asignadas) o pesan
         claramente más (≥ 2,5 veces, por peso IDF) que lo que coincidió con el
         indicador. Se devuelve not_found con sugerencias o, si nada de lo no
-        interpretado existe en el catálogo, fuera de alcance."""
+        interpretado existe en el catálogo, fuera de alcance.
+        No aplica a un indicador elegido por el diccionario de variables: ya
+        se comprobó que el diccionario o su tabla explican cada palabra."""
+        if (metric_result or {}).get("dictionary_match"):
+            return None
         leftover = [canonical_token(word) for word in significant]
         head = self._head_token(question, source_context)
         vocabulary = self._metric_vocabulary_tokens(metric)
@@ -7649,7 +7708,10 @@ class QueryPlanBuilder:
         ]
         left_weight = sum(self._token_weight(token) for token in leftover)
         evidence_weight = sum(self._token_weight(token) for token in evidence)
-        head_missing = bool(head) and head in leftover and not self._explains(head, vocabulary)
+        head_missing = (
+            bool(head) and head in leftover and not self._explains(head, vocabulary)
+            and not self._metric_counts(metric, head)
+        )
         heavier = len(leftover) >= 2 and left_weight >= 2.5 * max(evidence_weight, 0.01)
         if not (head_missing or heavier):
             return None
@@ -9407,6 +9469,18 @@ class QueryPlanBuilder:
         found.sort(key=lambda item: (
             -item["_covered"], -item["_explained"], -item["score"], normalize_text(item["metric"].get("label")),
         ))
+        # Un calificativo no lleva a un indicador cuya tabla no trae el periodo
+        # pedido («triages de este mes en urgencias» no vuelve a los TRIAGES
+        # del día anterior del Briefing).
+        period, start, end = self._requested_period_bounds(business_question)
+        if period is not None and found:
+            kept = [item for item in found if self._metric_misses_period(item["metric"], start, end) is None]
+            if len(kept) < len(found):
+                self._note(
+                    f"«{period.get('label')}»: no se cambia a indicadores cuya tabla no trae ese periodo: "
+                    + ", ".join(str(item["metric"].get("label")) for item in found if item not in kept)
+                )
+                found = kept
         return self._collapse_year_variants(found, question)
 
     def _promote_qualifier_metrics(self, question, source_context, metric_result):
