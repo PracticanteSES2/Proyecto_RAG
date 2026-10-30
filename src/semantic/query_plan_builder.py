@@ -136,6 +136,11 @@ BUSINESS_TOKEN_SYNONYMS = {
     "kilo": "peso", "kilos": "peso", "kg": "peso", "kgs": "peso",
     "kilogramo": "peso", "kilogramos": "peso", "pesaron": "peso",
     "pesamos": "peso", "pesaba": "peso", "pesaban": "peso",
+    # «cuánto se demoran / tardan / duran» pregunta por un TIEMPO.
+    "demora": "tiempo", "demoras": "tiempo", "demoran": "tiempo", "demoro": "tiempo",
+    "demoraron": "tiempo", "demoraba": "tiempo", "demoraban": "tiempo",
+    "tarda": "tiempo", "tardan": "tiempo", "tardo": "tiempo", "tardaron": "tiempo",
+    "duran": "tiempo", "duraron": "tiempo", "duracion": "tiempo",
 }
 
 GENERIC_PAGE_WORDS = {"general", "inicio", "resumen", "principal", "home", "detalle", "portada", "indicadores"}
@@ -293,6 +298,37 @@ def _derived_noun_match(left, right):
     return False
 
 
+_NEGATING_PREFIXES = ("in", "im", "des", "dis")
+
+
+def _negated_form(left, right):
+    """«inasistencia» / «asistencia», «insatisfecha» / «satisfecha»,
+    «desocupada» / «ocupada»: el prefijo niega la palabra; no son la misma."""
+    shorter, longer = sorted((left, right), key=len)
+    if len(shorter) < 5:
+        return False
+    return any(longer == prefix + shorter for prefix in _NEGATING_PREFIXES)
+
+
+# Conjugación frente a participio del mismo verbo: «facturó» / FACTURADO,
+# «lavaron» / LAVADO, «atendieron» / ATENDIDOS.
+_FINITE_VERB_ENDINGS = ("aron", "ieron", "amos", "emos", "imos", "o", "io", "an", "en", "a", "e")
+_PARTICIPLE_ENDINGS = ("ados", "adas", "idos", "idas", "ado", "ada", "ido", "ida")
+
+
+def _verb_participle_match(left, right):
+    for verb, participle in ((left, right), (right, left)):
+        for ending in _PARTICIPLE_ENDINGS:
+            if not participle.endswith(ending):
+                continue
+            stem = participle[: -len(ending)]
+            if len(stem) < 5 or not verb.startswith(stem):
+                continue
+            if verb[len(stem):] in _FINITE_VERB_ENDINGS:
+                return True
+    return False
+
+
 def _token_similarity(left, right):
     if left == right:
         return 1.0
@@ -310,8 +346,12 @@ def _token_similarity_cached(left, right):
 def _token_similarity_raw(left, right):
     if left == right:
         return 1.0
+    if _negated_form(left, right):
+        return 0.0
     if _derived_noun_match(left, right):
         return 0.90
+    if _verb_participle_match(left, right):
+        return 0.88
     shortest = min(len(left), len(right))
     # Palabras cortas solo coinciden si son idénticas: «mayo» != «mayor».
     if shortest < 6:
@@ -756,9 +796,59 @@ class QueryPlanBuilder:
         self.metrics = self._with_visual_filters(self.metrics)
         # Sumas de dinero (SUM de MONTO/VALOR/COSTO...): se muestran como pesos.
         self.metrics = self._with_value_formats(self.metrics)
+        # Título de una tabla («PACIENTES HOSPITALIZADOS») usado como nombre de
+        # la columna que suma (TIEMPO_PARA_HOSPITALIZACION): se rotula por su
+        # agregación (src/semantic/table_titles.py).
+        self.metrics = self._with_table_title_labels(self.metrics)
         # Opcional (POWERBI_DOMAIN_PREWARM=1): precalienta en segundo plano los
         # dominios de las columnas más usadas para nombrar valores.
         self.prewarm_thread = self._maybe_prewarm_domains()
+
+    @staticmethod
+    def _with_table_title_labels(metrics):
+        """Indicadores de visual cuya etiqueta es el título de una tabla o
+        matriz que no nombra el valor que agregan: la etiqueta pasa a ser la
+        agregación («Suma de PACIENTE ACOSTADO») y el título deja de ser alias
+        (queda en `table_titles`, solo como contexto)."""
+        from src.semantic.table_titles import friendly_label, is_table_visual, title_names_value
+
+        result = []
+        for metric in metrics:
+            appearances = metric.get("appearances") or []
+            label = normalize_text(metric.get("label"))
+            if (
+                metric.get("source_type") != "visual_aggregation" or not label
+                or not any(is_table_visual(item.get("visual_type")) for item in appearances)
+            ):
+                result.append(metric)
+                continue
+            titles = {
+                normalize_text(item.get("visual_title")): item.get("visual_title")
+                for item in appearances
+                if item.get("visual_title") and not title_names_value(
+                    item.get("visual_type"), item.get("visual_title"),
+                    metric.get("aggregation"), metric.get("column"),
+                )
+            }
+            if not titles:
+                result.append(metric)
+                continue
+            new_label = metric.get("label")
+            if label in titles:
+                new_label = friendly_label(metric.get("aggregation"), metric.get("column"), metric.get("aliases"))
+            if not new_label:
+                result.append(metric)
+                continue
+            result.append({
+                **metric,
+                "label": new_label,
+                "aliases": [
+                    alias for alias in metric.get("aliases") or []
+                    if normalize_text(alias) not in titles
+                ],
+                "table_titles": list(titles.values()),
+            })
+        return result
 
     # ---------------- filtros de nivel de visual ----------------
     _CALENDAR_TABLE_RE = re.compile(r"^(?:calendario|calendar|fecha|dates?|localdatetable.*|datetabletemplate.*)$")
@@ -1193,9 +1283,12 @@ class QueryPlanBuilder:
     def _metric_names(self, metric):
         values = [metric.get("label"), metric.get("measure")]
         values.extend(metric.get("aliases", []) or [])
+        # Título de una tabla que no nombra el valor (ver _with_table_title_labels).
+        table_titles = {normalize_text(title) for title in metric.get("table_titles") or []}
         for appearance in metric.get("appearances", []) or []:
+            title = appearance.get("visual_title")
             values.extend([
-                appearance.get("visual_title"),
+                None if normalize_text(title) in table_titles else title,
                 appearance.get("native_query_ref"),
             ])
         return _unique_strings(values)
@@ -1263,6 +1356,7 @@ class QueryPlanBuilder:
             source_context.get("source_group"),
         ]
 
+        full = text
         for value in removals:
             normalized = normalize_text(value)
             if normalized:
@@ -1273,7 +1367,17 @@ class QueryPlanBuilder:
                 )
 
         text = re.sub(r"\b(?:tablero|informe|modelo semantico)\b", " ", text)
-        return re.sub(r"\s+", " ", text).strip()
+        text = re.sub(r"\s+", " ", text).strip()
+        # «¿cuál es la demanda insatisfecha total?»: el nombre del tablero
+        # (DEMANDA INSATISFECHA) es también el del indicador
+        # (TOTAL_DEMANDA_INSATISFECHA). Si quitarlo deja la pregunta sin
+        # palabras con contenido, se conserva.
+        if text != full and not self._question_content_words(text):
+            kept = re.sub(r"\b(?:tablero|informe|modelo semantico)\b", " ", full)
+            kept = re.sub(r"\s+", " ", kept).strip()
+            if self._question_content_words(kept):
+                return kept
+        return text
 
     # ---- pesos IDF: palabras repetidas en todo el catálogo valen poco ----
     def _token_weight_index(self):
@@ -1528,6 +1632,177 @@ class QueryPlanBuilder:
             )
         return [entry[0] for entry in focused]
 
+    # ---------------- diccionario de variables (señal, no candidatos) ----------------
+    _DICTIONARY_CUT_RE = re.compile(
+        r"\s(?:Tipo|Unidad|C[aá]lculo|Se usa en|Origen|Granularidad|Valores|Columnas principales)\s*:",
+    )
+    _DICTIONARY_REF_RE = re.compile(r"^\s*'?([^'\[\]:]+?)'?\s*\[([^\]]+)\]\s*:\s*(.+)$", re.DOTALL)
+
+    @classmethod
+    def _dictionary_gist(cls, text):
+        """Primera parte de una entrada del diccionario: qué es o qué mide (sin
+        tipo, cálculo, usos ni origen)."""
+        text = re.sub(r"\s+", " ", str(text or "")).strip()
+        match = cls._DICTIONARY_CUT_RE.search(text)
+        return text[: match.start()] if match else text
+
+    def _dictionary_index(self):
+        """{(modelo, clave): qué es} del diccionario de variables
+        (data/semantic_documents, tableros con is_dictionary). Claves: «m:<medida>»,
+        «c:<tabla>[<columna>]» y «t:<tabla>», normalizadas."""
+        cached = self.__dict__.get("_dictionary_index_cache")
+        if cached is not None:
+            return cached
+        index = {}
+        root = self.project_root / "data" / "semantic_documents"
+        try:
+            paths = sorted(root.rglob("*.json")) if root.exists() else []
+        except OSError:
+            paths = []
+        for path in paths:
+            try:
+                document = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(document, dict):
+                continue
+            model = normalize_text(document.get("semantic_model"))
+            for dashboard in document.get("dashboards") or []:
+                if not isinstance(dashboard, dict) or not dashboard.get("is_dictionary"):
+                    continue
+
+                def put(key, text):
+                    gist = self._dictionary_gist(text)
+                    if gist and not gist.lower().startswith("por confirmar"):
+                        index.setdefault((model, key), gist)
+
+                for measure in dashboard.get("documented_measures") or []:
+                    if isinstance(measure, dict) and measure.get("name"):
+                        put("m:" + normalize_text(measure["name"]), measure.get("description"))
+                for column in dashboard.get("calculated_columns") or []:
+                    if isinstance(column, dict) and column.get("table") and column.get("name"):
+                        put(f"c:{normalize_text(column['table'])}[{normalize_text(column['name'])}]",
+                            column.get("description"))
+                for section in dashboard.get("other_sections") or []:
+                    match = self._DICTIONARY_REF_RE.match(str((section or {}).get("text") or ""))
+                    if match:
+                        put(f"c:{normalize_text(match.group(1))}[{normalize_text(match.group(2))}]", match.group(3))
+                for source in dashboard.get("data_sources") or []:
+                    name, _, text = str(source or "").partition(":")
+                    if name.strip() and text.strip() and "[" not in name:
+                        put("t:" + normalize_text(name), text)
+        self._dictionary_index_cache = index
+        return index
+
+    def _dictionary_tokens(self, metric):
+        """Palabras con que el diccionario de variables describe lo que mide el
+        indicador (su medida o la columna que agrega, y su tabla). Solo
+        explican palabras de la pregunta de un candidato que ya coincidió por
+        su nombre: nunca crean candidatos."""
+        cache = self.__dict__.setdefault("_dictionary_tokens_cache", {})
+        key = self._logical_key(metric)
+        if key in cache:
+            return cache[key]
+        index = self._dictionary_index()
+        model = normalize_text(metric.get("semantic_model"))
+        table = normalize_text(metric.get("table"))
+        texts = []
+        if metric.get("measure"):
+            texts.append(index.get((model, "m:" + normalize_text(metric.get("measure")))))
+        for ref_table, column in re.findall(r"'?([A-Za-z_][^'\[\]()]*?)'?\s*\[([^\]]+)\]",
+                                            str(metric.get("dax_expression") or "")):
+            texts.append(index.get((model, f"c:{normalize_text(ref_table)}[{normalize_text(column)}]")))
+        if metric.get("column") and table:
+            texts.append(index.get((model, f"c:{table}[{normalize_text(metric.get('column'))}]")))
+        if table:
+            texts.append(index.get((model, "t:" + table)))
+        stop = {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS}
+        tokens = {
+            token for text in texts if text for token in canonical_tokens(text)
+            if len(token) >= 4 and token not in stop and not token.isdigit()
+        }
+        cache[key] = tokens
+        return tokens
+
+    def _dictionary_credit(self, business_question, explained, metric):
+        """Reducción del castigo por palabras no explicadas cuando el
+        diccionario de variables sí las explica para este indicador (la mitad
+        del castigo de cada una)."""
+        dictionary = self._dictionary_tokens(metric)
+        if not dictionary:
+            return 0.0
+        ignored = {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS}
+        ignored.update(canonical_token(word) for word in MONTHS)
+        ignored.update(self._period_words(business_question))
+        credit = 0.0
+        for token in set(canonical_tokens(business_question)):
+            if token in ignored or token.isdigit() or len(token) < 4 or _is_request_word(token):
+                continue
+            if any(_token_similarity(token, other) >= 0.82 for other in explained):
+                continue
+            if any(_token_similarity(token, other) >= 0.88 for other in dictionary):
+                credit += 0.06 * self._token_weight(token)
+        return credit
+
+    def _visible_labels(self, exclude=None):
+        """Etiquetas/medidas normalizadas de los indicadores que algún visual
+        muestra (sin las de la clave lógica `exclude`)."""
+        cached = self.__dict__.get("_visible_labels_cache")
+        if cached is None:
+            cached = {}
+            for metric in self._dedupe_metrics(self.metrics):
+                if metric.get("validation_status") != "approved" or not metric.get("appearances"):
+                    continue
+                for name in (metric.get("label"), metric.get("measure")):
+                    key = normalize_text(name)
+                    if key:
+                        cached.setdefault(key, set()).add(self._logical_key(metric))
+            self._visible_labels_cache = cached
+        return {name for name, owners in cached.items() if owners - {exclude}}
+
+    _CARD_VISUAL_TYPES = frozenset({"card", "multirowcard", "kpi", "cardvisual", "gauge"})
+
+    def _card_keys(self):
+        """Claves lógicas de las medidas que alguna tarjeta muestra (incluye
+        las publicadas con otro nombre en otra página: VALOR ESTIMADO)."""
+        cached = self.__dict__.get("_card_keys_cache")
+        if cached is None:
+            cached = {
+                self._logical_key(metric) for metric in self.metrics
+                if any(
+                    normalize_text(item.get("visual_type")).replace(" ", "") in self._CARD_VISUAL_TYPES
+                    for item in metric.get("appearances") or []
+                )
+            }
+            self._card_keys_cache = cached
+        return cached
+
+    def _shown_in_card(self, metric):
+        return self._logical_key(metric) in self._card_keys()
+
+    _NAME_CONNECTORS = frozenset({"de", "del", "la", "el", "los", "las", "para", "en", "por", "a", "al", "y", "con"})
+
+    def _content_name(self, label):
+        """Etiqueta sin conectores, con al menos dos palabras y alguna quitada
+        («TIEMPO PARA TRIAGE» -> «tiempo triage»); None si no cambia."""
+        words = normalize_text(label).split()
+        content = [word for word in words if word not in self._NAME_CONNECTORS]
+        if len(content) < 2 or len(content) == len(words):
+            return None
+        return " ".join(content)
+
+    _PERCENT_WORD_RE = re.compile(r"(?<![a-z0-9])(?:porcentaje|porcentual)(?![a-z0-9])")
+
+    def _percent_label_phrase(self, label, normalized_question):
+        """«%INASISTENCIA» dicho en palabras («porcentaje de inasistencia»):
+        la frase normalizada si la etiqueta empieza por % y la pregunta dice
+        «porcentaje»; si no, None."""
+        norm = normalize_text(label)
+        if not norm.startswith("%") or not self._PERCENT_WORD_RE.search(normalized_question or ""):
+            return None
+        rest = norm.lstrip("% ").strip()
+        return f"porcentaje de {rest}" if rest else None
+
     def _resolve_metric(self, question, source_context, selected_metric_id=None,
                         with_suggestions=False, candidate_limit=8):
         # Una selección realizada durante una aclaración manda por ID,
@@ -1576,14 +1851,21 @@ class QueryPlanBuilder:
             primary_norm = normalize_text(primary_label)
             primary_score = _phrase_score(business_question, primary_label, weights)
             label_is_exact = _exact_phrase(normalized_business, primary_norm)
+            # «porcentaje de inasistencia» nombra %INASISTENCIA tal cual.
+            percent_name = self._percent_label_phrase(primary_label, normalized_business)
+            if percent_name:
+                primary_score = max(primary_score, _phrase_score(business_question, percent_name, weights))
+                label_is_exact = label_is_exact or _exact_phrase(normalized_business, percent_name)
             if primary_score < self.min_metric_score:
                 # «cuántos suministros pendientes» nombra NÚMERO DE SUMINISTROS
                 # PENDIENTES: «número de» / «total de» no se exige.
                 primary_score = max(primary_score, self._core_name_score(business_question, primary_label, weights))
 
+            table_titles = {normalize_text(title) for title in metric.get("table_titles") or []}
             titles = _unique_strings(
                 appearance.get("visual_title")
                 for appearance in metric.get("appearances", []) or []
+                if normalize_text(appearance.get("visual_title")) not in table_titles
             )
             exact_title = None
             for title in titles:
@@ -1592,7 +1874,9 @@ class QueryPlanBuilder:
                     continue
                 # Un título compartido con la etiqueta de OTRA métrica
                 # (EGRESOS de AÑO ACTUAL) solo es alias, no nombre propio.
-                if title_norm in self._known_labels:
+                # Salvo que esas otras sean medidas que ningún visual muestra:
+                # el visual «GIRO CAMA» (GIRO_CAMA1) gana a las GIRO_CAMA ocultas.
+                if title_norm in self._visible_labels(exclude=self._logical_key(metric)):
                     continue
                 exact_title = title
                 break
@@ -1601,6 +1885,11 @@ class QueryPlanBuilder:
                 item for item in self._metric_names(metric)
                 if normalize_text(item) != primary_norm
             ]
+            # El nombre sin conectores («TIEMPO PARA TRIAGE» -> «tiempo triage»):
+            # «cuánto se demoran en el triage» no dice «para».
+            content_label = self._content_name(primary_label)
+            if content_label:
+                aliases.append(content_label)
             best_alias = max(
                 ((_phrase_score(business_question, name, weights), name) for name in aliases),
                 key=lambda pair: pair[0], default=(0.0, None),
@@ -1653,7 +1942,12 @@ class QueryPlanBuilder:
                           *self._metric_pages(metric), metric.get("semantic_model")]:
                 explained.update(canonical_tokens(value))
             name_tokens = set(canonical_tokens(best_name)) | set(canonical_tokens(primary_label))
-            score -= self._unexplained_penalty(business_question, explained)
+            penalty = self._unexplained_penalty(business_question, explained)
+            if penalty > 0:
+                # El diccionario de variables explica lo que el nombre no dice
+                # («ropa» del pesaje de LAVANDERIA): castigo a la mitad.
+                penalty = max(0.0, penalty - self._dictionary_credit(business_question, explained, metric))
+            score -= penalty
             score += self._page_bonus(question_tokens, metric, name_tokens)
 
             # Medidas auxiliares (sin visual donde aparezcan) pierden frente a
@@ -1968,6 +2262,29 @@ class QueryPlanBuilder:
                         + ", ".join(str(item["metric"].get("label")) for item in dropped)
                         + " no"
                     )
+
+        single_value = not (
+            self._requested_group_tail(business_question)
+            or self._mentions_ranking(normalize_text(business_question))
+        )
+        if len(kept) > 1 and single_value:
+            # 4. Tarjeta frente a gráfico del mismo tablero: el valor único que
+            # el usuario ve es el de la tarjeta (VALOR ESTIMADO = SUM(FACTURADO)
+            # sin el filtro de área del gráfico «VALOR ESTIMADO POR SERVICIO»).
+            dropped = []
+            for model in {normalize_text(item["metric"].get("semantic_model")) for item in kept}:
+                same = [item for item in kept if normalize_text(item["metric"].get("semantic_model")) == model]
+                cards = [item for item in same if self._shown_in_card(item["metric"])]
+                if cards and len(cards) < len(same):
+                    dropped.extend(item for item in same if item not in cards)
+            if dropped and len(dropped) < len(kept):
+                kept = [item for item in kept if item not in dropped]
+                self._note(
+                    ", ".join(str(item["metric"].get("label")) for item in kept)
+                    + " se muestra(n) en una tarjeta; "
+                    + ", ".join(str(item["metric"].get("label")) for item in dropped)
+                    + " solo en gráficos o tablas del mismo tablero: se prefiere la tarjeta"
+                )
         return kept
 
     # «cuántas camas», «cuántos de los pacientes»: el sustantivo que se cuenta.
@@ -4786,7 +5103,10 @@ class QueryPlanBuilder:
         has_period = self._has_period(normalized)
         has_group = bool(re.search(r"(?<![a-z0-9])(?:por|segun)\s+[a-z]", normalized))
         # «top 5 ...», «el servicio con más ...»: un ranking siempre es numérico.
-        if self._mentions_ranking(normalized):
+        if self._mentions_ranking(normalized) or self._informal_ranking(normalized):
+            return True
+        # «cómo va(n) ...», «lista de ...», «los próximos 30 días»: piden datos.
+        if self._INFORMAL_DATA_RE.search(normalized):
             return True
         if not (has_verb or has_period or has_group):
             return self._nominal_metric_with_filter(question, dashboard)
@@ -4797,12 +5117,54 @@ class QueryPlanBuilder:
             return True
         if (has_group or has_period) and self._names_metric_of_named_board(question, source_context):
             return True
+        if (has_group or has_period) and self._head_names_visible_metric(question, source_context):
+            return True
         # Ningún indicador coincide, pero la pregunta nombra una página que sí
         # tiene indicadores («hospitalizaciones parciales de marzo»).
         pages = self._named_pages(source_context) or (
             [] if source_context.get("board_mentions") else self._topic_pages(question)
         )
         return any(self._page_members(page) for page in pages)
+
+    # Pedidos de datos dichos de forma informal: «cómo va la ocupación», «cómo
+    # vamos en cirugías», «lista de pacientes en espera», «los próximos 30
+    # días», «las últimas 2 semanas».
+    _INFORMAL_DATA_RE = re.compile(
+        r"(?<![a-z0-9])(?:"
+        r"como\s+(?:va|van|vamos|estuvo|estuvieron)"
+        r"|(?:lista|listado|relacion)\s+de\s+(?!(?:l[oa]s\s+)?(?:indicador|pagina|visual|filtro|tablero|medida|"
+        r"grafic|reporte|informe|campo|columna|tabla|variable|documento)[a-z]*(?![a-z0-9]))(?:l[oa]s\s+)?[a-z]{3,}"
+        r"|(?:proxim|ultim|siguient)[a-z]*\s+(?:\d{1,3}|[a-z]+)\s+(?:dias|semanas|meses|anos|horas)"
+        r")(?![a-z0-9])"
+    )
+    _INFORMAL_RANKING_RE = re.compile(
+        r"(?<![a-z0-9])(?:que|cual|cuales)\s+(?:es\s+|son\s+|fue\s+)?(?:el\s+|la\s+|los\s+|las\s+)?"
+        r"[a-z]{3,}(?:\s+[a-z]+){0,4}?\s+(?:mas|menos)(?![a-z0-9])(?!\s+o\s+menos)"
+    )
+
+    def _informal_ranking(self, normalized):
+        """«¿cuál es el antibiótico que más se usa?», «¿en qué turno se lava
+        más ropa?»: el elemento con más/menos de algo es un ranking."""
+        if re.search(r"(?<![a-z0-9])mas\s+o\s+menos(?![a-z0-9])", normalized):
+            return False
+        return bool(self._INFORMAL_RANKING_RE.search(normalized))
+
+    def _head_names_visible_metric(self, question, source_context):
+        """«peso de ropa por servicio en lo que va del año»: con agrupación o
+        periodo, el sustantivo principal es una palabra del nombre de un
+        indicador visible (PESO TOTAL por Mes) aunque el nombre completo no
+        coincida: pide datos, no documentación."""
+        head = self._head_token(question, source_context)
+        if not head or self._weak_name_kind(head):
+            return False
+        return any(
+            metric.get("validation_status") == "approved" and metric.get("appearances")
+            and any(
+                self._explains(head, [token for token in canonical_tokens(name) if len(token) >= 3])
+                for name in (metric.get("label"), metric.get("measure"))
+            )
+            for metric in self._dedupe_metrics(self.metrics)
+        )
 
     def _names_metric_of_named_board(self, question, source_context):
         """«peso por servicio en lavandería»: la pregunta nombra un tablero
@@ -5910,13 +6272,15 @@ class QueryPlanBuilder:
 
     # ---------------- «M por X» con un indicador que no se desglosa por X ----------------
     _GROUP_TAIL_RE = re.compile(
-        r"(?<![a-z0-9])(?:por|segun|agrupad[oa]s?\s+por|desglosad[oa]s?\s+por)\s+"
+        r"(?<![a-z0-9])(?:por|segun|agrupad[oa]s?\s+por|desglosad[oa]s?\s+por"
+        # «… y su respectiva especialidad», «con sus correspondientes servicios»
+        r"|(?:(?:y|con|junto\s+con)\s+)?(?:su|sus)\s+(?:respectiv[oa]s?|correspondientes?))\s+"
         r"(?:(?:el|la|los|las|cada)\s+)?(.+)$"
     )
 
     def _requested_group_tail(self, question):
-        """Lo que sigue a «por/según» en la pregunta, sin el periodo («ocupación
-        por servicio hoy» -> «servicio»), o None."""
+        """Lo que sigue a «por/según» (o a «y su respectiva») en la pregunta,
+        sin el periodo («ocupación por servicio hoy» -> «servicio»), o None."""
         text = self._analyze_periods(question)["clean_question"]
         match = self._GROUP_TAIL_RE.search(text)
         tail = match.group(1).strip() if match else ""
@@ -6798,12 +7162,27 @@ class QueryPlanBuilder:
             report = metric.get("report") or (reports[0] if reports else "")
             return normalize_text(metric.get("semantic_model")), normalize_text(report)
 
+        # La pregunta nombra el TÍTULO de un visual del elegido («giro cama» =
+        # visual «GIRO CAMA» de GIRO_CAMA1): las homónimas que ningún visual
+        # muestra (GIRO_CAMA de otra tabla) no son lo que el usuario ve.
+        shown_titles = {
+            normalize_text(item.get("visual_title")) for item in best.get("appearances") or []
+            if item.get("visual_title")
+        }
+        # Solo si el título no es la propia etiqueta del elegido (TRIAGES con
+        # visual «TRIAGES» sigue compitiendo con TOTAL_TRIAGES).
+        matched = normalize_text(metric_result.get("matched_name"))
+        named_by_title = matched in shown_titles and matched not in {
+            normalize_text(best.get("label")), normalize_text(best.get("measure")),
+        }
         rivals, seen = [], {self._logical_key(best)}
         for metric in self._dedupe_metrics(self.metrics):
             if metric.get("validation_status") != "approved":
                 continue
             logical = self._logical_key(metric)
             if logical in seen:
+                continue
+            if named_by_title and not metric.get("appearances"):
                 continue
             names =[metric.get("label"), metric.get("measure")] + [
                 appearance.get("visual_title") for appearance in metric.get("appearances") or []
@@ -7013,10 +7392,12 @@ class QueryPlanBuilder:
 
     def _reflexive_verbs(self, question):
         """Verbos en pasiva refleja («se tomaron», «se realizaron»): describen
-        la acción contada, no un calificativo que distinga un indicador."""
+        la acción contada, no un calificativo que distinga un indicador.
+        Salvo los que nombran el dato («se demoran» = TIEMPO, «se pesaron» = PESO)."""
         return {
             canonical_token(match.group(1))
             for match in re.finditer(r"(?<![a-z0-9])se\s+([a-z]{4,})", normalize_text(question))
+            if match.group(1) not in BUSINESS_TOKEN_SYNONYMS
         }
 
     def _option_coverage(self, metric, words):
@@ -8177,6 +8558,16 @@ class QueryPlanBuilder:
                 f"(su tabla {metric.get('table')} o su página)"
             )
             words = [word for word in words if word not in own]
+        # «hoy», «en este momento» con un indicador sin fecha (estado actual) y
+        # unidades genéricas («pacientes»): no son filtros ni otro indicador.
+        loose = [word for word in words if canonical_token(word) in self._loose_qualifier_tokens(question)]
+        if loose:
+            result["consumed"].update(canonical_token(word) for word in loose)
+            words = [word for word in words if word not in loose]
+            self._note(
+                f"«{' '.join(loose)}» es un momento/periodo o una unidad genérica: no es un filtro "
+                "ni elige otro indicador"
+            )
         if not words:
             return result
 
@@ -8478,12 +8869,41 @@ class QueryPlanBuilder:
         cache[key] = tokens
         return tokens
 
+    _RELATIVE_TIME_TOKENS = frozenset(
+        canonical_token(word) for word in (
+            "hoy", "ayer", "anteayer", "ahora", "ahorita", "actualmente", "momento",
+        )
+    )
+
+    def _loose_qualifier_tokens(self, question):
+        """Palabras que nunca califican al indicador: el periodo de la
+        pregunta, momentos relativos («hoy», «momento») y unidades genéricas."""
+        return (
+            set(self._period_words(question)) | self._RELATIVE_TIME_TOKENS
+            | {canonical_token(word) for word in self._OPTION_UNIT_WORDS}
+        )
+
     def _qualifier_metric_switch(self, question, intent_result, metric, metric_result,
                                  source_context, words):
         """Regla 3a: ¿con el calificativo cambia la mejor métrica? Busca
         indicadores cuyo nombre (o tabla/página) contiene el calificativo y el
         sustantivo principal. Uno claramente mejor -> se usa; varios -> se
-        contrapregunta entre ellos (y el elegido originalmente)."""
+        contrapregunta entre ellos (y el elegido originalmente).
+
+        Un momento o periodo («hoy», «ayer», «en este momento») y las unidades
+        genéricas («pacientes», «casos») no son calificativos: «egresos
+        probables para HOY» no es EGRESOS EFECTIVOS HOY ni «cuánto duran los
+        PACIENTES en urgencias» es el tiempo de los pacientes hospitalizados."""
+        ignored = self._loose_qualifier_tokens(question)
+        dropped = [word for word in words if canonical_token(word) in ignored]
+        words = [word for word in words if canonical_token(word) not in ignored]
+        if dropped:
+            self._note(
+                f"«{' '.join(dropped)}» es un momento/periodo o una unidad genérica: "
+                "no elige otro indicador"
+            )
+        if not words:
+            return None
         qualifiers = [canonical_token(word) for word in words]
         current_vocabulary = self._metric_vocabulary_tokens(metric)
         # Lo que ya explicaba el indicador elegido (sin palabras genéricas de
@@ -9188,6 +9608,12 @@ class QueryPlanBuilder:
                 )
                 if qualifier.get("plan") is not None and qualifier["plan"].get("status") == "ready":
                     return qualifier["plan"]
+                # Un candidato casi igual de cercano que sí tiene fecha: «cuánto
+                # se demoran en el triage el mes pasado» no es la tarjeta del día
+                # (TRIAGES_DIA) sino TIEMPO PARA TRIAGE, que se filtra por mes.
+                dated = self._candidate_with_period(question, intent_result, metric, metric_result)
+                if dated is not None:
+                    return dated
             return rejection
         filters.extend(temporal_result["filters"])
         unapplied_terms.extend(temporal_result["unapplied"])
@@ -9335,6 +9761,36 @@ class QueryPlanBuilder:
             "period": None if temporal_result.get("current_state") else self._period_summary(temporal),
             "dimension_candidates_checked": min(len(candidates), 20),
         }
+
+    _PERIOD_SWITCH_SCORE_GAP = 0.25
+
+    def _candidate_with_period(self, question, intent_result, metric, metric_result):
+        """Plan listo con el siguiente candidato cercano (mismo tema, a menos
+        de _PERIOD_SWITCH_SCORE_GAP) cuando el elegido no admite el periodo
+        pedido; None si ninguno lo admite."""
+        candidates = [
+            item for item in metric_result.get("candidates") or []
+            if self._logical_key(item["metric"]) != self._logical_key(metric)
+        ]
+        top = float(metric_result.get("score") or 0.0)
+        for item in candidates[: self._FILTER_SWITCH_CANDIDATES]:
+            if float(item.get("business_score") or 0.0) < self.min_metric_score:
+                continue
+            if top - float(item.get("score") or 0.0) > self._PERIOD_SWITCH_SCORE_GAP:
+                break
+            forced = {
+                "status": "resolved", "metric": item["metric"], "matched_name": item.get("matched_name"),
+                "score": item.get("score"), "candidates": [item], "final": True,
+            }
+            plan = self._build_plan(question, intent_result, forced_resolution=forced)
+            if isinstance(plan, dict) and plan.get("status") == "ready":
+                note = (
+                    f"{metric.get('label')} no tiene fecha para el periodo pedido; "
+                    f"{item['metric'].get('label')} sí y es casi igual de cercano a la pregunta: se usa"
+                )
+                self._note(note)
+                return plan
+        return None
 
     _FILTER_SWITCH_CANDIDATES = 3
     _FILTER_SWITCH_SCORE_GAP = 0.35

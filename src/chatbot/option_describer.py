@@ -31,7 +31,9 @@ REGLAS OBLIGATORIAS:
 3. Básate en la tabla, la expresión DAX y la descripción dadas. No inventes cifras, filtros ni periodos.
 4. Lo que se cuenta o se suma es lo que dicen la tabla y sus columnas (tabla CAMAS: camas).
    No menciones personas, personal ni otros conceptos que no aparezcan en esos datos.
-5. Español, sin markdown ni comillas. Responde solo la frase.
+5. Respeta los filtros: lo marcado «EXCLUYE» queda fuera (dilo con «sin» o «excepto» o no lo
+   menciones); lo marcado «solo» es lo que se cuenta (estado OCUPADA: camas ocupadas, no disponibles).
+6. Español, sin markdown ni comillas. Responde solo la frase.
 
 EJEMPLOS
 Indicador: % CANCELACIÓN · DAX: DIVIDE([Canceladas], [Programadas])
@@ -75,6 +77,65 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
                 found.append(item)
         return ", ".join(found[:limit])
 
+    _IN_FILTER_RE = re.compile(
+        r"(?P<neg>NOT\s*\(\s*\(?\s*)?'?(?P<table>[^'(),\[\]]*?)'?\s*\[(?P<column>[^\]]+)\]\s+IN\s*\{(?P<values>[^}]*)\}",
+        re.IGNORECASE,
+    )
+    _EQ_FILTER_RE = re.compile(
+        r"'?(?P<table>[^'(),\[\]]*?)'?\s*\[(?P<column>[^\]]+)\]\s*(?P<op>=|<>)\s*\"(?P<value>[^\"]*)\"",
+    )
+
+    @classmethod
+    def filter_conditions(cls, expression):
+        """[(columna, «solo»|«excluye», [valores])] de los filtros literales de
+        la expresión: «NOT ('T'[GASNOMBRE] IN {"UNIDAD OBSTETRICIA"})» ->
+        ("GASNOMBRE", "excluye", ["UNIDAD OBSTETRICIA"]). MedGemma leía esos
+        NOT al revés («de la unidad obstétrica» cuando la excluye)."""
+        found = []
+        text = str(expression or "")
+        for match in cls._IN_FILTER_RE.finditer(text):
+            values = [value.strip().strip('"').strip() for value in match.group("values").split(",")]
+            values = [value for value in values if value]
+            if values:
+                found.append((match.group("column").strip(), "excluye" if match.group("neg") else "solo", values))
+        for match in cls._EQ_FILTER_RE.finditer(text):
+            found.append((
+                match.group("column").strip(), "excluye" if match.group("op") == "<>" else "solo",
+                [match.group("value").strip()],
+            ))
+        return found
+
+    @classmethod
+    def _filters_text(cls, expression, limit=4):
+        parts = []
+        for column, kind, values in cls.filter_conditions(expression)[:limit]:
+            shown = ", ".join(values[:4]) + (" …" if len(values) > 4 else "")
+            parts.append(f"{kind} {column} = {shown}" if kind == "solo" else f"EXCLUYE {column} = {shown}")
+        return "; ".join(parts)
+
+    def contradicts_filters(self, text, option):
+        """¿La descripción nombra como incluido un valor que la expresión
+        excluye? («de la unidad obstétrica» con NOT GASNOMBRE IN {UNIDAD
+        OBSTETRICIA}). Una mención precedida de «sin», «excepto», «excluye» o
+        «no» no contradice."""
+        plain = self._plain(text)
+        expression = " ".join(
+            str(option.get(key) or "") for key in ("dax_expression", "model_expression")
+        )
+        for _, kind, values in self.filter_conditions(expression):
+            if kind != "excluye":
+                continue
+            for value in values:
+                words = [word for word in self._plain(value).split() if len(word) >= 4]
+                if not words:
+                    continue
+                pattern = r"\b" + r"\s+".join(re.escape(word[:6]) + r"[a-z]*" for word in words) + r"\b"
+                for match in re.finditer(pattern, plain):
+                    before = plain[max(0, match.start() - 30):match.start()]
+                    if not re.search(r"\b(?:sin|excepto|salvo|excluye|excluyendo|no|menos|fuera)\b", before):
+                        return True
+        return False
+
     def build_prompt(self, option):
         lines = [f"1. Indicador: {option.get('label')}"]
         dax = str(option.get("dax_expression") or "").strip()
@@ -87,6 +148,8 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
             ("Tabla", option.get("table")),
             ("Expresión DAX", dax),
             ("Cuenta o agrega", self._aggregated_columns(dax)),
+            # Los filtros en palabras: «EXCLUYE» no se describe como incluido.
+            ("Filtros de la expresión", self._filters_text(dax)),
             ("Descripción del catálogo", option.get("description")),
             ("Visuales donde aparece", option.get("visuals")),
         ):
@@ -249,6 +312,10 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
                 # Habla de algo que el indicador no tiene («personal» en una
                 # medida de camas): se usa la descripción del catálogo.
                 rejected[option["id"]] = invented
+                continue
+            if text and self.contradicts_filters(text, option):
+                # Nombra como incluido lo que la expresión excluye.
+                rejected[option["id"]] = ["filtro excluido"]
                 continue
             if text:
                 descriptions[option["id"]] = text
