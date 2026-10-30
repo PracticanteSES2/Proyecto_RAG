@@ -3851,6 +3851,10 @@ class QueryPlanBuilder:
                     continue
                 if len(hint.split()) == 1 and hint in GENERIC_QUERY_WORDS:
                     continue
+                # «…, las 5 más altas» es un ranking, no un valor.
+                top, _ = self._postfix_top(normalize_text(hint))
+                if top is not None and top.start() == 0:
+                    continue
                 if all(
                     word in _GROUP_NEUTRAL_TAIL_WORDS or _is_question_form_word(word)
                     for word in hint.split()
@@ -7222,7 +7226,14 @@ class QueryPlanBuilder:
             self._models_with_report = models
         return normalize_text(semantic_model) in models
 
-    def _homonyms_that_answer(self, question, metric_result, items):
+    # Pregunta por el estado presente («cuántas camas HAY ahorita», «cuántas
+    # TENEMOS», «están ocupadas»), no por lo ocurrido («cuántos egresos hubo»).
+    _PRESENT_STATE_RE = re.compile(
+        r"(?<![a-z0-9])(?:hay|tenemos|tiene|tienen|esta|estan|quedan|queda|ahorita|ahora|actualmente"
+        r"|en\s+este\s+momento|en\s+el\s+momento)(?![a-z0-9])"
+    )
+
+    def _homonyms_that_answer(self, question, metric_result, items, current_state=True):
         """Homónimos entre los que vale la pena preguntar. Regla general: solo
         se contrapregunta entre fuentes que pueden dar una cifra para la
         pregunta tal como está escrita.
@@ -7271,15 +7282,21 @@ class QueryPlanBuilder:
                     + "; no se ofrecen"
                 )
             kept = ready
-        if not period and len(kept) > 1:
+        present = bool(self._PRESENT_STATE_RE.search(normalized))
+        if current_state and present and not period and len(kept) > 1:
             shown = [item for item in kept if item["metric"].get("appearances")]
-            if len(shown) == 1:
+            current = [
+                item for item in shown
+                if self._snapshot_table(item["metric"], self._metric_dimensions(item["metric"])) is not None
+            ]
+            if len(shown) == 1 and current == shown:
                 hidden = [item for item in kept if item is not shown[0]]
                 self._note(
-                    f"«{metric_result.get('matched_name')}»: solo {shown[0]['metric'].get('label')} "
-                    f"({shown[0]['metric'].get('semantic_model')}) aparece en un visual; "
+                    f"«{metric_result.get('matched_name')}»: sin periodo se pregunta por el estado actual; "
+                    f"solo {shown[0]['metric'].get('label')} ({shown[0]['metric'].get('semantic_model')}) "
+                    "lo muestra en un tablero (su tabla es el estado del momento); "
                     + ", ".join(f"{i['metric'].get('label')} ({i['metric'].get('semantic_model')})" for i in hidden)
-                    + " no lo muestra ningún tablero: se responde con el visible"
+                    + " no está en ningún visual y sin periodo sumaría todo su histórico: se responde con el primero"
                 )
                 kept = shown
         return kept if len(kept) < len(items) else None
@@ -7390,22 +7407,6 @@ class QueryPlanBuilder:
                         "question": question, "source_context": source_context,
                         "metric_resolution": {"status": "ambiguous", "candidates": items},
                     }
-        # Solo se pregunta entre fuentes que pueden responder la pregunta TAL
-        # COMO ESTÁ y que el usuario ve en un tablero (ver `_homonyms_that_answer`).
-        narrowed = self._homonyms_that_answer(question, metric_result, items)
-        if narrowed is not None:
-            if not narrowed:
-                return None
-            if len(narrowed) == 1:
-                chosen = narrowed[0]
-                if chosen["metric"] is best:
-                    return None
-                return {
-                    "status": "ambiguous", "stage": "metric", "reason": None,
-                    "question": question, "source_context": source_context,
-                    "metric_resolution": {"status": "ambiguous", "candidates": [chosen]},
-                }
-            items = narrowed
         # Solo uno de los homónimos es de un modelo con informe; los demás son
         # de modelos SIN ningún informe («Dashboard Gestion»), que el usuario
         # no ve: se responde con el del informe, sin contrapreguntar. Si dos o
@@ -7429,6 +7430,22 @@ class QueryPlanBuilder:
                 "question": question, "source_context": source_context,
                 "metric_resolution": {"status": "ambiguous", "candidates": [chosen]},
             }
+        # Solo se pregunta entre fuentes que pueden responder la pregunta TAL
+        # COMO ESTÁ y que el usuario ve en un tablero (ver `_homonyms_that_answer`).
+        narrowed = self._homonyms_that_answer(question, metric_result, items)
+        if narrowed is not None:
+            if not narrowed:
+                return None
+            if len(narrowed) == 1:
+                chosen = narrowed[0]
+                if chosen["metric"] is best:
+                    return None
+                return {
+                    "status": "ambiguous", "stage": "metric", "reason": None,
+                    "question": question, "source_context": source_context,
+                    "metric_resolution": {"status": "ambiguous", "candidates": [chosen]},
+                }
+            items = narrowed
         self._note(
             f"«{metric_result.get('matched_name')}» existe con el mismo nombre en varios tableros/modelos "
             f"({', '.join(sorted({str(i['metric'].get('semantic_model')) for i in items}))}) y la "
@@ -8566,7 +8583,25 @@ class QueryPlanBuilder:
             return None
         # Igual que con los homónimos: solo fuentes que responden y que el
         # usuario ve en un tablero.
-        narrowed = self._homonyms_that_answer(question, {"matched_name": best.get("label")}, items)
+        with_report = [item for item in items if self._model_has_report(item["metric"].get("semantic_model"))]
+        if with_report and len(with_report) < len(items):
+            self._note(
+                "de modelos sin ningún informe (el usuario no los ve): "
+                + ", ".join(f"{i['metric'].get('label')} ({i['metric'].get('semantic_model')})"
+                            for i in items if i not in with_report)
+                + "; no se ofrecen"
+            )
+            if len(with_report) == 1:
+                if with_report[0]["metric"] is best:
+                    return None
+                return self._forced_plan(
+                    question, None, with_report[0],
+                    "es la única de las fuentes de nombre casi igual de un tablero con informe",
+                )
+            items = with_report
+        narrowed = self._homonyms_that_answer(
+            question, {"matched_name": best.get("label")}, items, current_state=False,
+        )
         if narrowed is not None:
             if len(narrowed) <= 1:
                 if not narrowed or narrowed[0]["metric"] is best:
