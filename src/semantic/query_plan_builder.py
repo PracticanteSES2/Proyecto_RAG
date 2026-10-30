@@ -7708,6 +7708,10 @@ class QueryPlanBuilder:
         best = metric_result.get("metric") or {}
         if not best.get("metric_id"):
             return None
+        # El indicador general que reemplazó a la tarjeta de un subservicio se
+        # eligió por el tablero de esa tarjeta: no compite por nombre con otros.
+        if metric_result.get("general_indicator"):
+            return None
         strong = (
             source_context.get("status") == "resolved"
             and source_context.get("routing_strength") == "strong"
