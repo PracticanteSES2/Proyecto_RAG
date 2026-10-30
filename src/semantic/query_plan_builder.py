@@ -1368,13 +1368,21 @@ class QueryPlanBuilder:
         """Página del indicador que la pregunta nombra entera («cuentas en
         proceso de facturación» -> EN PROCESO FACTURACION, no EN PROCESO
         FACTURACION DE IMAGENES); la de más palabras si hay varias; None."""
-        question_tokens = set(canonical_tokens(question))
-        stop = {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS} | set(GENERIC_PAGE_WORDS)
+        # El nombre de la página, sin conectores, tal cual y seguido en la
+        # pregunta («en proceso (de) facturación»): no basta con palabras
+        # sueltas parecidas («factura» no nombra la página FACTURACION).
+        connectors = {"de", "del", "la", "el", "los", "las", "y", "a", "al"}
+        question_seq = [token for token in canonical_tokens(question) if token not in connectors]
         best, best_size, tie = None, 0, False
         for page in _unique_strings(item.get("page_display_name") for item in metric.get("appearances") or []):
-            tokens = {token for token in canonical_tokens(page) if token not in stop and len(token) >= 3}
-            if not tokens or not all(self._explains(token, question_tokens) for token in tokens):
+            page_seq = [token for token in canonical_tokens(page) if token not in connectors]
+            content = [token for token in page_seq if token not in GENERIC_PAGE_WORDS]
+            if not content or not any(
+                question_seq[start:start + len(page_seq)] == page_seq
+                for start in range(len(question_seq) - len(page_seq) + 1)
+            ):
                 continue
+            tokens = set(content)
             if len(tokens) > best_size:
                 best, best_size, tie = page, len(tokens), False
             elif len(tokens) == best_size:
@@ -2362,6 +2370,8 @@ class QueryPlanBuilder:
             return
         content = {canonical_token(word) for word in self._question_content_words(business_question)}
         content -= set(self._period_words(business_question))
+        # «por aseguradora»: la agrupación no nombra la entidad del indicador.
+        content -= set(canonical_tokens(self._requested_group_tail(business_question) or ""))
         if not content:
             return
 
