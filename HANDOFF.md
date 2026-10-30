@@ -57,6 +57,17 @@ Pendiente de esa rama (ver `tests/real/RETOMAR.md`):
 - pedir la corrida `--solo AI03,DI02,TU12,BH03,TU05,TU10,AI01,AI06,AI08`;
 - escribir `INFORME.md`.
 
+## Actualización 2026-10-30
+- Integradas en `desarrollo`: qa-real-2 (banco y comparador auditados), fix-filtros-tablero (+2), fix-contrapreguntas,
+  fix-indicador-ruta, r2-indicador (lavandería, cobertura de periodo), r2-contrapreguntas, r2-redaccion
+  (notas en lenguaje de negocio y unidades, `src/chatbot/business_terms.py`).
+- **Banco real: 37 % (06c132f) → 66 % (ab0c94d) → 83 % (58/70).** Salidas en `Documents/banco_real_out_v5_*`;
+  conversaciones legibles en `Documents/conversaciones_banco_real_v5.md`.
+- Fallas restantes: contrapregunta (TU08, TU10, AI01, AI06, AI08, AC02), filtros de página (AI01, AI06, EP02, FC04;
+  el PBIP local de ATENCIONES está incompleto: pedir el completo al propietario), espurios (TU06, TU10, AI05),
+  indicador (BH09), ruta a RAG (AB04). En curso: agente `agente/r2-indicador-2` (BH09, BH18, TU06, FC04).
+- La app se puede levantar sin ventana: `POWERBI_AUTH=device_code` en el entorno del proceso.
+
 ## Pendiente (en orden)
 1. Rama `agente/qa-real`: auditoría de la verdad y del comparador del banco real (ver `tests/real/RETOMAR.md`
    en esa rama). Integrarla cuando esté.
