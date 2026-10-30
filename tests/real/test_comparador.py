@@ -282,7 +282,7 @@ class Auditoria(unittest.TestCase):
         self.assertTrue(all(c["veredicto"] in auditoria.VEREDICTOS for c in casos.values()))
         ok = sum(c["veredicto"] == "acierto" for c in casos.values())
         ev = sum(c["veredicto"] in ("acierto", "falla") for c in casos.values())
-        self.assertEqual((ok, ev), (25, 67))
+        self.assertEqual((ok, ev), (26, 67))  # AC02 reauditado en r3: contrapregunta legítima
         for cid, c in casos.items():
             if c["veredicto"] == "falla":
                 self.assertTrue(c["causas"], cid)
@@ -318,14 +318,14 @@ class Informe(unittest.TestCase):
             self.assertIn(needle, text)
 
     def test_reevaluar_la_corrida_base(self):
-        """Si están las salidas de db2f1af, la tasa auditada reproduce 25/67."""
+        """Si están las salidas de db2f1af, la tasa auditada reproduce 26/67 (25 + AC02 reauditado en r3)."""
         base = Path(r"C:\Users\ad6708\Documents\banco_real_out_base_db2f1af\resultado.json")
         if not base.exists():
             self.skipTest("no están las salidas de la corrida base")
         cases = {c["id"]: c for c in json.loads(run_banco.BANCO.read_text(encoding="utf-8"))["casos"]}
         _, _, results = auditoria.load_previous(base, cases)
         s = auditoria.summarize(results, auditoria.load(), cases)
-        self.assertEqual((s["aciertos"], s["evaluados"], s["auditados"]), (25, 67, 71))
+        self.assertEqual((s["aciertos"], s["evaluados"], s["auditados"]), (26, 67, 71))
 
 
 if __name__ == "__main__":
