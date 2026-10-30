@@ -131,22 +131,24 @@ def _by_id(metric_id):
 def test_day_block_pages_do_not_answer_last_month():
     qpb = builder()
     last_month = (date(2026, 9, 1), date(2026, 10, 1))
-    missing = qpb._metric_misses_period(_by_id("eg_brief"), *last_month)
+    missing = qpb._metric_misses_period(_by_id("eg_brief"), *last_month, pages=True)
     assert missing and "INGRESOS Y EGRESOS" in missing, missing
     # Ayer sí lo trae la foto del día.
     yesterday = TODAY - timedelta(days=1)
-    assert qpb._metric_misses_period(_by_id("eg_brief"), yesterday, TODAY) is None
+    assert qpb._metric_misses_period(_by_id("eg_brief"), yesterday, TODAY, pages=True) is None
+    # Sin pages=True (descartar el único candidato) la página no basta.
+    assert qpb._metric_misses_period(_by_id("eg_brief"), *last_month) is None
 
 
 def test_documented_table_window_wins_over_the_page_block():
     qpb = builder()
     # EGRESOS_HIST documenta «desde el 1 de enero de 2024» aunque se vea en INICIO (bloque Día).
-    assert qpb._metric_misses_period(_by_id("eg_hist"), date(2026, 9, 1), date(2026, 10, 1)) is None
+    assert qpb._metric_misses_period(_by_id("eg_hist"), date(2026, 9, 1), date(2026, 10, 1), pages=True) is None
 
 
 def test_historic_page_is_not_a_day_snapshot():
     qpb = builder()
-    assert qpb._metric_misses_period(_by_id("eg_aten"), date(2026, 9, 1), date(2026, 10, 1)) is None
+    assert qpb._metric_misses_period(_by_id("eg_aten"), date(2026, 9, 1), date(2026, 10, 1), pages=True) is None
 
 
 def test_homonyms_keep_only_the_ones_that_cover_last_month():
@@ -160,7 +162,7 @@ def test_homonyms_keep_only_the_ones_that_cover_last_month():
 def test_metric_without_appearances_has_no_page_window():
     qpb = builder()
     metric = {**_by_id("eg_brief"), "appearances": []}
-    assert qpb._metric_misses_period(metric, date(2026, 9, 1), date(2026, 10, 1)) is None
+    assert qpb._metric_misses_period(metric, date(2026, 9, 1), date(2026, 10, 1), pages=True) is None
 
 
 # ---------------------------------------------------------------- TU08

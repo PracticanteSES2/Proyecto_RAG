@@ -611,6 +611,65 @@ class PeriodParser:
             return self._months_any_year([MONTHS[month_match.group(1)]], month_match.group(1))
         return None
 
+    # «agosto contra el mes pasado», «marzo frente a abril de 2025»: dos meses
+    # comparados. Se responde el rango que los une, agrupado por mes.
+    _COMPARE_SIDE = (
+        r"(?:(?:el|la)\s+)?(?:mes\s+(?:pasado|anterior)|este\s+mes|mes\s+actual|"
+        r"(?:" + MONTH_RE + r")(?:\s+(?:de|del)\s+(?:19|20)\d{2})?)"
+    )
+    _COMPARE_RE = re.compile(
+        r"(?<![a-z0-9])(?P<a>" + _COMPARE_SIDE + r")\s+"
+        r"(?:contra|frente\s+a|vs|versus|comparad[oa]\s+con|(?:con\s+)?respecto\s+a(?:l)?)\s+"
+        r"(?:(?:el|la|lo)\s+)?(?:(?:de|del)\s+)?(?P<b>" + _COMPARE_SIDE + r")(?![a-z0-9])"
+    )
+
+    def _side_month(self, text):
+        """(año, mes) de un lado de la comparación, o None."""
+        period = None
+        for rule in (self._month_with_year_ref, self._relative_single, self._legacy):
+            period = rule(text)
+            if period:
+                break
+        if not period:
+            return None
+        if period.get("kind") == "months_any_year" and len(period.get("months") or []) == 1:
+            month = period["months"][0]
+            return self._recent_year_for_month(month), month
+        start, end = as_date(period.get("start")), as_date(period.get("end"))
+        if start and end and start.day == 1 and next_month_start(start.year, start.month) == end:
+            return start.year, start.month
+        return None
+
+    def _comparison(self, text):
+        match = self._COMPARE_RE.search(text)
+        if not match:
+            return None
+        sides = [self._side_month(match.group(name)) for name in ("a", "b")]
+        if None in sides:
+            return None
+        # «marzo frente a abril de 2025»: el año dicho en un lado vale para el
+        # mes sin año del otro.
+        years = [re.search(r"(?:19|20)\d{2}", match.group(name)) for name in ("a", "b")]
+        bare = [re.fullmatch(r"(?:(?:el|la)\s+)?(?:" + MONTH_RE + r")", match.group(name).strip())
+                for name in ("a", "b")]
+        for index in (0, 1):
+            other = 1 - index
+            if bare[index] and years[other]:
+                sides[index] = (int(years[other].group(0)), sides[index][1])
+        if sides[0] == sides[1]:
+            return None
+        (y1, m1), (y2, m2) = sorted(sides)
+        period = self._month_range(y1, m1, y2, m2, match.group(0))
+        period["compare"] = True
+        return period
+
+    def comparison_granularity(self, text):
+        """{"unit": "month", "phrase": ...} si la pregunta compara dos meses."""
+        match = self._COMPARE_RE.search(_compact_ordinals(text or ""))
+        if match and self._comparison(match.group(0)):
+            return {"unit": "month", "phrase": match.group(0)}
+        return None
+
     # ------------------------------------------------ API
     def parse(self, text):
         """Periodo de la pregunta normalizada, o None."""
@@ -618,6 +677,7 @@ class PeriodParser:
         if not text:
             return None
         for rule in (
+            self._comparison,
             self._day_range, self._month_span, self._year_span, self._since,
             self._quarter_or_semester, self._relative_quarter_or_semester,
             self._last_n, self._single_day, self._month_with_year_ref,
@@ -665,7 +725,7 @@ class PeriodParser:
                 value = _GRANULARITY_ADJECTIVES.get(match.group("adj"))
             if value:
                 return {"unit": value, "phrase": match.group(0)}
-        return None
+        return self.comparison_granularity(text)
 
     def default_window(self, unit):
         """Periodo por defecto para agrupar cuando la pregunta no trae uno."""

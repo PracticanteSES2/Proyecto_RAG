@@ -73,6 +73,8 @@ REQUEST_WORDS = {
     "calcular", "revisa", "revisame", "busca", "buscame", "trae", "traeme", "averigua",
     "averiguame", "determina", "determinar", "senala", "senalame", "reporta", "reportame",
     "informame", "entregame", "genera", "generame",
+    # «compara X de agosto contra el mes pasado»: el periodo ya dice qué se compara.
+    "compara", "comparame", "comparar", "comparemos", "contrasta",
 }
 STOPWORDS |= REQUEST_WORDS
 
@@ -2618,7 +2620,7 @@ class QueryPlanBuilder:
         table = self._metric_fact_table(metric)
         return [table] if table else []
 
-    def _metric_misses_period(self, metric, start, end):
+    def _metric_misses_period(self, metric, start, end, pages=False):
         """Tabla del indicador cuya ventana documentada (diccionario de
         variables: «del día anterior», «de los últimos 10 días», «desde el
         01/01/2023») no trae el periodo [start, end); None si lo trae o si la
@@ -2637,7 +2639,11 @@ class QueryPlanBuilder:
             documented = documented or window is not None
             if not covers(window, start, end, today):
                 return table
-        if documented:
+        if documented or not pages:
+            return None
+        if end is not None and end > today:
+            # «este mes», «en lo que va del año»: la foto del día es la cifra
+            # actual de ese periodo (como `_current_state_period`).
             return None
         # Sin ventana documentada en sus tablas: si TODAS las páginas donde se
         # ve el indicador son del bloque «Día» de la documentación del tablero
@@ -2753,7 +2759,9 @@ class QueryPlanBuilder:
         period, start, end = self._requested_period_bounds(business_question)
         if period is None:
             return None
-        missing = [self._metric_misses_period(item["metric"], start, end) for item in items]
+        # Aquí también cuenta el bloque «Día» de sus páginas (señal más débil
+        # que la ventana de la tabla): solo decide entre fuentes que compiten.
+        missing = [self._metric_misses_period(item["metric"], start, end, pages=True) for item in items]
         kept = [item for item, table in zip(items, missing) if table is None]
         if not kept or len(kept) == len(items):
             return None
