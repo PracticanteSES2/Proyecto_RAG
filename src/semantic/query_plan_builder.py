@@ -2330,6 +2330,8 @@ class QueryPlanBuilder:
             if best["score"] - item["score"] < self.ambiguity_margin
             and item["business_score"] >= self.min_metric_score
         ]
+        if len(tied) > 1:
+            tied = self._ties_naming_the_same(business_question, best, tied)
         visible = self._visible_over_auxiliary(business_question, best, groups)
         if visible:
             best = visible[0]
@@ -2366,6 +2368,33 @@ class QueryPlanBuilder:
             **({"page_hint_ignored": page_missing} if page_missing is not None else {}),
             **({"general_indicator": True, "consumed_tokens": general["_consumed"]} if general else {}),
         }
+
+    def _ties_naming_the_same(self, business_question, best, tied):
+        """Empate por puntaje: no compite quien no explica (ni con su nombre,
+        tabla o página) una palabra de la pregunta que el mejor nombra con su
+        propio nombre. «tiempo promedio de TRIAGE»: TIEMPO PARA TRIAGE frente a
+        TIEMPO GESTION FACTURACION (alias «Promedio de TIEMPO»), que no habla
+        de triage."""
+        content = {canonical_token(word) for word in self._question_content_words(business_question)}
+        content -= set(self._period_words(business_question))
+        content -= set(canonical_tokens(self._requested_group_tail(business_question) or ""))
+        names = {
+            token for name in self._metric_names(best["metric"])
+            if name and not re.search(r"[().]", str(name)) for token in canonical_tokens(name)
+        }
+        named = {token for token in content if len(token) >= 4 and self._explains(token, names)}
+        if not named:
+            return tied
+        kept = [best] + [
+            item for item in tied if item is not best
+            and all(self._explains(token, self._metric_vocabulary_tokens(item["metric"])) for token in named)
+        ]
+        if len(kept) < len(tied):
+            self._note(
+                f"{best['metric'].get('label')} nombra «{', '.join(sorted(named))}» de la pregunta; no compiten: "
+                + ", ".join(str(item["metric"].get("label")) for item in tied if item not in kept)
+            )
+        return kept
 
     def _drop_priority_of_narrower_names(self, business_question, candidates):
         """Quita la prioridad de nombre exacto a un candidato si otro (con
