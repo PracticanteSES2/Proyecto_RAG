@@ -10,7 +10,7 @@ from src.chatbot.reasoning_trace import ReasoningTrace, format_score, short
 from src.chatbot.runtime_stats import STATS, degradation_lines, status_line
 from src.dax.column_guard import GuardedQueryPlanDAXGenerator, ModelSchema, unknown_references
 from src.chatbot.response_formatter import (
-    NONE_OF_THE_ABOVE_ID, format_filters_line, format_value_es, group_header,
+    NONE_OF_THE_ABOVE_ID, format_filters_line, format_number_es, format_value_es, group_header,
 )
 from src.providers.domain_cache import domain_cache_for
 from src.rag.source_labels import source_label
@@ -1835,6 +1835,87 @@ class QueryEngine:
             lines.append(f"Mostrando {len(table_rows)} de {len(rows)} filas.")
         return "\n".join(lines)
 
+    # Proporción mínima (del total del indicador) en el grupo en blanco para
+    # decir que la fuente no trae la dimensión pedida.
+    _BLANK_GROUP_SHARE = 0.5
+
+    @staticmethod
+    def _group_cell(row, group):
+        column = str(group.get("column") or "").lower()
+        for key, value in (row or {}).items():
+            key_norm = str(key).lower()
+            if column and column in key_norm and "__value" not in key_norm:
+                return value
+        return None
+
+    def _mostly_blank_group(self, plan, rows):
+        """{"share", "blank", "total", "filled"} si el grupo en blanco de una
+        agrupación simple pesa >= _BLANK_GROUP_SHARE del total; None si no."""
+        groups = plan.get("group_by") or []
+        if len(groups) != 1 or not rows or groups[0].get("temporal"):
+            return None
+        blank = total = 0.0
+        filled = []
+        for row in rows:
+            try:
+                number = float(self._row_value(row))
+            except (TypeError, ValueError):
+                return None
+            if number < 0:
+                return None
+            total += number
+            cell = self._group_cell(row, groups[0])
+            if self._is_blank_value(cell):
+                blank += number
+            else:
+                filled.append((cell, number))
+        if total <= 0 or blank / total < self._BLANK_GROUP_SHARE:
+            return None
+        return {"share": blank / total, "blank": blank, "total": total, "filled": filled}
+
+    def _blank_group_response(self, plan, rows, blank, dax_result, powerbi_result):
+        """Otra fuente que sí trae la dimensión (plan del planificador) o una
+        respuesta que lo explica en vez de mostrar la tabla casi vacía."""
+        group = (plan.get("group_by") or [{}])[0]
+        metric = plan.get("metric") or {}
+        self._think(
+            "Agrupación casi vacía",
+            f"{group.get('table')}[{group.get('column')}] en blanco en el {blank['share']:.0%} del total "
+            f"({format_number_es(blank['blank'])} de {format_number_es(blank['total'])})",
+        )
+        builder = self.query_plan_builder
+        alternative = None
+        if not plan.get("blank_group_retry") and builder is not None and hasattr(builder, "blank_group_alternative"):
+            try:
+                alternative = builder.blank_group_alternative(plan, blank["share"])
+            except Exception:
+                alternative = None
+        if isinstance(alternative, dict) and alternative.get("status") == "ready":
+            alternative["blank_group_retry"] = True
+            return self._execute_query_plan(alternative)
+        name = str(group.get("label") or (group.get("aliases") or [None])[0] or group.get("column") or "").lower()
+        filled = sorted(blank["filled"], key=lambda pair: -pair[1])[:5]
+        text = (
+            f"No puedo desglosar **{metric.get('label') or 'el indicador'}** por {name} con esta fuente: "
+            f"la columna {group.get('column')} de {group.get('table')} está en blanco en "
+            f"{format_number_es(blank['blank'])} de {format_number_es(blank['total'])} "
+            f"({blank['share']:.0%}), y ningún otro tablero trae ese dato para esta pregunta."
+        )
+        if filled:
+            text += " Con dato: " + ", ".join(f"{value} ({format_number_es(number)})" for value, number in filled) + "."
+        return {
+            "status": "success", "route": "powerbi", "result_type": "message",
+            "question": plan.get("question"), "report": plan.get("report"),
+            "dashboard": plan.get("dashboard"), "semantic_model": plan.get("semantic_model"),
+            "metric": metric.get("label"), "metric_id": metric.get("metric_id"),
+            "metric_source": metric.get("source_type"), "value": None, "rows": rows,
+            "filters": plan.get("filters", []), "group_by": plan.get("group_by", []),
+            "answer": text, "total_rows": len(rows), "blank_group": blank,
+            "unapplied_terms": plan.get("unapplied_terms") or [],
+            "dax": dax_result.get("dax"), "powerbi": powerbi_result,
+            "query_plan": plan, "source_context": plan.get("source_context"),
+        }
+
     @staticmethod
     def _is_blank_value(value):
         if value is None:
@@ -1927,6 +2008,14 @@ class QueryEngine:
             }
         value = None
         answer = None
+
+        # La dimensión pedida está casi toda en blanco en esta tabla: otra
+        # fuente del mismo tema que sí la trae, o se dice al usuario.
+        blank = self._mostly_blank_group(plan, rows) if mode == "grouped" else None
+        if blank is not None:
+            replaced = self._blank_group_response(plan, rows, blank, dax_result, powerbi_result)
+            if replaced is not None:
+                return replaced
 
         if mode == "grouped":
             rows = self._apply_ranking(plan, rows)
