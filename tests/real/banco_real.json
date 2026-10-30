@@ -917,7 +917,7 @@
     "porcentaje": false,
     "filtros_no_traducidos": []
    },
-   "criterio": "Verdad = cifra que el usuario ve en el visual 6f0275b08569b0e80539 de la página «INICIO» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido."
+   "criterio": "Verdad = cifra que el usuario ve en el visual 6f0275b08569b0e80539 de la página «INICIO» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido. Decisión r4: «citas en espera» = solicitudes con CCEESTADO = 0 (tarjeta CONSULTAS EN ESPERA de INICIO, SUM(PENDIENTES) de CITAS EN ESPERA y EN ESPERA X ESPECIALIDAD dan lo mismo). TOTAL GESTIÓN CITA EN ESPERA (CCEESTADO 0 o 1) suma además las ya asignadas: no responde «en espera» (docs INICIO y _diccionario: 0 en espera, 1 asignada, 2 eliminada)."
   },
   {
    "id": "AC02",
@@ -987,7 +987,7 @@
     "filtros_no_traducidos": [],
     "top_keys": 5
    },
-   "criterio": "Verdad = cifra que el usuario ve en el visual c920868794ad0a9c5f6e de la página «EN ESPERA X ESPECIALIDAD» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido."
+   "criterio": "Verdad = cifra que el usuario ve en el visual c920868794ad0a9c5f6e de la página «EN ESPERA X ESPECIALIDAD» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido. Decisión r4: «citas en espera» = solicitudes con CCEESTADO = 0 (tarjeta CONSULTAS EN ESPERA de INICIO, SUM(PENDIENTES) de CITAS EN ESPERA y EN ESPERA X ESPECIALIDAD dan lo mismo). TOTAL GESTIÓN CITA EN ESPERA (CCEESTADO 0 o 1) suma además las ya asignadas: no responde «en espera» (docs INICIO y _diccionario: 0 en espera, 1 asignada, 2 eliminada)."
   },
   {
    "id": "AC05",

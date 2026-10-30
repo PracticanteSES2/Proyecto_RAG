@@ -74,6 +74,11 @@ def ctx(report, page, visual=None, periodo=None, fecha=None, extra=()):
     return filters, skipped
 
 
+CRITERIO_EN_ESPERA = ("Verdad = cifra que el usuario ve en el visual {v} de la página «{pagina}» de ASIGNACION DE "
+                      "CITAS: medida + filtros de informe, página y visual + periodo pedido."
+                      + ' Decisión r4: «citas en espera» = solicitudes con CCEESTADO = 0 (tarjeta CONSULTAS EN ESPERA de INICIO, SUM(PENDIENTES) de CITAS EN ESPERA y EN ESPERA X ESPECIALIDAD dan lo mismo). TOTAL GESTIÓN CITA EN ESPERA (CCEESTADO 0 o 1) suma además las ya asignadas: no responde «en espera» (docs INICIO y _diccionario: 0 en espera, 1 asignada, 2 eliminada).')
+
+
 def calc(expr, filters):
     if not filters:
         return expr
@@ -415,7 +420,8 @@ def build():
                     extra=lambda x: x["filters"] and x["filters"][0].endswith("IN {0}))"))
     f, s = ctx(R, "INICIO", v)
     add(case("AC01", CITAS, "numero", "cuantas citas hay en espera?", page="INICIO", visual=v, skipped=s,
-             dax=numero("DISTINCTCOUNT(EN_ESPERA[OID_CITA])", f), tol=0.0))
+             dax=numero("DISTINCTCOUNT(EN_ESPERA[OID_CITA])", f), tol=0.0,
+             criterio=CRITERIO_EN_ESPERA.format(v=v, pagina="INICIO")))
     v = find_visual(R, "INICIO", "CITAS_ASIGNADAS.OID_CITA", "card")
     f, s = ctx(R, "INICIO", v)
     pagina_ac, _ = pbir_filters(R, "INICIO")
@@ -432,7 +438,8 @@ def build():
     v = find_visual(R, "EN ESPERA X ESPECIALIDAD", "GEEDESCRI", "clusteredBarChart")
     f, s = ctx(R, "EN ESPERA X ESPECIALIDAD", v)
     add(case("AC04", CITAS, "agrupado", "citas en espera por especialidad", page="EN ESPERA X ESPECIALIDAD",
-             visual=v, skipped=s, dax=agrupado("EN_ESPERA[GEEDESCRI]", "DISTINCTCOUNT(EN_ESPERA[OID_CITA])", f), tol=0.0))
+             visual=v, skipped=s, dax=agrupado("EN_ESPERA[GEEDESCRI]", "DISTINCTCOUNT(EN_ESPERA[OID_CITA])", f), tol=0.0,
+             criterio=CRITERIO_EN_ESPERA.format(v=v, pagina="EN ESPERA X ESPECIALIDAD")))
     v = find_visual(R, "INICIO", "Tiempo_Asignacion", "card")
     f, s = ctx(R, "INICIO", v)
     add(case("AC05", CITAS, "numero", "cuantos dias se demora en promedio la asignacion de una cita", page="INICIO",
