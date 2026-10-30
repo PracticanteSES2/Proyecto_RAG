@@ -2402,7 +2402,13 @@ class QueryPlanBuilder:
                 )
             ]
             if wider:
-                item["score"] = round(item["score"] - item["_name_priority"], 4)
+                # Solo si así gana el que nombra más (no un tercero).
+                lowered = round(item["score"] - item["_name_priority"], 4)
+                rest = [other for other in candidates if other is not item]
+                leader = max(rest, key=lambda other: other["score"]) if rest else None
+                if leader is None or leader not in wider or leader["score"] < lowered:
+                    continue
+                item["score"] = lowered
                 item["_name_priority"] = 0.0
                 self._note(
                     f"{item['metric'].get('label')} coincide exacto, pero "
