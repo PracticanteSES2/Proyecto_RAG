@@ -3981,6 +3981,19 @@ class QueryEngine:
         metric = plan.get("metric") or {}
         if not callable(key_of) or not metric.get("metric_id"):
             return
+        if metric.get("visual_filters"):
+            # La cifra ya lleva los filtros del visual y de la página del
+            # tablero (QueryPlanBuilder._with_visual_filters): es la que el
+            # usuario ve allí y la nota de filtros aplicados ya lo dice.
+            source = metric.get("board_filters_source") or {}
+            self._think(
+                "Filtros del tablero aplicados",
+                f"{metric.get('label')}: "
+                + "; ".join(str(item.get("text")) for item in metric["visual_filters"])
+                + (f" (visual {source.get('visual_type')} de la página {source.get('page')})"
+                   if source.get("page") else ""),
+            )
+            return
         key = key_of(metric)
         if not key[-1]:
             return  # sin expresión no se puede saber si es la misma medida
@@ -4011,7 +4024,9 @@ class QueryEngine:
         where = self._board_phrase(reports[0], "del") if len(reports) == 1 else "de varios tableros"
         note = (
             f"Este indicador aparece en {len(places)} páginas {where} ({pages}); "
-            "es el valor general, sin los filtros propios de cada página."
+            + ("cada una le aplica filtros distintos y ninguna es la principal, así que "
+               if metric.get("board_filters_note") else "")
+            + "es el valor general, sin los filtros propios de cada página."
         )
         notes = list(plan.get("notes") or [])
         if note not in notes:

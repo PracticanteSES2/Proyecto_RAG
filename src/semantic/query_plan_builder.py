@@ -705,86 +705,278 @@ class QueryPlanBuilder:
             self._visual_index_cache = cached
         return cached
 
-    def _visual_filter_clauses(self, semantic_model, visual):
-        """[(tabla, columna, condición)] de los filtros de nivel de visual que
-        cambian el dato, o None si alguno no se entiende (no se aplica nada).
+    # Filtros que el tablero aplica a la cifra de un visual: los del propio
+    # visual y los heredados de su página y del informe (filterConfig de PBIR).
+    _FILTER_SCOPES = ("visual", "page", "report")
+    _SCOPE_TEXT = {"visual": "visual", "page": "página", "report": "informe"}
+    # Visuales que muestran la cifra sola (sin ejes): lo que el usuario lee en
+    # el tablero. Menor = más canónico.
+    _CANONICAL_VISUAL_RANK = {
+        "card": 0, "cardvisual": 0, "kpi": 0, "multirowcard": 1, "gauge": 1,
+    }
+    _PRINCIPAL_PAGE_RE = re.compile(r"(?<![a-z])(?:inicio|principal|resumen|portada|home)(?![a-z])")
+
+    def _visual_context_index(self):
+        """{(modelo normalizado, visual_id): (informe, página)} del catálogo."""
+        cached = self.__dict__.get("_visual_context_cache")
+        if cached is None:
+            cached = {}
+            for report in self.reports:
+                model = normalize_text(report.get("semantic_model"))
+                for page in report.get("pages", []) or []:
+                    for visual in page.get("visuals", []) or []:
+                        if visual.get("visual_id"):
+                            cached.setdefault((model, str(visual["visual_id"])), (report, page))
+            self._visual_context_cache = cached
+        return cached
+
+    def _scope_filter_items(self, semantic_model, visual, scope):
+        """Filtros de un ámbito (visual, página o informe) que alcanzan al visual."""
+        filters = visual.get("filters") or {}
+        if scope == "visual":
+            return list(filters.get("visual") or [])
+        inherited = filters.get("inherited")
+        if isinstance(inherited, dict):
+            return list(inherited.get(scope) or [])
+        # Catálogo sin filtros heredados en el visual: se leen de la página/informe.
+        report, page = self._visual_context_index().get(
+            (normalize_text(semantic_model), str(visual.get("visual_id"))), ({}, {}),
+        )
+        items = (page or {}).get("filters") if scope == "page" else (report or {}).get("report_filters")
+        if isinstance(items, dict):
+            items = items.get(scope)
+        return [item for item in items or [] if isinstance(item, dict)]
+
+    @staticmethod
+    def _is_blank_test(condition):
+        """¿La condición solo pregunta si la columna está (o no) en blanco?
+        («FECHA_CIERRE en blanco» = suministro pendiente: es un estado, no un periodo)."""
+        if not isinstance(condition, dict):
+            return False
+        op = condition.get("op")
+        if op == "not":
+            return QueryPlanBuilder._is_blank_test(condition.get("arg"))
+        if op == "in":
+            return all(value is None for value in condition.get("values") or [None])
+        if op == "cmp":
+            return condition.get("value") is None and condition.get("cmp") in ("=", "<>")
+        return False
+
+    def _visual_filter_clauses(self, semantic_model, visual, scopes=("visual",)):
+        """[(tabla, columna, condición, ámbito)] de los filtros que cambian el
+        dato del visual en los ámbitos pedidos («visual», «page», «report»), o
+        None si alguno no se entiende (no se aplica nada).
         Se ignoran los filtros sin condición y los de fecha/calendario (el
-        periodo lo decide la pregunta)."""
+        periodo lo decide la pregunta), salvo los que solo piden una fecha en
+        blanco o no («FECHA_CIERRE en blanco» = pendiente: es un estado)."""
         from src.semantic.visual_filters import UnsupportedCondition, condition_from_visual_file
 
         clauses = []
-        for item in ((visual.get("filters") or {}).get("visual") or []):
-            field = item.get("field") or {}
-            table, column = field.get("table"), field.get("column")
-            if field.get("kind") != "column" or not table or not column:
-                if item.get("values") or item.get("condition"):
-                    return None
-                continue
-            if self._CALENDAR_TABLE_RE.match(normalize_text(table).replace(" ", "")):
-                continue
-            if self._column_type(semantic_model, table, column) == "date":
-                continue
-            if "condition" in item or item.get("condition_error"):
-                if item.get("condition_error"):
-                    return None
-                condition = item.get("condition")
-            else:
-                # Catálogo anterior a guardar la condición: se lee del visual.json.
-                try:
-                    condition = condition_from_visual_file(visual.get("source_file"), item.get("name"), column)
-                except UnsupportedCondition:
-                    return None
-                if condition is None and item.get("values"):
-                    return None  # tenía valores pero no se pudo leer el operador
-            if condition is None:
-                continue
-            clauses.append((table, column, condition))
+        for scope in scopes:
+            for item in self._scope_filter_items(semantic_model, visual, scope):
+                field = item.get("field") or {}
+                table, column = field.get("table"), field.get("column")
+                if field.get("kind") != "column" or not table or not column:
+                    if item.get("values") or item.get("condition"):
+                        return None
+                    continue
+                if field.get("model_valid") is False:
+                    continue  # la columna ya no existe en el modelo
+                temporal = (
+                    bool(self._CALENDAR_TABLE_RE.match(normalize_text(table).replace(" ", "")))
+                    or self._column_type(semantic_model, table, column) == "date"
+                )
+                if "condition" in item or item.get("condition_error"):
+                    if item.get("condition_error"):
+                        if temporal:
+                            continue  # fecha relativa («últimos 7 días»): la decide la pregunta
+                        return None
+                    condition = item.get("condition")
+                else:
+                    # Catálogo anterior a guardar la condición: se lee del visual.json.
+                    if scope != "visual":
+                        if item.get("values") and not temporal:
+                            return None
+                        continue
+                    try:
+                        condition = condition_from_visual_file(visual.get("source_file"), item.get("name"), column)
+                    except UnsupportedCondition:
+                        if temporal:
+                            continue
+                        return None
+                    if condition is None and item.get("values"):
+                        if temporal:
+                            continue
+                        return None  # tenía valores pero no se pudo leer el operador
+                if condition is None:
+                    continue
+                if temporal and not self._is_blank_test(condition):
+                    continue
+                clauses.append((table, column, condition, scope))
         return clauses
 
+    def _tables_filtering_metric(self, metric):
+        """Tablas cuyos filtros llegan a la del indicador (ella, las del lado
+        «uno» de sus relaciones activas y las de relaciones en ambos sentidos),
+        o None si el modelo no declara relaciones o no se conoce la tabla."""
+        model = metric.get("semantic_model")
+        if not self._has_relationship_metadata(model):
+            return None
+        base = {**metric, "dax_expression": metric.get("base_dax_expression") or metric.get("dax_expression")}
+        tables = {normalize_text(name) for name in self._expression_tables(model, base)}
+        own = metric.get("table")
+        if own and not self._CALENDAR_TABLE_RE.match(normalize_text(own)):
+            tables.add(normalize_text(own))
+        if not tables:
+            return None
+        edges = []
+        for relation in self._technical_catalog(model).get("relationships", []) or []:
+            if relation.get("IsActive") is False:
+                continue
+            source, target = normalize_text(relation.get("FromTable")), normalize_text(relation.get("ToTable"))
+            if not source or not target:
+                continue
+            edges.append((source, target))  # el lado «uno» filtra al «muchos»
+            if str(relation.get("CrossFilteringBehavior") or "").lower().startswith("both"):
+                edges.append((target, source))
+        reached = set(tables)
+        for _ in range(3):
+            reached |= {target for source, target in edges if source in reached}
+        return reached
+
+    @staticmethod
+    def _normalized_condition(condition):
+        """Condición con el orden de «y/o» y de las listas normalizado (para comparar)."""
+        if not isinstance(condition, dict):
+            return condition
+        op = condition.get("op")
+        if op in ("and", "or"):
+            args = [QueryPlanBuilder._normalized_condition(arg) for arg in condition.get("args") or []]
+            return {"op": op, "args": sorted(args, key=lambda arg: json.dumps(arg, sort_keys=True, default=str))}
+        if op == "not":
+            return {"op": "not", "arg": QueryPlanBuilder._normalized_condition(condition.get("arg"))}
+        if op == "in":
+            values = condition.get("values") or []
+            return {"op": "in", "values": sorted(values, key=lambda value: json.dumps(value, default=str))}
+        return condition
+
+    def _board_filter_clauses(self, metric, visual, reachable=None):
+        """Filtros de visual + página + informe que el tablero aplica a la cifra
+        del indicador en ese visual: sin repetidos y sin los de tablas que no
+        filtran la del indicador (no cambian la cifra). None si alguno no se
+        entiende."""
+        from src.semantic.visual_filters import condition_signature
+
+        clauses = self._visual_filter_clauses(metric.get("semantic_model"), visual, self._FILTER_SCOPES)
+        if clauses is None:
+            return None
+        result, seen = [], set()
+        for table, column, condition, scope in clauses:
+            if reachable is not None and normalize_text(table) not in reachable:
+                continue
+            key = condition_signature(table, column, self._normalized_condition(condition))
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append((table, column, condition, scope))
+        return result
+
+    def _visual_rank(self, appearance, visual):
+        """Orden de preferencia de un visual como «la cifra del tablero»:
+        tarjeta antes que gráfico, visible antes que oculto, página principal
+        antes que las demás."""
+        kind = normalize_text((visual or {}).get("visual_type") or appearance.get("visual_type")).replace(" ", "")
+        page = normalize_text(appearance.get("page_display_name") or (visual or {}).get("page_display_name"))
+        return (
+            self._CANONICAL_VISUAL_RANK.get(kind, 3),
+            1 if (visual or {}).get("is_hidden") else 0,
+            0 if self._PRINCIPAL_PAGE_RE.search(page) else 1,
+        )
+
+    def _choose_board_filters(self, metric):
+        """(cláusulas, aparición) de los filtros del tablero que corresponden a
+        la cifra del indicador, o (None, motivo) si no se pueden decidir.
+
+        - Todas las apariciones con los mismos filtros: esos.
+        - Filtros distintos: los del visual más canónico (tarjeta visible de la
+          página principal) si es único o si los igual de canónicos coinciden.
+        - Si no, no se aplica nada (valor general) y el motivo lo dice."""
+        from src.semantic.visual_filters import condition_signature
+
+        index = self._visual_index()
+        model = normalize_text(metric.get("semantic_model"))
+        reachable = self._tables_filtering_metric(metric)
+        entries = []
+        for appearance in metric.get("appearances") or []:
+            visual = index.get((model, str(appearance.get("visual_id"))))
+            clauses = None
+            if visual is not None:
+                try:
+                    clauses = self._board_filter_clauses(metric, visual, reachable)
+                except Exception:
+                    clauses = None
+            signature = None if clauses is None else frozenset(
+                condition_signature(table, column, self._normalized_condition(condition))
+                for table, column, condition, _ in clauses
+            )
+            entries.append({
+                "appearance": appearance, "visual": visual, "clauses": clauses, "signature": signature,
+                "rank": self._visual_rank(appearance, visual) if clauses is not None else (9, 9, 9),
+            })
+        if not entries:
+            return None, "sin visuales"
+        signatures = {entry["signature"] for entry in entries}
+        if len(signatures) == 1:
+            entry = entries[0]
+            if entry["clauses"] is None:
+                return None, "filtros que no se pueden traducir"
+            return entry["clauses"], entry["appearance"]
+        known = [entry for entry in entries if entry["clauses"] is not None]
+        if not known:
+            return None, "filtros que no se pueden traducir"
+        best = min(entry["rank"] for entry in known)
+        top = [entry for entry in known if entry["rank"] == best]
+        if len({entry["signature"] for entry in top}) == 1:
+            return top[0]["clauses"], top[0]["appearance"]
+        return None, "filtros distintos en cada visual"
+
     def _with_visual_filters(self, metrics):
-        """Indicadores definidos por un visual (tarjeta, gráfico) cuyo visual
-        tiene filtros propios: la expresión pasa a CALCULATE(expr, filtros).
+        """Indicadores mostrados en visuales con filtros (del visual, de su
+        página o del informe): la expresión pasa a CALCULATE(expr, filtros),
+        que es la cifra que el usuario ve en el tablero.
         «MEDICAMENTOS EN VENCIMIENTO 0-30 DÍAS» = DISTINCTCOUNT(IPRCODIGO) con
-        mes <= 1; «INTERCONSULTAS SIN RESPUESTA» = ... con OID_RESPUESTA en
-        blanco. Solo si TODAS sus apariciones llevan los mismos filtros (si no,
-        el valor general es el de la medida sin filtro)."""
+        mes <= 1; %OCUPACION de la tarjeta de GESTIÓN CAMAS con los servicios
+        excluidos por la página. Vale para agregaciones de visual y medidas.
+        Si el indicador aparece en varios visuales con filtros distintos se
+        usan los del visual más canónico (`_choose_board_filters`); si no hay
+        uno claro queda el valor general y `board_filters_note` lo explica."""
         try:
-            from src.semantic.visual_filters import condition_signature, describe_condition, filter_dax
+            from src.semantic.visual_filters import describe_condition, filter_dax
         except Exception:
             return metrics
-        index = self._visual_index()
-        if not index:
+        if not self._visual_index():
             return metrics
         result = []
         for metric in metrics:
             appearances = metric.get("appearances") or []
             expression = metric.get("dax_expression")
             if (
-                metric.get("source_type") != "visual_aggregation" or not appearances or not expression
-                or metric.get("visual_filters")
+                metric.get("source_type") not in ("visual_aggregation", "explicit_measure")
+                or not appearances or not expression or metric.get("visual_filters")
             ):
                 result.append(metric)
                 continue
-            model = normalize_text(metric.get("semantic_model"))
-            signatures, chosen = set(), None
             try:
-                for appearance in appearances:
-                    visual = index.get((model, str(appearance.get("visual_id"))))
-                    clauses = None if visual is None else self._visual_filter_clauses(
-                        metric.get("semantic_model"), visual,
-                    )
-                    if clauses is None:
-                        signatures = None
-                        break
-                    signatures.add(tuple(sorted(condition_signature(*clause) for clause in clauses)))
-                    chosen = clauses
+                chosen, source = self._choose_board_filters(metric)
             except Exception:
-                signatures = None
-            if not signatures or len(signatures) != 1 or not chosen:
+                chosen, source = None, None
+            if not chosen:
+                if chosen is None and source == "filtros distintos en cada visual":
+                    metric = {**metric, "board_filters_note": source}
                 result.append(metric)
                 continue
             try:
-                arguments = [filter_dax(table, column, condition) for table, column, condition in chosen]
+                arguments = [filter_dax(table, column, condition) for table, column, condition, _ in chosen]
             except Exception:
                 result.append(metric)
                 continue
@@ -792,12 +984,78 @@ class QueryPlanBuilder:
             enriched["base_dax_expression"] = expression
             enriched["dax_expression"] = "CALCULATE(" + expression + ", " + ", ".join(arguments) + ")"
             enriched["visual_filters"] = [
-                {"table": table, "column": column, "condition": condition,
+                {"table": table, "column": column, "condition": condition, "scope": scope,
                  "text": describe_condition(condition, column)}
-                for table, column, condition in chosen
+                for table, column, condition, scope in chosen
             ]
+            enriched["board_filters_source"] = {
+                "page": source.get("page_display_name"),
+                "visual_type": source.get("visual_type"),
+                "visual_id": source.get("visual_id"),
+                "report": source.get("report") or metric.get("report"),
+            }
             result.append(enriched)
         return result
+
+    def board_filters_text(self, metric, limit=4):
+        """«Filtros del tablero aplicados (tarjeta de la página X): A; B» o None."""
+        filters = (metric or {}).get("visual_filters") or []
+        if not filters:
+            return None
+        texts = list(dict.fromkeys(str(item.get("text") or item.get("column")) for item in filters))
+        shown = "; ".join(texts[:limit])
+        if len(texts) > limit:
+            shown += f" y {len(texts) - limit} más"
+        source = metric.get("board_filters_source") or {}
+        where = ""
+        if source.get("page"):
+            kind = normalize_text(source.get("visual_type")).replace(" ", "")
+            visual = "tarjeta" if self._CANONICAL_VISUAL_RANK.get(kind, 3) <= 1 else "visual"
+            where = f" ({visual} de la página {source['page']})"
+        return f"Filtros del tablero aplicados{where}: {shown}."
+
+    def _apply_board_filter_context(self, plan):
+        """Plan listo: si la pregunta filtra una columna que el tablero ya
+        filtra (el usuario pide CUIDADO ESPECIAL y la página lo excluye), manda
+        la pregunta: se quita ese filtro del tablero. Agrega la nota con los
+        filtros del tablero aplicados."""
+        if not isinstance(plan, dict) or plan.get("status") != "ready":
+            return plan
+        metric = plan.get("metric") or {}
+        board = metric.get("visual_filters") or []
+        if not board or not metric.get("base_dax_expression"):
+            return plan
+        asked = set()
+        for item in plan.get("filters") or []:
+            for column in [item, *(item.get("columns") or [])]:
+                if column.get("table") and column.get("column"):
+                    asked.add((normalize_text(column["table"]), normalize_text(column["column"])))
+        for item in plan.get("group_by") or []:
+            if item.get("table") and item.get("column"):
+                asked.add((normalize_text(item["table"]), normalize_text(item["column"])))
+        kept = [
+            item for item in board
+            if (normalize_text(item.get("table")), normalize_text(item.get("column"))) not in asked
+        ]
+        if len(kept) != len(board):
+            from src.semantic.visual_filters import filter_dax
+
+            metric = dict(metric)
+            expression = metric["base_dax_expression"]
+            if kept:
+                arguments = [filter_dax(item["table"], item["column"], item["condition"]) for item in kept]
+                expression = "CALCULATE(" + expression + ", " + ", ".join(arguments) + ")"
+            metric["dax_expression"] = expression
+            metric["visual_filters"] = kept
+            plan["metric"] = metric
+            dropped = [item.get("column") for item in board if item not in kept]
+            plan.setdefault("notes", []).append(
+                "Filtro del tablero reemplazado por el de la pregunta: " + ", ".join(dict.fromkeys(dropped)) + "."
+            )
+        text = self.board_filters_text(metric)
+        if text and text not in (plan.get("notes") or []):
+            plan["notes"] = [*(plan.get("notes") or []), text]
+        return plan
 
     # ---------------- formato del valor (dinero) ----------------
     _MONEY_NAME_RE = re.compile(
@@ -3678,6 +3936,14 @@ class QueryPlanBuilder:
             if self._is_temporal_field(field)
             and (semantic_model is None or self._temporal_role(field, semantic_model) == "date")
         ]
+        metric = self.__dict__.get("_date_metric")
+        if metric and semantic_model and temporal:
+            # Con el indicador conocido: solo fechas que filtran SU tabla y,
+            # entre ellas, la del evento que mide (`_metric_date_score`).
+            try:
+                temporal = self._metric_date_fields(temporal, metric, semantic_model)
+            except Exception:
+                pass
         if not temporal:
             return None
 
@@ -3691,10 +3957,227 @@ class QueryPlanBuilder:
                 value += 60
             if field.get("kind") == "hierarchy_level":
                 value += 30
-            return value
+            return value + field.get("_metric_date_score", 0)
 
         temporal.sort(key=score, reverse=True)
         return temporal[0]
+
+    # ---------------- fecha del indicador ----------------
+    # Palabras de evento en nombres de columnas de fecha (FECHA_EGRESO,
+    # FechaSolicitud...): la fecha de un evento distinto al que mide el
+    # indicador no es su periodo (EGRESOS no se filtra por FECHA_INGRESO).
+    _EVENT_STEMS = {
+        _stem_token(word) for word in (
+            "ingreso", "egreso", "salida", "entrada", "admision", "alta", "solicitud", "respuesta",
+            "cierre", "apertura", "asignacion", "cita", "atencion", "triage", "registro", "creacion",
+            "nacimiento", "cancelacion", "programacion", "cirugia", "orden", "factura", "radicacion",
+            "vencimiento", "consulta", "interconsulta", "despacho", "entrega", "dispensacion",
+            "facturacion", "glosa", "defuncion", "muerte", "parto", "remision", "llegada", "inicio", "fin",
+        )
+    }
+    # Mismo evento con otro nombre (EGRESOS de BRIEFING usa SALIDA_SERV).
+    _EVENT_SYNONYMS = [
+        {_stem_token(word) for word in group} for group in (
+            ("egreso", "salida", "alta"),
+            ("ingreso", "entrada", "admision", "llegada"),
+        )
+    ]
+    _TIME_OF_DAY_RE = re.compile(r"(?<![a-z])(?:hora|horas|tramo|tramohorario|time|minuto|turno)")
+    _DATE_NOISE = {"fecha", "date", "fec", "hora", "dia", "de", "del", "la", "el"}
+
+    def _metric_event_stems(self, metric):
+        """(raíces del nombre del indicador y de su tabla, raíces de las
+        columnas de su expresión). EGRESOS cuenta EGRESOS[INGRESO]: manda el
+        nombre («egreso»), la columna contada pesa menos."""
+        def stems_of(texts):
+            stems = set()
+            for text in texts:
+                for token in normalize_text(str(text or "").replace("_", " ")).split():
+                    if len(token) >= 4:
+                        stems.add(_stem_token(token))
+            return stems
+
+        expression = str(metric.get("base_dax_expression") or metric.get("dax_expression") or "")
+        expression += " " + str(metric.get("model_expression") or "")
+        named = stems_of([metric.get("label"), metric.get("measure"), metric.get("table")])
+        used = stems_of([metric.get("column"), *re.findall(r"\[([^\]]+)\]", expression)])
+        for group in self._EVENT_SYNONYMS:
+            if any(self._stem_in(stem, group) for stem in named):
+                named |= group  # EGRESOS → también SALIDA_SERV / ALTA
+        return named, used - named
+
+    @staticmethod
+    def _stem_in(stem, stems):
+        """¿La raíz está en el conjunto, admitiendo que una sea prefijo de la
+        otra («triag» de TRIAGES y «triage» de FECHA_TRIAGE)?"""
+        return any(
+            stem == other or (min(len(stem), len(other)) >= 4 and (stem.startswith(other) or other.startswith(stem)))
+            for other in stems
+        )
+
+    def _date_column_stems(self, column):
+        tokens = re.findall(r"[a-z]+", normalize_text(re.sub(r"(?<=[a-z])(?=[A-Z])", " ", str(column or ""))
+                                                       .replace("_", " ")))
+        return {_stem_token(token) for token in tokens if token not in self._DATE_NOISE and len(token) >= 4}
+
+    def _metric_date_tables(self, metric, semantic_model):
+        """(tablas del indicador, dimensiones que lo filtran, {calendario:
+        {table, column, from: [columnas del indicador que lo usan]}}) según las
+        relaciones del modelo, o None si el modelo no las declara."""
+        if not self._has_relationship_metadata(semantic_model):
+            return None
+        base = {**metric, "dax_expression": metric.get("base_dax_expression") or metric.get("dax_expression")}
+        tables = {normalize_text(name) for name in self._expression_tables(semantic_model, base)}
+        own = self._metric_fact_table(metric)
+        if own and not self._CALENDAR_TABLE_RE.match(normalize_text(own)):
+            tables.add(normalize_text(own))
+        if not tables:
+            return None
+        relations = [
+            relation for relation in self._technical_catalog(semantic_model).get("relationships", []) or []
+            if relation.get("IsActive") is not False
+        ]
+        dimensions, calendars = set(), {}
+        frontier = set(tables)
+        for _ in range(2):  # dimensión y dimensión de la dimensión
+            reached = set()
+            for relation in relations:
+                source = normalize_text(relation.get("FromTable"))
+                target = normalize_text(relation.get("ToTable"))
+                if source not in frontier or not target:
+                    continue
+                # Solo filtra la tabla una relación que llega por el lado «uno»
+                # (un muchos-a-muchos por documento del paciente no es su fecha).
+                if str(relation.get("ToCardinality") or "One").lower() != "one":
+                    continue
+                if self._CALENDAR_TABLE_RE.match(target):
+                    if source in tables:
+                        entry = calendars.setdefault(target, {
+                            "table": relation.get("ToTable"), "column": relation.get("ToColumn"), "from": [],
+                        })
+                        entry["from"].append(relation.get("FromColumn"))
+                    continue
+                reached.add(target)
+            reached -= tables | dimensions
+            dimensions |= reached
+            frontier = reached
+        return tables, dimensions, calendars
+
+    def _metric_visual_date_tables(self, metric):
+        """Tablas/columnas de fecha que los visuales del indicador usan como eje
+        o filtro: {(tabla, columna)} normalizados."""
+        index = self._visual_index()
+        model = normalize_text(metric.get("semantic_model"))
+        used = set()
+        for appearance in metric.get("appearances") or []:
+            visual = index.get((model, str(appearance.get("visual_id"))))
+            if not visual:
+                continue
+            fields = list(visual.get("fields") or [])
+            for scope in ("visual", "page"):
+                try:
+                    items = self._scope_filter_items(metric.get("semantic_model"), visual, scope)
+                except Exception:
+                    items = []
+                fields.extend(item.get("field") or {} for item in items)
+            for field in fields:
+                if field.get("table") and field.get("column"):
+                    used.add((normalize_text(field["table"]), normalize_text(field["column"])))
+        return used
+
+    def _metric_date_fields(self, temporal, metric, semantic_model):
+        """Fechas candidatas puntuadas para el indicador (`_metric_date_score`).
+
+        - Se descartan las de tablas que no filtran la del indicador (TRIAGES
+          no se filtra por CONSULTAS PRIORITARIAS[FECHA], ligada solo por el
+          documento del paciente).
+        - Si no queda ninguna propia ni de un calendario relacionado, se usa
+          la fecha de la propia tabla del indicador (TRIAGES[FECHA]).
+        - Entre varias, la del evento que mide (EGRESOS → FECHA_EGRESO) y la
+          que usan sus visuales del tablero como eje o filtro."""
+        layout = self._metric_date_tables(metric, semantic_model)
+        if layout is None:
+            return temporal
+        tables, dimensions, calendars = layout
+        named_stems, used_stems = self._metric_event_stems(metric)
+        visual_dates = self._metric_visual_date_tables(metric)
+
+        def kind_of(field):
+            table = normalize_text(field.get("table"))
+            if table in tables:
+                return "own"
+            if table in calendars:
+                return "calendar"
+            if table in dimensions:
+                return "dimension"
+            return "foreign"
+
+        pool = [dict(field) for field in temporal if kind_of(field) != "foreign"]
+        # Su calendario relacionado (no los automáticos) y las fechas de su
+        # propia tabla siempre compiten, aunque no estén entre las candidatas
+        # (TRIAGES[FECHA] frente a TRIAGES[TramoHorario], la hora del día).
+        present = {(normalize_text(field.get("table")), normalize_text(field.get("column"))) for field in pool}
+        pool.extend(
+            {"table": entry["table"], "column": entry["column"], "aliases": [entry["column"]],
+             "kind": "column", "relevance_score": 0, "source": "metric_calendar"}
+            for name, entry in calendars.items()
+            if entry.get("column") and not name.startswith("localdatetable")
+            and (name, normalize_text(entry["column"])) not in present
+        )
+        pool.extend(self._own_date_fields(metric, semantic_model, tables, pool))
+        for field in pool:
+            kind = kind_of(field)
+            table = normalize_text(field.get("table"))
+            columns = [field.get("column")]
+            value = {"own": 150, "calendar": 160, "dimension": 20}[kind]
+            if kind == "calendar":
+                # Un calendario automático (LocalDateTable) es la fecha de la
+                # columna de la tabla del indicador que lo usa.
+                columns = [*calendars[table]["from"], field.get("column")]
+                if table.startswith("localdatetable"):
+                    value = 140
+            column_stems = set()
+            for column in columns:
+                column_stems |= self._date_column_stems(column)
+            events = {stem for stem in column_stems if self._stem_in(stem, self._EVENT_STEMS)}
+            if any(self._stem_in(stem, named_stems) for stem in events):
+                value += 100  # FECHA_EGRESO para EGRESOS
+            elif any(self._stem_in(stem, used_stems) for stem in events):
+                value += 20
+            elif events:
+                value -= 60  # FECHA_INGRESO para EGRESOS
+            if self._TIME_OF_DAY_RE.search(normalize_text(str(field.get("column") or "").replace("_", " "))):
+                value -= 120  # hora o tramo horario: no es la fecha del periodo
+            if (table, normalize_text(field.get("column"))) in visual_dates or (
+                kind == "calendar" and any(item[0] == table for item in visual_dates)
+            ):
+                value += 120  # la fecha que usa el visual del tablero
+            field["_metric_date_score"] = value
+        return pool
+
+    def _own_date_fields(self, metric, semantic_model, tables, existing):
+        """Columnas de fecha de la tabla del indicador (catálogo técnico) como
+        candidatas de periodo cuando las candidatas no la filtran."""
+        seen = {(normalize_text(field.get("table")), normalize_text(field.get("column"))) for field in existing}
+        result = []
+        for entry in self._technical_catalog(semantic_model).get("tables", []) or []:
+            if normalize_text(entry.get("name")) not in tables:
+                continue
+            for column in entry.get("columns") or []:
+                name = column.get("name")
+                if not name or column.get("is_hidden") or column.get("IsHidden"):
+                    continue
+                if self._classify_data_type(column.get("data_type")) != "date":
+                    continue
+                key = (normalize_text(entry.get("name")), normalize_text(name))
+                if key in seen:
+                    continue
+                seen.add(key)
+                result.append({
+                    "table": entry.get("name"), "column": name, "aliases": [name],
+                    "kind": "column", "relevance_score": 0, "source": "metric_own_date",
+                })
+        return result
 
     def _best_temporal_field(self, candidates, semantic_model, role):
         found = [
@@ -4005,6 +4488,16 @@ class QueryPlanBuilder:
         return entry.get("name"), dated
 
     def _apply_temporal(self, analysis, candidates, semantic_model, group_by, metric=None):
+        """`_apply_temporal_for` con el indicador como contexto de la columna
+        de fecha (`_best_date_field` elige la fecha que filtra SU tabla)."""
+        previous = self.__dict__.get("_date_metric")
+        self._date_metric = metric
+        try:
+            return self._apply_temporal_for(analysis, candidates, semantic_model, group_by, metric)
+        finally:
+            self._date_metric = previous
+
+    def _apply_temporal_for(self, analysis, candidates, semantic_model, group_by, metric=None):
         """Filtros del periodo + agrupación temporal («por mes») del plan.
 
         Devuelve {"filters", "unapplied", "notes", "unsupported_period",
@@ -8202,6 +8695,9 @@ class QueryPlanBuilder:
                 plan = self._refine_options(question, intent_result, plan)
         finally:
             self._resolution_notes = previous
+        # Filtros del tablero (visual + página) del indicador: la pregunta
+        # manda sobre la misma columna y la respuesta dice cuáles se aplicaron.
+        plan = self._apply_board_filter_context(plan)
         if notes and isinstance(plan, dict):
             plan["resolution_notes"] = list(dict.fromkeys([*(plan.get("resolution_notes") or []), *notes]))
         return plan

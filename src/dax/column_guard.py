@@ -158,7 +158,13 @@ def metric_fact_tables(plan, schema):
     if own and schema.table(own) and not _CALENDAR_NAME_RE.match(_fold(own)):
         tables.append(schema.table(own)["name"])
     # Una medida explícita trae "[MEDIDA]" en dax_expression y su fórmula en model_expression.
-    expression = " ".join(str(metric.get(key) or "") for key in ("dax_expression", "model_expression"))
+    # Los filtros del tablero (visual/página) que envuelven la expresión no
+    # son tablas de la medida: se mira la expresión base.
+    expression = " ".join(
+        str(metric.get(key) or "")
+        for key in ("base_dax_expression" if metric.get("base_dax_expression") else "dax_expression",
+                    "model_expression")
+    )
     for table, _ in references(expression):
         entry = schema.table(table)
         if entry and entry["name"] not in tables and not _CALENDAR_NAME_RE.match(_fold(entry["name"])):
