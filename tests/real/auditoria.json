@@ -432,15 +432,11 @@
    "huella": "270d61155671"
   },
   "AC02": {
-   "veredicto": "falla",
-   "fallas": [
-    "contrapregunta"
-   ],
-   "causas": [
-    "4"
-   ],
-   "huella": "ce33c6c121fa",
-   "nota": "Opciones duplicadas (4b). Cifra aceptable sin el filtro de página de otra tabla (1 %)."
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "a47e8205fcb5",
+   "nota": "Ronda r3: contrapregunta legítima. Dos tarjetas CONSULTAS ASIGNADAS (INICIO: citas de CITAS_ASIGNADAS; ASIGNADAS: solicitudes asignadas de EN_ESPERA) responden con cifras distintas (asignadas.md). Opción INICIO: cifra correcta (488.623, corrida v5)."
   },
   "AC03": {
    "veredicto": "falla",

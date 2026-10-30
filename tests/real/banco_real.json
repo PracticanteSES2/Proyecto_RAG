@@ -584,7 +584,7 @@
     "porcentaje": false,
     "filtros_no_traducidos": []
    },
-   "criterio": "Verdad = cifra que el usuario ve en el visual ab87ed97e644f8b830f1 de la página «IMAGENES» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
+   "criterio": "Verdad = cifra que el usuario ve en el visual ab87ed97e644f8b830f1 de la página «IMAGENES» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido. Las dos «IMÁGENES TOMADAS» de la página IMAGENES son el mismo indicador (tarjeta SUM(SOLICITUDES_CANT) y gráfico DISTINCTCOUNT(OID_SOLICITUD), imagenes.md); las del Briefing solo traen el día o la semana en curso: una sola fuente responde «mes pasado»."
   },
   {
    "id": "TU09",
@@ -925,8 +925,8 @@
    "tipo": "numero",
    "pregunta": "cuantas consultas asignadas hay",
    "turnos_extra": [],
-   "elegir": null,
-   "contrapregunta_aceptable": false,
+   "elegir": "INICIO",
+   "contrapregunta_aceptable": true,
    "verdad": {
     "modelo": "ASIGNACION DE CITAS",
     "informe": "ASIGNACION DE CITAS",
@@ -944,7 +944,7 @@
      }
     ]
    },
-   "criterio": "Tarjeta CONSULTAS ASIGNADAS de INICIO. Verdad discutible: el filtro de página EN_ESPERA[CCEESTADO] ≠ 2 es de otra tabla y mueve la cifra ~1 %: se acepta sin él."
+   "criterio": "Tarjeta CONSULTAS ASIGNADAS de INICIO. Verdad discutible: el filtro de página EN_ESPERA[CCEESTADO] ≠ 2 es de otra tabla y mueve la cifra ~1 %: se acepta sin él. Contrapregunta legítima. Dos tarjetas «CONSULTAS ASIGNADAS» del mismo tablero responden «cuántas hay» con cifras distintas: INICIO cuenta citas de CITAS_ASIGNADAS y ASIGNADAS cuenta solicitudes asignadas de EN_ESPERA (asignadas.md: «Mismo nombre, otra medida… las cifras no son comparables»)."
   },
   {
    "id": "AC03",

@@ -2670,9 +2670,14 @@ class QueryEngine:
                 seen_measures[twin_key] = label
             # Nombre equivalente (otro orden, palabras de forma o una errata) y
             # el mismo cálculo: una sola opción.
+            # También el mismo indicador en tarjeta y gráfico de una misma
+            # página y tabla, aunque cada visual lo calcule a su modo.
+            page_twins = getattr(self.query_plan_builder, "_page_twins", None)
             twin = next(
                 (other for other in accepted
-                 if self._equivalent_names(metric, other) and self._same_computation(metric, other)),
+                 if self._equivalent_names(metric, other) and (
+                     self._same_computation(metric, other)
+                     or (callable(page_twins) and page_twins(metric, other)))),
                 None,
             )
             if twin is not None:

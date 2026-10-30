@@ -173,6 +173,15 @@ AJUSTES_AUDITORIA = {
     # CONSOLIDADO; la tarjeta de la página PARTOS (PARTOS_DRIVE, modelo de la
     # verdad) es «Total Partos Dinamico».
     "AI06": {"elegir": "Total Partos Dinamico"},
+    # Ronda r3: «definiciones distintas», decididas con la documentación del tablero.
+    "AC02": {"elegir": "INICIO", "contrapregunta_aceptable": True,
+             "por_que": "Dos tarjetas «CONSULTAS ASIGNADAS» del mismo tablero responden «cuántas hay» con cifras "
+                        "distintas: INICIO cuenta citas de CITAS_ASIGNADAS y ASIGNADAS cuenta solicitudes asignadas "
+                        "de EN_ESPERA (asignadas.md: «Mismo nombre, otra medida… las cifras no son comparables»)."},
+    "TU08": {"contrapregunta_aceptable": False,
+             "por_que": "Las dos «IMÁGENES TOMADAS» de la página IMAGENES son el mismo indicador (tarjeta "
+                        "SUM(SOLICITUDES_CANT) y gráfico DISTINCTCOUNT(OID_SOLICITUD), imagenes.md); las del "
+                        "Briefing solo traen el día o la semana en curso: una sola fuente responde «mes pasado»."},
     "DI02": {"elegir": "conteo de OID", "contrapregunta_aceptable": True,
              "por_que": "Asignación de Citas (ANULADO) y Demanda Insatisfecha (OID) dan cifras distintas."},
 }
@@ -183,10 +192,17 @@ def aplicar_auditoria(cases):
         ajuste = AJUSTES_AUDITORIA.get(item["id"])
         if not ajuste:
             continue
+        explicit = item.get("criterio") and item["criterio"] != _criterio(item)
         for key in ("elegir", "contrapregunta_aceptable"):
             if key in ajuste:
                 item[key] = ajuste[key]
-        item["criterio"] = _criterio(item)
+        if explicit:
+            # Criterio escrito a mano (verdad discutible, alternativas): se
+            # conserva y se le agrega el veredicto de la contrapregunta.
+            if item.get("contrapregunta_aceptable"):
+                item["criterio"] += " Contrapregunta legítima."
+        else:
+            item["criterio"] = _criterio(item)
         if ajuste.get("por_que"):
             item["criterio"] += " " + ajuste["por_que"]
     return cases

@@ -86,6 +86,9 @@ def coverage_window(text, today):
         amount = _number(match.group(1))
         if amount:
             starts.append(today - timedelta(days=amount))
+    # «Periodo de la semana en curso»: desde el lunes de esta semana.
+    if re.search(r"(?<![a-z])(?:semana en curso|semana actual|de esta semana)(?![a-z])", norm):
+        starts.append(today - timedelta(days=today.weekday()))
     if re.search(r"(?<![a-z])(?:de ayer|del dia anterior|dia anterior)(?![a-z])", norm):
         starts.append(today - timedelta(days=1))
     # «de hoy», «registrados hoy», «del día de la última actualización»; no

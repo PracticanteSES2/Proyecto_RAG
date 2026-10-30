@@ -2625,14 +2625,115 @@ class QueryPlanBuilder:
         index = self._dictionary_index()
         model = normalize_text(metric.get("semantic_model"))
         today = self._today()
+        documented = False
         for table in self._metric_coverage_tables(metric):
             text = index.get((model, "t:" + normalize_text(table)))
             if not text:
                 continue
             window = coverage_window(text, today)
+            documented = documented or window is not None
             if not covers(window, start, end, today):
                 return table
+        if documented:
+            return None
+        # Sin ventana documentada en sus tablas: si TODAS las páginas donde se
+        # ve el indicador son del bloque «Día» de la documentación del tablero
+        # (EGRESOS del BRIEFING: INICIO e INGRESOS Y EGRESOS, «del último
+        # día»), el indicador es la foto del día y no responde «mes pasado».
+        blocks = self._page_block_index()
+        pages = [
+            normalize_text(appearance.get("page_display_name") or appearance.get("page_name"))
+            for appearance in metric.get("appearances") or []
+        ]
+        pages = [page for page in pages if page]
+        if pages and all(blocks.get((model, page)) == "dia" for page in pages):
+            window = (today - timedelta(days=1), None)
+            if not covers(window, start, end, today):
+                return "páginas del día: " + ", ".join(_unique_strings(
+                    appearance.get("page_display_name") or appearance.get("page_name")
+                    for appearance in metric.get("appearances") or []
+                ))
         return None
+
+    def _page_twins(self, first, second):
+        """¿Son el mismo indicador en dos visuales de la misma página? Mismo
+        modelo, misma tabla de hechos, nombre equivalente (sin tildes, «total»
+        ni años) y al menos una página en común: «IMÁGENES TOMADAS» de la
+        tarjeta (SUM(SOLICITUDES_CANT)) y del gráfico (DISTINCTCOUNT(
+        OID_SOLICITUD)) de la página IMAGENES. Con páginas distintas no lo son
+        (CONSULTAS ASIGNADAS de INICIO y de ASIGNADAS cuentan otras cosas)."""
+        if normalize_text(first.get("semantic_model")) != normalize_text(second.get("semantic_model")):
+            return False
+        if normalize_text(self._metric_fact_table(first)) != normalize_text(self._metric_fact_table(second)):
+            return False
+        names_a = {self._name_key(first.get("label")), self._name_key(first.get("measure"))} - {()}
+        names_b = {self._name_key(second.get("label")), self._name_key(second.get("measure"))} - {()}
+        if not names_a & names_b:
+            return False
+        def pages(metric):
+            return {
+                normalize_text(appearance.get("page_display_name") or appearance.get("page_name"))
+                for appearance in metric.get("appearances") or []
+            } - {""}
+
+        return bool(pages(first) & pages(second))
+
+    def _collapse_page_twins(self, items):
+        """Deja una sola vez cada indicador que la misma página muestra en dos
+        visuales (`_page_twins`); se conserva el que se ve en una tarjeta."""
+        def card_first(item):
+            return 0 if any(
+                "card" in str(appearance.get("visual_type") or "").lower()
+                for appearance in item["metric"].get("appearances") or []
+            ) else 1
+
+        kept = []
+        for item in items:
+            twin = next((other for other in kept if self._page_twins(item["metric"], other["metric"])), None)
+            if twin is None:
+                kept.append(item)
+                continue
+            if card_first(item) < card_first(twin):
+                kept[kept.index(twin)] = item
+                twin, item = item, twin
+            self._note(
+                f"{item['metric'].get('label')} y {twin['metric'].get('label')} son el mismo indicador en "
+                "dos visuales de la misma página (misma tabla): se ofrece una sola vez"
+            )
+        return kept
+
+    def _page_block_index(self):
+        """{(modelo, página): bloque} de la documentación por página del
+        tablero (data/semantic_documents, metadatos «bloque: Día|Histórico»),
+        normalizados."""
+        cached = self.__dict__.get("_page_block_cache")
+        if cached is not None:
+            return cached
+        index = {}
+        root = self.project_root / "data" / "semantic_documents"
+        try:
+            paths = sorted(root.rglob("*.json")) if root.exists() else []
+        except OSError:
+            paths = []
+        for path in paths:
+            try:
+                document = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(document, dict):
+                continue
+            model = normalize_text(document.get("semantic_model"))
+            for dashboard in document.get("dashboards") or []:
+                if not isinstance(dashboard, dict) or dashboard.get("is_dictionary"):
+                    continue
+                meta = dashboard.get("md_metadata")
+                if not isinstance(meta, dict) or not meta.get("bloque"):
+                    continue
+                page = normalize_text(meta.get("pagina") or dashboard.get("name"))
+                if model and page:
+                    index.setdefault((model, page), normalize_text(meta["bloque"]))
+        self._page_block_cache = index
+        return index
 
     def _requested_period_bounds(self, business_question):
         try:
@@ -3643,7 +3744,14 @@ class QueryPlanBuilder:
         """Encabezado de la agrupación: su primer alias o, si es el nombre
         técnico (GEEDESCRI, TERNOMCOM), el nombre de negocio de los visuales."""
         label = (field.get("aliases") or [field.get("column")])[0]
-        if normalize_text(label) == normalize_text(field.get("column")):
+        column = normalize_text(field.get("column"))
+        # Una columna que ya se llama con la palabra de negocio (ESPECIALIDAD,
+        # SERVICIO) conserva ese nombre: el de un visual puede calificarla de
+        # más («ESPECIALIDAD CIRUGÍA» en DETALLE OCUPACIÓN) y la pregunta pide
+        # «especialidades», no las de cirugía.
+        if column and any(column in synonyms for synonyms in DIMENSION_SYNONYMS.values()):
+            return label if normalize_text(label) == column else field.get("column")
+        if normalize_text(label) == column:
             names = self._column_business_names(field.get("semantic_model"), field.get("column"), field.get("table"))
             if names:
                 return names[0]
@@ -9970,6 +10078,15 @@ class QueryPlanBuilder:
         found = [item for item in found if groups_by(item["metric"])]
         if not found:
             return None
+        # Solo compiten los que responden la pregunta tal como está: fuera los
+        # de tablas o páginas del día cuando se pide «mes pasado», y una sola
+        # vez el indicador que la misma página muestra en tarjeta y en gráfico.
+        covering = self._items_covering_period(
+            self._metric_business_question(question, source_context), found,
+        )
+        if covering is not None:
+            found = covering
+        found = self._collapse_page_twins(found)
         top = found[0]
         second = found[1] if len(found) > 1 else None
         words_text = " ".join(words)
