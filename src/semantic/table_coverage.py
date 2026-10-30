@@ -99,6 +99,13 @@ def coverage_window(text, today):
             r"hech[oa]s hoy|del dia de la ultima actualizacion)(?![a-z])",
             today_text):
         starts.append(today)
+    # «Sin límite de fechas», «no limita fechas», «todo el histórico»: la
+    # tabla trae cualquier periodo (aunque la página sea una foto del día).
+    if re.search(
+            r"(?<![a-z])(?:sin limite de fechas?|sin limite de tiempo|no limita (?:las )?fechas|"
+            r"todo el historico|historico completo)(?![a-z])",
+            norm):
+        starts.append(date.min)
     starts = [value for value in starts if value is not None]
     end = None
     if re.search(r"hasta el ultimo dia del mes anterior", norm):

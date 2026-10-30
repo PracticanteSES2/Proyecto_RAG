@@ -2478,6 +2478,27 @@ class QueryPlanBuilder:
                 count += 1
         return count
 
+    _GENERAL_NAME_NEUTRAL_WORDS = FILTER_NEUTRAL_WORDS | {"cantidad", "conteo", "general", "global"}
+
+    def _general_name_adds_words(self, metric, question_tokens):
+        """Palabras con contenido del nombre del indicador (etiqueta o medida)
+        que la pregunta no explica, sin contar «total», «número» ni conectores.
+        Basta con que uno de sus nombres no añada nada."""
+        neutral = {canonical_token(word) for word in STOPWORDS | self._GENERAL_NAME_NEUTRAL_WORDS}
+        names = [name for name in (metric.get("label"), metric.get("measure")) if name]
+        if not names:
+            return []
+        best = None
+        for name in names:
+            extra = [
+                token for token in canonical_tokens(name)
+                if len(token) >= 3 and token not in neutral and not token.isdigit()
+                and not self._explains(token, question_tokens)
+            ]
+            if best is None or len(extra) < len(best):
+                best = extra
+        return best
+
     def _general_indicator(self, business_question, source_context, best):
         """El elegido es la tarjeta de una página de un SUBSERVICIO (URGENCIAS)
         que la pregunta no nombra y cuya tabla, según el diccionario, solo
@@ -2525,6 +2546,13 @@ class QueryPlanBuilder:
             # la descripción de su tabla.
             own_names = set(canonical_tokens(other.get("label"))) | set(canonical_tokens(other.get("measure")))
             if not principal_cards or not self._explains(head, own_names):
+                continue
+            # Y su nombre no dice más que la pregunta: el general cuenta lo
+            # mismo, no otra cosa del mismo tema. «TIEMPO PROMEDIO GESTION
+            # FACTURA» no es «cuánto se facturó» (un tiempo, no un monto) ni
+            # «TOTAL GESTIÓN CITA EN ESPERA» (en espera + asignadas) es «citas
+            # en espera»; «TOTAL PACIENTES» sí es «cuántos pacientes».
+            if self._general_name_adds_words(other, question_tokens):
                 continue
             vocabulary = self._metric_vocabulary_tokens(other) | self._dictionary_tokens(other)
             vocabulary.update(canonical_tokens(other.get("semantic_model")))
