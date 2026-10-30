@@ -6,6 +6,7 @@ import threading
 import unicodedata
 from datetime import date, timedelta
 from difflib import SequenceMatcher
+from functools import lru_cache
 from pathlib import Path
 
 from src.providers.domain_cache import connection_open, domain_cache_for, identifier_column
@@ -215,16 +216,32 @@ DIMENSION_SYNONYMS = {
 
 
 def normalize_text(value):
-    value = str(value or "").lower().strip()
+    # Se llama cientos de miles de veces por turno con los mismos textos
+    # (nombres de indicadores, columnas, valores de dominio): con caché.
+    return _normalize_str(str(value or ""))
+
+
+@lru_cache(maxsize=262144)
+def _normalize_str(value):
+    value = value.lower().strip()
     value = "".join(
         char for char in unicodedata.normalize("NFD", value)
         if unicodedata.category(char) != "Mn"
     )
-    value = re.sub(r"[^a-z0-9%]+", " ", value)
-    return re.sub(r"\s+", " ", value).strip()
+    value = _NON_ALNUM_RE.sub(" ", value)
+    return _SPACES_RE.sub(" ", value).strip()
+
+
+_NON_ALNUM_RE = re.compile(r"[^a-z0-9%]+")
+_SPACES_RE = re.compile(r"\s+")
 
 
 def canonical_token(token):
+    return _canonical_str(str(token or ""))
+
+
+@lru_cache(maxsize=65536)
+def _canonical_str(token):
     token = normalize_text(token)
     if not token:
         return ""
@@ -277,6 +294,20 @@ def _derived_noun_match(left, right):
 
 
 def _token_similarity(left, right):
+    if left == right:
+        return 1.0
+    # Mismos pares de palabras una y otra vez (pregunta × catálogo): con caché.
+    if isinstance(left, str) and isinstance(right, str):
+        return _token_similarity_cached(left, right)
+    return _token_similarity_raw(left, right)
+
+
+@lru_cache(maxsize=262144)
+def _token_similarity_cached(left, right):
+    return _token_similarity_raw(left, right)
+
+
+def _token_similarity_raw(left, right):
     if left == right:
         return 1.0
     if _derived_noun_match(left, right):
@@ -580,11 +611,23 @@ def value_contradiction(text, value, domain):
     return None
 
 
+_WORD_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789")
+
+
 def _exact_phrase(question, candidate):
-    return bool(
-        question and candidate
-        and re.search(r"(?<![a-z0-9])" + re.escape(candidate) + r"(?![a-z0-9])", question)
-    )
+    """¿`candidate` aparece en `question` como palabras completas? (Sin
+    compilar un regex por candidato: se llama miles de veces por turno.)"""
+    if not question or not candidate:
+        return False
+    start = question.find(candidate)
+    while start != -1:
+        end = start + len(candidate)
+        if (start == 0 or question[start - 1] not in _WORD_CHARS) and (
+            end >= len(question) or question[end] not in _WORD_CHARS
+        ):
+            return True
+        start = question.find(candidate, start + 1)
+    return False
 
 
 def _phrase_score(question, candidate, weights=None):
