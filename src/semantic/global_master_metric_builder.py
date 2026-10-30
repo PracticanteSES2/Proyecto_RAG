@@ -4,6 +4,7 @@ import re
 import unicodedata
 from pathlib import Path
 
+from src.semantic.table_titles import title_names_value
 from src.semantic.visual_catalog_builder import read_csv_rows
 
 
@@ -570,9 +571,21 @@ def build_global_master_metrics(
 
         native_ref = visual_metric.get("native_query_ref")
 
+        # El título de una tabla/matriz describe sus filas, no la columna que
+        # suma («PACIENTES HOSPITALIZADOS» = SUM(TIEMPO_PARA_HOSPITALIZACION)).
+        title_is_name = title_names_value(
+            visual_metric.get("visual_type"),
+            visual_metric.get("visual_title"),
+            visual_metric.get("aggregation"),
+            visual_metric.get("column"),
+        )
         label = (
-            visual_metric.get(
-                "visual_title"
+            (
+                visual_metric.get(
+                    "visual_title"
+                )
+                if title_is_name
+                else None
             )
             or (
                 None
