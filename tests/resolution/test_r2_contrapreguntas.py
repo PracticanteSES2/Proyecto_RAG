@@ -187,6 +187,20 @@ def test_hidden_homonym_does_not_compete_without_period():
     assert [i["metric"]["metric_id"] for i in kept] == ["d_camas"], kept
 
 
+def test_plain_hay_or_past_tense_is_not_current_state():
+    qpb = builder()
+    for question in ("cuantas camas disponibles hay", "cuantas camas disponibles hubo"):
+        kept = qpb._homonyms_that_answer(
+            question, {"matched_name": "CAMAS DISPONIBLES"}, [item("d_camas"), item("h_camas")],
+        )
+        assert kept is None, (question, kept)  # sin «ahorita/tenemos/están»: se sigue preguntando
+    kept = qpb._homonyms_that_answer(
+        "cuantas camas disponibles tenemos", {"matched_name": "CAMAS DISPONIBLES"},
+        [item("d_camas"), item("h_camas")],
+    )
+    assert [i["metric"]["metric_id"] for i in kept] == ["d_camas"], kept
+
+
 def test_two_visible_homonyms_without_period_are_kept():
     qpb = builder()
     kept = qpb._homonyms_that_answer(

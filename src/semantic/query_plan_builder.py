@@ -7226,10 +7226,11 @@ class QueryPlanBuilder:
             self._models_with_report = models
         return normalize_text(semantic_model) in models
 
-    # Pregunta por el estado presente («cuántas camas HAY ahorita», «cuántas
-    # TENEMOS», «están ocupadas»), no por lo ocurrido («cuántos egresos hubo»).
+    # Pregunta por el estado presente («cuántas camas hay AHORITA», «cuántas
+    # TENEMOS», «ESTÁN ocupadas»), no por lo ocurrido («cuántos egresos hubo»)
+    # ni un simple «hay» («¿cuántas cirugías hay?» sigue siendo ambigua).
     _PRESENT_STATE_RE = re.compile(
-        r"(?<![a-z0-9])(?:hay|tenemos|tiene|tienen|esta|estan|quedan|queda|ahorita|ahora|actualmente"
+        r"(?<![a-z0-9])(?:tenemos|estan|quedan|ahorita|ahora|actualmente"
         r"|en\s+este\s+momento|en\s+el\s+momento)(?![a-z0-9])"
     )
 
