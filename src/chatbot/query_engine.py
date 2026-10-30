@@ -2454,6 +2454,20 @@ class QueryEngine:
                     )
                     continue
                 seen_measures[measure_key] = label
+            # Misma agregación (función, tabla y columna) en el mismo modelo y
+            # un nombre equivalente salvo palabras de forma («TIEMPO PROMEDIO
+            # PARA ATENCIÓN EN CONSULTA» = «TIEMPO PARA ATENCIÓN EN CONSULTA»,
+            # ambas AVERAGE(CONSULTA_URGENCIAS[MINUTOS_CONSULTA])): una opción.
+            twin_key = self._equivalent_measure_key(metric)
+            if twin_key is not None:
+                if twin_key in seen_measures:
+                    self._think(
+                        "Opciones equivalentes unificadas",
+                        f"{label}: mismo cálculo base y nombre equivalente que la opción "
+                        f"{seen_measures[twin_key]}; se ofrece una sola vez",
+                    )
+                    continue
+                seen_measures[twin_key] = label
             scored.append((float(item.get("score") or 0.0), metric))
         if not scored:
             return []
@@ -2548,6 +2562,35 @@ class QueryEngine:
         target = match.group(3) or match.group(2)
         return f"{self._AGGREGATION_TEXT[match.group(1).upper()]} {target.strip()}"
 
+    _CORE_AGGREGATION_RE = re.compile(
+        r"\b(SUM|AVERAGE|DISTINCTCOUNT|DISTINCTCOUNTNOBLANK|COUNT|COUNTA|MIN|MAX|MEDIAN)\s*\(\s*"
+        r"'?([^'\[\]()]+?)'?\s*\[([^\]]+)\]\s*\)",
+        re.IGNORECASE,
+    )
+    # Palabras que no cambian qué indicador es («TIEMPO PROMEDIO PARA X» = «TIEMPO PARA X»).
+    _NAME_FORM_WORDS = {
+        "promedio", "total", "numero", "cantidad", "de", "del", "para", "el", "la", "los",
+        "las", "en", "por", "y",
+    }
+
+    def _equivalent_measure_key(self, metric):
+        """Clave (modelo, agregación base, nombre sin palabras de forma) o None
+        si la expresión no tiene UNA sola agregación simple sobre una columna."""
+        expression = str(metric.get("base_dax_expression") or metric.get("dax_expression") or "")
+        cores = {
+            (m.group(1).upper(), self._normalize_text(m.group(2)), self._normalize_text(m.group(3)))
+            for m in self._CORE_AGGREGATION_RE.finditer(expression)
+        }
+        if len(cores) != 1:
+            return None
+        name = " ".join(
+            word for word in self._normalize_text(metric.get("label")).split()
+            if word not in self._NAME_FORM_WORDS
+        )
+        if not name:
+            return None
+        return ("equivalente", self._normalize_text(metric.get("semantic_model")), next(iter(cores)), name)
+
     _NONE_LABEL = "Ninguna de las anteriores"
     _NONE_CAPTION = "Buscar otros indicadores parecidos a la pregunta"
 
@@ -2622,6 +2665,19 @@ class QueryEngine:
                 "status": "metric_not_resolved", "route": "powerbi",
                 "stage": "query_plan_metric", "query_plan": plan,
             }
+        if len(choices) == 1 and plan.get("status") == "ambiguous" and len(raw_candidates) > 1:
+            # La ambigüedad era la misma medida repetida: no se confirma una
+            # sola opción, se responde (queda en el razonamiento).
+            metric = next(
+                (item.get("metric") for item in raw_candidates
+                 if (item.get("metric") or {}).get("metric_id") == choices[0]["id"]),
+                None,
+            ) or {}
+            direct = self._answer_single_option(
+                plan, metric, why="las demás opciones eran la misma medida",
+            )
+            if direct is not None:
+                return direct
         self._pending_query_plan = {
             "type": "query_plan_metric",
             "question": plan.get("question"),
@@ -2679,6 +2735,15 @@ class QueryEngine:
         words = str(plan.get("unresolved_text") or "").strip()
         if not metric.get("metric_id") or not words:
             return None
+        # Verbos y adverbios de la pregunta («en este momento», «cuánto
+        # duran», «se demora») no son filtros: se responde sin preguntar.
+        from src.semantic.query_plan_builder import _is_question_form_word
+        if all(_is_question_form_word(word) for word in words.split()):
+            direct = self._answer_single_option(
+                plan, metric, why=f"«{words}» es forma de la pregunta, no un filtro",
+            )
+            if direct is not None:
+                return direct
         label = str(metric.get("label") or "").strip()
         report, page, model = self._clarification_context(metric)
         choices = self._finalize_choices(plan.get("question"), [{
@@ -3290,6 +3355,44 @@ class QueryEngine:
             )
         return None
 
+    def _answer_single_option(self, plan, metric, why=None):
+        """Una sola opción razonable: se responde con ella (queda en el
+        razonamiento) en lugar de pedir «¿Te refieres a X?». Razonable = el
+        nombre del indicador explica todas las palabras con contenido de la
+        pregunta, o `why` ya lo justifica. None si no aplica o el plan con ese
+        indicador no queda listo (entonces se pregunta como antes)."""
+        metric_id = metric.get("metric_id")
+        question = plan.get("question")
+        if not metric_id or not question:
+            return None
+        if why is None:
+            covers = getattr(self.query_plan_builder, "metric_covers_question", None)
+            try:
+                if not callable(covers) or not covers(question, metric):
+                    return None
+            except Exception as error:
+                self._think("No se pudo revisar la única opción", f"{type(error).__name__}: {error}")
+                return None
+            why = "su nombre explica todas las palabras de la pregunta"
+        label = str(metric.get("label") or metric_id)
+        try:
+            direct = self.query_plan_builder.build(question, selected_metric_id=metric_id)
+        except Exception as error:
+            self._think("No se pudo armar la consulta con la única opción", f"{type(error).__name__}: {error}")
+            return None
+        if direct.get("status") != "ready":
+            return None
+        self._think(
+            "Una sola opción razonable: se responde sin preguntar",
+            f"{label} [{metric_id}]: {why}",
+        )
+        self._trace_plan(direct, "Query Plan con la única opción")
+        self._note_same_measure_pages(direct)
+        result = self._execute_query_plan(direct)
+        if isinstance(result, dict):
+            result.setdefault("single_option", label)
+        return result
+
     def _query_plan_failure(self, plan):
         if plan.get("status") == "ambiguous":
             return self._query_plan_clarification(plan, prompt=self._resolution_prompt(plan))
@@ -3297,6 +3400,10 @@ class QueryEngine:
             # Ningún indicador coincide lo suficiente, pero algunos comparten
             # palabras con la pregunta: se ofrecen en lugar de «no encontré».
             suggestions = (plan.get("metric_resolution") or {}).get("suggestions") or []
+            if len(suggestions) == 1 and not plan.get("reason"):
+                direct = self._answer_single_option(plan, suggestions[0].get("metric") or {})
+                if direct is not None:
+                    return direct
             if suggestions:
                 return self._query_plan_clarification(
                     plan, raw_candidates=suggestions, margin=None,

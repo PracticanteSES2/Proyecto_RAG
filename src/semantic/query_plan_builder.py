@@ -88,6 +88,35 @@ COMMON_VERB_WORDS = {
     "top", "ranking", "estan", "estaba", "estaban", "estuvo", "estuvieron", "existen",
 }
 STOPWORDS |= COMMON_VERB_WORDS
+
+# Forma de la pregunta que NUNCA es un valor de filtro: adverbios de «ahora»
+# («en este momento», «ahorita») y verbos de duración («cuánto duran / se
+# demoran / tardan»). No se suman a STOPWORDS (no cambian la elección del
+# indicador): solo se ignoran al buscar valores y palabras sin interpretar.
+QUESTION_FORM_WORDS = {
+    "momento", "ahora", "ahorita", "actualmente", "instante",
+    "dura", "duran", "duro", "duraron", "durado", "durando",
+    "demora", "demoran", "demoro", "demoraron", "demorado", "demorando", "demoras",
+    "tarda", "tardan", "tardo", "tardaron", "tardado", "tardando",
+}
+_QUESTION_FORM_TOKENS = set(QUESTION_FORM_WORDS)   # ya sin tildes ni mayúsculas
+# Cola de «por <dimensión> ...» que no nombra un valor («en total», «en general»).
+_GROUP_NEUTRAL_TAIL_WORDS = {
+    "total", "totales", "general", "global", "todo", "todos", "toda", "todas",
+    "en", "de", "el", "la", "los", "las", "y", "por", "favor",
+}
+
+
+def _is_question_form_word(word):
+    """Adverbio de tiempo presente, verbo de duración o pretérito plural
+    («tomaron», «lavaron», «atendieron»): forma de la pregunta, nunca un
+    valor de dimensión."""
+    word = normalize_text(word)
+    if word in _QUESTION_FORM_TOKENS:
+        return True
+    return len(word) >= 7 and word.endswith(("aron", "ieron"))
+
+
 # Forma de pedir una lista («lista de», «qué camas están…»): no es filtro.
 STOPWORDS |= DETAIL_REQUEST_WORDS
 
@@ -3142,10 +3171,16 @@ class QueryPlanBuilder:
         if _exact_phrase(q, v):
             return 1.10
 
-        ignored = {canonical_token(word) for word in GENERIC_QUERY_WORDS | STOPWORDS}
+        # «total», «número» o la forma de la pregunta («momento», «duran»)
+        # nunca bastan para elegir un valor: «total» no es SALUD TOTAL EPS
+        # (que sí coincide si se nombra completo, ver _exact_phrase).
+        ignored = {
+            canonical_token(word)
+            for word in GENERIC_QUERY_WORDS | STOPWORDS | FILTER_NEUTRAL_WORDS | QUESTION_FORM_WORDS
+        }
         q_tokens = [
             token for token in canonical_tokens(q)
-            if len(token) >= 2 and token not in ignored
+            if len(token) >= 2 and token not in ignored and not _is_question_form_word(token)
         ]
         v_tokens = set(canonical_tokens(v))
         if not q_tokens or not v_tokens:
@@ -3317,6 +3352,17 @@ class QueryPlanBuilder:
             )
             return {"group_by": [best], "explicit_filters": [], "phrase": matched_alias}
         remainder = re.sub(r"^(?:de|del|en|igual a|=)\s+", "", remainder).strip()
+        # «por asegurador en total / en general»: forma de la pregunta, no el
+        # valor SALUD TOTAL EPS; se agrupa.
+        if remainder and all(
+            word in _GROUP_NEUTRAL_TAIL_WORDS or _is_question_form_word(word)
+            for word in remainder.split()
+        ):
+            self._note(
+                f"«{matched_alias} {remainder}»: «{remainder}» no es un valor de "
+                f"{best.get('table')}[{best.get('column')}]; se agrupa"
+            )
+            remainder = ""
         if not remainder:
             return {"group_by": [best], "explicit_filters": [], "phrase": matched_alias}
         return {"group_by": [], "explicit_filters": [{"field": best, "value_hint": remainder, "from_group": True}]}
@@ -3400,6 +3446,11 @@ class QueryPlanBuilder:
                     continue
                 if len(hint.split()) == 1 and hint in GENERIC_QUERY_WORDS:
                     continue
+                if all(
+                    word in _GROUP_NEUTRAL_TAIL_WORDS or _is_question_form_word(word)
+                    for word in hint.split()
+                ):
+                    continue
                 # Misma mención (mismo texto pedido) = mismo filtro, aunque
                 # varias tablas tengan una columna llamada igual (SEDE).
                 mention = (alias_norm, hint)
@@ -3470,6 +3521,9 @@ class QueryPlanBuilder:
             if (
                 token in removals or re.fullmatch(r"20\d{2}", token)
                 or token.isdigit() or _is_request_word(token)
+                # Solo la lista fija: un pretérito («tomaron») sí ayuda a
+                # elegir otro indicador (IMÁGENES TOMADAS) y se conserva aquí.
+                or normalize_text(word) in _QUESTION_FORM_TOKENS
             ):
                 continue
             result.append(word)
@@ -3733,6 +3787,36 @@ class QueryPlanBuilder:
         self._concept_tokens = tokens
         return tokens
 
+    def _spurious_value_reason(self, asked_tokens, value_tokens, field, question, exact=False):
+        """Motivo por el que un valor NO nombrado en la pregunta solo comparte
+        con ella una palabra (None si el valor es legítimo):
+        - el valor debe nombrarse completo: compartir una palabra que es un
+          concepto de los indicadores no basta («interconsultas» no es
+          INTERCONSULTAS SAS: falta «sas»);
+        - lo que se cuenta («cuántas CUENTAS hay...») es la unidad del
+          indicador, no un valor de una columna poco habitual (PERFIL = CUENTAS)."""
+        asked = {token for token in asked_tokens if token}
+        value = {token for token in value_tokens if len(token) >= 3}
+        matched = {
+            token for token in value
+            if any(_tokens_match_loosely(token, other) for other in asked)
+        }
+        if not matched:
+            return None
+        missing = value - matched
+        if missing and not exact and len(matched) == 1 and matched <= self._metric_concept_tokens():
+            return (
+                f"la pregunta solo comparte «{' '.join(sorted(matched))}» (un concepto de los "
+                f"indicadores) con el valor; no nombra «{' '.join(sorted(missing))}»"
+            )
+        counted = self._counted_noun(question or "")
+        if (
+            counted and not self._plausible_value_column(field)
+            and all(_tokens_match_loosely(token, counted) for token in matched)
+        ):
+            return f"«{counted}» es lo que se cuenta en la pregunta, no un filtro"
+        return None
+
     def _resolve_implicit_value(self, leftover, field, semantic_model, decisions=None, question=None):
         """Valor de `field` nombrado en `leftover` con las reglas estrictas, o None."""
         values = self._get_values(semantic_model, field["table"], field["column"])
@@ -3821,6 +3905,11 @@ class QueryPlanBuilder:
                 f"«{' '.join(sorted(matched))}» es un concepto de los indicadores, "
                 "no una entidad de esa columna"
             )
+        spurious = self._spurious_value_reason(
+            leftover_tokens, value_tokens, field, question, exact=top_score >= 1.10,
+        )
+        if spurious:
+            return reject(spurious)
         words = " ".join(sorted(matched)) or normalize_text(top_value)
         kind = "columna plausible para un valor nombrado" if plausible else "valor exacto"
         return {
@@ -6506,6 +6595,26 @@ class QueryPlanBuilder:
             words.append(word)
         return words
 
+    def metric_covers_question(self, question, metric):
+        """¿El nombre del indicador explica TODAS las palabras con contenido de
+        la pregunta (sin periodo, petición ni forma de la pregunta)? Con una
+        sola sugerencia que las cubre no se pide confirmación: «reportes de
+        patología este año» -> TOTAL DE REPORTES DE PATOLOGÍA EN EL PERIODO."""
+        words = [
+            word for word in self._question_content_words(question)
+            if not _is_question_form_word(word)
+            and canonical_token(word) not in {canonical_token(w) for w in FILTER_NEUTRAL_WORDS}
+        ]
+        if not words:
+            return False
+        name_tokens = {
+            token for name in self._metric_names(metric) for token in canonical_tokens(name)
+        }
+        return all(
+            any(_tokens_match_loosely(canonical_token(word), token) for token in name_tokens)
+            for word in words
+        )
+
     def _head_token(self, question, source_context):
         """Sustantivo principal: primera palabra con contenido de la pregunta
         sin el nombre del tablero («cuánto PESO hay en lavandería»)."""
@@ -8634,6 +8743,15 @@ class QueryPlanBuilder:
                             # valor de varias palabras (HOSPITALIZACIÓN GENERAL)
                             # salvo que el resto del valor esté en la pregunta.
                             if self._generic_partial_value(tokens, value_tokens, question):
+                                continue
+                            spurious = self._spurious_value_reason(
+                                set(tokens), set(value_tokens), field, question,
+                            )
+                            if spurious:
+                                self._note(
+                                    f"calificativo aproximado: no se eligió {field.get('table')}"
+                                    f"[{field.get('column')}] = {value}: {spurious}"
+                                )
                                 continue
                             # La coincidencia por raíz no puede elegir el
                             # valor opuesto («de edad» de MAYORES DE EDAD
