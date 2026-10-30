@@ -1,0 +1,695 @@
+{
+ "corrida": {
+  "commit": "db2f1af",
+  "fecha": "2026-10-29T15:53:58",
+  "salidas": "C:\\Users\\ad6708\\Documents\\banco_real_out_base_db2f1af\\resultado.json",
+  "automatica": "21/70",
+  "auditada": "25/67"
+ },
+ "criterio": [
+  "La verdad es la cifra que el usuario ve en el tablero: medida del visual + filtros de visual y de página + periodo pedido.",
+  "Un filtro de página sobre otra tabla con efecto < 2 % se tolera (AC02).",
+  "Verdad discutible: otra fuente real del mismo concepto que responde la pregunta tal como está se acepta como alternativa.",
+  "Una contrapregunta solo es legítima si varias fuentes responden la pregunta TAL COMO ESTÁ (periodo incluido) con cifras distintas.",
+  "Inconcluso: el valor depende de una opción que el runner pulsó por defecto tras una contrapregunta legítima.",
+  "El veredicto solo se aplica si la respuesta coincide con la auditada (huella = sha1 de los primeros 1.500 caracteres normalizados)."
+ ],
+ "causas": {
+  "1": "Filtros de página/visual no aplicados (valor general)",
+  "2": "Filtros espurios por coincidencia parcial de palabras",
+  "3": "Columna de fecha equivocada o tablero del día para periodos",
+  "4": "Contrapregunta innecesaria",
+  "5": "Indicador equivocado",
+  "6": "Pregunta de datos enviada a RAG",
+  "7": "Opciones mal rotuladas",
+  "8": "Agrupación ignorada",
+  "9": "Otra (error de DAX, cifra inventada, lentitud)"
+ },
+ "casos": {
+  "BH01": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "1"
+   ],
+   "huella": "0da2200b8ce1",
+   "nota": "75 % frente a 92 %: filtros de visual/página no aplicados."
+  },
+  "BH02": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta",
+    "filtro"
+   ],
+   "causas": [
+    "4",
+    "1"
+   ],
+   "huella": "6de02cb3ad06",
+   "nota": "«ahorita» ya desambigua (4d); valor general sin filtros."
+  },
+  "BH03": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "4",
+    "7"
+   ],
+   "huella": "2170858b4efd",
+   "nota": "Opciones duplicadas y mal rotuladas («Cuenta las camas disponibles» para OCUPADAS); título de tabla usado como indicador."
+  },
+  "BH04": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "1"
+   ],
+   "huella": "627289135cdb",
+   "nota": "Contrapregunta legítima (Briefing vs Atenciones); el valor del Briefing salió sin filtros."
+  },
+  "BH05": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "362a452b14ea",
+   "nota": "34 áreas reales de ULT_GESTION[AREA_SERVICIO]: dimensión válida (verdad discutible)."
+  },
+  "BH06": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "137b0bf4682f"
+  },
+  "BH07": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "2"
+   ],
+   "huella": "94849868eed0",
+   "nota": "Filtro espurio ASEGURADOR = INTERCONSULTAS SAS (el comparador lo marcó como indicador)."
+  },
+  "BH08": {
+   "veredicto": "falla",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5"
+   ],
+   "huella": "3df1a14cad1b",
+   "nota": "EGRESOS EFECTIVOS HOY en vez de EGRESOS PROBABLES (el comparador lo marcó como filtro)."
+  },
+  "BH09": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "4",
+    "5"
+   ],
+   "huella": "e3ae01e06ad0",
+   "nota": "«momento» tomado como filtro (4a); 8 frente a 268; opción mal descrita."
+  },
+  "BH10": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "6c47703c4276"
+  },
+  "BH11": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "2"
+   ],
+   "huella": "a45dbcf8d191",
+   "nota": "«pendientes» como filtro espurio."
+  },
+  "BH12": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "6fff727fc9a9"
+  },
+  "BH13": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "812651e315d6"
+  },
+  "BH14": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "3",
+    "7"
+   ],
+   "huella": "e3b8c39c853e",
+   "nota": "Contrapregunta legítima; EGRESOS por FECHA_INGRESO (15 frente a 48); opción descrita como «Cuenta ingresos»."
+  },
+  "BH15": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "1"
+   ],
+   "huella": "20635a0e180b",
+   "nota": "Filtro de visual (MUERTO) no aplicado."
+  },
+  "BH16": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "2"
+   ],
+   "huella": "a45dbcf8d191",
+   "nota": "«briefing» como filtro espurio."
+  },
+  "BH17": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "2"
+   ],
+   "huella": "d39fd5bff9dc",
+   "nota": "«total» → SALUD TOTAL EPS."
+  },
+  "BH18": {
+   "veredicto": "no_evaluado",
+   "fallas": [],
+   "causas": [],
+   "huella": "a45dbcf8d191",
+   "nota": "Comportamiento: se revisa a mano."
+  },
+  "TU01": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "fc6d5caba302"
+  },
+  "TU02": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta",
+    "filtro"
+   ],
+   "causas": [
+    "4",
+    "1"
+   ],
+   "huella": "921eb93a0fd5",
+   "nota": "Opciones duplicadas (4b); valor sin filtros."
+  },
+  "TU03": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "4",
+    "5"
+   ],
+   "huella": "8508b4fc543c",
+   "nota": "Ninguna opción es el tiempo de triage (el comparador lo marcó como filtro)."
+  },
+  "TU03b": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "4",
+    "5"
+   ],
+   "huella": "f2e7310f541f",
+   "nota": "Tiempo de triage → conteos."
+  },
+  "TU04": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "3"
+   ],
+   "huella": "8eea6325f4e0",
+   "nota": "TRIAGES filtrado por CONSULTAS PRIORITARIAS[FECHA] → sin datos."
+  },
+  "TU05": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4"
+   ],
+   "huella": "c7b565c226a0",
+   "nota": "Opciones duplicadas (4b); valor contaminado por el runner (pulsó la primera opción)."
+  },
+  "TU06": {
+   "veredicto": "falla",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5"
+   ],
+   "huella": "90653311ec70",
+   "nota": "Interconsultas → imágenes."
+  },
+  "TU07": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "45fc8db02ac4"
+  },
+  "TU08": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4"
+   ],
+   "huella": "a286b612d053",
+   "nota": "Cifra correcta, pero contrapregunta innecesaria (opciones duplicadas)."
+  },
+  "TU09": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "1cbefb6afe61"
+  },
+  "TU10": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4"
+   ],
+   "huella": "2fb55d31849d",
+   "nota": "Opciones que no responden el periodo (4d); valor contaminado por el runner."
+  },
+  "TU11": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "cd8232873a83"
+  },
+  "TU12": {
+   "veredicto": "inconcluso",
+   "fallas": [],
+   "causas": [],
+   "huella": "ae9ec8ebdcaa",
+   "nota": "Contrapregunta legítima; el runner pulsó la primera opción (también ignora «su respectiva especialidad», causa 8)."
+  },
+  "TU13": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "4",
+    "5"
+   ],
+   "huella": "f33cb8ad4d43",
+   "nota": "«duran» tomado como filtro (4a); indicador equivocado."
+  },
+  "AI01": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4",
+    "3"
+   ],
+   "huella": "7504e3d6b347",
+   "nota": "«mes pasado»: el Briefing solo trae el día → contrapregunta innecesaria; valor contaminado por el runner."
+  },
+  "AI02": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "8363b86fcf63",
+   "nota": "Contrapregunta legítima (Demanda Insatisfecha vs Atenciones) y cifra correcta."
+  },
+  "AI03": {
+   "veredicto": "inconcluso",
+   "fallas": [],
+   "causas": [],
+   "huella": "7504e3d6b347",
+   "nota": "Contrapregunta legítima; el runner pulsó una opción por defecto (PROMEDIO_ESTANCIA[FECHA] vacía)."
+  },
+  "AI04": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "3"
+   ],
+   "huella": "7bacab4ec971",
+   "nota": "TRIAGES filtrado por una fecha de otra tabla → sin datos."
+  },
+  "AI05": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "a0f370462732",
+   "nota": "Tarjeta «Consultas urgencias» del TABLERO EPS (1.442) con su filtro de visual: alternativa aceptada."
+  },
+  "AI06": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4"
+   ],
+   "huella": "7b23d5488cea",
+   "nota": "Confirmación innecesaria (4c); valor contaminado por el runner."
+  },
+  "AI07": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4"
+   ],
+   "huella": "6f29ca6fe3c9",
+   "nota": "Una sola opción (4c). Cifra aceptable: año por Calendario (6.023 frente a 5.872)."
+  },
+  "AI08": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4",
+    "3"
+   ],
+   "huella": "c4782f8324cd",
+   "nota": "«mes pasado»: el Briefing solo trae el día → contrapregunta innecesaria."
+  },
+  "AI09": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "27d3d1fd1680"
+  },
+  "AC01": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "270d61155671"
+  },
+  "AC02": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4"
+   ],
+   "huella": "ce33c6c121fa",
+   "nota": "Opciones duplicadas (4b). Cifra aceptable sin el filtro de página de otra tabla (1 %)."
+  },
+  "AC03": {
+   "veredicto": "falla",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5"
+   ],
+   "huella": "21d098b8803b",
+   "nota": "%INASISTENCIA → CITAS CON ASISTENCIA."
+  },
+  "AC04": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "ee2f18ae404d"
+  },
+  "AC05": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta",
+    "filtro"
+   ],
+   "causas": [
+    "4",
+    "1"
+   ],
+   "huella": "7a5dba3c168f",
+   "nota": "«demora» tomado como filtro (4a); valor sin filtros."
+  },
+  "EP01": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "1"
+   ],
+   "huella": "06dea7098c60",
+   "nota": "Valor general sin filtros."
+  },
+  "EP02": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "1"
+   ],
+   "huella": "7eeda2a70f41",
+   "nota": "Valor general sin filtros."
+  },
+  "EP03": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "75e697879127",
+   "nota": "«hay» = estado actual: Briefing (68). La tarjeta EPS (68.683) es el histórico."
+  },
+  "EP04": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "2f81f86635b9"
+  },
+  "FM01": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "1"
+   ],
+   "huella": "cacfc065e4fb",
+   "nota": "2.439 frente a 278: filtro de visual no aplicado."
+  },
+  "FM02": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "a95733cd1c66"
+  },
+  "FM03": {
+   "veredicto": "falla",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6"
+   ],
+   "huella": "f8d5fe6d3e9e",
+   "nota": "Pregunta de datos respondida por RAG (el comparador la marcó como inventada)."
+  },
+  "FM04": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "6ee15bc5de65"
+  },
+  "FC01": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "b66e029c8c92"
+  },
+  "FC02": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "2"
+   ],
+   "huella": "a45dbcf8d191",
+   "nota": "«las 5 más altas» como filtro espurio."
+  },
+  "FC03": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "2ec2864894ce"
+  },
+  "FC04": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "2"
+   ],
+   "huella": "baedaa7268e9",
+   "nota": "«cuentas» → PERFIL CUENTAS."
+  },
+  "FC05": {
+   "veredicto": "falla",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5"
+   ],
+   "huella": "f6dff4911c4f",
+   "nota": "→ «Promedio Mensual Año Pasado» de Atenciones."
+  },
+  "FC06": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "7aaa538a96ad"
+  },
+  "DI01": {
+   "veredicto": "falla",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5"
+   ],
+   "huella": "5d4f73a9cc3d",
+   "nota": "metric_not_resolved con la medida TOTAL_DEMANDA_INSATISFECHA existente."
+  },
+  "DI02": {
+   "veredicto": "inconcluso",
+   "fallas": [],
+   "causas": [],
+   "huella": "d0171c559859",
+   "nota": "Contrapregunta legítima; el runner pulsó la primera opción."
+  },
+  "DI03": {
+   "veredicto": "falla",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "1"
+   ],
+   "huella": "2296b362be3d",
+   "nota": "Filtros de visual no aplicados."
+  },
+  "DI04": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "995d3c33da51"
+  },
+  "AB01": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "ae2a14303bc3"
+  },
+  "AB02": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "d40b113dfe70"
+  },
+  "AB03": {
+   "veredicto": "acierto",
+   "fallas": [],
+   "causas": [],
+   "huella": "fad3ed190473"
+  },
+  "AB04": {
+   "veredicto": "falla",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6"
+   ],
+   "huella": "b2f6dd8e05ec",
+   "nota": "Pregunta de datos enviada a RAG."
+  },
+  "LV01": {
+   "veredicto": "falla",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "4",
+    "5"
+   ],
+   "huella": "4a1631ce5bb8",
+   "nota": "Confirmación de una sola opción débil (4c) → «Promedio Mensual Año Pasado»."
+  },
+  "LV02": {
+   "veredicto": "falla",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6"
+   ],
+   "huella": "7b53e36e6572",
+   "nota": "Pregunta de datos enviada a RAG."
+  },
+  "LV03": {
+   "veredicto": "falla",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6"
+   ],
+   "huella": "ac08e3140b3f",
+   "nota": "Pregunta de datos enviada a RAG."
+  }
+ }
+}

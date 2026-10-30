@@ -61,7 +61,21 @@ Aciertos 25/67 (37 %). Correctos nuevos: BH05, AI05, EP03 y AI02 (contrapregunta
    - `src/semantic/visual_catalog_builder.py::_visual_title` (l.876): el título de una tabla se usa como indicador (BH03: «CAMAS OCUPADAS» = SUM(PACIENTE_ACOSTADO)).
 8. **Agrupación ignorada**: `query_plan_builder.py::_requested_group_tail` (l.5241) no reconoce «y su respectiva especialidad». Casos TU12 y BH18.
 
-## 3. Pendiente
+## 3. Hecho en `agente/qa-real-2` (puntos 1–3 y 5 del pendiente)
+- Banco: `build_banco.AJUSTES_AUDITORIA` (elegir y contrapreguntas), alternativas `{"modelo", "dax"}` (AI05 con la
+  tarjeta EPS, AI07, AC02, LV01), EP03 en el Briefing, `lista_alternativa` en BH05 y `criterio` en cada caso.
+  - AI06: `elegir = "Total Partos Dinamico"` (la etiqueta exacta «TOTAL PARTOS» es la del modelo CONSOLIDADO).
+  - AI05: la tarjeta EPS es `CountNonNull(OID_TRIAGE)`, así que la alternativa usa COUNT (lo que ve el usuario), no DISTINCTCOUNT.
+- Comparador (`run_banco.py`): `compute_truths`, `truth_core_expr` (núcleo de la medida), RAG en pregunta de datos →
+  «indicador» con `detalle.enrutamiento = "rag"`, `choose_button` guarda `eleccion.modo` y los fallos con elección
+  «defecto» quedan inconclusos (si la contrapregunta es legítima) o fallan solo por la contrapregunta.
+- `auditoria.json` (veredicto, fallas, causas y huella de la respuesta por caso) y `auditoria.py`;
+  `run_banco --reevaluar <resultados.json> --auditoria`.
+- `correr_todo`: INFORME.md con tasa automática y auditada, por tablero, por causa raíz y `--comparar <resultado.json>`;
+  `--informe <resultado.json>` rehace el informe de una corrida sin preguntar.
+- Pruebas offline: `python -m tests.real.test_comparador`.
+
+## 4. Pendiente (original)
 1. Banco (`build_banco.py` y regenerar `banco_real.json`, sin `--valores`):
    - `elegir`: BH03 «GESTIÓN CAMAS», BH04 y BH14 «BRIEFING», TU05 «%ATENDIDO», TU10 «ATENCIÓN EN TRIAGE», TU12 «INTERCONSULTAS SOLICITADAS», AI01 y AI08 «Total Egresos», AI02 «TABLERO DE ATENCIONES», AI03 «INDICADORES», AI06 «TOTAL PARTOS», DI02 «conteo de OID».
    - `contrapregunta_aceptable`: True en BH04, BH14, TU12, AI02, AI03, DI02; False en AI01, AI08.

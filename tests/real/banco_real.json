@@ -20,7 +20,8 @@
     "porcentaje": true,
     "filtros_no_traducidos": []
    },
-   "nota": "Tarjeta %OCUPACION de GESTIÓN CAMAS. Conversación real del usuario."
+   "nota": "Tarjeta %OCUPACION de GESTIÓN CAMAS. Conversación real del usuario.",
+   "criterio": "Verdad = cifra que el usuario ve en el visual 06f2271d25d40aa1e082 de la página «GESTIÓN CAMAS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido. Contrapregunta legítima: varias fuentes responden la pregunta tal como está con cifras distintas."
   },
   {
    "id": "BH02",
@@ -40,7 +41,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 04c3f320b40299303088 de la página «GESTIÓN CAMAS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "BH03",
@@ -48,7 +50,7 @@
    "tipo": "numero",
    "pregunta": "cuántas camas ocupadas tenemos?",
    "turnos_extra": [],
-   "elegir": null,
+   "elegir": "GESTIÓN CAMAS",
    "contrapregunta_aceptable": false,
    "verdad": {
     "modelo": "BRIEFING HOSPITALARIO",
@@ -60,7 +62,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual e8da3d43077a771d4c89 de la página «GESTIÓN CAMAS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "BH04",
@@ -68,8 +71,8 @@
    "tipo": "numero",
    "pregunta": "cuantas camas tiene el hospital en total",
    "turnos_extra": [],
-   "elegir": null,
-   "contrapregunta_aceptable": false,
+   "elegir": "BRIEFING",
+   "contrapregunta_aceptable": true,
    "verdad": {
     "modelo": "BRIEFING HOSPITALARIO",
     "informe": "BRIEFING HOSPITALARIO",
@@ -80,7 +83,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 3a9714665e097d231a23 de la página «GESTIÓN CAMAS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido. Contrapregunta legítima: varias fuentes responden la pregunta tal como está con cifras distintas. CAMAS del Briefing y NUMERO CAMAS de Atenciones responden «en total» con cifras distintas."
   },
   {
    "id": "BH05",
@@ -100,9 +104,17 @@
     "tolerancia": 0.02,
     "porcentaje": false,
     "filtros_no_traducidos": [],
-    "cobertura_minima": 0.5
+    "cobertura_minima": 0.5,
+    "lista_alternativa": {
+     "columnas": [
+      "serv",
+      "area"
+     ],
+     "minimo": 5
+    }
    },
-   "nota": "Conversación real. Verdad: servicios del segmentador SERVICIO de GESTIÓN CAMAS."
+   "nota": "Conversación real. Verdad: servicios del segmentador SERVICIO de GESTIÓN CAMAS.",
+   "criterio": "Lista de servicios del segmentador SERVICIO de GESTIÓN CAMAS. Verdad discutible: se acepta cualquier dimensión real de servicios o áreas (≥ 5 valores, DAX exitoso)."
   },
   {
    "id": "BH06",
@@ -122,7 +134,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 582d978a007e443658b1 de la página «INTERCONSULTAS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "BH07",
@@ -143,7 +156,8 @@
     "porcentaje": false,
     "filtros_no_traducidos": [],
     "top_keys": 5
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 38374005eae24ba064e3 de la página «INTERCONSULTAS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "BH08",
@@ -163,7 +177,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 76f79896573d21108d56 de la página «EGRESOS PROBABLES» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "BH09",
@@ -183,7 +198,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 9cd6df47bd35217add22 de la página «INICIO» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "BH10",
@@ -204,7 +220,8 @@
     "porcentaje": false,
     "filtros_no_traducidos": [],
     "top_keys": 5
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 4442e99002b1560192b7 de la página «INICIO» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "BH11",
@@ -224,7 +241,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 6245fa3c1d7e780c00c5 de la página «SOLICITUD CAMAS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "BH12",
@@ -244,7 +262,8 @@
     "tolerancia": 0.01,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en la página «INICIO» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "BH13",
@@ -270,7 +289,8 @@
      "saturación"
     ]
    },
-   "fuente": "docs_tableros/tablero_briefing_hospitalario/md/detalle_nedocs.md"
+   "fuente": "docs_tableros/tablero_briefing_hospitalario/md/detalle_nedocs.md",
+   "criterio": "Definición tomada de la documentación del tablero."
   },
   {
    "id": "BH14",
@@ -278,8 +298,8 @@
    "tipo": "numero",
    "pregunta": "cuantos egresos hubo ayer",
    "turnos_extra": [],
-   "elegir": null,
-   "contrapregunta_aceptable": false,
+   "elegir": "BRIEFING",
+   "contrapregunta_aceptable": true,
    "verdad": {
     "modelo": "BRIEFING HOSPITALARIO",
     "informe": "BRIEFING HOSPITALARIO",
@@ -291,7 +311,8 @@
     "porcentaje": false,
     "filtros_no_traducidos": []
    },
-   "nota": "La tabla EGRESOS del briefing trae solo el día anterior (verificado: MIN = MAX = ayer)."
+   "nota": "La tabla EGRESOS del briefing trae solo el día anterior (verificado: MIN = MAX = ayer).",
+   "criterio": "Verdad = cifra que el usuario ve en el visual 679969d6d20ed0211ba6 de la página «INGRESOS Y EGRESOS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido. Contrapregunta legítima: varias fuentes responden la pregunta tal como está con cifras distintas. EGRESOS del Briefing (día anterior) y Total Egresos de Atenciones responden «ayer»."
   },
   {
    "id": "BH15",
@@ -311,7 +332,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual e45fda46778f618639fd de la página «URGENCIAS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "BH16",
@@ -332,7 +354,8 @@
     "porcentaje": false,
     "filtros_no_traducidos": [],
     "top_keys": 5
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 1c5a986b730c0ef61613 de la página «ATENCIONES POR ASEGURADOR» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "BH17",
@@ -352,7 +375,8 @@
     "tolerancia": 0.005,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 4cf7ead0712b011261e6 de la página «ATENCIONES POR ASEGURADOR» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido. Contrapregunta legítima: varias fuentes responden la pregunta tal como está con cifras distintas."
   },
   {
    "id": "BH18",
@@ -366,7 +390,8 @@
     "no_inventar": true,
     "aceptable": "Tabla de especialidades con pacientes en urgencias desde una fuente real (p. ej. PACIENTES X ASEGURADORA[ESPECIALIDAD] con HSUNOMBRE URGENCIAS, casi siempre en blanco) o una contrapregunta útil; nunca cifras sin fuente."
    },
-   "nota": "Conversación real del usuario. No hay un visual que responda exactamente; se evalúa que no invente."
+   "nota": "Conversación real del usuario. No hay un visual que responda exactamente; se evalúa que no invente.",
+   "criterio": "Se revisa a mano: no debe inventar cifras."
   },
   {
    "id": "TU01",
@@ -386,7 +411,8 @@
     "tolerancia": 0.02,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual feed769997e3b0244b9e de la página «RESUMEN_D» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "TU02",
@@ -406,7 +432,8 @@
     "tolerancia": 0.02,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 7909eb29acca72dcb3c5 de la página «RESUMEN» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "TU03",
@@ -426,7 +453,8 @@
     "tolerancia": 0.02,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 3d3e950347e7ce76fbd1 de la página «RESUMEN» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "TU03b",
@@ -449,7 +477,8 @@
     "porcentaje": false,
     "filtros_no_traducidos": []
    },
-   "nota": "Seguimiento: la verdad es la del último turno (agosto)."
+   "nota": "Seguimiento: la verdad es la del último turno (agosto).",
+   "criterio": "Verdad = cifra que el usuario ve en el visual 3d3e950347e7ce76fbd1 de la página «RESUMEN» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "TU04",
@@ -469,7 +498,8 @@
     "tolerancia": 0.005,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 243f9e3d309d7f83a06b de la página «TIEMPO TRIAGE» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "TU05",
@@ -477,7 +507,7 @@
    "tipo": "numero",
    "pregunta": "porcentaje de interconsultas atendidas este mes",
    "turnos_extra": [],
-   "elegir": null,
+   "elegir": "%ATENDIDO",
    "contrapregunta_aceptable": false,
    "verdad": {
     "modelo": "TABLERO TIEMPOS URGENCIAS",
@@ -489,7 +519,8 @@
     "tolerancia": 0.02,
     "porcentaje": true,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 863052495540ed6b02b4 de la página «INTERCONSULTAS» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "TU06",
@@ -510,7 +541,8 @@
     "porcentaje": false,
     "filtros_no_traducidos": [],
     "top_keys": 5
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual c47807f0d4cb574950a3 de la página «INTERCONSULTAS» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "TU07",
@@ -530,7 +562,8 @@
     "tolerancia": 0.02,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 8713e601ba911d07552d de la página «TIEMPO EGRESO» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "TU08",
@@ -550,7 +583,8 @@
     "tolerancia": 0.005,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual ab87ed97e644f8b830f1 de la página «IMAGENES» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "TU09",
@@ -570,7 +604,8 @@
     "tolerancia": 0.02,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual bd24bcec419c6150eb3a de la página «EXAMENES» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "TU10",
@@ -578,7 +613,7 @@
    "tipo": "comparacion",
    "pregunta": "compara el tiempo promedio de triage de agosto contra el del mes pasado",
    "turnos_extra": [],
-   "elegir": null,
+   "elegir": "ATENCIÓN EN TRIAGE",
    "contrapregunta_aceptable": false,
    "verdad": {
     "modelo": "TABLERO TIEMPOS URGENCIAS",
@@ -590,7 +625,8 @@
     "tolerancia": 0.02,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 3d3e950347e7ce76fbd1 de la página «RESUMEN» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "TU11",
@@ -610,7 +646,8 @@
      "minutos"
     ]
    },
-   "fuente": "docs_tableros/tablero_tiempos_urgencias/md/resumen_d.md"
+   "fuente": "docs_tableros/tablero_tiempos_urgencias/md/resumen_d.md",
+   "criterio": "Definición tomada de la documentación del tablero."
   },
   {
    "id": "TU12",
@@ -618,8 +655,8 @@
    "tipo": "agrupado",
    "pregunta": "identifica la cantidad de interconsultas del día de ayer y su respectiva especialidad",
    "turnos_extra": [],
-   "elegir": null,
-   "contrapregunta_aceptable": false,
+   "elegir": "INTERCONSULTAS SOLICITADAS",
+   "contrapregunta_aceptable": true,
    "verdad": {
     "modelo": "TABLERO TIEMPOS URGENCIAS",
     "informe": "TABLERO TIEMPOS URGENCIAS",
@@ -632,7 +669,8 @@
     "filtros_no_traducidos": [],
     "top_keys": 5
    },
-   "nota": "Conversación real del usuario. Verdad: tarjeta INTERCONSULTAS SOLICITADAS por especialidad, día de ayer."
+   "nota": "Conversación real del usuario. Verdad: tarjeta INTERCONSULTAS SOLICITADAS por especialidad, día de ayer.",
+   "criterio": "Verdad = cifra que el usuario ve en el visual 91b9e8de4c7c5c75e5a7 de la página «INTERCONSULTAS» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido. Contrapregunta legítima: varias fuentes responden la pregunta tal como está con cifras distintas. Briefing (sin responder) y Tiempos Urgencias (solicitadas) dan cifras distintas para «ayer»."
   },
   {
    "id": "TU13",
@@ -652,7 +690,8 @@
     "tolerancia": 0.02,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 7e37f9857f3581b31d22 de la página «TIEMPO ESTANCIA» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "AI01",
@@ -660,8 +699,8 @@
    "tipo": "numero",
    "pregunta": "cuantos egresos hubo el mes pasado",
    "turnos_extra": [],
-   "elegir": "ATENCIONES",
-   "contrapregunta_aceptable": true,
+   "elegir": "Total Egresos",
+   "contrapregunta_aceptable": false,
    "verdad": {
     "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
     "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
@@ -672,7 +711,8 @@
     "tolerancia": 0.01,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en la página «INDICADORES» de TABLERO DE ATENCIONES INSTITUCIONALES: medida + filtros de informe, página y visual + periodo pedido. «mes pasado»: EGRESOS del Briefing solo trae el día anterior; una sola fuente responde."
   },
   {
    "id": "AI02",
@@ -680,8 +720,8 @@
    "tipo": "numero",
    "pregunta": "cuantas cirugias se han hecho en lo que va del año",
    "turnos_extra": [],
-   "elegir": null,
-   "contrapregunta_aceptable": false,
+   "elegir": "TABLERO DE ATENCIONES",
+   "contrapregunta_aceptable": true,
    "verdad": {
     "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
     "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
@@ -692,7 +732,8 @@
     "tolerancia": 0.01,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en la página «CIRUGIAS» de TABLERO DE ATENCIONES INSTITUCIONALES: medida + filtros de informe, página y visual + periodo pedido. Contrapregunta legítima: varias fuentes responden la pregunta tal como está con cifras distintas. Demanda Insatisfecha y Atenciones cuentan cirugías del año con cifras distintas."
   },
   {
    "id": "AI03",
@@ -700,8 +741,8 @@
    "tipo": "numero",
    "pregunta": "cual fue el giro cama del mes pasado",
    "turnos_extra": [],
-   "elegir": null,
-   "contrapregunta_aceptable": false,
+   "elegir": "INDICADORES",
+   "contrapregunta_aceptable": true,
    "verdad": {
     "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
     "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
@@ -712,7 +753,8 @@
     "tolerancia": 0.03,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual a43efaa60d077ddb2e3b de la página «INDICADORES» de TABLERO DE ATENCIONES INSTITUCIONALES: medida + filtros de informe, página y visual + periodo pedido. Contrapregunta legítima: varias fuentes responden la pregunta tal como está con cifras distintas. Dashboard Gestion y Atenciones publican giro cama del mes con cifras distintas."
   },
   {
    "id": "AI04",
@@ -732,7 +774,8 @@
     "tolerancia": 0.005,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en la página «TRIAGE» de TABLERO DE ATENCIONES INSTITUCIONALES: medida + filtros de informe, página y visual + periodo pedido. Contrapregunta legítima: varias fuentes responden la pregunta tal como está con cifras distintas."
   },
   {
    "id": "AI05",
@@ -751,8 +794,15 @@
     "unidad": "",
     "tolerancia": 0.01,
     "porcentaje": false,
-    "filtros_no_traducidos": []
-   }
+    "filtros_no_traducidos": [],
+    "alternativas": [
+     {
+      "modelo": "TABLERO EPS",
+      "dax": "EVALUATE ROW(\"v\", CALCULATE(COUNT(CONSULTA_URGENCIAS[OID_TRIAGE]),\n    KEEPFILTERS(FILTER(ALL('OPORTUNIDAD_TRIAGE'[DESCRI_TRIGE]), NOT ('OPORTUNIDAD_TRIAGE'[DESCRI_TRIGE] IN {\"CONSULTA EXTERNA OBSTETRICA\", \"EMERGENCIA OBSTETRICA\", \"IV\", \"MUERTO\", \"NO URGENTE OBSTETRICA\", \"URGENCIA MEDICA OBSTETRICA\", \"URGENCIA OBSTETRICA\", \"V\"}))),\n    KEEPFILTERS(FILTER(ALL('Calendario'[Fecha]), 'Calendario'[Fecha] >= {INI_MES_PASADO} && 'Calendario'[Fecha] <= {FIN_MES_PASADO}))))"
+     }
+    ]
+   },
+   "criterio": "Tarjeta de la página URGENCIAS de Atenciones + mes pasado. Alternativa: tarjeta «Consultas urgencias» del TABLERO EPS (CountNonNull de OID_TRIAGE con su filtro de visual) + mes pasado."
   },
   {
    "id": "AI06",
@@ -760,7 +810,7 @@
    "tipo": "numero",
    "pregunta": "cuantos partos van este año",
    "turnos_extra": [],
-   "elegir": null,
+   "elegir": "Total Partos Dinamico",
    "contrapregunta_aceptable": false,
    "verdad": {
     "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
@@ -774,7 +824,8 @@
     "filtros_no_traducidos": [
      "('Calendario', 'Date'): el lado derecho no es un literal"
     ]
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en la página «PARTOS» de TABLERO DE ATENCIONES INSTITUCIONALES: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "AI07",
@@ -795,8 +846,15 @@
     "porcentaje": false,
     "filtros_no_traducidos": [
      "('LABORATORIOS_PATOLOGICOS', 'FechaSolicitud'): el lado derecho no es un literal"
+    ],
+    "alternativas": [
+     {
+      "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+      "dax": "EVALUATE ROW(\"v\", CALCULATE(COUNT(LABORATORIOS_PATOLOGICOS[Consecutivo]),\n    KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= {INI_ANO} && 'Calendario'[Date] <= {HOY}))))"
+     }
     ]
-   }
+   },
+   "criterio": "Tarjeta de LABORATORIO PATOLOGICO con el año de FechaSolicitud. Verdad discutible: se acepta el año por 'Calendario'[Date] (el segmentador de fecha del informe)."
   },
   {
    "id": "AI08",
@@ -804,8 +862,8 @@
    "tipo": "agrupado",
    "pregunta": "egresos por servicio del mes pasado",
    "turnos_extra": [],
-   "elegir": "ATENCIONES",
-   "contrapregunta_aceptable": true,
+   "elegir": "Total Egresos",
+   "contrapregunta_aceptable": false,
    "verdad": {
     "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
     "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
@@ -817,7 +875,8 @@
     "porcentaje": false,
     "filtros_no_traducidos": [],
     "top_keys": 5
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en la página «INDICADORES» de TABLERO DE ATENCIONES INSTITUCIONALES: medida + filtros de informe, página y visual + periodo pedido. «mes pasado»: EGRESOS del Briefing solo trae el día anterior; una sola fuente responde."
   },
   {
    "id": "AI09",
@@ -836,7 +895,8 @@
      "egreso"
     ]
    },
-   "fuente": "docs_tableros/tablero_de_atenciones_institucionales/md/indicadores.md"
+   "fuente": "docs_tableros/tablero_de_atenciones_institucionales/md/indicadores.md",
+   "criterio": "Definición tomada de la documentación del tablero."
   },
   {
    "id": "AC01",
@@ -856,7 +916,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 6f0275b08569b0e80539 de la página «INICIO» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "AC02",
@@ -875,8 +936,15 @@
     "unidad": "",
     "tolerancia": 0.0,
     "porcentaje": false,
-    "filtros_no_traducidos": []
-   }
+    "filtros_no_traducidos": [],
+    "alternativas": [
+     {
+      "modelo": "ASIGNACION DE CITAS",
+      "dax": "EVALUATE ROW(\"v\", DISTINCTCOUNT(CITAS_ASIGNADAS[OID_CITA]))"
+     }
+    ]
+   },
+   "criterio": "Tarjeta CONSULTAS ASIGNADAS de INICIO. Verdad discutible: el filtro de página EN_ESPERA[CCEESTADO] ≠ 2 es de otra tabla y mueve la cifra ~1 %: se acepta sin él."
   },
   {
    "id": "AC03",
@@ -896,7 +964,8 @@
     "tolerancia": 0.02,
     "porcentaje": true,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual daa1f6613ee698a68c8c de la página «OFERTA ESPECIALIDADES» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "AC04",
@@ -917,7 +986,8 @@
     "porcentaje": false,
     "filtros_no_traducidos": [],
     "top_keys": 5
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual c920868794ad0a9c5f6e de la página «EN ESPERA X ESPECIALIDAD» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "AC05",
@@ -937,7 +1007,8 @@
     "tolerancia": 0.02,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 46eab9f217953bc5adc2 de la página «INICIO» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "EP01",
@@ -957,7 +1028,8 @@
     "tolerancia": 0.02,
     "porcentaje": true,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 4d40a4f67ba188041e3a de la página «TRIAGES ATENDIDOS» de TABLERO EPS: medida + filtros de informe, página y visual + periodo pedido. Contrapregunta legítima: varias fuentes responden la pregunta tal como está con cifras distintas."
   },
   {
    "id": "EP02",
@@ -977,27 +1049,29 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual d1794c751c09b2bb612c de la página «TRIAGES ATENDIDOS» de TABLERO EPS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "EP03",
-   "tablero": "TABLERO EPS",
+   "tablero": "BRIEFING HOSPITALARIO",
    "tipo": "numero",
    "pregunta": "cuantos pacientes observados hay en urgencias",
    "turnos_extra": [],
    "elegir": null,
-   "contrapregunta_aceptable": true,
+   "contrapregunta_aceptable": false,
    "verdad": {
-    "modelo": "TABLERO EPS",
-    "informe": "TABLERO EPS",
-    "pagina": "TRIAGES ATENDIDOS",
-    "visual": "8cf5bd8f438431ae5d70",
-    "dax": "EVALUATE ROW(\"v\", COUNT(PACIENTES_OBSERVADOS[HCENTRIAGE]))",
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "URGENCIAS",
+    "visual": "7cd2e7774c37118b6055",
+    "dax": "EVALUATE ROW(\"v\", DISTINCTCOUNT('PACIENTES OBSERVADOS'[PACNUMDOC]))",
     "unidad": "",
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "«hay» pide el estado actual: tarjeta PACIENTES OBSERVADOS del Briefing (página URGENCIAS). La tarjeta del TABLERO EPS es todo el histórico y no responde la pregunta tal como está."
   },
   {
    "id": "EP04",
@@ -1017,7 +1091,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual b272611ab547ea5020c0 de la página «TRIAGES ATENDIDOS» de TABLERO EPS: medida + filtros de informe, página y visual + periodo pedido. Contrapregunta legítima: varias fuentes responden la pregunta tal como está con cifras distintas."
   },
   {
    "id": "FM01",
@@ -1037,7 +1112,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual a7cca487d35dc5fbfac5 de la página «INICIO» de TABLERO_FARMACIA: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "FM02",
@@ -1057,7 +1133,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 7f327b479dc6334ae2e8 de la página «INICIO» de TABLERO_FARMACIA: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "FM03",
@@ -1077,7 +1154,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 76fe7ef9727ff90aad41 de la página «MEDICAMENTOS VENCIDOS» de TABLERO_FARMACIA: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "FM04",
@@ -1097,7 +1175,8 @@
     "tolerancia": 0.03,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en la página «OPORTUNIDAD DISPENSACIÓN» de TABLERO_FARMACIA: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "FC01",
@@ -1117,7 +1196,8 @@
     "tolerancia": 0.01,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual c159d258360e91566173 de la página «INICIO» de Tablero Control Facturacion: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "FC02",
@@ -1138,7 +1218,8 @@
     "porcentaje": false,
     "filtros_no_traducidos": [],
     "top_keys": 5
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual fe6c7fa9b99e82039263 de la página «INICIO» de Tablero Control Facturacion: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "FC03",
@@ -1158,7 +1239,8 @@
     "tolerancia": 0.02,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual c4a24a8084747c156a63 de la página «RESUMEN FACTURACION» de Tablero Control Facturacion: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "FC04",
@@ -1178,7 +1260,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 6025102c828040bd528a de la página «EN PROCESO FACTURACION» de Tablero Control Facturacion: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "FC05",
@@ -1198,7 +1281,8 @@
     "tolerancia": 0.01,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual c159d258360e91566173 de la página «INICIO» de Tablero Control Facturacion: medida + filtros de informe, página y visual + periodo pedido. Contrapregunta legítima: varias fuentes responden la pregunta tal como está con cifras distintas."
   },
   {
    "id": "FC06",
@@ -1219,7 +1303,8 @@
      "horas"
     ]
    },
-   "fuente": "docs_tableros/tablero_control_facturacion/md/resumen_facturacion.md"
+   "fuente": "docs_tableros/tablero_control_facturacion/md/resumen_facturacion.md",
+   "criterio": "Definición tomada de la documentación del tablero."
   },
   {
    "id": "DI01",
@@ -1239,7 +1324,8 @@
     "tolerancia": 0.01,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 87e601ddc8fc43f57002 de la página «CONSOLIDADO» de Demanda Insatisfecha: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "DI02",
@@ -1247,8 +1333,8 @@
    "tipo": "numero",
    "pregunta": "cuantas citas cancelo la institucion el mes pasado",
    "turnos_extra": [],
-   "elegir": null,
-   "contrapregunta_aceptable": false,
+   "elegir": "conteo de OID",
+   "contrapregunta_aceptable": true,
    "verdad": {
     "modelo": "Demanda Insatisfecha",
     "informe": "Demanda Insatisfecha",
@@ -1259,7 +1345,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 66e6dd12d613a960264f de la página «CITAS» de Demanda Insatisfecha: medida + filtros de informe, página y visual + periodo pedido. Contrapregunta legítima: varias fuentes responden la pregunta tal como está con cifras distintas. Asignación de Citas (ANULADO) y Demanda Insatisfecha (OID) dan cifras distintas."
   },
   {
    "id": "DI03",
@@ -1279,7 +1366,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual b06ae3bd3903956a2950 de la página «TRIAGES» de Demanda Insatisfecha: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "DI04",
@@ -1301,7 +1389,8 @@
      "camas"
     ]
    },
-   "fuente": "docs_tableros/tablero_demanda_insatisfecha/md/_general.md"
+   "fuente": "docs_tableros/tablero_demanda_insatisfecha/md/_general.md",
+   "criterio": "Definición tomada de la documentación del tablero."
   },
   {
    "id": "AB01",
@@ -1321,7 +1410,8 @@
     "tolerancia": 0.0,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en la página «ANTIBIOTICOS» de TABLERO_ANTIBIOTICOS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "AB02",
@@ -1343,7 +1433,8 @@
     "filtros_no_traducidos": [],
     "top_keys": 5
    },
-   "nota": "PBIR local más nuevo que el modelo publicado (ANTIBIOTICOSN no existe): verdad con ANTIBIOTICOS[PAC_ACT]."
+   "nota": "PBIR local más nuevo que el modelo publicado (ANTIBIOTICOSN no existe): verdad con ANTIBIOTICOS[PAC_ACT].",
+   "criterio": "Verdad = cifra que el usuario ve en la página «MONITOREO_ANTIBIOTICO» de TABLERO_ANTIBIOTICOS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "AB03",
@@ -1363,7 +1454,8 @@
     "tolerancia": 0.005,
     "porcentaje": false,
     "filtros_no_traducidos": []
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en la página «ANTIBIOTICOS» de TABLERO_ANTIBIOTICOS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "AB04",
@@ -1385,7 +1477,8 @@
     "filtros_no_traducidos": [],
     "top_keys": 1
    },
-   "nota": "PBIR local más nuevo que el modelo publicado (ANTIBIOTICOSN no existe): verdad con ANTIBIOTICOS[PAC_ACT]."
+   "nota": "PBIR local más nuevo que el modelo publicado (ANTIBIOTICOSN no existe): verdad con ANTIBIOTICOS[PAC_ACT].",
+   "criterio": "Verdad = cifra que el usuario ve en la página «MONITOREO_ANTIBIOTICO» de TABLERO_ANTIBIOTICOS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "LV01",
@@ -1406,10 +1499,14 @@
     "porcentaje": false,
     "filtros_no_traducidos": [],
     "alternativas": [
-     "EVALUATE ROW(\"v\", CALCULATE(SUM(LAVANDERIA[Peso]),\n    KEEPFILTERS(FILTER(ALL(LAVANDERIA[FechaRegistro]), LAVANDERIA[FechaRegistro] >= {INI_MES_PASADO} && LAVANDERIA[FechaRegistro] <= {FIN_MES_PASADO}))))"
+     {
+      "modelo": "Tablero_lavanderia",
+      "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(LAVANDERIA[Peso]),\n    KEEPFILTERS(FILTER(ALL(LAVANDERIA[FechaRegistro]), LAVANDERIA[FechaRegistro] >= {INI_MES_PASADO} && LAVANDERIA[FechaRegistro] <= {FIN_MES_PASADO}))))"
+     }
     ]
    },
-   "nota": "No está documentado si el filtro usa Fecha o FechaRegistro: se acepta cualquiera."
+   "nota": "No está documentado si el filtro usa Fecha o FechaRegistro: se acepta cualquiera.",
+   "criterio": "Verdad = cifra que el usuario ve en la página «Página 1» de Tablero_lavanderia: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "LV02",
@@ -1430,7 +1527,8 @@
     "porcentaje": false,
     "filtros_no_traducidos": [],
     "top_keys": 5
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en la página «Página 1» de Tablero_lavanderia: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
    "id": "LV03",
@@ -1451,7 +1549,8 @@
     "porcentaje": false,
     "filtros_no_traducidos": [],
     "top_keys": 1
-   }
+   },
+   "criterio": "Verdad = cifra que el usuario ve en la página «Página 1» de Tablero_lavanderia: medida + filtros de informe, página y visual + periodo pedido."
   }
  ]
 }

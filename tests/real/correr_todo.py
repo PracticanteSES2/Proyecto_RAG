@@ -6,6 +6,10 @@ Un solo paso para el banco real. Ejecutar desde la RAÍZ DEL CHECKOUT PRINCIPAL
     Bash:        POWERBI_AUTH=device_code .venv/Scripts/python.exe -X utf8 -m tests.real.correr_todo
 
 Opciones: --solo BH01,TU12   --tablero "TABLERO EPS"   --sim (Power BI simulado, sin producción)
+          --comparar <resultado.json de una corrida anterior>   (tabla comparativa en el informe)
+          --auditoria <auditoria.json>   (por defecto tests/real/auditoria.json)
+          --informe <resultado.json>     (no pregunta nada: re-evalúa esa corrida y rehace el informe)
+          --out-informe <carpeta>        (dónde escribir resultado.json e INFORME.md; por defecto tests/real/out)
 
 Hace, en orden y por caso: (1) calcula la VERDAD con el DAX del banco
 (tests/real/banco_real.json; solo agregados y dimensiones no personales),
@@ -15,7 +19,8 @@ app.py; clic automático en la opción de la contrapregunta indicada en
 
 Escribe salidas PEQUEÑAS y sin datos de pacientes:
     tests/real/out/resultado.json   (por caso: verdad resumida, respuesta, estado, DAX del bot, evaluación)
-    tests/real/out/INFORME.md       (tasas por tablero y por tipo de falla + evidencia de los fallos)
+    tests/real/out/INFORME.md       (tasa automática y auditada, por tablero, por causa raíz, comparación
+                                     con la corrida anterior y evidencia de los fallos)
 El detalle completo queda en tests/real/out/banco_<fecha>/ (carpeta no versionada).
 """
 import argparse
@@ -26,7 +31,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tests.real import run_banco  # noqa: E402
+from tests.real import auditoria, run_banco  # noqa: E402
 
 OUT = Path(__file__).resolve().parent / "out"
 
@@ -52,6 +57,7 @@ def _short_turn(turn):
         "metrica": turn.get("metric"), "modelo": turn.get("semantic_model"),
         "respuesta": (turn.get("answer") or "")[:1500],
         "opciones": [b["label"] for b in turn.get("buttons") or []],
+        "eleccion": turn.get("eleccion"),
         "error": (turn.get("error") or "")[:400] or None,
         "dax": [{"modelo": d.get("semantic_model"), "estado": d.get("status"), "filas": d.get("row_count"),
                  "s": d.get("seconds"), "error": (d.get("error") or "")[:300] or None,
@@ -77,21 +83,26 @@ def compact(results, cases):
     return out
 
 
-def informe(meta, summary, rows):
-    rate = 100 * summary["aciertos"] / max(1, summary["evaluados"])
+def informe(meta, summary, rows, audited=None, comparacion=None):
+    audited = audited or auditoria.summarize([], None)
     lines = ["# Banco real — informe automático", ""]
     lines += [f"- **{k}:** {v}" for k, v in meta.items()]
-    lines += ["", f"**Aciertos: {summary['aciertos']}/{summary['evaluados']} ({rate:.0f} %).** "
-              "Acierto = cifra, agrupación o definición correcta y sin contrapregunta innecesaria. "
-              "Los casos de comportamiento (—) se revisan a mano.", "",
-              "## Por tablero", "", "| Tablero | Aciertos |", "|---|---|"]
-    lines += [f"| {b} | {v['aciertos']}/{v['evaluados']} |" for b, v in summary["por_tablero"].items()]
-    lines += ["", "## Por tipo de falla", "", "| Falla | Casos |", "|---|---|"]
+    lines += ["", "Acierto = cifra, agrupación o definición correcta y sin contrapregunta innecesaria. "
+              "Los casos de comportamiento (—) se revisan a mano.", ""]
+    lines += auditoria.section_tasas(summary, audited)
+    lines += auditoria.section_tableros(summary, audited)
+    lines += auditoria.section_causas(audited)
+    lines += ["## Por tipo de falla (comparador automático)", "", "| Falla | Casos |", "|---|---|"]
     lines += [f"| {k} | {n} |" for k, n in summary["fallas"].items()]
-    lines += ["", "## Casos", "", "| Caso | OK | Fallas | s | Pregunta |", "|---|---|---|---|---|"]
+    lines.append("")
+    if comparacion:
+        lines += comparacion
+    lines += ["## Casos", "", "| Caso | OK | Auditado | Fallas | s | Pregunta |", "|---|---|---|---|---|---|"]
     for r in rows:
         ok = {True: "sí", False: "no", None: "—"}[r["correcto"]]
-        lines.append(f"| {r['id']} | {ok} | {', '.join(r['fallas'])} | {r['segundos']} | {r['pregunta']} |")
+        v = audited["veredictos"].get(r["id"])
+        aud = auditoria._cell(v) if v else "—"
+        lines.append(f"| {r['id']} | {ok} | {aud} | {', '.join(r['fallas'])} | {r['segundos']} | {r['pregunta']} |")
     lines += ["", "## Evidencia de los fallos", ""]
     for r in rows:
         if r["correcto"] is not False and not r["fallas"]:
@@ -99,7 +110,7 @@ def informe(meta, summary, rows):
         last = r["turnos"][-1] if r["turnos"] else {}
         lines += [f"### {r['id']} · {r['tablero']} · {', '.join(r['fallas']) or 'sin falla'}", "",
                   f"- **Pregunta:** {r['pregunta']}" + (f" → {r['turnos_extra']}" if r["turnos_extra"] else ""),
-                  f"- **Turnos:** " + " → ".join(f"{t['via']}:{t['estado']}" for t in r["turnos"]),
+                  "- **Turnos:** " + " → ".join(f"{t['via']}:{t['estado']}" for t in r["turnos"]),
                   f"- **Respuesta del bot:** {(last.get('respuesta') or '').replace(chr(10), ' ')[:600]}",
                   f"- **Verdad:** `{json.dumps(r['verdad'], ensure_ascii=False, default=str)[:600]}`",
                   f"- **Detalle:** `{json.dumps(r['detalle'], ensure_ascii=False, default=str)[:400]}`", ""]
@@ -112,13 +123,48 @@ def informe(meta, summary, rows):
     return "\n".join(lines)
 
 
+def build_report(meta, results, cases, out_dir, audit_path=None, comparar=None):
+    """Escribe resultado.json e INFORME.md en out_dir y devuelve (auto, auditada)."""
+    audit = auditoria.load(audit_path)
+    rows = compact(results, cases)
+    summary = run_banco.summarize(results)
+    audited = auditoria.summarize(results, audit, cases)
+    comparacion = None
+    if comparar:
+        prev_meta, prev_resumen, prev_results = auditoria.load_previous(comparar, cases)
+        comparacion = auditoria.section_comparacion(
+            prev_meta, prev_resumen, auditoria.summarize(prev_results, audit, cases),
+            run_banco.summarize(prev_results), audited, summary, comparar)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    resumen = dict(summary, auditada={k: audited[k] for k in ("aciertos", "evaluados", "auditados", "sin_auditar",
+                                                              "inconclusos", "por_tablero", "por_causa")})
+    (out_dir / "resultado.json").write_text(json.dumps({"meta": meta, "resumen": resumen, "casos": rows},
+                                                       ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+    (out_dir / "INFORME.md").write_text(informe(meta, summary, rows, audited, comparacion), encoding="utf-8")
+    return summary, audited
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Banco real completo: verdad + bot + informe.")
     parser.add_argument("--solo")
     parser.add_argument("--tablero")
     parser.add_argument("--sim", action="store_true")
+    parser.add_argument("--comparar", help="resultado.json de una corrida anterior")
+    parser.add_argument("--auditoria", help="auditoria.json (por defecto tests/real/auditoria.json)")
+    parser.add_argument("--informe", help="resultado.json existente: re-evalúa y rehace el informe sin preguntar")
+    parser.add_argument("--out-informe", help="carpeta para resultado.json e INFORME.md (por defecto tests/real/out)")
     args = parser.parse_args(argv)
     from datetime import datetime
+
+    cases = {c["id"]: c for c in json.loads(run_banco.BANCO.read_text(encoding="utf-8"))["casos"]}
+    out_dir = Path(args.out_informe) if args.out_informe else OUT
+    if args.informe:
+        prev_meta, _, results = auditoria.load_previous(args.informe, cases)
+        meta = dict(prev_meta, reevaluado=datetime.now().isoformat(timespec="seconds"))
+        summary, audited = build_report(meta, results, cases, out_dir, args.auditoria, args.comparar)
+        _print(summary, audited, out_dir)
+        return 0
 
     run_dir = OUT / ("banco_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
     forward = ["--out", str(run_dir)]
@@ -130,16 +176,17 @@ def main(argv=None):
         forward += ["--sim"]
     run_banco.main(forward)
     data = json.loads((run_dir / "resultados.json").read_text(encoding="utf-8"))
-    cases = {c["id"]: c for c in json.loads(run_banco.BANCO.read_text(encoding="utf-8"))["casos"]}
-    rows = compact(data["resultados"], cases)
-    summary = run_banco.summarize(data["resultados"])
     meta = dict(data["meta"], modo="SIMULADO" if args.sim else "Power BI real")
-    OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "resultado.json").write_text(json.dumps({"meta": meta, "resumen": summary, "casos": rows},
-                                                   ensure_ascii=False, indent=1, default=str), encoding="utf-8")
-    (OUT / "INFORME.md").write_text(informe(meta, summary, rows), encoding="utf-8")
-    print("Escrito:", OUT / "resultado.json", "y", OUT / "INFORME.md")
+    summary, audited = build_report(meta, data["resultados"], cases, out_dir, args.auditoria, args.comparar)
+    _print(summary, audited, out_dir)
     return 0
+
+
+def _print(summary, audited, out_dir):
+    print(f"Automática: {summary['aciertos']}/{summary['evaluados']} · "
+          f"Auditada: {audited['aciertos']}/{audited['evaluados']} "
+          f"({audited['auditados']} con veredicto auditado)")
+    print("Escrito:", Path(out_dir) / "resultado.json", "y", Path(out_dir) / "INFORME.md")
 
 
 if __name__ == "__main__":

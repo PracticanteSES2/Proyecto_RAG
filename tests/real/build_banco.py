@@ -98,7 +98,10 @@ def lista(col, filters):
 
 def case(cid, board, tipo, pregunta, *, dax=None, page=None, visual=None, skipped=(), unidad="", tol=0.02,
          elegir=None, contrapregunta_ok=False, turnos=None, esperado=None, fuente=None, nota=None,
-         alternativas=None, top_keys=5, porcentaje=False, cobertura=0.6):
+         alternativas=None, top_keys=5, porcentaje=False, cobertura=0.6, lista_alternativa=None, criterio=None):
+    """alternativas: otras fuentes reales del mismo concepto que responden la
+    pregunta tal como está; cada una {"modelo", "dax"} (o un DAX suelto, del
+    mismo modelo)."""
     model, report = board
     item = {
         "id": cid, "tablero": model, "tipo": tipo, "pregunta": pregunta,
@@ -115,14 +118,78 @@ def case(cid, board, tipo, pregunta, *, dax=None, page=None, visual=None, skippe
         if tipo == "lista":
             item["verdad"]["cobertura_minima"] = cobertura
         if alternativas:
-            item["verdad"]["alternativas"] = alternativas
+            item["verdad"]["alternativas"] = [a if isinstance(a, dict) else {"modelo": model, "dax": a}
+                                              for a in alternativas]
+        if lista_alternativa:
+            item["verdad"]["lista_alternativa"] = lista_alternativa
     if esperado:
         item["esperado"] = esperado
     if fuente:
         item["fuente"] = fuente
     if nota:
         item["nota"] = nota
+    item["criterio"] = criterio or _criterio(item)
     return item
+
+
+def _criterio(item):
+    verdad = item.get("verdad") or {}
+    if item["tipo"] == "definicion":
+        base = "Definición tomada de la documentación del tablero."
+    elif item["tipo"] == "comportamiento":
+        base = "Se revisa a mano: no debe inventar cifras."
+    else:
+        donde = f"el visual {verdad.get('visual')} de " if verdad.get("visual") else ""
+        base = (f"Verdad = cifra que el usuario ve en {donde}la página «{verdad.get('pagina')}» de "
+                f"{item['tablero']}: medida + filtros de informe, página y visual + periodo pedido.")
+    if item.get("contrapregunta_aceptable"):
+        base += " Contrapregunta legítima: varias fuentes responden la pregunta tal como está con cifras distintas."
+    return base
+
+
+# Correcciones de la auditoría de la corrida db2f1af (tests/real/RETOMAR.md):
+# «elegir» = texto de la opción correcta (etiqueta o descripción corta) y si
+# la contrapregunta es legítima (varias fuentes responden la pregunta TAL COMO
+# ESTÁ, periodo incluido, con cifras distintas).
+AJUSTES_AUDITORIA = {
+    "BH03": {"elegir": "GESTIÓN CAMAS"},
+    "BH04": {"elegir": "BRIEFING", "contrapregunta_aceptable": True,
+             "por_que": "CAMAS del Briefing y NUMERO CAMAS de Atenciones responden «en total» con cifras distintas."},
+    "BH14": {"elegir": "BRIEFING", "contrapregunta_aceptable": True,
+             "por_que": "EGRESOS del Briefing (día anterior) y Total Egresos de Atenciones responden «ayer»."},
+    "TU05": {"elegir": "%ATENDIDO"},
+    "TU10": {"elegir": "ATENCIÓN EN TRIAGE"},
+    "TU12": {"elegir": "INTERCONSULTAS SOLICITADAS", "contrapregunta_aceptable": True,
+             "por_que": "Briefing (sin responder) y Tiempos Urgencias (solicitadas) dan cifras distintas para «ayer»."},
+    "AI01": {"elegir": "Total Egresos", "contrapregunta_aceptable": False,
+             "por_que": "«mes pasado»: EGRESOS del Briefing solo trae el día anterior; una sola fuente responde."},
+    "AI08": {"elegir": "Total Egresos", "contrapregunta_aceptable": False,
+             "por_que": "«mes pasado»: EGRESOS del Briefing solo trae el día anterior; una sola fuente responde."},
+    "AI02": {"elegir": "TABLERO DE ATENCIONES", "contrapregunta_aceptable": True,
+             "por_que": "Demanda Insatisfecha y Atenciones cuentan cirugías del año con cifras distintas."},
+    "AI03": {"elegir": "INDICADORES", "contrapregunta_aceptable": True,
+             "por_que": "Dashboard Gestion y Atenciones publican giro cama del mes con cifras distintas."},
+    # RETOMAR proponía «TOTAL PARTOS», pero esa etiqueta exacta es la del modelo
+    # CONSOLIDADO; la tarjeta de la página PARTOS (PARTOS_DRIVE, modelo de la
+    # verdad) es «Total Partos Dinamico».
+    "AI06": {"elegir": "Total Partos Dinamico"},
+    "DI02": {"elegir": "conteo de OID", "contrapregunta_aceptable": True,
+             "por_que": "Asignación de Citas (ANULADO) y Demanda Insatisfecha (OID) dan cifras distintas."},
+}
+
+
+def aplicar_auditoria(cases):
+    for item in cases:
+        ajuste = AJUSTES_AUDITORIA.get(item["id"])
+        if not ajuste:
+            continue
+        for key in ("elegir", "contrapregunta_aceptable"):
+            if key in ajuste:
+                item[key] = ajuste[key]
+        item["criterio"] = _criterio(item)
+        if ajuste.get("por_que"):
+            item["criterio"] += " " + ajuste["por_que"]
+    return cases
 
 
 def build():
@@ -147,7 +214,10 @@ def build():
     f, s = ctx(R, "GESTIÓN CAMAS", v)
     add(case("BH05", BRIEF, "lista", "dame una lista de las areas que tiene el hospital", page="GESTIÓN CAMAS",
              visual=v, skipped=s, dax=lista("SERVICIOS[NOM_SERV]", f), cobertura=0.5,
-             nota="Conversación real. Verdad: servicios del segmentador SERVICIO de GESTIÓN CAMAS."))
+             lista_alternativa={"columnas": ["serv", "area"], "minimo": 5},
+             nota="Conversación real. Verdad: servicios del segmentador SERVICIO de GESTIÓN CAMAS.",
+             criterio="Lista de servicios del segmentador SERVICIO de GESTIÓN CAMAS. Verdad discutible: se acepta "
+                      "cualquier dimensión real de servicios o áreas (≥ 5 valores, DAX exitoso)."))
     v = find_visual(R, "INTERCONSULTAS", "OID_SOLICITUD", "card")
     f, s = ctx(R, "INTERCONSULTAS", v)
     add(case("BH06", BRIEF, "numero", "cuantas interconsultas hay sin responder?", page="INTERCONSULTAS", visual=v,
@@ -293,9 +363,15 @@ def build():
     add(case("AI04", ATEN, "numero", "cuantos triages hubo en 2025", page="TRIAGE", skipped=s,
              dax=numero("[TOTAL_TRIAGES]", f), tol=0.005, contrapregunta_ok=True, elegir="ATENCIONES"))
     f, s = ctx(R, "URGENCIAS", None, "mes_pasado", CAL)
+    v_eps = find_visual(EPS[1], "TRIAGES ATENDIDOS", "CONSULTA_URGENCIAS.OID_TRIAGE", "card")
+    f_eps, _ = ctx(EPS[1], "TRIAGES ATENDIDOS", v_eps, "mes_pasado", "'Calendario'[Fecha]")
     add(case("AI05", ATEN, "numero", "cuantas consultas de urgencias se hicieron el mes pasado", page="URGENCIAS",
              skipped=s, dax=numero("[Total_consultas_urgencias]", f), tol=0.01, contrapregunta_ok=True,
-             elegir="ATENCIONES"))
+             elegir="ATENCIONES",
+             # La tarjeta «Consultas urgencias» del TABLERO EPS muestra CountNonNull(OID_TRIAGE) = COUNT.
+             alternativas=[{"modelo": EPS[0], "dax": numero("COUNT(CONSULTA_URGENCIAS[OID_TRIAGE])", f_eps)}],
+             criterio="Tarjeta de la página URGENCIAS de Atenciones + mes pasado. Alternativa: tarjeta «Consultas "
+                      "urgencias» del TABLERO EPS (CountNonNull de OID_TRIAGE con su filtro de visual) + mes pasado."))
     f, s = ctx(R, "PARTOS", None, "este_ano", CAL)
     add(case("AI06", ATEN, "numero", "cuantos partos van este año", page="PARTOS", skipped=s,
              dax=numero("COUNTROWS(PARTOS_DRIVE)", f), tol=0.01))
@@ -304,7 +380,11 @@ def build():
     add(case("AI07", ATEN, "numero", "cuantos reportes de patologia van este año", page="LABORATORIO PATOLOGICO",
              visual=v, skipped=s, dax=numero("COUNT(LABORATORIOS_PATOLOGICOS[Consecutivo])",
                                             f + ["KEEPFILTERS(FILTER(ALL(LABORATORIOS_PATOLOGICOS[FechaSolicitud]), YEAR(LABORATORIOS_PATOLOGICOS[FechaSolicitud]) = YEAR({HOY})))"]),
-             tol=0.0))
+             tol=0.0,
+             alternativas=[{"modelo": ATEN[0], "dax": numero("COUNT(LABORATORIOS_PATOLOGICOS[Consecutivo])",
+                                                             f + [period_filter(CAL, "este_ano")])}],
+             criterio="Tarjeta de LABORATORIO PATOLOGICO con el año de FechaSolicitud. Verdad discutible: se acepta "
+                      "el año por 'Calendario'[Date] (el segmentador de fecha del informe)."))
     f, s = ctx(R, "INDICADORES", None, "mes_pasado", CAL)
     add(case("AI08", ATEN, "agrupado", "egresos por servicio del mes pasado", page="INDICADORES", skipped=s,
              dax=agrupado("DIM_SERVICIO[SERVICIO_HOMOLOGADO]", "[Total Egresos]", f), tol=0.01,
@@ -322,8 +402,13 @@ def build():
              dax=numero("DISTINCTCOUNT(EN_ESPERA[OID_CITA])", f), tol=0.0))
     v = find_visual(R, "INICIO", "CITAS_ASIGNADAS.OID_CITA", "card")
     f, s = ctx(R, "INICIO", v)
+    pagina_ac, _ = pbir_filters(R, "INICIO")
     add(case("AC02", CITAS, "numero", "cuantas consultas asignadas hay", page="INICIO", visual=v, skipped=s,
-             dax=numero("DISTINCTCOUNT(CITAS_ASIGNADAS[OID_CITA])", f), tol=0.0))
+             dax=numero("DISTINCTCOUNT(CITAS_ASIGNADAS[OID_CITA])", f), tol=0.0,
+             alternativas=[{"modelo": CITAS[0],
+                            "dax": numero("DISTINCTCOUNT(CITAS_ASIGNADAS[OID_CITA])", [x for x in f if x not in pagina_ac])}],
+             criterio="Tarjeta CONSULTAS ASIGNADAS de INICIO. Verdad discutible: el filtro de página "
+                      "EN_ESPERA[CCEESTADO] ≠ 2 es de otra tabla y mueve la cifra ~1 %: se acepta sin él."))
     v = find_visual(R, "OFERTA ESPECIALIDADES", "%INASISTENCIA", "card")
     f, s = ctx(R, "OFERTA ESPECIALIDADES", v)
     add(case("AC03", CITAS, "numero", "cual es el porcentaje de inasistencia de las citas", page="OFERTA ESPECIALIDADES",
@@ -349,11 +434,14 @@ def build():
     f, s = ctx(R, "TRIAGES ATENDIDOS", v)
     add(case("EP02", EPS, "numero", "cuantos triages atendidos hay en el tablero eps", page="TRIAGES ATENDIDOS",
              visual=v, skipped=s, dax=numero("COUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE])", f), tol=0.0))
-    v = find_visual(R, "TRIAGES ATENDIDOS", "HCENTRIAGE", "card")
-    f, s = ctx(R, "TRIAGES ATENDIDOS", v)
-    add(case("EP03", EPS, "numero", "cuantos pacientes observados hay en urgencias", page="TRIAGES ATENDIDOS",
-             visual=v, skipped=s, dax=numero("COUNT(PACIENTES_OBSERVADOS[HCENTRIAGE])", f), tol=0.0,
-             contrapregunta_ok=True))
+    # EP03: «hay» = estado actual → la tarjeta del Briefing (página URGENCIAS);
+    # la del TABLERO EPS es todo el histórico (auditoría db2f1af).
+    v = find_visual(BRIEF[1], "URGENCIAS", "PACIENTES OBSERVADOS.PACNUMDOC", "card")
+    f, s = ctx(BRIEF[1], "URGENCIAS", v)
+    add(case("EP03", BRIEF, "numero", "cuantos pacientes observados hay en urgencias", page="URGENCIAS",
+             visual=v, skipped=s, dax=numero("DISTINCTCOUNT('PACIENTES OBSERVADOS'[PACNUMDOC])", f), tol=0.0,
+             criterio="«hay» pide el estado actual: tarjeta PACIENTES OBSERVADOS del Briefing (página URGENCIAS). "
+                      "La tarjeta del TABLERO EPS es todo el histórico y no responde la pregunta tal como está."))
     v = find_visual(R, "TRIAGES ATENDIDOS", "CONSULTAS_PRIORITARIAS", "card")
     f, s = ctx(R, "TRIAGES ATENDIDOS", v)
     add(case("EP04", EPS, "numero", "cuantas consultas prioritarias confirmadas hay", page="TRIAGES ATENDIDOS",
@@ -455,7 +543,14 @@ def build():
     add(case("LV03", LAV, "agrupado", "en que turno se lava mas ropa?", page="Página 1", skipped=s,
              dax=agrupado("LAVANDERIA[TURNO_OK]", "SUM(LAVANDERIA[Peso])", f, top=4), unidad="kg", tol=0.01,
              top_keys=1))
-    return cases
+    return aplicar_auditoria(cases)
+
+
+def pbir_filters(report, page):
+    """Filtros de la página (sin informe ni visual)."""
+    from tests.real import pbir
+
+    return pbir.filters_dax(report, page, None, include_report=False)
 
 
 def main(argv=None):

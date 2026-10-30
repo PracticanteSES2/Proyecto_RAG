@@ -8,6 +8,7 @@ del día cambian a cada rato).
     python -X utf8 -m tests.real.run_banco --solo BH01,TU12
     python -X utf8 -m tests.real.run_banco --tablero "TABLERO EPS"
     python -X utf8 -m tests.real.run_banco --reevaluar tests/real/out/banco_<fecha>/resultados.json
+    python -X utf8 -m tests.real.run_banco --reevaluar <resultados.json> --auditoria   # + veredictos auditados
 
 Salida: tests/real/out/banco_<fecha>/resultados.json y resumen.md (la carpeta
 out/ no se versiona). Nunca guarda filas de pacientes: la verdad solo usa
@@ -98,6 +99,31 @@ def compute_truth(verdad, today=None):
     grupos = [{"clave": r[key_col], "valor": r.get("[v]")} for r in rows]
     grupos.sort(key=lambda g: -(_num(g["valor"]) or 0))
     return {**out, "filas": len(rows), "grupos": grupos}
+
+
+def alt_sources(verdad):
+    """Alternativas de la verdad como [{"modelo", "dax"}]: cada una puede venir
+    de otro modelo (otra fuente real que responde la pregunta tal como está)."""
+    out = []
+    for alt in (verdad or {}).get("alternativas") or []:
+        if isinstance(alt, dict):
+            out.append({"modelo": alt.get("modelo") or verdad.get("modelo"), "dax": alt["dax"]})
+        else:
+            out.append({"modelo": verdad.get("modelo"), "dax": alt})
+    return out
+
+
+def compute_truths(verdad, today=None):
+    """Verdad principal + alternativas (cada una con SU modelo)."""
+    truth = compute_truth(verdad, today)
+    alts = []
+    for alt in alt_sources(verdad):
+        one = compute_truth({**verdad, "modelo": alt["modelo"], "dax": alt["dax"]}, today)
+        one["modelo"] = alt["modelo"]
+        alts.append(one)
+    if alts:
+        truth["alternativas"] = alts
+    return truth
 
 
 # ---------------------------------------------------------------- texto
@@ -225,13 +251,115 @@ def evaluate(case, turns, truth):
         cov = len(found) / max(1, len(values))
         correct = cov >= float(case["verdad"].get("cobertura_minima") or 0.6)
         detail = {"cobertura": round(cov, 2), "esperados": len(values), "encontrados": len(found)}
+        if not correct and lista_alternativa_ok(case, last):
+            correct = True
+            detail["lista_alternativa"] = True
     fallas = classify(case, turns, correct, detail)
+    if correct is False and default_choice(turns):
+        # El valor depende de una opción que el runner pulsó por defecto: no
+        # dice nada del bot. Con contrapregunta legítima queda inconcluso; si
+        # no, falla solo por la contrapregunta.
+        detail["eleccion_por_defecto"] = True
+        if case.get("contrapregunta_aceptable"):
+            correct = None
+            detail["inconcluso"] = "el valor depende de una opción elegida por defecto"
+        fallas = [f for f in fallas if f in ("contrapregunta", "lenta")]
     return {"correcto": correct, "detalle": detail, "fallas": fallas}
+
+
+def default_choice(turns):
+    return any((t.get("eleccion") or {}).get("modo") == "defecto" for t in turns)
+
+
+def lista_alternativa_ok(case, last):
+    """Lista desde OTRA dimensión real aceptada (p. ej. servicios o áreas):
+    DAX exitoso sobre una columna cuyo nombre contiene alguno de los patrones
+    y al menos `minimo` valores en la respuesta."""
+    spec = (case.get("verdad") or {}).get("lista_alternativa")
+    if not spec:
+        return False
+    minimo = int(spec.get("minimo") or 5)
+    patrones = [fold(p) for p in spec.get("columnas") or []]
+    items = [ln for ln in str(last.get("answer") or "").splitlines() if re.match(r"\s*(?:[-*•]|\d+[.)])\s+\S", ln)]
+    for d in last.get("dax") or []:
+        if d.get("status") != "success" or (d.get("row_count") or 0) < minimo:
+            continue
+        cols = {fold(c) for c in re.findall(r"\[([^\]]+)\]", d.get("dax") or "")}
+        if any(p in c for p in patrones for c in cols) and len(items) >= minimo:
+            return True
+    return False
 
 
 def _core_refs(dax):
     refs = re.findall(r"(?:'[^']+'|\b[A-Z_][\w ]*)?\[[^\]]+\]", dax or "")
     return {fold(r.split("[")[-1].strip("]")) for r in refs}
+
+
+def _call_args(text, open_idx):
+    """Argumentos de nivel superior de la llamada cuyo «(» está en open_idx."""
+    args, depth, start, i = [], 0, open_idx + 1, open_idx
+    in_str = None
+    while i < len(text):
+        ch = text[i]
+        if in_str:
+            if ch == in_str:
+                in_str = None
+        elif ch in "\"'":
+            in_str = ch
+        elif ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+            if depth == 0:
+                args.append(text[start:i])
+                return args
+        elif ch == "," and depth == 1:
+            args.append(text[start:i])
+            start = i + 1
+        i += 1
+    args.append(text[start:])
+    return args
+
+
+def _first_arg(expr, func):
+    m = re.match(r"\s*" + func + r"\s*\(", expr, flags=re.I)
+    if not m:
+        return None
+    return _call_args(expr, m.end() - 1)[0]
+
+
+def truth_core_expr(dax):
+    """Expresión de la medida de un DAX de verdad (sin los filtros):
+    ROW("v", CALCULATE(<expr>, filtros)) → <expr>; SUMMARIZECOLUMNS(col, filtros,
+    "v", <expr>) → <expr>; CALCULATETABLE(VALUES(col), ...) → VALUES(col)."""
+    dax = dax or ""
+    m = re.search(r'"v"\s*,', dax) or re.search(r'ROW\s*\(\s*"[^"]+"\s*,', dax, flags=re.I)
+    if m:
+        # el valor llega hasta la coma o el paréntesis de cierre de nivel superior
+        expr = _call_args("(" + dax[m.end():], 0)[0]
+    else:
+        body = re.sub(r"^\s*EVALUATE\s+", "", dax, flags=re.I)
+        expr = _first_arg(body, "CALCULATETABLE") or body
+    while True:
+        inner = _first_arg(expr, "CALCULATE")
+        if inner is None:
+            return expr.strip()
+        expr = inner
+
+
+def _only_measures(expr):
+    """True si la expresión solo referencia medidas ([X], sin tabla)."""
+    refs = re.findall(r"(?:'[^']+'|\b[A-Za-z_][\w ]*)?\[[^\]]+\]", expr or "")
+    return bool(refs) and all(r.startswith("[") for r in refs)
+
+
+def truth_sources(case):
+    verdad = case.get("verdad") or {}
+    out = [{"modelo": verdad.get("modelo"), "dax": verdad.get("dax", "")}] if verdad.get("dax") else []
+    return out + alt_sources(verdad)
+
+
+DATA_TIPOS = ("numero", "comparacion", "agrupado", "lista")
 
 
 def classify(case, turns, correct, detail):
@@ -255,24 +383,44 @@ def classify(case, turns, correct, detail):
         fallas.append("rag")
         return fallas
     bot_dax = " ".join(d.get("dax") or "" for d in last.get("dax") or [])
-    truth = case.get("verdad") or {}
     if status in ("metric_not_resolved", "not_found", "needs_clarification"):
         fallas.append("indicador")
         return fallas
-    if status in ("unsupported_filter", "empty_result"):
+    if status == "unsupported_filter":
         fallas.append("filtro")
         return fallas
-    if not last.get("dax") and numbers_in(last.get("answer")) and last.get("route") != "powerbi":
-        fallas.append("inventada")
-        return fallas
-    if (last.get("semantic_model") and truth.get("modelo")
-            and fold(last.get("semantic_model")) != fold(truth.get("modelo"))):
-        fallas.append("indicador")
-        return fallas
-    truth_expr = truth.get("dax", "").split("CALCULATE(", 1)[-1].split(",")[0]
-    core = _core_refs(truth_expr)
-    if core and not (core & _core_refs(bot_dax)):
-        fallas.append("indicador")
+    ok_dax = [d for d in last.get("dax") or [] if d.get("status") == "success"]
+    if tipo in DATA_TIPOS and not ok_dax and last.get("route") != "powerbi":
+        if last.get("route") == "rag":
+            # Pregunta de datos respondida con la documentación: es un error
+            # de enrutamiento (indicador), no una cifra inventada.
+            detail["enrutamiento"] = "rag"
+            fallas.append("indicador")
+            return fallas
+        if numbers_in(last.get("answer")):
+            fallas.append("inventada")
+            return fallas
+    sources = truth_sources(case)
+    bot_model = fold(last.get("semantic_model"))
+    if bot_model and sources:
+        same = [src for src in sources if fold(src["modelo"]) == bot_model]
+        if not same:
+            fallas.append("indicador")
+            return fallas
+        sources = same
+    exprs = [truth_core_expr(src["dax"]) for src in sources]
+    cores = [_core_refs(e) for e in exprs]
+    bot_refs = _core_refs(bot_dax)
+    if cores and all(core and not (core & bot_refs) for core in cores):
+        # Si la verdad es solo una medida ([X]) el bot pudo escribir su
+        # expresión en línea: con «sin datos» no se puede decir que sea otro
+        # indicador (lo más probable es el filtro o la fecha).
+        only_measures = all(_only_measures(e) for e in exprs)
+        if not (only_measures and status == "empty_result"):
+            fallas.append("indicador")
+            return fallas
+    if status == "empty_result":   # indicador correcto, pero sin datos con sus filtros
+        fallas.append("filtro")
         return fallas
     if tipo == "agrupado" and not any(c.get("clave_ok") for c in detail.get("top", [])):
         fallas.append("agrupacion")
@@ -288,16 +436,11 @@ def run_case(case, run_real):
     turns += convo
     clicks = 0
     while turns[-1]["status"] == "needs_clarification" and turns[-1]["buttons"] and clicks < 2:
-        buttons = turns[-1]["buttons"]
-        target = case.get("elegir") or case.get("verdad", {}).get("modelo") or ""
-        button = run_real.pick_button(buttons, target) if target else None
-        if button is None and case.get("verdad", {}).get("pagina"):
-            button = run_real.pick_button(buttons, case["verdad"]["pagina"])
-        if button is None:
-            button = next((b for b in buttons if b["id"] != "__none__"), None)
+        button, eleccion = choose_button(case, turns[-1]["buttons"], run_real.pick_button)
         if button is None:
             break
         t, _ = run_real.choose(button["id"], button["label"])
+        t["eleccion"] = eleccion
         turns.append(t)
         clicks += 1
     for extra in case.get("turnos_extra") or []:
@@ -305,6 +448,22 @@ def run_case(case, run_real):
         t, _ = run_real.ask(text)
         turns.append(t)
     return turns
+
+
+def choose_button(case, buttons, pick):
+    """Botón a pulsar y CÓMO se eligió: «elegir» del banco, modelo o página de
+    la verdad, o «defecto» (primera opción real: el valor no es concluyente)."""
+    verdad = case.get("verdad") or {}
+    for modo, target in (("elegir", case.get("elegir")), ("modelo", verdad.get("modelo")),
+                         ("pagina", verdad.get("pagina"))):
+        if target:
+            button = pick(buttons, target)
+            if button is not None:
+                return button, {"modo": modo, "objetivo": target, "etiqueta": button["label"]}
+    button = next((b for b in buttons if str(b["id"]) != "__none__"), None)
+    if button is None:
+        return None, None
+    return button, {"modo": "defecto", "objetivo": None, "etiqueta": button["label"]}
 
 
 def load_cases(args):
@@ -323,8 +482,11 @@ def summarize(results):
 
     by_board = defaultdict(lambda: [0, 0])
     fallas = Counter()
+    inconclusos = []
     for r in results:
         if r["eval"]["correcto"] is None:
+            if (r["eval"].get("detalle") or {}).get("inconcluso"):
+                inconclusos.append(r["id"])
             continue
         ok = r["eval"]["correcto"] and "contrapregunta" not in r["eval"]["fallas"]
         by_board[r["tablero"]][0] += int(bool(ok))
@@ -333,7 +495,7 @@ def summarize(results):
             fallas[f] += 1
     total_ok = sum(v[0] for v in by_board.values())
     total = sum(v[1] for v in by_board.values())
-    return {"aciertos": total_ok, "evaluados": total,
+    return {"aciertos": total_ok, "evaluados": total, "inconclusos": inconclusos,
             "por_tablero": {k: {"aciertos": v[0], "evaluados": v[1]} for k, v in sorted(by_board.items())},
             "fallas": {FALLAS[k]: n for k, n in fallas.most_common()}}
 
@@ -368,6 +530,8 @@ def main(argv=None):
     parser.add_argument("--tablero", help="solo los casos de un modelo")
     parser.add_argument("--out", help="carpeta de salida")
     parser.add_argument("--reevaluar", help="resultados.json previo: recalcula la evaluación sin volver a preguntar")
+    parser.add_argument("--auditoria", nargs="?", const="", default=None,
+                        help="con --reevaluar: aplica los veredictos de tests/real/auditoria.json (u otro archivo)")
     parser.add_argument("--sim", action="store_true",
                         help="Power BI simulado + LLM falso: valida el flujo (sin verdad ni producción)")
     args = parser.parse_args(argv)
@@ -383,6 +547,12 @@ def main(argv=None):
         path.write_text(json.dumps(data, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
         s = write_summary(path.parent, data["resultados"], data["meta"])
         print(json.dumps(s, ensure_ascii=False, indent=1))
+        if args.auditoria is not None:
+            from tests.real import auditoria
+            audit = auditoria.load(args.auditoria or None)
+            audited = auditoria.summarize(data["resultados"], audit)
+            print("Auditada:", json.dumps({k: audited[k] for k in ("aciertos", "evaluados", "auditados", "sin_auditar")},
+                                          ensure_ascii=False))
         return 0
 
     from tests.real import run_real
@@ -401,12 +571,7 @@ def main(argv=None):
         started = time.perf_counter()
         truth = None
         if case.get("verdad") and not args.sim:
-            truth = compute_truth(case["verdad"])
-            alts = []
-            for alt in case["verdad"].get("alternativas") or []:
-                alts.append(compute_truth({**case["verdad"], "dax": alt}))
-            if alts:
-                truth["alternativas"] = alts
+            truth = compute_truths(case["verdad"])
         try:
             turns = run_case(case, run_real)
         except Exception as exc:  # el banco sigue con el siguiente caso
