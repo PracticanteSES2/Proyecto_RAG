@@ -279,8 +279,8 @@ def test_same_measure_pages_note_only_when_unfiltered_and_shorter():
     plan = builder.build("tiempo promedio gestion factura")
     engine._note_same_measure_pages(plan)
     note = plan["notes"][-1]
-    assert note.startswith("Este indicador aparece en 3 páginas"), note
-    assert note.endswith("es el valor general, sin los filtros propios de cada página."), note
+    assert note.startswith("Es el valor general, sin los filtros de cada página"), note
+    assert note.endswith("donde puede verse distinto."), note
     assert "cada página puede aplicar" not in note
     filtered = builder.build("tiempo promedio gestion factura")
     filtered["filters"] = [{"type": "categorical", "table": "T", "column": "AREA", "value": "X"}]

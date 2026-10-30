@@ -788,8 +788,100 @@ def _ranking_text(plan):
     return f" ({'los primeros ' + str(limit) + ', ' if limit else ''}{order})"
 
 
-def _lead_scalar(label, value_text, scope, past):
-    """Frase inicial de un valor único."""
+BOARD_FILTERS_NOTE_PREFIX = "Filtros del tablero aplicados"
+REPLACED_FILTER_NOTE_PREFIX = "Filtro del tablero reemplazado por el de la pregunta:"
+# «"hoy": se muestra el estado actual de TRIAGES_DIA (el tablero no usa...)»
+_CURRENT_STATE_NOTE_RE = re.compile(r"^«(?P<phrase>[^»]+)»: se muestra el estado actual de .+\)\.$")
+
+
+def metric_unit_of(result, plan=None):
+    """Unidad del indicador de la respuesta («minutos», «días», «camas») o
+    None. La da el resultado/medida (`metric_unit`/`unit`) o el diccionario
+    del tablero; sin evidencia no se pone ninguna. Nunca para porcentajes ni
+    dinero (su formato ya lo dice)."""
+    plan = plan if plan is not None else (result.get("query_plan") or {})
+    metric = plan.get("metric") or {}
+    label = result.get("metric") or metric.get("label")
+    fmt = result.get("metric_format") or metric.get("format_string") or metric.get("format")
+    if is_percent_metric(label, fmt) or is_currency_metric(fmt):
+        return None
+    unit = result.get("metric_unit") or metric.get("unit")
+    if not unit and metric:
+        try:
+            from src.chatbot.business_terms import metric_unit
+
+            unit = metric_unit(metric)
+        except Exception:
+            unit = None
+    unit = str(unit or "").strip()
+    if not unit or unit.lower() in ("number", "percent", "%"):
+        return None
+    return unit
+
+
+def value_and_unit(value, unit, label=None, fmt=None):
+    """(cifra, unidad concordada) para mostrar: tiempos con un decimal
+    («10,5», «minutos»), «1» y «día» en singular. Sin unidad: (formato de
+    siempre, None). La cifra es None si el valor está vacío."""
+    text = format_value_es(value, label, fmt)
+    number = _to_number(value)
+    if text is None or not unit or number is None:
+        return text, None
+    from src.chatbot.business_terms import TIME_UNITS, fold, unit_word
+
+    if fold(unit) in TIME_UNITS:
+        number = round(number, 1)
+        text = format_number_es(number, max_decimals=1)
+    return text, unit_word(unit, number)
+
+
+def _unit_redundant(unit, label):
+    """La unidad de conteo ya está en el nombre («CAMAS DISPONIBLES»: 41).
+    Los tiempos siempre se dicen («DÍAS PROMEDIO...: 1 día»)."""
+    from src.chatbot.business_terms import TIME_UNITS, fold
+    from src.semantic.request_phrases import singular
+
+    folded = fold(unit)
+    single = fold(singular(folded) or folded)
+    if not folded or folded in TIME_UNITS or f"{single}s" in TIME_UNITS:
+        return False
+    words = fold(label).split()
+    return folded in words or single in words
+
+
+def business_notes(notes, plan):
+    """Notas del plan en lenguaje de negocio: la nota técnica de filtros del
+    tablero («HSUNOMBRE no es (en blanco), ...») pasa a una frase corta; el
+    detalle completo queda en el razonamiento («Filtros del tablero
+    aplicados») y en `plan["metric"]["visual_filters"]`."""
+    metric = (plan or {}).get("metric") or {}
+    result = []
+    for note in notes:
+        text = note
+        try:
+            if note.startswith(BOARD_FILTERS_NOTE_PREFIX):
+                from src.chatbot.business_terms import board_filters_sentence
+
+                text = board_filters_sentence(metric) or note
+            elif note.startswith(REPLACED_FILTER_NOTE_PREFIX):
+                from src.chatbot.business_terms import replaced_filter_sentence
+
+                columns = [c.strip() for c in note[len(REPLACED_FILTER_NOTE_PREFIX):].strip().rstrip(".").split(",")]
+                text = replaced_filter_sentence(metric, [c for c in columns if c]) or note
+            elif _CURRENT_STATE_NOTE_RE.match(note):
+                # El nombre de la tabla no le dice nada al usuario.
+                phrase = _CURRENT_STATE_NOTE_RE.match(note).group("phrase")
+                text = f"«{phrase}»: es la cifra actual que muestra el tablero."
+        except Exception:
+            text = note
+        if text and text not in result:
+            result.append(text)
+    return result
+
+
+def _lead_scalar(label, value_text, scope, past, unit=None):
+    """Frase inicial de un valor único. `unit` («minutos») va junto a la
+    cifra salvo que la frase ya nombre lo contado («Hay **41** camas»)."""
     match = _COUNT_LABEL_RE.match(_plain(label)) if label else None
     # Un monto («$ 4.952.786.591») no se cuenta: «TOTAL FACTURACION: $ ...»,
     # no «Hay 4.952.786.591 facturacion».
@@ -798,6 +890,8 @@ def _lead_scalar(label, value_text, scope, past):
         verb = "hubo" if past else "hay"
         sentence = f"{scope}, {verb}" if scope else verb
         return _capitalize(f"{sentence} **{value_text}** {noun}.")
+    if unit and not _unit_redundant(unit, label):
+        value_text = f"{value_text} {unit}"
     if label:
         return f"**{label}** {scope}: **{value_text}**" if scope else f"**{label}**: **{value_text}**"
     return f"{_capitalize(scope)}: **{value_text}**" if scope else f"**{value_text}**"
@@ -817,7 +911,7 @@ def format_query_plan_answer(result, followup=None):
     plan = result.get("query_plan") or {}
     filters = result.get("filters") or plan.get("filters") or []
     unapplied = result.get("unapplied_terms") or plan.get("unapplied_terms") or []
-    notes = [str(note) for note in (plan.get("notes") or []) if note]
+    notes = business_notes([str(note) for note in (plan.get("notes") or []) if note], plan)
     followup = followup if followup is not None else (result.get("followup_of") or plan.get("followup_of"))
 
     period = _period_of(filters, plan)
@@ -882,8 +976,8 @@ def format_query_plan_answer(result, followup=None):
         elif result.get("answer") and not result.get("measures"):
             lines.append(str(result["answer"]))
         else:
-            text = format_value_es(
-                result.get("value"), result.get("metric"),
+            text, unit = value_and_unit(
+                result.get("value"), metric_unit_of(result, plan), result.get("metric"),
                 result.get("metric_format"),
             )
             if text is None:
@@ -891,7 +985,7 @@ def format_query_plan_answer(result, followup=None):
             else:
                 # «Total + listado»: «**6 camas disponibles** en ...» y la tabla.
                 lead = detail_lead(result, text, period_phrase_es(period)) if result.get("detail") else None
-                lines.append(lead or _lead_scalar(result.get("metric"), text, scope, past))
+                lines.append(lead or _lead_scalar(result.get("metric"), text, scope, past, unit))
                 if result.get("detail"):
                     table = detail_table(result["detail"])
                     if table:
