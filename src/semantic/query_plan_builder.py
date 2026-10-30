@@ -6524,7 +6524,12 @@ class QueryPlanBuilder:
             normalize_text(item.get("visual_title")) for item in best.get("appearances") or []
             if item.get("visual_title")
         }
-        named_by_title = normalize_text(metric_result.get("matched_name")) in shown_titles
+        # Solo si el título no es la propia etiqueta del elegido (TRIAGES con
+        # visual «TRIAGES» sigue compitiendo con TOTAL_TRIAGES).
+        matched = normalize_text(metric_result.get("matched_name"))
+        named_by_title = matched in shown_titles and matched not in {
+            normalize_text(best.get("label")), normalize_text(best.get("measure")),
+        }
         rivals, seen = [], {self._logical_key(best)}
         for metric in self._dedupe_metrics(self.metrics):
             if metric.get("validation_status") != "approved":
