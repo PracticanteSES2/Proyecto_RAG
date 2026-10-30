@@ -791,6 +791,10 @@ class QueryPlanBuilder:
         self.reports = self._normalize_reports(self.visual_catalog)
         self.dimension_fields = self._build_dimension_index()
         self.static_values = self._build_static_value_index()
+        # Agregaciones implícitas documentadas («suma de LAVANDERIA[Peso]»):
+        # indicador legítimo de un modelo sin medidas aunque el informe local
+        # no traiga el visual (src/semantic/documented_aggregations.py).
+        self.metrics = self._with_documented_aggregations(self.metrics)
         # Tarjetas cuyo visual filtra el dato («0-30 DÍAS» = mes <= 1): la
         # expresión del indicador lleva ese filtro.
         self.metrics = self._with_visual_filters(self.metrics)
@@ -847,6 +851,190 @@ class QueryPlanBuilder:
                     if normalize_text(alias) not in titles
                 ],
                 "table_titles": list(titles.values()),
+            })
+        return result
+
+    # ---------------- agregaciones implícitas documentadas ----------------
+    _ID_COLUMN_RE = re.compile(r"(?:^|[ _])(?:oid|id|cod|codigo|key|rownumber)(?:[ _]|$)|^oid|oid$", re.IGNORECASE)
+
+    def _semantic_document_payloads(self):
+        """Documentos semánticos de data/semantic_documents (páginas y diccionario)."""
+        root = self.project_root / "data" / "semantic_documents"
+        try:
+            paths = sorted(root.rglob("*.json")) if root.exists() else []
+        except OSError:
+            paths = []
+        for path in paths:
+            try:
+                document = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if isinstance(document, dict):
+                yield document
+
+    def _inferred_pages(self):
+        """{(informe normalizado, página normalizada)} de páginas reconstruidas
+        de la documentación (marca de tools/local_data/complete_reports.py)."""
+        cached = self.__dict__.get("_inferred_pages_cache")
+        if cached is not None:
+            return cached
+        pages = set()
+        for report in self.reports:
+            directory = report.get("report_definition_dir")
+            if not directory:
+                continue
+            try:
+                marker = self._load_json(Path(directory) / "_completed_from_documentation.json", None)
+            except (OSError, ValueError):
+                marker = None
+            if not isinstance(marker, dict):
+                continue
+            for page in marker.get("inferred_pages") or []:
+                pages.add((normalize_text(report.get("report")), normalize_text(page)))
+        self._inferred_pages_cache = pages
+        return pages
+
+    def _inferred_appearance(self, metric, appearance):
+        """¿La aparición es de un visual reconstruido de la documentación?"""
+        if appearance.get("inferred"):
+            return True
+        report = normalize_text(appearance.get("report") or metric.get("report"))
+        return (report, normalize_text(appearance.get("page_display_name"))) in self._inferred_pages()
+
+    def _technical_column_name(self, semantic_model, table, column):
+        """(tabla, columna) con el nombre exacto del catálogo técnico, o None."""
+        for table_item in self._technical_catalog(semantic_model).get("tables", []) or []:
+            if normalize_text(table_item.get("name")) != normalize_text(table):
+                continue
+            for column_item in table_item.get("columns", []) or []:
+                if normalize_text(column_item.get("name")) == normalize_text(column):
+                    return table_item.get("name"), column_item.get("name")
+        return None
+
+    def _with_documented_aggregations(self, metrics):
+        """Indicadores de agregación implícita respaldados por la documentación.
+
+        Regla: la documentación (páginas o diccionario de variables) dice
+        explícitamente «suma de T[C]» / «sumando T[C]» / «promedio de T[C]» y
+        T[C] es una columna numérica (no un identificador) del modelo. Entonces:
+        - si un visual RECONSTRUIDO de la documentación, cuyo título cita ese
+          mismo texto, agrega otra cosa (PESO TOTAL por Mes =
+          DISTINCTCOUNT(OID)), manda la documentación y el visual pasa a esa
+          agregación;
+        - si ya hay un indicador con esa misma agregación, solo gana los
+          nombres documentados como alias;
+        - si no, se agrega como indicador del modelo (en las páginas que la
+          documentación nombra). Sin esa frase no se crea nada."""
+        from src.semantic.documented_aggregations import (
+            aggregation_dax, documented_aggregations, friendly_label, text_cites_title,
+        )
+
+        try:
+            entries = documented_aggregations(self._semantic_document_payloads())
+        except Exception:
+            return metrics
+        if not entries:
+            return metrics
+        model_names = {}
+        for metric in metrics:
+            if metric.get("semantic_model"):
+                model_names.setdefault(normalize_text(metric.get("semantic_model")), metric.get("semantic_model"))
+        reports = {}
+        for report in self.reports:
+            key = normalize_text(report.get("semantic_model"))
+            if key:
+                reports.setdefault(key, report)
+                model_names.setdefault(key, report.get("semantic_model"))
+        result = list(metrics)
+        for entry in entries:
+            model = model_names.get(entry["model_norm"])
+            if not model:
+                continue
+            names = self._technical_column_name(model, entry["table"], entry["column"])
+            if not names or self._column_type(model, *names) != "number":
+                continue
+            table, column = names
+            if self._ID_COLUMN_RE.search(str(column)):
+                continue
+            aggregation = entry["aggregation"]
+            dax = aggregation_dax(table, column, aggregation)
+            dax_key = normalize_text(dax)
+            model_key = normalize_text(model)
+            evidence = entry["texts"][:3]
+
+            for index, metric in enumerate(result):
+                if (
+                    normalize_text(metric.get("semantic_model")) != model_key
+                    or metric.get("source_type") != "visual_aggregation"
+                    or normalize_text(metric.get("table")) != normalize_text(table)
+                    or normalize_text(metric.get("dax_expression")) == dax_key
+                ):
+                    continue
+                appearances = metric.get("appearances") or []
+                if not appearances or not all(self._inferred_appearance(metric, item) for item in appearances):
+                    continue
+                if not any(text_cites_title(entry["texts"], item.get("visual_title")) for item in appearances):
+                    continue
+                result[index] = {
+                    **metric, "column": column, "aggregation": aggregation, "dax_expression": dax,
+                    "aliases": [
+                        alias for alias in metric.get("aliases") or []
+                        if normalize_text(metric.get("column")) not in normalize_text(alias).split()
+                    ],
+                    "documented_correction": {
+                        "previous_dax": metric.get("dax_expression"), "evidence": evidence,
+                    },
+                }
+
+            aliases = [
+                name for name in entry["names"]
+                if not re.search(r"(?<![a-z0-9])(?:por|x|segun)(?![a-z0-9])", normalize_text(name))
+            ]
+            aliases += [column, friendly_label(aggregation, column)]
+            same = [
+                index for index, metric in enumerate(result)
+                if normalize_text(metric.get("semantic_model")) == model_key
+                and normalize_text(metric.get("dax_expression")) == dax_key
+            ]
+            if same:
+                for index in same:
+                    metric = result[index]
+                    result[index] = {
+                        **metric, "aliases": _unique_strings([*(metric.get("aliases") or []), *aliases]),
+                    }
+                continue
+
+            report = reports.get(model_key) or {}
+            pages = {
+                normalize_text(page.get("page_display_name") or page.get("page_name")): page
+                for page in report.get("pages", []) or []
+            }
+            appearances = []
+            for page_name in entry["pages"]:
+                page = pages.get(normalize_text(page_name))
+                if page is None:
+                    continue
+                appearances.append({
+                    "report": report.get("report"), "source_group": report.get("source_group"),
+                    "page_name": page.get("page_name"), "page_display_name": page.get("page_display_name"),
+                    "visual_id": None, "visual_title": None, "visual_type": "documented",
+                    "role": "Values", "query_ref": None, "documented": True,
+                })
+            result.append({
+                "metric_id": "doc_" + re.sub(r"[^a-z0-9]+", "_", f"{model_key} {dax_key}").strip("_")[:80],
+                "label": aliases[0] if aliases else column,
+                "aliases": _unique_strings(aliases),
+                "source_type": "documented_aggregation",
+                "semantic_model": model,
+                "report": report.get("report"),
+                "source_group": report.get("source_group"),
+                "table": table, "measure": None, "column": column, "aggregation": aggregation,
+                "dax_expression": dax, "model_expression": None,
+                "description": " ".join(evidence)[:400],
+                "validation_status": "approved",
+                "reports": [report.get("report")] if report.get("report") else [],
+                "source_groups": [report.get("source_group")] if report.get("source_group") else [],
+                "appearances": appearances,
             })
         return result
 
@@ -1467,6 +1655,8 @@ class QueryPlanBuilder:
             canonical_token(word)
             for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS | set(MONTHS)
         }
+        # Las palabras del periodo («mes pasado») no emparentan indicadores.
+        ignored |= set(self._period_words(business_question))
         question_tokens = {
             token for token in canonical_tokens(business_question)
             if len(token) >= 4 and not token.isdigit()
@@ -1567,6 +1757,7 @@ class QueryPlanBuilder:
             canonical_token(word)
             for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS | set(MONTHS)
         }
+        ignored |= set(self._period_words(business_question))
         question_tokens = [
             token for token in dict.fromkeys(canonical_tokens(business_question))
             if len(token) >= 4 and not token.isdigit() and token not in ignored and not _is_request_word(token)
@@ -1971,7 +2162,13 @@ class QueryPlanBuilder:
             })
 
         if not candidates:
-            return not_found([])
+            dictionary = self._dictionary_resolution(business_question, source_context)
+            return dictionary if dictionary is not None else not_found([])
+
+        # Periodo que la tabla del indicador no trae («triages en 2025» con la
+        # tabla de triages del día anterior): pierde frente a otro candidato,
+        # de cualquier modelo y aunque no tenga visual, que sí lo cubre.
+        self._penalize_uncovered_period(business_question, candidates)
 
         # Informe nombrado explícitamente y la métrica existe allí: solo
         # compiten las métricas de ese informe. Si no existe allí, el
@@ -2028,6 +2225,9 @@ class QueryPlanBuilder:
 
         best = groups[0]
         if best["business_score"] < self.min_metric_score:
+            dictionary = self._dictionary_resolution(business_question, source_context)
+            if dictionary is not None:
+                return dictionary
             return not_found(groups[:candidate_limit])
         tied = [
             item for item in groups
@@ -2064,6 +2264,147 @@ class QueryPlanBuilder:
             "source_hint_ignored": hint_ignored,
             **({"page_hint_ignored": page_missing} if page_missing is not None else {}),
         }
+
+    # ---- indicador explicado solo por el diccionario de variables ----
+    def _dictionary_resolution(self, business_question, source_context):
+        """Ningún nombre de indicador coincide, pero la pregunta describe lo
+        que mide uno solo según el diccionario de variables: «¿en qué turno se
+        lava más ropa?» -> la suma de LAVANDERIA[Peso] («peso de ropa
+        registrado en cada pesaje»), que se agrupa por turno.
+
+        Condiciones (todas):
+        - cada palabra con contenido de la pregunta la explica el nombre del
+          indicador, su tablero, una columna de su tabla o el diccionario de
+          su columna/tabla (raíz común de 4+ letras: «lava» ~ lavandería);
+        - al menos una la explica el diccionario y no el nombre (lo medido);
+        - el indicador lo ve el usuario en un tablero y es el ÚNICO (por
+          medida) que cumple; con el tablero nombrado, solo cuentan los suyos.
+        Si no, None (sigue la contrapregunta o la documentación)."""
+        words = self._question_content_words(business_question)
+        tokens = [canonical_token(word) for word in words]
+        tokens = [token for token in dict.fromkeys(tokens) if token and not _is_question_form_word(token)]
+        if len(tokens) < 2:
+            return None
+        model_hint = ""
+        if (source_context or {}).get("status") == "resolved" and source_context.get("routing_strength") == "strong":
+            model_hint = normalize_text(source_context.get("semantic_model"))
+
+        def loose(token, vocabulary):
+            if self._explains(token, vocabulary):
+                return True
+            return len(token) >= 4 and any(
+                len(other) >= 4 and (other.startswith(token) or token.startswith(other)) for other in vocabulary
+            )
+
+        found = {}
+        for metric in self._dedupe_metrics(self.metrics):
+            if metric.get("validation_status") != "approved" or not metric.get("appearances"):
+                continue
+            if model_hint and normalize_text(metric.get("semantic_model")) != model_hint:
+                continue
+            dictionary = self._dictionary_tokens(metric)
+            if not dictionary:
+                continue
+            names = self._metric_vocabulary_tokens(metric)
+            names.update(canonical_tokens(metric.get("semantic_model")))
+            for report in self._metric_reports(metric):
+                names.update(canonical_tokens(report))
+            entry = self._fact_table_entry(metric) or {}
+            columns = {
+                token for column in entry.get("columns") or []
+                for token in canonical_tokens(column.get("name"))
+                if len(token) >= 3
+            }
+            if not all(loose(token, names | columns | dictionary) for token in tokens):
+                continue
+            if not any(
+                loose(token, dictionary) and not loose(token, names | columns) for token in tokens
+            ):
+                continue
+            found.setdefault(self._logical_key(metric), metric)
+        if len(found) != 1:
+            return None
+        metric = next(iter(found.values()))
+        self._note(
+            f"ningún nombre de indicador coincide; el diccionario de variables describe lo que pregunta "
+            f"({', '.join(words)}) como {metric.get('label')} ({metric.get('semantic_model')})"
+        )
+        item = {
+            "metric": metric, "score": self.min_metric_score, "business_score": self.min_metric_score,
+            "matched_name": metric.get("label"), "exact_primary_label": False, "hinted": bool(model_hint),
+            "_own_name": True, "_shared_alias": False, "_dictionary": True,
+        }
+        return {
+            "status": "resolved", "metric": metric, "matched_name": metric.get("label"),
+            "score": self.min_metric_score, "candidates": [item], "source_hint_ignored": False,
+            "dictionary_match": True,
+        }
+
+    # ---- ventana de datos de la tabla frente al periodo pedido ----
+    _PERIOD_COVERAGE_PENALTY = 0.30
+
+    def _metric_coverage_tables(self, metric):
+        """Tablas de hechos del indicador (las que nombra la expresión de una
+        medida o la tabla de la agregación)."""
+        model = metric.get("semantic_model")
+        if metric.get("measure"):
+            used = self._expression_tables(model, metric)
+            if used:
+                return sorted(used)
+        table = self._metric_fact_table(metric)
+        return [table] if table else []
+
+    def _metric_misses_period(self, metric, start, end):
+        """Tabla del indicador cuya ventana documentada (diccionario de
+        variables: «del día anterior», «de los últimos 10 días», «desde el
+        01/01/2023») no trae el periodo [start, end); None si lo trae o si la
+        documentación no dice nada."""
+        from src.semantic.table_coverage import coverage_window, covers
+
+        index = self._dictionary_index()
+        model = normalize_text(metric.get("semantic_model"))
+        today = self._today()
+        for table in self._metric_coverage_tables(metric):
+            text = index.get((model, "t:" + normalize_text(table)))
+            if not text:
+                continue
+            window = coverage_window(text, today)
+            if not covers(window, start, end, today):
+                return table
+        return None
+
+    def _penalize_uncovered_period(self, business_question, candidates):
+        """Resta _PERIOD_COVERAGE_PENALTY a los candidatos cuya tabla no trae el
+        periodo pedido, solo si otro candidato con nombre suficiente sí lo
+        trae (si ninguno lo trae, el orden no cambia y el plan lo explica)."""
+        try:
+            period = self._analyze_periods(business_question).get("period")
+        except Exception:
+            period = None
+        start = as_date((period or {}).get("start"))
+        end = as_date((period or {}).get("end"))
+        if not start or not end:
+            return candidates
+        missing = [self._metric_misses_period(item["metric"], start, end) for item in candidates]
+        if not any(missing):
+            return candidates
+        if not any(
+            table is None and item["business_score"] >= self.min_metric_score
+            for item, table in zip(candidates, missing)
+        ):
+            return candidates
+        dropped = []
+        for item, table in zip(candidates, missing):
+            if table is None:
+                continue
+            item["score"] = round(item["score"] - self._PERIOD_COVERAGE_PENALTY, 4)
+            item["_period_uncovered"] = table
+            dropped.append(f"{item['metric'].get('label')} ({table})")
+        self._note(
+            f"«{period.get('label')}»: la tabla de estos indicadores no trae ese periodo según su "
+            f"documentación, se prefieren los que sí: {', '.join(dict.fromkeys(dropped[:6]))}"
+        )
+        return candidates
 
     def alternative_metrics(self, question, intent_result=None, exclude_ids=(),
                             limit=_SUGGESTION_LIMIT):
@@ -6850,6 +7191,22 @@ class QueryPlanBuilder:
             return "generic"
         return None
 
+    def _matches_only_period(self, business_question, name):
+        """¿Las palabras de la pregunta que el nombre explica son todas de la
+        frase del periodo («mes pasado»)? Entonces el nombre no nombra lo que
+        se pregunta, solo repite el periodo."""
+        period_words = self._period_words(business_question)
+        if not period_words:
+            return False
+        ignored = {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS}
+        name_tokens = [token for token in canonical_tokens(name) if token not in ignored]
+        matched = {
+            token for token in canonical_tokens(business_question)
+            if token not in ignored and not _is_request_word(token)
+            and any(_token_similarity(token, other) >= 0.82 for other in name_tokens)
+        }
+        return bool(matched) and matched <= set(period_words)
+
     def _discard_weak_name(self, metric, business_question, best_name, best_name_score,
                            name_priority, in_named_model=False):
         """Regla: una medida cuyo nombre coincidente es solo un número/año o
@@ -6860,11 +7217,17 @@ class QueryPlanBuilder:
         if best_name_score <= 0:
             return best_name, best_name_score, name_priority
         kind = self._weak_name_kind(best_name)
+        if kind is None and self._matches_only_period(business_question, best_name):
+            # «Promedio Mensual Año Pasado» para «kilos de ropa del mes
+            # pasado»: solo coincide con la frase del periodo de la pregunta.
+            kind = "content_free"
         if kind is None or (kind == "generic" and in_named_model):
             return best_name, best_name_score, name_priority
         label = str(metric.get("label") or "")
         if label and normalize_text(label) != normalize_text(best_name):
             label_kind = self._weak_name_kind(label)
+            if label_kind is None and self._matches_only_period(business_question, label):
+                label_kind = "content_free"
             if label_kind is None or (label_kind == "generic" and in_named_model):
                 score = _phrase_score(business_question, label, self._token_weight_index())
                 if score > 0:

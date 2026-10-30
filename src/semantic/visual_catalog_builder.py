@@ -1287,6 +1287,14 @@ class PBIRVisualCatalogBuilder:
                     "aggregation",
                 ):
                     metric = {
+                        # Visual reconstruido de la documentación (PBIR local
+                        # incompleto, tools/local_data/complete_reports.py):
+                        # su enlace a columnas es inferido, no del informe.
+                        **(
+                            {"inferred": True}
+                            if visual_json.get("inferred")
+                            else {}
+                        ),
                         "page_name":
                             page_name,
                         "page_display_name":
@@ -1401,6 +1409,11 @@ class PBIRVisualCatalogBuilder:
             },
             "source_file":
                 str(visual_path),
+            **(
+                {"inferred": True}
+                if visual_json.get("inferred")
+                else {}
+            ),
         }
 
     # ========================================================

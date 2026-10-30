@@ -427,6 +427,11 @@ def build_global_master_metrics(
                 visual_metric.get(
                     "query_ref"
                 ),
+            **(
+                {"inferred": True}
+                if visual_metric.get("inferred")
+                else {}
+            ),
         }
 
         if (
