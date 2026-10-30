@@ -1854,6 +1854,13 @@ class QueryEngine:
         groups = plan.get("group_by") or []
         if len(groups) != 1 or not rows or groups[0].get("temporal"):
             return None
+        column = str(groups[0].get("column") or "").lower()
+        # Sin la columna del grupo en las filas no se puede juzgar.
+        if not column or not any(
+            column in str(key).lower() and "__value" not in str(key).lower()
+            for row in rows for key in (row or {})
+        ):
+            return None
         blank = total = 0.0
         filled = []
         for row in rows:
