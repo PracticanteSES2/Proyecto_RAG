@@ -5180,6 +5180,17 @@ class QueryPlanBuilder:
                 temporal = self._metric_date_fields(temporal, metric, semantic_model)
             except Exception:
                 pass
+        elif metric and semantic_model:
+            # Ninguna fecha entre las candidatas (la tabla del indicador solo
+            # tiene fechas de texto, CONSULTA_URGENCIAS): el calendario que la
+            # filtra por sus relaciones, aunque sea a través de una dimensión.
+            try:
+                temporal = [
+                    field for field in self._metric_date_fields([], metric, semantic_model)
+                    if field.get("source") == "metric_calendar"
+                ]
+            except Exception:
+                temporal = []
         if not temporal:
             return None
 
@@ -5292,6 +5303,16 @@ class QueryPlanBuilder:
                             "table": relation.get("ToTable"), "column": relation.get("ToColumn"), "from": [],
                         })
                         entry["from"].append(relation.get("FromColumn"))
+                        entry.pop("via", None)
+                    elif not target.startswith("localdatetable"):
+                        # Calendario de una dimensión que filtra la tabla del
+                        # indicador (Calendario → OPORTUNIDAD_TRIAGE[FECHA] →
+                        # CONSULTA_URGENCIAS): también filtra el indicador.
+                        entry = calendars.setdefault(target, {
+                            "table": relation.get("ToTable"), "column": relation.get("ToColumn"), "from": [],
+                            "via": relation.get("FromTable"),
+                        })
+                        entry["from"].append(relation.get("FromColumn"))
                     continue
                 reached.add(target)
             reached -= tables | dimensions
@@ -5370,7 +5391,7 @@ class QueryPlanBuilder:
                 # Un calendario automático (LocalDateTable) es la fecha de la
                 # columna de la tabla del indicador que lo usa.
                 columns = [*calendars[table]["from"], field.get("column")]
-                if table.startswith("localdatetable"):
+                if table.startswith("localdatetable") or calendars[table].get("via"):
                     value = 140
             column_stems = set()
             for column in columns:
