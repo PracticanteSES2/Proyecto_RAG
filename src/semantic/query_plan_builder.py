@@ -1364,6 +1364,90 @@ class QueryPlanBuilder:
             where = f" ({visual} de la página {source['page']})"
         return f"Filtros del tablero aplicados{where}: {shown}."
 
+    def _named_page_of_metric(self, question, metric):
+        """Página del indicador que la pregunta nombra entera («cuentas en
+        proceso de facturación» -> EN PROCESO FACTURACION, no EN PROCESO
+        FACTURACION DE IMAGENES); la de más palabras si hay varias; None."""
+        # El nombre de la página, sin conectores, tal cual y seguido en la
+        # pregunta («en proceso (de) facturación»): no basta con palabras
+        # sueltas parecidas («factura» no nombra la página FACTURACION).
+        connectors = {"de", "del", "la", "el", "los", "las", "y", "a", "al"}
+        question_seq = [token for token in canonical_tokens(question) if token not in connectors]
+        best, best_size, tie = None, 0, False
+        for page in _unique_strings(item.get("page_display_name") for item in metric.get("appearances") or []):
+            page_seq = [token for token in canonical_tokens(page) if token not in connectors]
+            content = [token for token in page_seq if token not in GENERIC_PAGE_WORDS]
+            if not content or not any(
+                question_seq[start:start + len(page_seq)] == page_seq
+                for start in range(len(question_seq) - len(page_seq) + 1)
+            ):
+                continue
+            tokens = set(content)
+            if len(tokens) > best_size:
+                best, best_size, tie = page, len(tokens), False
+            elif len(tokens) == best_size:
+                tie = True
+        return None if tie else best
+
+    def _use_named_page_filters(self, plan):
+        """La pregunta nombra una de las páginas donde está el indicador: la
+        cifra es la de ESA página (filtros de su visual, página e informe), no
+        el valor general ni la de otra página. Cambia plan["metric"]."""
+        from src.semantic.visual_filters import condition_signature, describe_condition, filter_dax
+
+        metric = plan.get("metric") or {}
+        if len(metric.get("appearances") or []) < 2 or not plan.get("question"):
+            return
+        page = self._named_page_of_metric(plan["question"], metric)
+        if not page:
+            return
+        current = (metric.get("board_filters_source") or {}).get("page")
+        if current and normalize_text(current) == normalize_text(page):
+            return
+        index = self._visual_index()
+        model = normalize_text(metric.get("semantic_model"))
+        reachable = self._tables_filtering_metric(metric)
+        found, signatures = None, set()
+        for appearance in metric.get("appearances") or []:
+            if normalize_text(appearance.get("page_display_name")) != normalize_text(page):
+                continue
+            visual = index.get((model, str(appearance.get("visual_id"))))
+            if visual is None:
+                return
+            try:
+                clauses = self._board_filter_clauses(metric, visual, reachable)
+            except Exception:
+                return
+            if clauses is None:
+                return
+            signatures.add(frozenset(
+                condition_signature(table, column, self._normalized_condition(condition))
+                for table, column, condition, _ in clauses
+            ))
+            found = found or (clauses, appearance)
+        if found is None or len(signatures) != 1:
+            return
+        clauses, appearance = found
+        base = metric.get("base_dax_expression") or metric.get("dax_expression")
+        try:
+            arguments = [filter_dax(table, column, condition) for table, column, condition, _ in clauses]
+        except Exception:
+            return
+        updated = {key: value for key, value in metric.items() if key != "board_filters_note"}
+        updated["base_dax_expression"] = base
+        updated["dax_expression"] = ("CALCULATE(" + base + ", " + ", ".join(arguments) + ")") if arguments else base
+        updated["visual_filters"] = [
+            {"table": table, "column": column, "condition": condition, "scope": scope,
+             "text": describe_condition(condition, column)}
+            for table, column, condition, scope in clauses
+        ]
+        updated["board_filters_source"] = {
+            "page": appearance.get("page_display_name"), "visual_type": appearance.get("visual_type"),
+            "visual_id": appearance.get("visual_id"), "report": appearance.get("report") or metric.get("report"),
+        }
+        plan["metric"] = updated
+        self._note(f"la pregunta nombra la página {page}: se usan los filtros de esa página del tablero")
+
     def _apply_board_filter_context(self, plan):
         """Plan listo: si la pregunta filtra una columna que el tablero ya
         filtra (el usuario pide CUIDADO ESPECIAL y la página lo excluye), manda
@@ -1371,6 +1455,7 @@ class QueryPlanBuilder:
         filtros del tablero aplicados."""
         if not isinstance(plan, dict) or plan.get("status") != "ready":
             return plan
+        self._use_named_page_filters(plan)
         metric = plan.get("metric") or {}
         board = metric.get("visual_filters") or []
         if not board or not metric.get("base_dax_expression"):
@@ -2159,7 +2244,13 @@ class QueryPlanBuilder:
                 "_shared_alias": (
                     not self._is_own_name(metric, best_name) and self._is_shared_alias(metric, best_name)
                 ),
+                "_name_priority": name_priority,
             })
+
+        # Un nombre exacto más corto («TIEMPO PROMEDIO DE RESPUESTA» de
+        # IMAGENES) no gana por serlo a otro que además nombra la entidad de la
+        # pregunta («... RESPUESTA A INTERCONSULTA» para «... de interconsultas»).
+        self._drop_priority_of_narrower_names(business_question, candidates)
 
         if not candidates:
             dictionary = self._dictionary_resolution(business_question, source_context)
@@ -2257,12 +2348,179 @@ class QueryPlanBuilder:
                 result["page_hint_ignored"] = page_missing
             return result
 
+        general = self._general_indicator(business_question, source_context, best)
+        if general is not None:
+            best = general
+            groups = [general, *[item for item in groups if self._logical_key(item["metric"])
+                                 != self._logical_key(general["metric"])]]
         return {
             "status": "resolved", "metric": best["metric"],
             "matched_name": best["matched_name"], "score": best["score"],
             "candidates": groups[:candidate_limit],
             "source_hint_ignored": hint_ignored,
             **({"page_hint_ignored": page_missing} if page_missing is not None else {}),
+            **({"general_indicator": True, "consumed_tokens": general["_consumed"]} if general else {}),
+        }
+
+    def _drop_priority_of_narrower_names(self, business_question, candidates):
+        """Quita la prioridad de nombre exacto a un candidato si otro (con
+        nombre suficiente) explica, con su propio nombre, todas sus palabras
+        de la pregunta y además alguna más."""
+        if len(candidates) < 2 or not any(item.get("_name_priority") for item in candidates):
+            return
+        content = {canonical_token(word) for word in self._question_content_words(business_question)}
+        content -= set(self._period_words(business_question))
+        # «por aseguradora»: la agrupación no nombra la entidad del indicador.
+        content -= set(canonical_tokens(self._requested_group_tail(business_question) or ""))
+        if not content:
+            return
+
+        def explained(item):
+            names = {
+                token for name in self._metric_names(item["metric"])
+                if name and not re.search(r"[().]", str(name)) for token in canonical_tokens(name)
+            }
+            return {token for token in content if self._explains(token, names)}
+
+        sets = [explained(item) for item in candidates]
+        # Solo importa si el exacto es el que va a ganar: a uno que ya va
+        # detrás no se le quita nada (sigue como alternativa cercana).
+        top = max(item["score"] for item in candidates)
+        for item, mine in zip(candidates, sets):
+            if not item.get("_name_priority") or not mine or item["score"] < top:
+                continue
+            # Solo un rival que el usuario ve en un tablero y que nombra lo
+            # de más con su propia etiqueta (no con un alias ni una medida
+            # auxiliar: «camas disponibles» sigue siendo CAMAS + un filtro).
+            wider = [
+                other for other, theirs in zip(candidates, sets)
+                if other is not item and theirs > mine and other["business_score"] >= self.min_metric_score
+                and other["metric"].get("appearances")
+                and all(
+                    self._explains(token, set(canonical_tokens(other["metric"].get("label"))))
+                    for token in theirs - mine
+                )
+            ]
+            if wider:
+                # Solo si así gana el que nombra más (no un tercero).
+                lowered = round(item["score"] - item["_name_priority"], 4)
+                rest = [other for other in candidates if other is not item]
+                leader = max(rest, key=lambda other: other["score"]) if rest else None
+                if leader is None or leader not in wider or leader["score"] < lowered:
+                    continue
+                item["score"] = lowered
+                item["_name_priority"] = 0.0
+                self._note(
+                    f"{item['metric'].get('label')} coincide exacto, pero "
+                    f"{wider[0]['metric'].get('label')} nombra además "
+                    f"«{', '.join(sorted(explained(wider[0]) - mine))}» de la pregunta: no se prioriza el exacto"
+                )
+
+    # ---- indicador de un subservicio frente al general del hospital ----
+    @staticmethod
+    def _shares_long_prefix(token, vocabulary, length=7):
+        """«hospitalizados» ~ «hospitalario»: misma raíz larga (≥ 7 letras)."""
+        return len(token) >= length and any(
+            len(other) >= length and token[:length] == other[:length] for other in vocabulary
+        )
+
+    def _subtopic_pages(self, metric, question_tokens):
+        """Páginas no principales del indicador cuyo tema (palabras del nombre
+        de la página que no son genéricas ni de su etiqueta) lo dice tal cual
+        la descripción de su tabla y la pregunta no lo nombra."""
+        model = normalize_text(metric.get("semantic_model"))
+        described = set(canonical_tokens(self._dictionary_index().get(
+            (model, "t:" + normalize_text(self._metric_fact_table(metric))), "")))
+        label = set(canonical_tokens(metric.get("label")))
+        count = 0
+        for page in _unique_strings(item.get("page_display_name") for item in metric.get("appearances") or []):
+            if self._PRINCIPAL_PAGE_RE.search(normalize_text(page)):
+                continue
+            topic = {
+                token for token in canonical_tokens(page)
+                if len(token) >= 4 and token not in GENERIC_PAGE_WORDS and token not in label
+            }
+            if topic and topic & described and not any(self._explains(t, question_tokens) for t in topic):
+                count += 1
+        return count
+
+    def _general_indicator(self, business_question, source_context, best):
+        """El elegido es la tarjeta de una página de un SUBSERVICIO (URGENCIAS)
+        que la pregunta no nombra y cuya tabla, según el diccionario, solo
+        trae ese subservicio («Ingresos de ayer a urgencias...»): se prefiere
+        el indicador general del mismo tablero en su página principal que
+        cuenta lo mismo (TOTAL PACIENTES en INICIO para «cuántos pacientes hay
+        hospitalizados»), si es uno solo y explica la pregunta. Devuelve el
+        candidato nuevo o None."""
+        metric = best["metric"]
+        appearances = metric.get("appearances") or []
+        pages = _unique_strings(item.get("page_display_name") for item in appearances)
+        if not pages or any(self._PRINCIPAL_PAGE_RE.search(normalize_text(page)) for page in pages):
+            return None
+        question_tokens = set(canonical_tokens(business_question))
+        page_tokens = {
+            token for page in pages for token in canonical_tokens(page)
+            if len(token) >= 4 and token not in GENERIC_PAGE_WORDS
+        }
+        if not page_tokens or any(self._explains(token, question_tokens) for token in page_tokens):
+            return None
+        model = normalize_text(metric.get("semantic_model"))
+        description = self._dictionary_index().get(
+            (model, "t:" + normalize_text(self._metric_fact_table(metric))), "")
+        described = set(canonical_tokens(description))
+        if not any(self._explains(token, described) for token in page_tokens):
+            return None
+        head = self._head_token(business_question, source_context)
+        if not head:
+            return None
+        content = [canonical_token(word) for word in self._question_content_words(business_question)]
+        found = {}
+        for other in self._dedupe_metrics(self.metrics):
+            if (
+                other.get("validation_status") != "approved"
+                or normalize_text(other.get("semantic_model")) != model
+                or self._logical_key(other) == self._logical_key(metric)
+            ):
+                continue
+            principal_cards = [
+                item for item in other.get("appearances") or []
+                if self._PRINCIPAL_PAGE_RE.search(normalize_text(item.get("page_display_name")))
+                and normalize_text(item.get("visual_type")) == "card"
+            ]
+            # Cuenta lo mismo por su NOMBRE («TOTAL PACIENTES»), no solo por
+            # la descripción de su tabla.
+            own_names = set(canonical_tokens(other.get("label"))) | set(canonical_tokens(other.get("measure")))
+            if not principal_cards or not self._explains(head, own_names):
+                continue
+            vocabulary = self._metric_vocabulary_tokens(other) | self._dictionary_tokens(other)
+            vocabulary.update(canonical_tokens(other.get("semantic_model")))
+            for report in self._metric_reports(other):
+                vocabulary.update(canonical_tokens(report))
+            if not all(
+                self._explains(token, vocabulary) or self._shares_long_prefix(token, vocabulary)
+                or _is_question_form_word(token)
+                for token in content
+            ):
+                continue
+            found.setdefault(self._logical_key(other), other)
+        if len(found) > 1:
+            # El general es el que no está además en la página de OTRO tema
+            # propio de su tabla («PACIENTES EMERGENCIA»: pacientes de la
+            # emergencia del movimiento telúrico).
+            ranked = sorted(found.items(), key=lambda pair: self._subtopic_pages(pair[1], question_tokens))
+            best_rank = self._subtopic_pages(ranked[0][1], question_tokens)
+            found = dict(pair for pair in ranked if self._subtopic_pages(pair[1], question_tokens) == best_rank)
+        if len(found) != 1:
+            return None
+        general = next(iter(found.values()))
+        self._note(
+            f"{metric.get('label')} es la tarjeta de la página {', '.join(pages)} (un subservicio que la "
+            f"pregunta no nombra); se usa el indicador general del tablero: {general.get('label')}"
+        )
+        return {
+            **best, "metric": general, "matched_name": general.get("label"),
+            "_own_name": True, "_shared_alias": False, "_general_indicator": True,
+            "_consumed": set(content),
         }
 
     # ---- indicador explicado solo por el diccionario de variables ----
@@ -6586,7 +6844,7 @@ class QueryPlanBuilder:
         especialidad»). Con ello se contrapregunta en lugar de responder.
         Un indicador elegido por el diccionario de variables
         (_dictionary_resolution) ya tiene su respaldo: lo que mide."""
-        if (metric_result or {}).get("dictionary_match"):
+        if (metric_result or {}).get("dictionary_match") or (metric_result or {}).get("general_indicator"):
             return None
         ignored = {
             canonical_token(word)
@@ -6871,6 +7129,53 @@ class QueryPlanBuilder:
             question, intent_result, item,
             f"{why_prefix}{self._ungroupable_text(originals, tail, question)} Se usa el indicador del "
             f"mismo tablero que sí se desglosa por «{tail}» y trata el tema de la pregunta",
+            consumed_tokens=self._option_words(question, source_context),
+            visible_note=note, group_sibling=True,
+        )
+
+    def blank_group_alternative(self, plan, blank_share):
+        """La agrupación pedida salió casi toda en blanco («(sin especialidad)»
+        40 de 41): esa tabla no tiene la dimensión poblada. Plan con el ÚNICO
+        indicador del mismo tema (de cualquier tablero) que se desglosa por esa
+        dimensión en OTRA columna; None si no hay uno solo (entonces se le dice
+        al usuario)."""
+        groups = plan.get("group_by") or []
+        metric = plan.get("metric") or {}
+        if len(groups) != 1 or not metric:
+            return None
+        field = groups[0]
+        names = [*(field.get("aliases") or []), field.get("label"), field.get("column")]
+        tail = next((normalize_text(name) for name in names if normalize_text(name)), "")
+        question = plan.get("question") or ""
+        source_context = plan.get("source_context") or {}
+        if not tail or not question:
+            return None
+        models = _unique_strings(item.get("semantic_model") for item in self.metrics)
+        same_column = (normalize_text(field.get("table")), normalize_text(field.get("column")))
+        siblings = [
+            item for item in self._group_siblings(question, source_context, tail, models, exclude=[metric])
+            if (normalize_text(item["field"].get("table")), normalize_text(item["field"].get("column")))
+            != same_column
+        ]
+        if len(siblings) != 1:
+            self._note(
+                f"{field.get('table')}[{field.get('column')}] está en blanco en el {blank_share:.0%} del "
+                f"resultado y ningún otro indicador del tema se desglosa por «{tail}»"
+                + (f" (varios: {', '.join(str(i['metric'].get('label')) for i in siblings[:4])})" if siblings else "")
+            )
+            return None
+        sibling = siblings[0]
+        other = sibling["metric"]
+        note = (
+            f"{metric.get('label')} tiene {field.get('column')} en blanco en el {blank_share:.0%} de los "
+            f"registros: no sirve para desglosar por {tail}. Se muestra {other.get('label')} "
+            f"({other.get('report') or other.get('semantic_model')}), que sí trae {tail}."
+        )
+        item = {"metric": other, "matched_name": other.get("label"), "score": None}
+        return self._forced_plan(
+            question, None, item,
+            f"la agrupación por «{tail}» de {metric.get('label')} salió casi toda en blanco; se usa el "
+            "indicador del mismo tema que sí la trae",
             consumed_tokens=self._option_words(question, source_context),
             visible_note=note, group_sibling=True,
         )
@@ -7722,6 +8027,10 @@ class QueryPlanBuilder:
         best = metric_result.get("metric") or {}
         if not best.get("metric_id"):
             return None
+        # El indicador general que reemplazó a la tarjeta de un subservicio se
+        # eligió por el tablero de esa tarjeta: no compite por nombre con otros.
+        if metric_result.get("general_indicator"):
+            return None
         strong = (
             source_context.get("status") == "resolved"
             and source_context.get("routing_strength") == "strong"
@@ -7913,7 +8222,7 @@ class QueryPlanBuilder:
         interpretado existe en el catálogo, fuera de alcance.
         No aplica a un indicador elegido por el diccionario de variables: ya
         se comprobó que el diccionario o su tabla explican cada palabra."""
-        if (metric_result or {}).get("dictionary_match"):
+        if (metric_result or {}).get("dictionary_match") or (metric_result or {}).get("general_indicator"):
             return None
         unit = self._counted_unit(question, metric, source_context)
         significant = [word for word in significant if canonical_token(word) != unit]
@@ -9629,6 +9938,8 @@ class QueryPlanBuilder:
         genéricas («pacientes», «casos») no son calificativos: «egresos
         probables para HOY» no es EGRESOS EFECTIVOS HOY ni «cuánto duran los
         PACIENTES en urgencias» es el tiempo de los pacientes hospitalizados."""
+        if (metric_result or {}).get("general_indicator"):
+            return None  # ya se cambió el de un subservicio por el general
         ignored = self._loose_qualifier_tokens(question)
         dropped = [word for word in words if canonical_token(word) in ignored]
         words = [word for word in words if canonical_token(word) not in ignored]
@@ -9669,6 +9980,18 @@ class QueryPlanBuilder:
                  or top["score"] - second["score"] >= self.ambiguity_margin)
         )
         if clear:
+            # «hospitalizados» lleva a la tarjeta de un subservicio (URGENCIAS)
+            # que la pregunta no nombra: se usa el indicador general del tablero.
+            business_question = self._metric_business_question(question, source_context)
+            general = self._general_indicator(business_question, source_context, top)
+            if general is not None:
+                forced = {
+                    "status": "resolved", "metric": general["metric"],
+                    "matched_name": general["matched_name"], "score": top["score"],
+                    "candidates": [{key: value for key, value in general.items() if not key.startswith("_")}],
+                    "final": True, "consumed_tokens": general["_consumed"], "general_indicator": True,
+                }
+                return self._build_plan(question, intent_result, forced_resolution=forced)
             chosen = {key: value for key, value in top.items() if not key.startswith("_")}
             interpretation = (
                 f"«{words_text}» forma parte del indicador {top['metric'].get('label')} "
@@ -10220,6 +10543,9 @@ class QueryPlanBuilder:
         # Palabras con que se eligió un indicador ya decidido (página nombrada:
         # «promedio» eligió PROM_PD): no son filtros pendientes.
         consumed_tokens.update((forced_resolution or {}).get("consumed_tokens") or ())
+        # Indicador general elegido en lugar del de un subservicio: las palabras
+        # que explicó («hospitalizados») no son filtros pendientes.
+        consumed_tokens.update((metric_result or {}).get("consumed_tokens") or ())
         # «en el hospital», «ocupación general»: todo el hospital, sin filtro
         # (ni exploración de valores ni «No pude aplicar»).
         scope = self._scope_words(dimension_question, metric)
