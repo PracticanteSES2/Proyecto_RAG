@@ -1364,6 +1364,82 @@ class QueryPlanBuilder:
             where = f" ({visual} de la página {source['page']})"
         return f"Filtros del tablero aplicados{where}: {shown}."
 
+    def _named_page_of_metric(self, question, metric):
+        """Página del indicador que la pregunta nombra entera («cuentas en
+        proceso de facturación» -> EN PROCESO FACTURACION, no EN PROCESO
+        FACTURACION DE IMAGENES); la de más palabras si hay varias; None."""
+        question_tokens = set(canonical_tokens(question))
+        stop = {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS} | set(GENERIC_PAGE_WORDS)
+        best, best_size, tie = None, 0, False
+        for page in _unique_strings(item.get("page_display_name") for item in metric.get("appearances") or []):
+            tokens = {token for token in canonical_tokens(page) if token not in stop and len(token) >= 3}
+            if not tokens or not all(self._explains(token, question_tokens) for token in tokens):
+                continue
+            if len(tokens) > best_size:
+                best, best_size, tie = page, len(tokens), False
+            elif len(tokens) == best_size:
+                tie = True
+        return None if tie else best
+
+    def _use_named_page_filters(self, plan):
+        """La pregunta nombra una de las páginas donde está el indicador: la
+        cifra es la de ESA página (filtros de su visual, página e informe), no
+        el valor general ni la de otra página. Cambia plan["metric"]."""
+        from src.semantic.visual_filters import condition_signature, describe_condition, filter_dax
+
+        metric = plan.get("metric") or {}
+        if len(metric.get("appearances") or []) < 2 or not plan.get("question"):
+            return
+        page = self._named_page_of_metric(plan["question"], metric)
+        if not page:
+            return
+        current = (metric.get("board_filters_source") or {}).get("page")
+        if current and normalize_text(current) == normalize_text(page):
+            return
+        index = self._visual_index()
+        model = normalize_text(metric.get("semantic_model"))
+        reachable = self._tables_filtering_metric(metric)
+        found, signatures = None, set()
+        for appearance in metric.get("appearances") or []:
+            if normalize_text(appearance.get("page_display_name")) != normalize_text(page):
+                continue
+            visual = index.get((model, str(appearance.get("visual_id"))))
+            if visual is None:
+                return
+            try:
+                clauses = self._board_filter_clauses(metric, visual, reachable)
+            except Exception:
+                return
+            if clauses is None:
+                return
+            signatures.add(frozenset(
+                condition_signature(table, column, self._normalized_condition(condition))
+                for table, column, condition, _ in clauses
+            ))
+            found = found or (clauses, appearance)
+        if found is None or len(signatures) != 1:
+            return
+        clauses, appearance = found
+        base = metric.get("base_dax_expression") or metric.get("dax_expression")
+        try:
+            arguments = [filter_dax(table, column, condition) for table, column, condition, _ in clauses]
+        except Exception:
+            return
+        updated = {key: value for key, value in metric.items() if key != "board_filters_note"}
+        updated["base_dax_expression"] = base
+        updated["dax_expression"] = ("CALCULATE(" + base + ", " + ", ".join(arguments) + ")") if arguments else base
+        updated["visual_filters"] = [
+            {"table": table, "column": column, "condition": condition, "scope": scope,
+             "text": describe_condition(condition, column)}
+            for table, column, condition, scope in clauses
+        ]
+        updated["board_filters_source"] = {
+            "page": appearance.get("page_display_name"), "visual_type": appearance.get("visual_type"),
+            "visual_id": appearance.get("visual_id"), "report": appearance.get("report") or metric.get("report"),
+        }
+        plan["metric"] = updated
+        self._note(f"la pregunta nombra la página {page}: se usan los filtros de esa página del tablero")
+
     def _apply_board_filter_context(self, plan):
         """Plan listo: si la pregunta filtra una columna que el tablero ya
         filtra (el usuario pide CUIDADO ESPECIAL y la página lo excluye), manda
@@ -1371,6 +1447,7 @@ class QueryPlanBuilder:
         filtros del tablero aplicados."""
         if not isinstance(plan, dict) or plan.get("status") != "ready":
             return plan
+        self._use_named_page_filters(plan)
         metric = plan.get("metric") or {}
         board = metric.get("visual_filters") or []
         if not board or not metric.get("base_dax_expression"):
@@ -2159,7 +2236,13 @@ class QueryPlanBuilder:
                 "_shared_alias": (
                     not self._is_own_name(metric, best_name) and self._is_shared_alias(metric, best_name)
                 ),
+                "_name_priority": name_priority,
             })
+
+        # Un nombre exacto más corto («TIEMPO PROMEDIO DE RESPUESTA» de
+        # IMAGENES) no gana por serlo a otro que además nombra la entidad de la
+        # pregunta («... RESPUESTA A INTERCONSULTA» para «... de interconsultas»).
+        self._drop_priority_of_narrower_names(business_question, candidates)
 
         if not candidates:
             dictionary = self._dictionary_resolution(business_question, source_context)
@@ -2270,6 +2353,41 @@ class QueryPlanBuilder:
             **({"page_hint_ignored": page_missing} if page_missing is not None else {}),
             **({"general_indicator": True, "consumed_tokens": general["_consumed"]} if general else {}),
         }
+
+    def _drop_priority_of_narrower_names(self, business_question, candidates):
+        """Quita la prioridad de nombre exacto a un candidato si otro (con
+        nombre suficiente) explica, con su propio nombre, todas sus palabras
+        de la pregunta y además alguna más."""
+        if len(candidates) < 2 or not any(item.get("_name_priority") for item in candidates):
+            return
+        content = {canonical_token(word) for word in self._question_content_words(business_question)}
+        content -= set(self._period_words(business_question))
+        if not content:
+            return
+
+        def explained(item):
+            names = {
+                token for name in self._metric_names(item["metric"])
+                if name and not re.search(r"[().]", str(name)) for token in canonical_tokens(name)
+            }
+            return {token for token in content if self._explains(token, names)}
+
+        sets = [explained(item) for item in candidates]
+        for item, mine in zip(candidates, sets):
+            if not item.get("_name_priority") or not mine:
+                continue
+            wider = [
+                other for other, theirs in zip(candidates, sets)
+                if other is not item and theirs > mine and other["business_score"] >= self.min_metric_score
+            ]
+            if wider:
+                item["score"] = round(item["score"] - item["_name_priority"], 4)
+                item["_name_priority"] = 0.0
+                self._note(
+                    f"{item['metric'].get('label')} coincide exacto, pero "
+                    f"{wider[0]['metric'].get('label')} nombra además "
+                    f"«{', '.join(sorted(explained(wider[0]) - mine))}» de la pregunta: no se prioriza el exacto"
+                )
 
     # ---- indicador de un subservicio frente al general del hospital ----
     @staticmethod

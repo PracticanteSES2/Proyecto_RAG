@@ -58,6 +58,13 @@ METRICS = [
      "appearances": [
          {"report": BRIEF, "page_display_name": page, "page_name": page, "visual_id": f"v_emerg_{page}",
           "visual_title": None, "visual_type": "card"} for page in ("INICIO", "PACIENTES EMERGENCIA")]},
+    # TU06: el nombre exacto más corto (de IMAGENES) frente al que además
+    # nombra la entidad de la pregunta (INTERCONSULTA).
+    {**_metric("img", "TIEMPO PROMEDIO DE RESPUESTA", "IMAGENES", "AVERAGE('IMAGENES'[tiempo_respuesta])",
+               "IMAGENES"), "aggregation": "Average"},
+    {**_metric("inter_t", "TIEMPO PROMEDIO DE RESPUESTA A INTERCONSULTA", "INTERCONSULTA",
+               "AVERAGE('INTERCONSULTA'[TIEMPO_RESPUESTA_INTERCONSULTA])", "INTERCONSULTAS",
+               visual_type="lineClusteredColumnComboChart"), "aggregation": "Average"},
 ]
 
 TECHNICAL = {"semantic_model": BRIEF, "relationships": [], "tables": [
@@ -156,6 +163,55 @@ def test_specific_qualifier_the_general_indicator_does_not_explain_is_kept():
     resolution = resolve("cuantos pacientes observados hay")
     assert resolution.get("status") == "resolved" and resolution["metric"]["metric_id"] == "obs", (
         resolution.get("status"), (resolution.get("metric") or {}).get("label"))
+
+
+# ---------------------------------------------------------------- TU06
+def test_name_that_also_names_the_entity_beats_a_shorter_exact_name():
+    resolution = resolve("tiempo promedio de respuesta de interconsultas por especialidad el mes pasado")
+    metric = resolution.get("metric") or {}
+    assert metric.get("metric_id") == "inter_t", (resolution.get("status"), metric.get("label"), [
+        (item["metric"]["label"], item["score"]) for item in resolution.get("candidates") or []])
+
+
+def test_exact_short_name_still_wins_without_a_wider_rival():
+    resolution = resolve("tiempo promedio de respuesta")
+    assert (resolution.get("metric") or {}).get("metric_id") == "img" or resolution.get("status") == "ambiguous"
+
+
+# ---------------------------------------------------------------- FC04
+def test_named_page_of_the_metric():
+    qpb = builder()
+    metric = {"appearances": [{"page_display_name": page} for page in (
+        "EN PROCESO FACTURACION", "EN PROCESO AUDITORIA PERTINENCIA", "EN PROCESO FACTURACION DE IMAGENES")]}
+    assert qpb._named_page_of_metric("cuantas cuentas hay en proceso de facturacion", metric) ==         "EN PROCESO FACTURACION"
+    assert qpb._named_page_of_metric("cuentas en proceso de facturacion de imagenes", metric) ==         "EN PROCESO FACTURACION DE IMAGENES"
+    assert qpb._named_page_of_metric("cuantas cuentas hay", metric) is None
+
+
+def test_named_page_filters_replace_the_general_value():
+    qpb = builder()
+    metric = {
+        "metric_id": "pf", "label": "PROCESO_FACTURACION", "semantic_model": BRIEF, "table": "T",
+        "dax_expression": "[PROCESO_FACTURACION]", "board_filters_note": "filtros distintos en cada visual",
+        "appearances": [{"page_display_name": page, "visual_id": vid, "visual_type": "card"}
+                        for page, vid in (("EN PROCESO FACTURACION", "a"), ("EN PROCESO AUDITORIA", "b"))],
+    }
+    visuals = {("briefing hospitalario", vid): {"visual_id": vid} for vid in ("a", "b")}
+    clauses = {"a": [("T", "PERFIL", {"op": "in", "values": ["FACTURACION"]}, "page")],
+               "b": [("T", "PERFIL", {"op": "in", "values": ["AUDITORIA"]}, "page")]}
+    original = (qpb._visual_index, qpb._board_filter_clauses, qpb._tables_filtering_metric)
+    qpb._visual_index = lambda: visuals
+    qpb._board_filter_clauses = lambda metric, visual, reachable=None: clauses[visual["visual_id"]]
+    qpb._tables_filtering_metric = lambda metric: None
+    try:
+        plan = {"status": "ready", "question": "cuantas cuentas hay en proceso de facturacion", "metric": metric}
+        qpb._use_named_page_filters(plan)
+    finally:
+        qpb._visual_index, qpb._board_filter_clauses, qpb._tables_filtering_metric = original
+    updated = plan["metric"]
+    assert updated["board_filters_source"]["page"] == "EN PROCESO FACTURACION", updated
+    assert "board_filters_note" not in updated
+    assert updated["dax_expression"].startswith("CALCULATE([PROCESO_FACTURACION]") and "FACTURACION" in         updated["dax_expression"], updated["dax_expression"]
 
 
 # ---------------------------------------------------------------- BH18
