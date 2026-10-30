@@ -5953,6 +5953,71 @@ class QueryPlanBuilder:
         r"[a-z]{3,}(?:\s+[a-z]+){0,4}?\s+(?:mas|menos)(?![a-z0-9])(?!\s+o\s+menos)"
     )
 
+    _RANKED_ENTITY_RE = re.compile(
+        r"(?<![a-z0-9])(?:que|cual|cuales)\s+(?:es\s+|son\s+|fue\s+|fueron\s+)?(?:el\s+|la\s+|los\s+|las\s+)?"
+        r"(?P<entity>[a-z]{4,})(?:\s+[a-z]+){0,4}?\s+(?:mas|menos)(?![a-z0-9])(?!\s+o\s+menos)"
+    )
+
+    def _ranked_entity_metric(self, question, intent_result):
+        """«¿cuál es el antibiótico que más se está usando?»: ranking informal
+        de una entidad sin indicador nombrado. Si un solo indicador visible se
+        muestra en un gráfico agrupado por esa entidad (PACIENTES ACTIVOS POR
+        TIPO DE ANTIBIÓTICO: PAC_ACT por ANTIBIOTICO), se responde con él
+        (agrupado y ordenado); si no hay uno solo, None."""
+        normalized = normalize_text(question)
+        match = self._RANKED_ENTITY_RE.search(normalized)
+        if not match or not self._informal_ranking(normalized):
+            return None
+        entity = canonical_token(match.group("entity"))
+        if entity in {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS}:
+            return None
+        index = self._visual_index()
+        found = {}
+        for metric in self._dedupe_metrics(self.metrics):
+            if metric.get("validation_status") != "approved":
+                continue
+            model = normalize_text(metric.get("semantic_model"))
+            for appearance in metric.get("appearances") or []:
+                # Solo gráficos que agregan por la entidad (barras, anillos...):
+                # no tarjetas ni tablas de detalle, que listan registros.
+                kind = str(appearance.get("visual_type") or "").lower()
+                if not kind or any(word in kind for word in ("card", "table", "pivot", "matrix", "slicer")):
+                    continue
+                visual = index.get((model, str(appearance.get("visual_id"))))
+                for field in (visual or {}).get("fields") or []:
+                    if field.get("kind") not in (None, "column") or not field.get("column"):
+                        continue
+                    names = [field.get("column"), field.get("display_name")]
+                    if any(
+                        canonical_tokens(name) and canonical_tokens(name)[-1] == entity
+                        or canonical_tokens(name) == [entity]
+                        for name in names if name
+                    ):
+                        found.setdefault(self._logical_key(metric), (metric, appearance))
+                        break
+        if len(found) != 1:
+            return None
+        metric, appearance = next(iter(found.values()))
+        label = appearance.get("visual_title") or metric.get("label")
+        self._note(
+            f"«{match.group(0)}» es un ranking de {match.group('entity')} sin indicador nombrado: "
+            f"se usa el que el tablero muestra por {match.group('entity')} ({label})"
+        )
+        # «que más SE ESTÁ USANDO»: el verbo tras «más» es lo que mide el
+        # indicador del gráfico, no un filtro.
+        rest = normalized[match.end():].split()
+        consumed = {canonical_token(word) for word in rest[:4]} if len(rest) <= 4 else set()
+        forced = {
+            "status": "resolved", "metric": metric, "matched_name": metric.get("label"),
+            "score": self.min_metric_score, "final": True, "consumed_tokens": consumed,
+            "candidates": [{"metric": metric, "score": self.min_metric_score,
+                            "business_score": self.min_metric_score, "matched_name": metric.get("label")}],
+        }
+        plan = self._build_plan(question, intent_result, forced_resolution=forced)
+        if isinstance(plan, dict) and plan.get("status") == "ready" and plan.get("group_by"):
+            return plan
+        return None
+
     def _informal_ranking(self, normalized):
         """«¿cuál es el antibiótico que más se usa?», «¿en qué turno se lava
         más ropa?»: el elemento con más/menos de algo es un ranking."""
@@ -10570,6 +10635,11 @@ class QueryPlanBuilder:
             return self._named_page_rejection(
                 question, source_context, metric_result, metric_result["page_hint_ignored"],
             )
+
+        if exploring and metric_result.get("status") == "not_found":
+            ranked = self._ranked_entity_metric(question, intent_result)
+            if ranked is not None:
+                return ranked
 
         if metric_result.get("status") != "resolved":
             if exploring and metric_result.get("status") == "ambiguous":
