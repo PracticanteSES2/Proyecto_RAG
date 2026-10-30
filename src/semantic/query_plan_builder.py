@@ -4136,15 +4136,37 @@ class QueryPlanBuilder:
                 phrases.add(short)
         return phrases
 
-    def _names_board(self, text, source_context, metric=None):
+    def _names_board(self, text, source_context, metric=None, loose=False):
         """¿`text` («lavanderia», «el tablero de lavanderia») es solo el
-        nombre del tablero/informe del contexto?"""
+        nombre del tablero/informe del contexto?
+
+        `loose`: también vale la palabra distintiva del nombre («el briefing»
+        por BRIEFING HOSPITALARIO): todas sus palabras están en el nombre de
+        ese tablero y ninguna es un concepto de los indicadores ni una palabra
+        genérica (así «urgencias» sigue siendo un valor posible aunque el
+        tablero se llame TIEMPOS URGENCIAS). Solo se usa cuando el texto ya
+        no es un valor de la columna."""
         norm = normalize_text(text)
         norm = re.sub(r"^(?:(?:en|de|del)\s+)?(?:(?:el|la|los|las)\s+)?", "", norm)
         norm = re.sub(r"^(?:tablero|informe|reporte)\s+(?:(?:de|del)\s+)?", "", norm).strip()
         if not norm:
             return False
-        return norm in self._board_name_phrases(source_context, metric)
+        phrases = self._board_name_phrases(source_context, metric)
+        if norm in phrases:
+            return True
+        if not loose:
+            return False
+        tokens = [token for token in canonical_tokens(norm) if token]
+        generic = {canonical_token(word) for word in GENERIC_QUERY_WORDS | STOPWORDS}
+        concepts = self._metric_concept_tokens()
+        if not tokens or any(
+            len(token) < 4 or token in generic or token in concepts or token.isdigit()
+            for token in tokens
+        ):
+            return False
+        return any(
+            set(tokens) <= set(canonical_tokens(phrase)) for phrase in phrases
+        )
 
     def _detect_group_or_dimension_filter(self, question, metric, candidates, source_context=None):
         normalized = normalize_text(question)
@@ -4192,6 +4214,14 @@ class QueryPlanBuilder:
             )
             return {"group_by": [best], "explicit_filters": [], "phrase": matched_alias}
         remainder = re.sub(r"^(?:de|del|en|igual a|=)\s+", "", remainder).strip()
+        # «por aseguradora, las 5 más altas»: un ranking, no un valor.
+        top, _ = self._postfix_top(remainder)
+        if top is not None and not remainder[:top.start()].strip(" ,;"):
+            self._note(
+                f"«{matched_alias} {remainder}»: «{top.group(0)}» pide un ranking, no un valor de "
+                f"{best.get('table')}[{best.get('column')}]; se agrupa"
+            )
+            remainder = remainder[top.end():].strip(" ,;")
         # «por asegurador en total / en general»: forma de la pregunta, no el
         # valor SALUD TOTAL EPS; se agrupa.
         if remainder and all(
@@ -4228,6 +4258,17 @@ class QueryPlanBuilder:
                 cleaned = re.sub(r"(?<![a-z0-9])" + re.escape(norm) + r"(?![a-z0-9])", " ", cleaned)
         cleaned = re.sub(r"\b(?:tablero|informe)\b", " ", cleaned)
         return re.sub(r"\s+", " ", cleaned).strip()
+
+    # Palabras con las que no empieza el valor de un filtro «<columna> <valor>»:
+    # preposiciones y verbos conjugados (copulativos y auxiliares).
+    _VALUE_INVALID_START = {
+        "hay", "hubo", "habia", "habra", "tiene", "tienen", "tenia", "tenian", "tenemos",
+        "es", "son", "era", "eran", "fue", "fueron", "sera", "seran",
+        "esta", "estan", "estaba", "estaban", "estuvo", "estuvieron", "estara", "estaran",
+        "queda", "quedan", "quedaba", "quedaban", "quedaron", "sigue", "siguen",
+        "va", "van", "iba", "iban", "ha", "han", "habian", "se",
+        "por", "para", "con",
+    }
 
     def _detect_explicit_dimension_filters(
         self, question, candidates, already_fields=None,
@@ -4284,12 +4325,20 @@ class QueryPlanBuilder:
                     match.group(1), maxsplit=1,
                 )[0].strip()
                 # «servicio de urgencias» es filtro; «servicio por...»,
-                # «servicio hay...» o «servicio en ...» no lo son.
-                invalid_start = {"hay", "hubo", "tiene", "tienen", "es", "son", "por", "para", "con"}
+                # «servicio hay...» o «servicio en ...» no lo son. Tampoco lo
+                # que empieza por un verbo conjugado («de cama ESTÁN
+                # pendientes»): un valor se nombra, no se conjuga.
                 tokens = canonical_tokens(hint)
-                if not hint or not tokens or tokens[0] in invalid_start:
+                if (
+                    not hint or not tokens or tokens[0] in self._VALUE_INVALID_START
+                    or normalize_text(hint).split()[0] in self._VALUE_INVALID_START
+                ):
                     continue
                 if len(hint.split()) == 1 and hint in GENERIC_QUERY_WORDS:
+                    continue
+                # «…, las 5 más altas» es un ranking, no un valor.
+                top, _ = self._postfix_top(normalize_text(hint))
+                if top is not None and top.start() == 0:
                     continue
                 if all(
                     word in _GROUP_NEUTRAL_TAIL_WORDS or _is_question_form_word(word)
@@ -6743,8 +6792,12 @@ class QueryPlanBuilder:
                     r"(?:el\s+|la\s+|los\s+|las\s+)?" + re.escape(alias) + r"(?![a-z0-9])",
                     " ", stripped,
                 )
-        stripped = re.sub(r"\s+", " ", stripped).strip()
-        if not stripped or stripped == text:
+        if stripped == text:
+            return None
+        # El ranking pospuesto («, las 5 más altas») tampoco elige el indicador.
+        stripped = self._POSTFIX_TOP_RE.sub(" ", stripped)
+        stripped = re.sub(r"\s+", " ", stripped).strip(" ,;")
+        if not stripped:
             return None
         alternative = self._resolve_metric_flexible(stripped, source_context)
         if (
@@ -7091,8 +7144,25 @@ class QueryPlanBuilder:
         "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10,
     }
 
+    # Ranking pospuesto a la agrupación: «por aseguradora, las 5 más altas»,
+    # «por servicio los 10 primeros», «los 3 menores».
+    _POSTFIX_TOP_RE = re.compile(
+        r"(?<![a-z0-9])(?:(?:los|las)\s+)?(?:top\s+)?"
+        r"(?P<n>\d{1,2}|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+"
+        r"(?P<how>(?:mas|menos)\s+(?:alt|baj|grand|pequen|import|frecuent|car|barat)[a-z]*"
+        r"|mayores|menores|primer[oa]s|ultim[oa]s|principales)(?![a-z0-9])"
+    )
+    _POSTFIX_ASC_RE = re.compile(r"^(?:menos\b|mas\s+(?:baj|pequen|barat)|menores|ultim)")
+
+    def _postfix_top(self, normalized):
+        """(match, dirección) de un ranking pospuesto, o (None, None)."""
+        match = self._POSTFIX_TOP_RE.search(normalized)
+        if not match:
+            return None, None
+        return match, ("asc" if self._POSTFIX_ASC_RE.match(match.group("how")) else "desc")
+
     def _mentions_ranking(self, normalized):
-        return bool(self._RANKING_HINT_RE.search(normalized))
+        return bool(self._RANKING_HINT_RE.search(normalized)) or self._postfix_top(normalized)[0] is not None
 
     def is_ranking(self, question):
         """«top 5 ...», «el servicio con más ...»: pide orden/límite sobre un indicador."""
@@ -7169,7 +7239,35 @@ class QueryPlanBuilder:
                 if best is None or len(candidate["phrase"]) > len(best["phrase"]):
                     best = candidate
                 break
+        if best is None:
+            best = self._postfix_ranking(text, fields)
         return best
+
+    def _postfix_ranking(self, text, fields):
+        """«<dimensión> ..., las 5 más altas»: el ranking va DESPUÉS de la
+        dimensión nombrada (la última nombrada antes de la frase)."""
+        match, direction = self._postfix_top(text)
+        if match is None:
+            return None
+        head = text[:match.start()]
+        chosen, position = None, -1
+        for field in fields:
+            for alias in {normalize_text(alias) for alias in field.get("aliases", []) or []}:
+                if len(alias) < 3:
+                    continue
+                for found in re.finditer(r"(?<![a-z0-9])" + re.escape(alias) + r"(?![a-z0-9])", head):
+                    if found.start() > position:
+                        chosen, position = field, found.start()
+        if chosen is None:
+            return None
+        raw_n = match.group("n")
+        limit = int(raw_n) if raw_n.isdigit() else self._NUMBER_WORDS.get(raw_n)
+        tokens = {canonical_token(word) for word in self._RANKING_WORDS}
+        tokens.update(canonical_token(word) for word in match.group(0).split())
+        return {
+            "field": chosen, "direction": direction, "limit": limit,
+            "phrase": match.group(0).strip(), "tokens": tokens,
+        }
 
     @staticmethod
     def _ranking_note(ranking, label):
@@ -7696,6 +7794,82 @@ class QueryPlanBuilder:
             self._models_with_report = models
         return normalize_text(semantic_model) in models
 
+    # Pregunta por el estado presente («cuántas camas hay AHORITA», «cuántas
+    # TENEMOS», «ESTÁN ocupadas»), no por lo ocurrido («cuántos egresos hubo»)
+    # ni un simple «hay» («¿cuántas cirugías hay?» sigue siendo ambigua).
+    _PRESENT_STATE_RE = re.compile(
+        r"(?<![a-z0-9])(?:tenemos|estan|quedan|ahorita|ahora|actualmente"
+        r"|en\s+este\s+momento|en\s+el\s+momento)(?![a-z0-9])"
+    )
+
+    def _homonyms_that_answer(self, question, metric_result, items, current_state=True):
+        """Homónimos entre los que vale la pena preguntar. Regla general: solo
+        se contrapregunta entre fuentes que pueden dar una cifra para la
+        pregunta tal como está escrita.
+        1. Con periodo o «por X», se arma la consulta con cada uno: el que no
+           queda lista (sin fecha para «mes pasado», sin la columna X) no
+           responde y sale. Si ninguno responde, no hay nada que preguntar ([]).
+        2. Sin periodo (estado actual: «cuántas camas hay ahorita»), una medida
+           que ningún visual muestra no es lo que el usuario ve en el tablero:
+           si exactamente un homónimo está en un visual, es ese.
+        Devuelve None si no descarta nada; si no, la lista que queda."""
+        normalized = normalize_text(question)
+        period = bool(self._has_period(normalized))
+        tail = self._requested_group_tail(question)
+        kept = list(items)
+        if period or tail:
+            ready, dropped = [], []
+            for item in kept:
+                forced = {
+                    "status": "resolved", "metric": item["metric"],
+                    "matched_name": item.get("matched_name") or item["metric"].get("label"),
+                    "score": item.get("score"),
+                    "candidates": [{key: value for key, value in item.items() if not key.startswith("_")}],
+                    "final": True,
+                }
+                notes = list(self.__dict__.get("_resolution_notes") or [])
+                try:
+                    plan = self._build_plan(question, None, forced_resolution=forced)
+                except Exception:
+                    plan = None
+                finally:
+                    if self.__dict__.get("_resolution_notes") is not None:
+                        self._resolution_notes[:] = notes
+                (ready if isinstance(plan, dict) and plan.get("status") == "ready" else dropped).append(item)
+            what = "el periodo" if period else ""
+            what += (" y " if what and tail else "") + (f"«por {tail}»" if tail else "")
+            if not ready:
+                self._note(
+                    f"ninguno de los indicadores de nombre «{metric_result.get('matched_name')}» admite "
+                    f"{what}: no se contrapregunta entre ellos"
+                )
+                return []
+            if dropped:
+                self._note(
+                    "no responden " + what + ": "
+                    + ", ".join(f"{i['metric'].get('label')} ({i['metric'].get('semantic_model')})" for i in dropped)
+                    + "; no se ofrecen"
+                )
+            kept = ready
+        present = bool(self._PRESENT_STATE_RE.search(normalized))
+        if current_state and present and not period and len(kept) > 1:
+            shown = [item for item in kept if item["metric"].get("appearances")]
+            current = [
+                item for item in shown
+                if self._snapshot_table(item["metric"], self._metric_dimensions(item["metric"])) is not None
+            ]
+            if len(shown) == 1 and current == shown:
+                hidden = [item for item in kept if item is not shown[0]]
+                self._note(
+                    f"«{metric_result.get('matched_name')}»: sin periodo se pregunta por el estado actual; "
+                    f"solo {shown[0]['metric'].get('label')} ({shown[0]['metric'].get('semantic_model')}) "
+                    "lo muestra en un tablero (su tabla es el estado del momento); "
+                    + ", ".join(f"{i['metric'].get('label')} ({i['metric'].get('semantic_model')})" for i in hidden)
+                    + " no está en ningún visual y sin periodo sumaría todo su histórico: se responde con el primero"
+                )
+                kept = shown
+        return kept if len(kept) < len(items) else None
+
     def _same_name_ambiguity(self, question, source_context, metric_result):
         """Regla: si el indicador elegido tiene el mismo nombre (o casi:
         sin «total», años ni mayúsculas/guiones) que otros de OTRO modelo o
@@ -7843,6 +8017,22 @@ class QueryPlanBuilder:
                 "question": question, "source_context": source_context,
                 "metric_resolution": {"status": "ambiguous", "candidates": [chosen]},
             }
+        # Solo se pregunta entre fuentes que pueden responder la pregunta TAL
+        # COMO ESTÁ y que el usuario ve en un tablero (ver `_homonyms_that_answer`).
+        narrowed = self._homonyms_that_answer(question, metric_result, items)
+        if narrowed is not None:
+            if not narrowed:
+                return None
+            if len(narrowed) == 1:
+                chosen = narrowed[0]
+                if chosen["metric"] is best:
+                    return None
+                return {
+                    "status": "ambiguous", "stage": "metric", "reason": None,
+                    "question": question, "source_context": source_context,
+                    "metric_resolution": {"status": "ambiguous", "candidates": [chosen]},
+                }
+            items = narrowed
         self._note(
             f"«{metric_result.get('matched_name')}» existe con el mismo nombre en varios tableros/modelos "
             f"({', '.join(sorted({str(i['metric'].get('semantic_model')) for i in items}))}) y la "
@@ -7855,6 +8045,29 @@ class QueryPlanBuilder:
             "metric_resolution": {"status": "ambiguous", "candidates": items},
         }
 
+    def _counted_unit(self, question, metric, source_context):
+        """«cuántas CUENTAS hay en proceso de facturación» con
+        PROCESO_FACTURACION: lo contado es la unidad del conteo, no un filtro ni
+        otro indicador, si (1) ningún indicador aprobado del catálogo lo
+        nombra (no es un concepto: «cirugías» sí lo es y sigue pidiendo su
+        indicador), (2) el indicador elegido no es un tiempo, promedio ni
+        porcentaje y (3) explica las demás palabras con contenido de la
+        pregunta. Devuelve el token canónico o None."""
+        business_question = self._metric_business_question(question, source_context)
+        counted = self._counted_noun(business_question)
+        if not counted or counted in self._metric_concept_tokens():
+            return None
+        vocabulary = self._metric_vocabulary_tokens(metric)
+        if self._explains(counted, vocabulary) or self._is_duration_or_ratio(metric):
+            return None
+        others = [
+            canonical_token(word) for word in self._question_content_words(business_question)
+            if canonical_token(word) != counted
+        ]
+        if not others or not all(self._explains(token, vocabulary) for token in others):
+            return None
+        return counted
+
     def _unresolved_outweighs_metric(self, question, metric, metric_result, significant, source_context):
         """Regla: no se ofrece «consultar X sin <palabras>» cuando las palabras
         sin interpretar son el núcleo de la pregunta: incluyen el sustantivo
@@ -7865,6 +8078,10 @@ class QueryPlanBuilder:
         No aplica a un indicador elegido por el diccionario de variables: ya
         se comprobó que el diccionario o su tabla explican cada palabra."""
         if (metric_result or {}).get("dictionary_match") or (metric_result or {}).get("general_indicator"):
+            return None
+        unit = self._counted_unit(question, metric, source_context)
+        significant = [word for word in significant if canonical_token(word) != unit]
+        if not significant:
             return None
         leftover = [canonical_token(word) for word in significant]
         head = self._head_token(question, source_context)
@@ -7994,8 +8211,19 @@ class QueryPlanBuilder:
         }
 
     def _option_coverage(self, metric, words):
-        """Palabras de `words` que explica el indicador (nombres, tabla o página)."""
-        vocabulary = self._metric_vocabulary_tokens(metric or {})
+        """Palabras de `words` que explica el indicador (nombres, tabla o página).
+        «%ATENDIDO» explica «atendidas» (el signo no es parte de la palabra) y
+        un indicador de cosas pendientes («SIN RESPUESTA», «EN ESPERA»)
+        explica «pendientes»."""
+        vocabulary = set(self._metric_vocabulary_tokens(metric or {}))
+        vocabulary.update(
+            canonical_token(token.lstrip("%")) for token in list(vocabulary)
+            if token.startswith("%") and len(token) > 3
+        )
+        if self._PENDING_LABEL_RE.search(
+            normalize_text(f"{(metric or {}).get('label') or ''} {(metric or {}).get('measure') or ''}")
+        ):
+            vocabulary.update({canonical_token("pendiente"), canonical_token("pendientes")})
         return {word for word in words if self._explains(word, vocabulary)}
 
     _COUNT_QUESTION_RE = re.compile(r"(?<![a-z0-9])(?:cuant[oa]s|cantidad\s+de|numero\s+de)(?![a-z0-9])")
@@ -8620,6 +8848,30 @@ class QueryPlanBuilder:
                     "page": page.get("page"),
                 })
         how = "por su tema" if topic else "con «tablero/página de»"
+        # Páginas homónimas de varios tableros: cada una ya dejó sus opciones
+        # que más palabras de la pregunta explican; entre páginas rige lo mismo
+        # («interconsultas PENDIENTES»: solo SIN RESPUESTA lo explica, aunque
+        # la otra página INTERCONSULTAS tenga más indicadores).
+        if len(groups) > 1 and len(items) > 1:
+            words = self._option_words(question, source_context)
+            coverage = [len(self._option_coverage(item["metric"], words)) for item in items]
+            top = max(coverage) if coverage else 0
+            if top > 0 and min(coverage) < top:
+                dropped = [item for item, count in zip(items, coverage) if count < top]
+                items = [item for item, count in zip(items, coverage) if count == top]
+                self._note(
+                    "entre las páginas homónimas se descartan "
+                    + ", ".join(str(item["metric"].get("label")) for item in dropped)
+                    + ": explican menos palabras de la pregunta"
+                )
+                if len(items) == 1:
+                    chosen = items[0]
+                    return self._forced_plan(
+                        question, intent_result, {key: value for key, value in chosen.items() if key != "page"},
+                        f"la pregunta nombra la página {chosen.get('page')} {how}; es el único indicador "
+                        "de esas páginas que explica todo lo que la pregunta pide",
+                        consumed_tokens=self._page_choice_consumed(question, source_context, chosen),
+                    )
         narrowed = self._narrow_page_options(question, items)
         if len(narrowed) < len(items) and len({self._logical_key(i["metric"]) for i in narrowed}) == 1:
             chosen = narrowed[0]
@@ -8627,7 +8879,7 @@ class QueryPlanBuilder:
                 question, intent_result, {key: value for key, value in chosen.items() if key != "page"},
                 f"la pregunta nombra la página {chosen.get('page')} {how}; es su único indicador que "
                 "responde la forma pedida (conteo / desglose)",
-                consumed_tokens=set(canonical_tokens(chosen.get("page"))),
+                consumed_tokens=self._page_choice_consumed(question, source_context, chosen),
             )
         items = narrowed[: self._SUGGESTION_LIMIT]
         if len(items) == 1 and len(groups) == 1 and groups[0][3]:
@@ -8644,7 +8896,7 @@ class QueryPlanBuilder:
                 canonical_token(word) for word in self._GENERIC_MEASURE_WORDS | self._TECHNICAL_NAME_WORDS
                 | FILTER_NEUTRAL_WORDS
             }
-            consumed = set(canonical_tokens(page.get("page"))) | {
+            consumed = self._page_choice_consumed(question, source_context, items[0], page) | {
                 token for token in canonical_tokens(question) if token in generic
             }
             forced = self._forced_plan(
@@ -8678,12 +8930,35 @@ class QueryPlanBuilder:
             },
         }
 
+    def _page_choice_consumed(self, question, source_context, item, page=None):
+        """Palabras que ya explicó elegir este indicador de la página: el nombre
+        de la página y las palabras de la pregunta que su nombre explica
+        («atendidas» con %ATENDIDO, «pendientes» con SIN RESPUESTA)."""
+        name = (page or {}).get("page") or item.get("page")
+        words = self._option_words(question, source_context)
+        return set(canonical_tokens(name)) | set(self._option_coverage(item.get("metric") or {}, words))
+
     def _narrow_page_options(self, question, items):
         """Opciones de una página nombrada que responden la FORMA de la
         pregunta: «cantidad de X» descarta porcentajes, promedios y sumas de
         tiempo; «X por especialidad» descarta las que no se desglosan por la
         especialidad. Nunca deja la lista vacía."""
         kept = self._count_question_options(question, items) or list(items)
+        # Sin pedir un tiempo, promedio ni porcentaje, un indicador de ese tipo
+        # no responde «interconsultas pendientes por especialidad» (TIEMPO EN
+        # ESPERA también es «pendiente», pero mide horas).
+        said = set(normalize_text(question).split())
+        if len(kept) > 1 and not said & (self._DURATION_WORDS | {
+            "promedio", "porcentaje", "tasa", "proporcion", "media", "cuanto", "demora", "demoran",
+        }):
+            plain = [item for item in kept if not self._is_duration_or_ratio(item.get("metric") or {})]
+            if plain and len(plain) < len(kept):
+                self._note(
+                    "opciones de la página depuradas: "
+                    + ", ".join(str(i["metric"].get("label")) for i in kept if i not in plain)
+                    + " (tiempo, promedio o porcentaje que la pregunta no pide)"
+                )
+                kept = plain
         tail = self._requested_group_tail(question)
         if tail and len(kept) > 1:
             groupable = [
@@ -8900,6 +9175,37 @@ class QueryPlanBuilder:
         items = self._collapse_year_variants(items, question)[: self._SUGGESTION_LIMIT]
         if len(items) < 2:
             return None
+        # Igual que con los homónimos: solo fuentes que responden y que el
+        # usuario ve en un tablero.
+        with_report = [item for item in items if self._model_has_report(item["metric"].get("semantic_model"))]
+        if with_report and len(with_report) < len(items):
+            self._note(
+                "de modelos sin ningún informe (el usuario no los ve): "
+                + ", ".join(f"{i['metric'].get('label')} ({i['metric'].get('semantic_model')})"
+                            for i in items if i not in with_report)
+                + "; no se ofrecen"
+            )
+            if len(with_report) == 1:
+                if with_report[0]["metric"] is best:
+                    return None
+                return self._forced_plan(
+                    question, None, with_report[0],
+                    "es la única de las fuentes de nombre casi igual de un tablero con informe",
+                )
+            items = with_report
+        narrowed = self._homonyms_that_answer(
+            question, {"matched_name": best.get("label")}, items, current_state=False,
+        )
+        if narrowed is not None:
+            if len(narrowed) <= 1:
+                if not narrowed or narrowed[0]["metric"] is best:
+                    return None
+                return self._forced_plan(
+                    question, None, narrowed[0],
+                    "es la única de las fuentes de nombre casi igual que responde la pregunta "
+                    "y que muestra un tablero",
+                )
+            items = narrowed
         self._note(
             f"«{best.get('label')}» tiene un nombre casi igual a otros indicadores distintos ("
             + ", ".join(f"{i['metric'].get('label')} de {i['metric'].get('semantic_model')}" for i in items[1:])
@@ -10121,6 +10427,13 @@ class QueryPlanBuilder:
                 f"«{' '.join(dict.fromkeys(measure_words))}» ya lo dice el indicador "
                 f"{metric.get('label')} (tipo de dato o estado): no es un filtro"
             )
+        unit = self._counted_unit(question, metric, source_context)
+        if unit and unit not in consumed_tokens:
+            consumed_tokens.add(unit)
+            self._note(
+                f"«{unit}» es lo que se cuenta (ningún indicador del catálogo se llama así) y "
+                f"{metric.get('label')} es un conteo: es la unidad, no un filtro"
+            )
         implicit_decisions = []
         if ranking:
             consumed_tokens.update(ranking["tokens"])
@@ -10146,7 +10459,7 @@ class QueryPlanBuilder:
                 if resolved:
                     field = option
                     break
-            if not resolved and self._names_board(spec.get("value_hint"), source_context, metric):
+            if not resolved and self._names_board(spec.get("value_hint"), source_context, metric, loose=True):
                 # El «valor» no existe en la columna pero es el nombre del
                 # tablero/informe («... por servicio del tablero lavanderia»):
                 # se consume como tablero; con «por <dimensión>» se agrupa.

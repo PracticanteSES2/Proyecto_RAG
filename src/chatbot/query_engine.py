@@ -2524,12 +2524,116 @@ class QueryEngine:
             readable = readable[0].upper() + readable[1:]
         return readable or label
 
+    # ---------------- opciones: nombres equivalentes y tablas sin relación ----------------
+    def _name_words(self, metric):
+        """Palabras del nombre sin palabras de forma ni signos («%ATENDIDO» -> atendido)."""
+        return [
+            word.lstrip("%") for word in self._normalize_text(metric.get("label")).replace("_", " ").split()
+            if word.lstrip("%") and word.lstrip("%") not in self._NAME_FORM_WORDS
+        ]
+
+    def _equivalent_names(self, first, second):
+        """¿Dos nombres son el mismo con otro orden de palabras, palabras de
+        forma o una errata? («TIEMPO PROMEDIO DE RESPUESTA» = «PROMEDIO TIEMPO
+        RESPUESTA»; «INTERCONSULTAS SOLICITADAS» = «INTERCONSULTAS SOLICITDAS»)."""
+        import difflib
+        a, b = self._name_words(first), self._name_words(second)
+        if not a or len(a) != len(b):
+            return False
+        pending = list(b)
+        for word in a:
+            match = next((other for other in pending if other == word), None)
+            if match is None:
+                match = next(
+                    (other for other in pending
+                     if min(len(word), len(other)) >= 5
+                     and difflib.SequenceMatcher(None, word, other).ratio() >= 0.85),
+                    None,
+                )
+            if match is None:
+                return False
+            pending.remove(match)
+        return True
+
+    def _same_computation(self, first, second):
+        """¿Miden lo mismo? Mismo modelo y misma agregación base (o misma expresión)."""
+        if self._normalize_text(first.get("semantic_model")) != self._normalize_text(second.get("semantic_model")):
+            return False
+
+        def cores(metric):
+            expression = str(metric.get("base_dax_expression") or metric.get("dax_expression") or "")
+            found = {
+                (m.group(1).upper(), self._normalize_text(m.group(2)), self._normalize_text(m.group(3)))
+                for m in self._CORE_AGGREGATION_RE.finditer(expression)
+            }
+            return found or {("expr", re.sub(r"\s+", "", expression).casefold())}
+
+        return cores(first) == cores(second)
+
+    def _named_table_words(self, question):
+        """Palabras de la pregunta que nombran por sí solas una tabla de hechos
+        del catálogo («interconsultas» -> INTERCONSULTA), canónicas."""
+        from src.semantic.query_plan_builder import _tokens_match_loosely, canonical_token
+        builder = self.query_plan_builder
+        tables = self.__dict__.get("_single_word_tables")
+        if tables is None:
+            tables = set()
+            for metric in getattr(builder, "metrics", None) or []:
+                if metric.get("validation_status") not in (None, "approved"):
+                    continue
+                words = [w for w in self._normalize_text(metric.get("table")).replace("_", " ").split() if w]
+                if len(words) == 1 and len(words[0]) >= 5:
+                    tables.add(canonical_token(words[0]))
+            self._single_word_tables = tables
+        named = []
+        for word in self._normalize_text(question).split():
+            token = canonical_token(word)
+            if len(token) >= 5 and any(_tokens_match_loosely(token, table) for table in tables):
+                if token not in named:
+                    named.append(token)
+        return named
+
+    def _related_candidates(self, question, raw_candidates):
+        """Regla: una opción cuya tabla, nombre o página no tiene relación con
+        la tabla que la pregunta nombra («tiempo de respuesta de INTERCONSULTAS»
+        frente a una medida de la tabla IMAGENES) no se ofrece, si alguna otra
+        opción sí la tiene. Si ninguna la tiene se dejan todas (lo decide la
+        resolución del indicador)."""
+        builder = self.query_plan_builder
+        coverage = getattr(builder, "_option_coverage", None)
+        if not question or not callable(coverage) or len(raw_candidates) < 2:
+            return raw_candidates
+        try:
+            words = self._named_table_words(question)
+            if not words:
+                return raw_candidates
+            related = [
+                item for item in raw_candidates
+                if len(coverage(item.get("metric") or {}, words)) == len(words)
+            ]
+        except Exception as error:
+            self._think("No se pudo revisar la relación de las opciones", f"{type(error).__name__}: {error}")
+            return raw_candidates
+        if not related or len(related) == len(raw_candidates):
+            return raw_candidates
+        self._think(
+            "Opciones sin relación con la pregunta",
+            "la pregunta nombra " + ", ".join(f"«{word}»" for word in words) + "; no se ofrecen: "
+            + ", ".join(
+                f"{(item.get('metric') or {}).get('label')} (tabla {(item.get('metric') or {}).get('table')})"
+                for item in raw_candidates if item not in related
+            ),
+        )
+        return related
+
     def _build_clarification_choices(self, raw_candidates, margin=_CLARIFICATION_MARGIN,
                                      question=None):
         scored = []
         seen_ids = set()
         seen_measures = {}
+        accepted = []
         key_of = getattr(self.query_plan_builder, "_logical_key", None)
+        raw_candidates = self._related_candidates(question, list(raw_candidates or []))
         for item in raw_candidates:
             metric = item.get("metric", {}) or {}
             metric_id = metric.get("metric_id")
@@ -2564,6 +2668,20 @@ class QueryEngine:
                     )
                     continue
                 seen_measures[twin_key] = label
+            # Nombre equivalente (otro orden, palabras de forma o una errata) y
+            # el mismo cálculo: una sola opción.
+            twin = next(
+                (other for other in accepted
+                 if self._equivalent_names(metric, other) and self._same_computation(metric, other)),
+                None,
+            )
+            if twin is not None:
+                self._think(
+                    "Opciones equivalentes unificadas",
+                    f"{label}: nombre equivalente y mismo cálculo que {twin.get('label')}; se ofrece una sola vez",
+                )
+                continue
+            accepted.append(metric)
             scored.append((float(item.get("score") or 0.0), metric))
         if not scored:
             return []
@@ -2585,8 +2703,11 @@ class QueryEngine:
                 "label": title,
                 "detail": detail,
                 "description": str(metric.get("description") or "").strip(),
-                "_parts": [report, page, model, str(metric.get("measure") or "").strip()],
+                "_parts": [report, page, model,
+                           f"tabla {metric.get('table')}" if metric.get("table") else "",
+                           str(metric.get("measure") or "").strip()],
                 "_computation": self._computation_text(metric),
+                "_metric": metric,
                 # Sin página, la descripción muestra al menos el tablero o el
                 # modelo: así dos opciones parecidas nunca son indistinguibles.
                 "_where": (report or model, page),
@@ -2595,7 +2716,23 @@ class QueryEngine:
         # Etiquetas distinguibles: se agregan reporte/página/modelo
         # progresivamente solo mientras existan duplicados. Se comparan sin
         # tildes, mayúsculas ni guiones bajos («Total cirugías» = «TOTAL_CIRUGIAS»).
+        # Nombres equivalentes pero cálculos distintos («TIEMPO PROMEDIO DE
+        # RESPUESTA» de IMAGENES y «TIEMPO PROMEDIO RESPUESTA» de otra tabla):
+        # cuentan como el mismo nombre hasta que su etiqueta diga en qué se
+        # distinguen (cálculo, tablero, página o tabla).
+        for index, choice in enumerate(choices):
+            for previous in choices[:index]:
+                if self._equivalent_names(choice["_metric"], previous["_metric"]):
+                    rep = previous.get("_equiv_rep") or self._normalize_text(previous["label"])
+                    previous["_equiv_rep"] = rep
+                    choice["_equiv_rep"] = rep
+                    break
+        for choice in choices:
+            choice["_equiv_pending"] = bool(choice.get("_equiv_rep"))
+
         def label_key(choice):
+            if choice.get("_equiv_pending"):
+                return choice["_equiv_rep"]
             return self._normalize_text(choice["label"]) or choice["label"].casefold()
 
         # Mismo nombre y distinto cálculo (CONSULTAS EN ESPERA = conteo de
@@ -2609,6 +2746,34 @@ class QueryEngine:
             if len(group) > 1 and len(computations) == len(group) and None not in computations:
                 for choice in group:
                     choice["label"] = f"{choice['label']} ({choice['_computation']})"
+                    choice["_equiv_pending"] = False
+        # Equivalentes aún sin distinguir: el primer dato (tablero, página,
+        # modelo o tabla) que difiere entre ellas va en la etiqueta.
+        pending_groups = {}
+        for choice in choices:
+            if choice.get("_equiv_pending"):
+                pending_groups.setdefault(choice["_equiv_rep"], []).append(choice)
+        for group in pending_groups.values():
+            if len(group) < 2 or len({self._normalize_text(choice["label"]) for choice in group}) == 1:
+                # Una sola, o el mismo nombre escrito igual: lo resuelve el
+                # recorrido general de abajo (informe, página, modelo...).
+                for choice in group:
+                    choice["_equiv_pending"] = False
+                continue
+            size = max(len(choice["_parts"]) for choice in group)
+            for position in range(size):
+                values = [
+                    self._normalize_text(choice["_parts"][position]) if position < len(choice["_parts"]) else ""
+                    for choice in group
+                ]
+                if len(set(values)) == len(values) and all(values):
+                    for choice in group:
+                        part = choice["_parts"][position] if position < len(choice["_parts"]) else ""
+                        if part and self._normalize_text(part) not in self._normalize_text(choice["label"]):
+                            choice["label"] = f"{choice['label']} — {part}"
+                    break
+            for choice in group:
+                choice["_equiv_pending"] = False
 
         for _ in range(4):
             groups = {}
@@ -2634,8 +2799,8 @@ class QueryEngine:
                 for number, choice in enumerate(group, 1):
                     choice["label"] = f"{choice['label']} ({number})"
         for choice in choices:
-            choice.pop("_parts", None)
-            choice.pop("_computation", None)
+            for key in ("_parts", "_computation", "_metric", "_equiv_rep", "_equiv_pending"):
+                choice.pop(key, None)
         return self._finalize_choices(question, choices, metrics)
 
     _AGGREGATION_TEXT = {
