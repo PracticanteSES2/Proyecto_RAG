@@ -14,6 +14,9 @@ Ronda r3 del banco real, offline con catálogos mínimos:
   EP02       informe nombrado + una página suya por su nombre completo.
   AB04       «¿cuál es el antibiótico que más se usa?»: el indicador del gráfico
              agrupado por esa entidad.
+  TU10       «agosto contra el mes pasado» = dos meses comparados (rango agrupado
+             por mes); en un empate no compite quien no explica una palabra que
+             el mejor nombra («triage»).
 
 Ejecutar:  python -m tests.resolution.test_r3
 """
@@ -31,6 +34,7 @@ if str(ROOT) not in sys.path:
 
 from src.semantic.query_plan_builder import QueryPlanBuilder  # noqa: E402
 from src.semantic.source_model_router import SourceModelRouter  # noqa: E402
+from src.semantic.period_parser import PeriodParser  # noqa: E402
 from src.semantic.table_coverage import coverage_window  # noqa: E402
 from tests.resolution.test_resolution import _source  # noqa: E402
 
@@ -325,6 +329,32 @@ def test_informal_ranking_uses_the_chart_grouped_by_the_entity():
                 qpb.metrics = value
             else:
                 qpb.__dict__.pop(name, None)
+
+
+# ---------------------------------------------------------------- TU10
+def test_two_months_compared_become_a_monthly_range():
+    parser = PeriodParser(today=TODAY)
+    question = "compara el tiempo promedio de triage de agosto contra el del mes pasado"
+    period = parser.parse(question)
+    assert (period["start"], period["end"]) == (date(2026, 8, 1), date(2026, 10, 1)), period
+    assert parser.granularity(question)["unit"] == "month"
+    # El año dicho en un lado vale para el mes sin año del otro.
+    period = parser.parse("egresos de marzo frente a abril de 2025")
+    assert (period["start"], period["end"]) == (date(2025, 3, 1), date(2025, 5, 1)), period
+    # Sin comparación, nada cambia.
+    assert parser.granularity("triages del mes pasado") is None
+    assert parser.parse("triages del mes pasado")["start"] == date(2026, 9, 1)
+
+
+def test_tie_without_the_word_the_best_names_does_not_compete():
+    qpb = builder()
+    best = {"metric": {"metric_id": "tt", "label": "TIEMPO PARA TRIAGE", "semantic_model": "T", "table": "OPORTUNIDAD_TRIAGE"}}
+    rival = {"metric": {"metric_id": "tg", "label": "TIEMPO GESTION FACTURACION", "semantic_model": "F",
+                        "table": "FACTURACION PERFILES"}}
+    other = {"metric": {"metric_id": "ct", "label": "TIEMPO DE TRIAGE A ADMISION", "semantic_model": "T",
+                        "table": "ADMISIONES"}}
+    kept = qpb._ties_naming_the_same("tiempo promedio de triage del mes pasado", best, [best, rival, other])
+    assert [item["metric"]["metric_id"] for item in kept] == ["tt", "ct"], kept
 
 
 TESTS = [value for name, value in sorted(globals().items()) if name.startswith("test_") and callable(value)]
