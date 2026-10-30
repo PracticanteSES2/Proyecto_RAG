@@ -2443,7 +2443,7 @@
       "arneses": ["sim", "realistic"],
       "turns": [
         {
-          "user": "cuantas cirugias hubo en 2024",
+          "user": "cuantas cirugias hubo en 2025",
           "expect": {
             "route": ["clarification"]
           }
@@ -3109,7 +3109,7 @@
       "arneses": ["realistic"],
       "descripcion": "Con una contrapregunta pendiente (y tras «Ninguna de las anteriores»), una pregunta nueva de otro tablero se resuelve desde cero; antes podía elegirse una opción por compartir palabras y responder la pregunta anterior.",
       "turns": [
-        {"user": "cuantas cirugias realizadas hubo en 2024", "expect": {"route": ["clarification"]}},
+        {"user": "cuantas cirugias realizadas hubo en 2025", "expect": {"route": ["clarification"]}},
         {"button": "none", "expect": {"route": ["clarification", "not_found"]}},
         {
           "user": "cuantos suministros pendientes hay",

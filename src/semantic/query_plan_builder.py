@@ -2296,15 +2296,13 @@ class QueryPlanBuilder:
                 len(other) >= 4 and (other.startswith(token) or token.startswith(other)) for other in vocabulary
             )
 
-        found = {}
+        found, by_name = {}, False
         for metric in self._dedupe_metrics(self.metrics):
             if metric.get("validation_status") != "approved" or not metric.get("appearances"):
                 continue
             if model_hint and normalize_text(metric.get("semantic_model")) != model_hint:
                 continue
             dictionary = self._dictionary_tokens(metric)
-            if not dictionary:
-                continue
             names = self._metric_vocabulary_tokens(metric)
             names.update(canonical_tokens(metric.get("semantic_model")))
             for report in self._metric_reports(metric):
@@ -2315,14 +2313,20 @@ class QueryPlanBuilder:
                 for token in canonical_tokens(column.get("name"))
                 if len(token) >= 3
             }
-            if not all(loose(token, names | columns | dictionary) for token in tokens):
+            if all(loose(token, names | columns) for token in tokens):
+                # Otro indicador ya se explica por su nombre o su tabla
+                # («productos vencidos» = tabla PRODUCTOS_VENCIDOS): el
+                # diccionario no decide; sigue el camino normal.
+                by_name = True
+                break
+            if not dictionary or not all(loose(token, names | columns | dictionary) for token in tokens):
                 continue
             if not any(
                 loose(token, dictionary) and not loose(token, names | columns) for token in tokens
             ):
                 continue
             found.setdefault(self._logical_key(metric), metric)
-        if len(found) != 1:
+        if by_name or len(found) != 1:
             return None
         metric = next(iter(found.values()))
         self._note(

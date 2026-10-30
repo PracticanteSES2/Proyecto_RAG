@@ -20,21 +20,30 @@ esa frase no hay indicador.
 import re
 import unicodedata
 
-_REF = r"'?(?P<table>[A-Za-z_][A-Za-z0-9_ \-]*?)'?\s*\[(?P<column>[^\]\[]+)\]"
+# Tabla entre comillas ('CAMAS DISPONIBLES') o sin comillas en mayúsculas o
+# sin espacios (LAVANDERIA, ENPROCESO_FACTURACION, Calendario): «promedio
+# mensual de FACTURACION[X]» no toma «mensual de» como parte de la tabla.
+_TABLE = (
+    r"(?:'(?P<qtable>[^'\[\]]+)'"
+    r"|(?P<table>[A-ZÑ_][A-ZÑ0-9_]*(?:\s[A-ZÑ_][A-ZÑ0-9_]*)*|[A-Za-z_][A-Za-z0-9_]*))"
+)
+_REF = _TABLE + r"\s*\[(?P<column>[^\]\[]+)\]"
 _COLUMN_WORD = r"(?:(?:de\s+)?(?:la\s+)?columna\s+)?"
 
 AGGREGATION_PATTERNS = (
     (re.compile(
-        r"(?<![A-Za-z])(?:suma|sumando|sumar|sumatoria)\s+(?:de\s+)?" + _COLUMN_WORD + _REF,
-        re.IGNORECASE,
+        r"(?<![A-Za-z])(?i:suma|sumando|sumar|sumatoria)\s+(?i:de\s+)?(?i:" + _COLUMN_WORD + r")" + _REF,
     ), "Sum"),
     (re.compile(
-        r"(?<![A-Za-z])(?:promedio|promediando|media)\s+(?:de\s+)?" + _COLUMN_WORD + _REF,
-        re.IGNORECASE,
+        r"(?<![A-Za-z])(?i:promedio|promediando|media)\s+(?i:de\s+)?(?i:" + _COLUMN_WORD + r")" + _REF,
     ), "Average"),
 )
 # Entrada del diccionario «T[C]: ... (suma de la columna)».
 _ENTRY_RE = re.compile(r"^\s*" + _REF + r"\s*:\s*(?P<text>.+)$", re.DOTALL)
+
+
+def _table_of(match):
+    return (match.group("qtable") or match.group("table") or "").strip()
 _SELF_AGGREGATION = (
     (re.compile(r"(?<![A-Za-z])(?:suma|sumando)\s+(?:de\s+)?(?:la\s+)?(?:propia\s+)?columna(?![A-Za-z])",
                 re.IGNORECASE), "Sum"),
@@ -75,12 +84,12 @@ def aggregations_in_text(text):
     found = []
     for pattern, aggregation in AGGREGATION_PATTERNS:
         for match in pattern.finditer(text):
-            found.append((match.group("table").strip(), match.group("column").strip(), aggregation))
+            found.append((_table_of(match), match.group("column").strip(), aggregation))
     entry = _ENTRY_RE.match(text)
     if entry:
         for pattern, aggregation in _SELF_AGGREGATION:
             if pattern.search(entry.group("text")):
-                found.append((entry.group("table").strip(), entry.group("column").strip(), aggregation))
+                found.append((_table_of(entry), entry.group("column").strip(), aggregation))
     return list(dict.fromkeys(found))
 
 

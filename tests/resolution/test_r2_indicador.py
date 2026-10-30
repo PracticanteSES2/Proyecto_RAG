@@ -33,7 +33,9 @@ from src.semantic.table_coverage import coverage_window, covers  # noqa: E402
 from tests.resolution.test_resolution import _source  # noqa: E402
 
 TODAY = date(2026, 10, 30)
-LAV, BRIEF, ATEN, FAC = "Tablero_lavanderia", "BRIEFING HOSPITALARIO", "TABLERO DE ATENCIONES", "FACTURACION"
+LAV, BRIEF, ATEN, FAC, FARM = (
+    "Tablero_lavanderia", "BRIEFING HOSPITALARIO", "TABLERO DE ATENCIONES", "FACTURACION", "TABLERO_FARMACIA",
+)
 
 
 def _appearance(report, page, visual_id, title=None, visual_type="card"):
@@ -67,6 +69,18 @@ METRICS = [
      "table": "FACTURAS", "column": "VALOR", "aggregation": "Sum",
      "dax_expression": "SUM('FACTURAS'[VALOR])", "validation_status": "approved",
      "appearances": [_appearance(FAC, "RESUMEN", "v_fac", "VALOR FACTURADO")]},
+    # «productos vencidos» lo nombra la tabla de uno; el diccionario del otro
+    # también habla de «medicamentos vencidos»: no decide el diccionario.
+    {"metric_id": "farm_venc", "label": "Suma de iddcantid", "measure": None, "aliases": [],
+     "source_type": "visual_aggregation", "semantic_model": FARM, "report": FARM, "reports": [FARM],
+     "table": "PRODUCTOS_VENCIDOS", "column": "iddcantid", "aggregation": "Sum",
+     "dax_expression": "SUM('PRODUCTOS_VENCIDOS'[iddcantid])", "validation_status": "approved",
+     "appearances": [_appearance(FARM, "VENCIDOS", "v_venc", None, "tableEx")]},
+    {"metric_id": "farm_min", "label": "PRODUCTOS POR DEBAJO DE INVENTARIO MINIMO", "measure": None, "aliases": [],
+     "source_type": "visual_aggregation", "semantic_model": FARM, "report": FARM, "reports": [FARM],
+     "table": "CANTIDAD_MINIMA", "column": "CODIGO", "aggregation": "DistinctCount",
+     "dax_expression": "DISTINCTCOUNT('CANTIDAD_MINIMA'[CODIGO])", "validation_status": "approved",
+     "appearances": [_appearance(FARM, "INICIO", "v_min")]},
 ]
 # Otros «TOTAL ...» del catálogo: «total» es una palabra común (peso IDF bajo).
 METRICS += [
@@ -88,6 +102,9 @@ TECHNICAL = {
             {"name": "TOTAL_TRIAGES", "expression": "DISTINCTCOUNT(OPORTUNIDAD_TRIAGE[OID_TRIAGE])"}],
          "columns": [{"name": "OID_TRIAGE", "data_type": "Int64"}, {"name": "FECHA", "data_type": "DateTime"}]},
         {"name": "Calendario", "measures": [], "columns": [{"name": "Date", "data_type": "DateTime"}]}]},
+    "farm": {"semantic_model": FARM, "relationships": [], "tables": [
+        {"name": "PRODUCTOS_VENCIDOS", "measures": [], "columns": [{"name": "iddcantid", "data_type": "Double"}]},
+        {"name": "CANTIDAD_MINIMA", "measures": [], "columns": [{"name": "CODIGO", "data_type": "String"}]}]},
     "fac": {"semantic_model": FAC, "relationships": [], "tables": [{"name": "FACTURAS", "measures": [], "columns": [
         {"name": "VALOR", "data_type": "Double"}, {"name": "COPAGO", "data_type": "Double"}]}]},
 }
@@ -123,6 +140,11 @@ DOCS = {
         "data_sources": ["OPORTUNIDAD_TRIAGE: Triages realizados en urgencias desde 2022-01-01 hasta hoy. "
                          "Origen: SQL."],
     }]},
+    "farm/md/_diccionario.json": {"semantic_model": FARM, "dashboards": [{
+        "name": "DICCIONARIO FARMACIA", "is_dictionary": True,
+        "data_sources": ["CANTIDAD_MINIMA: Productos por debajo del inventario mínimo y los medicamentos "
+                         "vencidos de farmacia. Origen: SQL."],
+    }]},
     # Un visual REAL suma VALOR; la documentación habla de sumar COPAGO: no se toca el visual.
     "fac/md/pagina.json": {"semantic_model": FAC, "dashboards": [{
         "name": "RESUMEN",
@@ -135,7 +157,7 @@ def _build_fixture(root):
     catalog, rag = root / "data" / "catalog", root / "data" / "rag"
     catalog.mkdir(parents=True)
     rag.mkdir(parents=True)
-    keys = {LAV: "lav", BRIEF: "brief", ATEN: "aten", FAC: "fac"}
+    keys = {LAV: "lav", BRIEF: "brief", ATEN: "aten", FAC: "fac", FARM: "farm"}
     sources = [_source(key, model, model, [model.lower()]) for model, key in keys.items()]
     sources[0]["report"] = "TABLERO LAVANDERIA"
     registry = {
@@ -328,6 +350,12 @@ def test_asked_dimension_is_not_a_dimension_value_filter():
     candidates = qpb._metric_dimensions(_metric("lav_oid"))
     specs = qpb._detect_explicit_dimension_filters("en que turno se lava mas ropa", candidates)
     assert not specs, [(spec["field"].get("column"), spec["value_hint"]) for spec in specs]
+
+
+def test_dictionary_does_not_override_a_metric_named_by_its_table():
+    resolution = resolve("lista de productos vencidos en farmacia")
+    assert not resolution.get("dictionary_match"), _ranking(resolution)
+    assert builder()._dictionary_resolution("lista de productos vencidos en farmacia", {}) is None
 
 
 def test_dictionary_does_not_invent_when_nothing_describes_the_question():
