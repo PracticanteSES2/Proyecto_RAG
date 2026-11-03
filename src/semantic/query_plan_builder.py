@@ -8549,6 +8549,44 @@ class QueryPlanBuilder:
             tokens.update(token for token in canonical_tokens(value) if len(token) >= 3)
         return tokens
 
+    def _inclusion_filter_tokens(self, metric):
+        """Palabras que el filtro de INCLUSIÓN de sus visuales le da al
+        indicador: lo común a todos los valores de una lista «en» («CONSULTA
+        EXTERNA OBSTETRICA», «URGENCIA OBSTETRICA»... -> «obstetrica»). La
+        tarjeta «Triages Gineco» filtrada por esos valores ES «triages
+        obstétricos» aunque su nombre no lo diga (holdout H20). Las
+        exclusiones («no contiene OBSTETRICA») no cuentan."""
+        cache = self.__dict__.setdefault("_inclusion_tokens_cache", {})
+        key = (normalize_text(metric.get("semantic_model")), metric.get("metric_id"), metric.get("label"))
+        if key in cache:
+            return cache[key]
+        tokens = set()
+        index = self._visual_index()
+        model = normalize_text(metric.get("semantic_model"))
+        for appearance in metric.get("appearances") or []:
+            visual = index.get((model, str(appearance.get("visual_id"))))
+            if visual is None:
+                continue
+            for scope in ("visual", "page"):
+                try:
+                    items = self._scope_filter_items(metric.get("semantic_model"), visual, scope)
+                except Exception:
+                    items = []
+                for item in items:
+                    condition = item.get("condition")
+                    if not isinstance(condition, dict) or condition.get("op") != "in":
+                        continue
+                    values = [value for value in condition.get("values") or [] if isinstance(value, str)]
+                    if not values:
+                        continue
+                    common = None
+                    for value in values:
+                        value_tokens = {token for token in canonical_tokens(value) if len(token) >= 4}
+                        common = value_tokens if common is None else common & value_tokens
+                    tokens |= common or set()
+        cache[key] = tokens
+        return tokens
+
     @staticmethod
     def _explains(token, vocabulary):
         return any(_tokens_match_loosely(token, other) for other in vocabulary)
@@ -10930,7 +10968,9 @@ class QueryPlanBuilder:
             logical = self._logical_key(other)
             if logical in seen:
                 continue
-            vocabulary = self._metric_vocabulary_tokens(other)
+            # También lo que el filtro de inclusión de su visual le da al
+            # indicador («Triages Gineco» filtrada por los valores OBSTETRICA).
+            vocabulary = self._metric_vocabulary_tokens(other) | self._inclusion_filter_tokens(other)
             covered = [token for token in qualifiers if self._explains(token, vocabulary)]
             if not covered or not all(self._explains(token, vocabulary) for token in core):
                 continue
@@ -10954,6 +10994,17 @@ class QueryPlanBuilder:
                     ),
                     other.get("label"),
                 ))
+            # Un visual filtrado («Triages Gineco» con DESCRI_TRIGE en los
+            # valores OBSTETRICA, en la página TRIAGES ATENDIDOS) se nombra
+            # por su página más lo que su filtro le da: «triages obstétricos
+            # atendidos».
+            inclusion = self._inclusion_filter_tokens(other)
+            if inclusion and other.get("label") and any(self._explains(token, inclusion) for token in covered):
+                for page in self._metric_pages(other):
+                    scored.append((
+                        self._loose_phrase_score(business_question, f"{page} {' '.join(sorted(inclusion))}", weights),
+                        other.get("label"),
+                    ))
             score, name = max(scored, key=lambda pair: pair[0], default=(0.0, None))
             if score <= 0 or not name:
                 continue
