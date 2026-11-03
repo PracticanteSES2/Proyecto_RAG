@@ -6600,6 +6600,21 @@ class QueryEngine:
                         "se ofrecen sus indicadores sin pasar por la documentación (RAG)",
                     )
                     return early_response
+                data_shape = getattr(self.query_plan_builder, "data_shape_reason", None)
+                try:
+                    shape = data_shape(message) if callable(data_shape) else None
+                except Exception:
+                    shape = None
+                if shape:
+                    # r9 (causa 1): comparación de periodos, top N, «por X»,
+                    # «en qué X están» piden cifras de Power BI; la
+                    # documentación no las tiene (y no puede inventarlas).
+                    self._think(
+                        "La forma de la pregunta pide datos",
+                        f"«{shape}»: no se busca la respuesta en la documentación (RAG), que no "
+                        "tiene cifras; se responde con el resultado del Query Plan",
+                    )
+                    return early_response
                 # Métrica no resuelta: la pregunta puede ser documental
                 # aunque use palabras numéricas. Se intenta el RAG y solo si
                 # también falla se devuelve este resultado (que puede ser una

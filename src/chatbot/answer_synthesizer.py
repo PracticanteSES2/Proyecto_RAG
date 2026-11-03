@@ -4,6 +4,7 @@ import unicodedata
 
 from src.llm.llm_gate import call_llm
 
+from src.rag.grounding import ground_answer, has_content
 from src.rag.ranking import detect_question_intent
 from src.rag.source_labels import (
     dictionary_board,
@@ -504,6 +505,14 @@ responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
                 answer, self._previous_turns(question, history),
             )
 
+        # Nunca cifras, tendencias ni listas que no estén en el CONTEXTO
+        # (src/rag/grounding.py; auditoría holdout 2: G16, G29, MT19.3).
+        unsupported = []
+        if answer and not self.is_no_evidence(answer):
+            grounded, unsupported = ground_answer(answer, [context], question)
+            if unsupported:
+                answer = grounded if has_content(grounded) else NO_EVIDENCE_ANSWER
+
         return {
             "status": "success",
             "answer": answer,
@@ -511,6 +520,7 @@ responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
                 "model"
             ),
             "intent": intent,
+            "unsupported": [piece for piece, _ in unsupported],
             # El LLM no halló respuesta en el contexto: quien llama lo trata
             # como «no encontrado» (p. ej. pregunta fuera de alcance).
             "no_evidence": self.is_no_evidence(answer),

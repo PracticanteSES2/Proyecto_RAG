@@ -1,6 +1,7 @@
 import inspect
 
 from src.rag.extractive import readable_fallback
+from src.rag.grounding import ground_answer, has_content
 
 
 class RAGAnswerEngine:
@@ -197,6 +198,13 @@ class RAGAnswerEngine:
         if no_evidence:
             return self._not_found_response(results, synthesis_mode, reason="llm_no_evidence")
 
+        # Salvaguarda (también para el respaldo extractivo): la respuesta
+        # documental no afirma cifras, tendencias ni listas que no estén en
+        # lo recuperado (src/rag/grounding.py).
+        answer, unsupported = ground_answer(answer, self._evidence_texts(results), question)
+        if unsupported and not has_content(answer):
+            return self._not_found_response(results, synthesis_mode, reason="unsupported_claims")
+
         return {
             "status": "success",
             "answer": answer,
@@ -206,6 +214,20 @@ class RAGAnswerEngine:
             "synthesis_mode": synthesis_mode,
             "synthesis_issue": getattr(self, "last_synthesis_issue", None),
         }
+
+    @staticmethod
+    def _evidence_texts(results):
+        """Todo lo recuperado (texto y metadatos legibles) que respalda la respuesta."""
+        texts = []
+        for result in results or []:
+            for value in result.values():
+                if isinstance(value, str):
+                    texts.append(value)
+                elif isinstance(value, dict):
+                    texts.extend(str(item) for item in value.values() if isinstance(item, (str, int, float)))
+                elif isinstance(value, (list, tuple)):
+                    texts.extend(str(item) for item in value if isinstance(item, (str, int, float)))
+        return texts
 
     def _answer_general(self, intent_data, history=None):
         question = intent_data.get("original_question") or ""

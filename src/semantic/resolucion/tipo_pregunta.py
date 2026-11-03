@@ -80,6 +80,10 @@ class TipoPreguntaMixin:
             for term in NUMERIC_TERM_PATTERNS
         ):
             return True
+        # Comparación de periodos, top N, «agrupados por X», «en qué X están»:
+        # la forma de la pregunta pide datos (r9, causa 1).
+        if self.data_shape_reason(question):
+            return True
         # «qué camas están disponibles en UCI», «lista de camas bloqueadas»:
         # piden el listado de un indicador (src/semantic/answer_shape.py).
         if self._detail_list_question(question, dashboard):
@@ -114,6 +118,44 @@ class TipoPreguntaMixin:
             [] if source_context.get("board_mentions") else self._topic_pages(question)
         )
         return any(self._page_members(page) for page in pages)
+
+    _PERIOD_WORD = r"(?:" + "|".join(MONTHS) + r"|20\d{2})"
+    _DATA_SHAPE_PATTERNS = (
+        # «en junio o en julio», «julio o agosto», «de septiembre a octubre», «2024 vs 2025»
+        ("comparación de periodos", re.compile(
+            r"(?<![a-z0-9])" + _PERIOD_WORD + r"(?![a-z0-9])\s*,?\s*(?:o|vs|versus|contra|frente\s+a|y|a|hasta)\s+"
+            r"(?:(?:en|el|la|del?|al)\s+){0,2}" + _PERIOD_WORD + r"(?![a-z0-9])")),
+        # «top 5», «las 5 especialidades que más ...», «los 10 servicios con menos ...»
+        ("top N", re.compile(
+            r"(?<![a-z0-9])(?:top\s*\d{1,3}|(?:l[oa]s|primer[oa]s|ultim[oa]s)\s+\d{1,2}\s+[a-z]{3,}"
+            r"(?:\s+[a-z]+){0,5}?\s+(?:que\s+|con\s+)?(?:mas|menos|mayor|menor)(?![a-z0-9]))")),
+        # «agrupados por mes», «separados por hombres y mujeres», «repartidos por servicio»
+        ("agrupación", re.compile(
+            r"(?<![a-z0-9])(?:agrupad|separad|desglosad|discriminad|distribuid|repartid|dividid|clasificad)[oa]s?"
+            r"\s+(?:por|segun|en)\s+[a-z]")),
+        # «por rango de horas», «por cada servicio», «según la eps» (no «por el paciente»: complemento agente)
+        ("desglose «por X»", re.compile(
+            r"(?<![a-z0-9])(?:por\s+(?:cada\s+)?(?!(?:el|la|los|las|lo|un|una|que|ejemplo|favor|eso|esto|ciento|qu|medio|parte|tanto|ende|encima|debajo|fuera|dentro|defecto|error|separado|aparte|igual)"
+            r"(?![a-z]))[a-z]{3,}|segun\s+(?:el|la|los|las|cada)\s+(?!(?:tablero|documentacion|informe|reporte|"
+            r"pagina|indicador|definicion|diccionario|formula)(?![a-z]))[a-z]{3,})")),
+        # «en qué pisos o servicios están», «en qué servicio están hospitalizados»
+        ("distribución «en qué X»", re.compile(
+            r"(?<![a-z0-9])en\s+(?:que|cual(?:es)?)\s+[a-z]{3,}(?:\s+(?:o|y)\s+[a-z]{3,})?\s+"
+            r"(?:se\s+)?(?:estan|esta|encuentran|encuentra|hay|quedan|queda|repartid|distribuid|hospitalizad)")),
+    )
+
+    def data_shape_reason(self, question):
+        """Forma de la pregunta que pide datos aunque el indicador no se haya resuelto (comparación de
+        periodos, top N, agrupación, desglose «por X», distribución «en qué X están») o None. Una
+        pregunta descriptiva («cómo se calcula ... por servicio») no cuenta. Estas preguntas van a
+        Power BI: la documentación nunca da cifras (r9, causa 1)."""
+        normalized = normalize_text(question)
+        if not normalized or self._is_descriptive(normalized):
+            return None
+        for reason, pattern in self._DATA_SHAPE_PATTERNS:
+            if pattern.search(normalized):
+                return reason
+        return None
 
     # Pedidos de datos dichos de forma informal: «cómo va la ocupación», «cómo
     # vamos en cirugías», «lista de pacientes en espera», «los próximos 30
