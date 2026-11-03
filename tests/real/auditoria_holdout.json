@@ -1,0 +1,452 @@
+{
+ "corrida": {
+  "commit": "adf0fb0",
+  "fecha": "2026-11-03T08:10:39",
+  "salidas": "C:\\Users\\ad6708\\Documents\\banco_holdout_out_v1_adf0fb0\\resultado.json",
+  "automatica": "19/50"
+ },
+ "criterio": [
+  "Mismo criterio que tests/real/auditoria.json (RETOMAR.md): la verdad es la cifra que el usuario ve en el tablero (medida + filtros de visual y de página + periodo pedido).",
+  "Una contrapregunta solo es legítima si varias fuentes responden la pregunta TAL COMO ESTÁ con cifras distintas; no lo es si confirma una sola opción, si las opciones son la misma medida (agregación o variante de tiempo) o si la pregunta ya elige una (rango, periodo).",
+  "Palabras que la página ya implica («pendientes» en NAOS LISTADO) no son filtros.",
+  "PBIR local vacío (REFERENCIA, CVC, MORBILIDAD y varias páginas de ATENCIONES): si la respuesta falla con independencia de los filtros del visual, es falla real; si la evaluación depende de la fuente que el bot no puede ver, no es evaluable.",
+  "Solo se auditaron las 31 fallas automáticas; los aciertos conservan el veredicto automático.",
+  "clase: a = falla real del bot, b = verdad discutible o no evaluable, c = comparador demasiado estricto, d = contrapregunta legítima.",
+  "El veredicto solo se aplica si la respuesta coincide con la auditada (huella)."
+ ],
+ "causas": {
+  "1": "Filtros de página/visual no aplicados (valor general)",
+  "2": "Filtros espurios por coincidencia parcial de palabras",
+  "3": "Fuente sin cobertura del periodo (tablero del día o de próximas citas) o fecha equivocada",
+  "4": "Contrapregunta innecesaria",
+  "5": "Indicador equivocado o no resuelto (sinónimos, títulos, tablero nombrado)",
+  "6": "Enrutamiento datos ↔ documentación (RAG) equivocado",
+  "7": "Opciones mal rotuladas",
+  "8": "Agrupación ignorada",
+  "9": "Otra (error de DAX, cifra inventada, lentitud)",
+  "10": "Lenguaje de chat sin normalizar (x, q, pa, d, errores de tipeo)",
+  "11": "Filtro de la pregunta ignorado o reducido a un solo valor",
+  "12": "Periodo mal resuelto (mes sin año, periodo perdido)",
+  "13": "RAG recupera la definición de otro indicador"
+ },
+ "casos": {
+  "H02": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6",
+    "10"
+   ],
+   "huella": "9858ea8e6b5e",
+   "nota": "«camas x estado» fue al RAG (describió el tablero). «x» = «por»: con la agrupación reconocida es una pregunta de datos (anillo de GESTIÓN CAMAS).",
+   "archivo": "src/semantic/query_plan_builder.py::looks_numeric (has_group solo reconoce «por|según», no «x»)"
+  },
+  "H03": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4",
+    "10"
+   ],
+   "huella": "74a615dc5922",
+   "nota": "Cifra correcta (95) tras confirmar UNA opción por el error de tipeo «desabastesidos». Confirmación de una sola opción (4c) = innecesaria por criterio.",
+   "archivo": "src/chatbot/query_engine.py::_query_plan_failure (confirmación de una sola opción); src/semantic/query_plan_builder.py::_resolve_metric"
+  },
+  "H05": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "3",
+    "11"
+   ],
+   "huella": "eb57148b62a0",
+   "nota": "TRIAGES del Briefing es el día anterior (diccionario): filtrar FECHA = hoy da vacío; debe responder el corte del tablero (30) avisando que es de ayer. Además «obstétricos» se redujo a un valor (URGENCIA OBSTETRICA) en vez de todas las clases OBSTETRICA.",
+   "archivo": "src/semantic/query_plan_builder.py::_snapshot_table/_current_state_period; src/semantic/query_plan_builder.py::_resolve_implicit_value"
+  },
+  "H08": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "12"
+   ],
+   "huella": "df0c76cb8ff2",
+   "nota": "«en septiembre» (hoy 3-nov-2026) = septiembre 2026; el bot promedió todos los septiembres (2.240 frente a 1.484 min). En H11 «agosto vs septiembre» sí tomó 2026: incoherente.",
+   "archivo": "src/semantic/period_parser.py (decisión «mes sin año = todos los años»); src/semantic/query_plan_builder.py::_period_notes (l.5641)"
+  },
+  "H09": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "agrupacion"
+   ],
+   "causas": [
+    "8"
+   ],
+   "huella": "a45dbcf8d191",
+   "nota": "«por día de la semana» no se reconoció como agrupación (DIA_SEMANA existe en OPORTUNIDAD_TRIAGE): se buscó como valor de filtro → unsupported_filter.",
+   "archivo": "src/semantic/query_plan_builder.py::_requested_group_tail/_group_field_in"
+  },
+  "H10": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "filtro"
+   ],
+   "causas": [
+    "4",
+    "12",
+    "10"
+   ],
+   "huella": "150620630f3d",
+   "nota": "«q pasa suben» tomado como filtro (4a). Con «q» el periodo «en lo que va del año» se perdió: 49,3 h sin periodo frente a 56,6 h del año.",
+   "archivo": "src/chatbot/query_engine.py::_unresolved_words_clarification; src/semantic/period_parser.py (no reconoce «en lo q va del año»)"
+  },
+  "H11": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5",
+    "10"
+   ],
+   "huella": "a5bed8ecfb89",
+   "nota": "«tiempo pa egreso» → TIEMPO EN URGENCIAS en vez de TIEMPO PARA EGRESO (TIEMPO_EGRESO_OK). Con «para» el nombre del indicador coincide literalmente.",
+   "archivo": "src/semantic/query_plan_builder.py::_resolve_metric"
+  },
+  "H12": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "4",
+    "5"
+   ],
+   "huella": "c0f13a3b145b",
+   "nota": "6 opciones que son variantes de tiempo de la MISMA medida base [ATENCION_HP] (ATEHP2025, PROM, ATENCION_ANUAL = año anterior). Con el año en la pregunta basta la base + periodo. El runner pulsó ATENCION ANUAL (1.403 = 2024 rotulado «en 2025»); banco: elegir «ATENCION HP». PBIR de la página vacío, pero la falla no depende de los filtros del visual.",
+   "archivo": "src/chatbot/query_engine.py::_build_clarification_choices/_finalize_choices"
+  },
+  "H13": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5"
+   ],
+   "huella": "5a2dd8ae26a5",
+   "nota": "«abortos» → fuera de alcance, pero hay página ABORTOS en docs y valores ABORTO/IVE en PARTOS_DRIVE[Tipo de parto]. Cifra de verdad no verificable (PBIR vacío); la respuesta falla igual.",
+   "archivo": "src/semantic/query_plan_builder.py::_resolve_metric / src/chatbot/query_engine.py (out_of_scope l.3760)"
+  },
+  "H14": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "3"
+   ],
+   "huella": "8f462506d3a8",
+   "nota": "Para «mes pasado» usó AMBULATORIO_SS del Briefing (citas PRÓXIMAS, BI_PROXIMAS_CITAS): 287 frente a 7.590 de Atenciones. Una fuente de próximas citas no responde un periodo pasado.",
+   "archivo": "src/semantic/query_plan_builder.py::_snapshot_table (sin cobertura temporal de la fuente)"
+  },
+  "H15": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "3"
+   ],
+   "huella": "9a4088acdb41",
+   "nota": "Igual que H14 con «este año»: top de especialidades sobre citas próximas del Briefing.",
+   "archivo": "src/semantic/query_plan_builder.py::_snapshot_table"
+  },
+  "H18": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "rag"
+   ],
+   "causas": [
+    "13"
+   ],
+   "huella": "783d0303d281",
+   "nota": "Explicó RELACIÓN ACEPTADOS (referencia) en vez de %PENDIENTE de citas, que está documentado (en espera / asignadas, puede pasar de 100 %).",
+   "archivo": "src/rag/ranking.py (recuperación); docs: tablero_asignacion_de_citas/md/oferta_especialidades.md"
+  },
+  "H20": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "11"
+   ],
+   "huella": "7fcd6cd61c9f",
+   "nota": "«obstétricos» ignorado en silencio: 347.943 (todos) frente a 41.338 de la tarjeta de TRIAGES ATENDIDOS cuyo filtro de visual son justo las clases OBSTETRICA.",
+   "archivo": "src/semantic/query_plan_builder.py::_resolve_implicit_value; selección de visual por filtros del visual"
+  },
+  "H21": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4"
+   ],
+   "huella": "5f5852bebe92",
+   "nota": "«entre 2 y 4 meses» corresponde a la tarjeta «30-120 DÍAS» (filtro mes ∈ {2,3,4}); la pregunta ya desambigua. El runner pulsó 0-30 (valor contaminado); banco: elegir «30-120».",
+   "archivo": "src/chatbot/query_engine.py::_build_clarification_choices (no usa los filtros de visual de las opciones)"
+  },
+  "H22": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "agrupacion"
+   ],
+   "causas": [
+    "4",
+    "8"
+   ],
+   "huella": "bd5f72a35f42",
+   "nota": "«por rango de horas» = HORAS_SUMINISTRO (valores «1. 0-6 horas»…); se tomó «horas» como filtro y se respondió el total (154).",
+   "archivo": "src/chatbot/query_engine.py::_unresolved_words_clarification; src/semantic/query_plan_builder.py::_group_field_in"
+  },
+  "H24": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5",
+    "10"
+   ],
+   "huella": "c92ec37f14eb",
+   "nota": "«valor estimado» es el título del visual VALOR ESTIMADO POR SERVICIO (SUM FACTURADO): metric_not_resolved.",
+   "archivo": "src/semantic/query_plan_builder.py::_resolve_metric (títulos de visual como alias); _GROUP_TAIL_RE sin «x»"
+  },
+  "H26": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "4",
+    "5"
+   ],
+   "huella": "ea8ac42ad3ce",
+   "nota": "«remisiones que no pudimos recibir» = demanda insatisfecha por referencia; el bot tomó REMISIONES del Briefing (seguimiento) y ofreció quitar «no pudimos recibir».",
+   "archivo": "src/chatbot/query_engine.py::_unresolved_words_clarification; src/semantic/query_plan_builder.py::_resolve_metric"
+  },
+  "H27b": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6",
+    "10"
+   ],
+   "huella": "c56145e6623c",
+   "nota": "«cirujias» (tipeo) → RAG con cifras INVENTADAS (125 y 130); H27 con «cirugias» acertó.",
+   "archivo": "src/semantic/query_plan_builder.py::looks_numeric / src/chatbot/query_engine.py::process (ruta RAG)"
+  },
+  "H28": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "agrupacion"
+   ],
+   "causas": [
+    "4",
+    "8"
+   ],
+   "huella": "5575cbdc108f",
+   "nota": "Opciones repetidas (CITAS CANCELADAS ×3 por agregación). «por qué motivos» = agrupar por CCCDESCRI; respondió el total (3) con «No pude aplicar: motivos».",
+   "archivo": "src/chatbot/query_engine.py::_finalize_choices; src/semantic/query_plan_builder.py::_requested_group_tail"
+  },
+  "H29": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6",
+    "10"
+   ],
+   "huella": "83714bdedcc1",
+   "nota": "«q antibióticos se están usando» pide la lista (PAC_ACT > 0); fue al RAG (Fecha Inicio/Fin).",
+   "archivo": "src/semantic/query_plan_builder.py::looks_numeric/_detail_list_question"
+  },
+  "H31": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4",
+    "10"
+   ],
+   "huella": "c35c1de46a20",
+   "nota": "Cifra correcta (30.716,5) tras ofrecer quitar «d ropa lavados». Además «mes sin año» = todos los años (coincide solo porque no hay otro septiembre).",
+   "archivo": "src/chatbot/query_engine.py::_unresolved_words_clarification"
+  },
+  "H32": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5"
+   ],
+   "huella": "2fd8810f5b74",
+   "nota": "«cuánta ropa se ha lavado» → metric_not_resolved; el tablero de lavandería tiene una sola medida de peso (kg).",
+   "archivo": "src/semantic/query_plan_builder.py::_resolve_metric (vocabulario del tablero/documentación)"
+  },
+  "H33": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4"
+   ],
+   "huella": "b7982bdbab49",
+   "nota": "LISTADO = «pacientes con pendientes activos» (docs): «pendientes» ya está implícito en la página. Cifra correcta (31). Tabla redactada por privacidad: no se reconstruye.",
+   "archivo": "src/chatbot/query_engine.py::_unresolved_words_clarification"
+  },
+  "H34": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6"
+   ],
+   "huella": "0c168f0f92ce",
+   "nota": "Frase nominal con el nombre de la página CIRUGÍAS PENDIENTES → RAG (describió la página). Debía dar la tarjeta (16).",
+   "archivo": "src/semantic/query_plan_builder.py::looks_numeric/_nominal_metric_with_filter"
+  },
+  "H35": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "agrupacion",
+    "filtro"
+   ],
+   "causas": [
+    "8",
+    "2",
+    "10"
+   ],
+   "huella": "99d1755536a2",
+   "nota": "«x tipo de paciente» = agrupar por TIPO_PACIENTE; se convirtió en filtro PACIENTE PRIORIZADO por la palabra «paciente» (4).",
+   "archivo": "src/semantic/query_plan_builder.py::_GROUP_TAIL_RE (sin «x»); _value_match_score"
+  },
+  "H38": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "rag"
+   ],
+   "causas": [
+    "6",
+    "10"
+   ],
+   "huella": "a45dbcf8d191",
+   "nota": "Pregunta de proceso («por q estados pasa un pedido») enviada a datos → unsupported_filter.",
+   "archivo": "src/semantic/question_kind.py::descriptive_phrase (sin «por qué estados/etapas pasa»)"
+  },
+  "H39": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4"
+   ],
+   "huella": "7cae0c94e708",
+   "nota": "Ofreció quitar «solicitudes llegaron» (4a). La cifra no es evaluable: el PBIR local de TABLERO_REFERENCIA no trae visuales (la fuente de la verdad no está en el catálogo del bot).",
+   "archivo": "src/chatbot/query_engine.py::_unresolved_words_clarification"
+  },
+  "H40": {
+   "veredicto": "no_evaluado",
+   "clase": "b",
+   "fallas": [],
+   "causas": [],
+   "huella": "81ef6e90834e",
+   "nota": "No evaluable: pregunta anafórica («de esas referencias») sin turno previo en el banco, y PBIR de TABLERO_REFERENCIA vacío (filtros de la tarjeta no verificables). Rehacer como turno de seguimiento de H39."
+  },
+  "H41": {
+   "veredicto": "no_evaluado",
+   "clase": "b",
+   "fallas": [],
+   "causas": [],
+   "huella": "5145a24d6c83",
+   "nota": "No evaluable: PBIR de TABLERO_REFERENCIA sin visual.json; el bot no puede ver la tabla ESPECIALIDAD/SOLICITUDES y la verdad (GEEDESCRI, 38 % en blanco) no se contrasta con un visual."
+  },
+  "H43": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4"
+   ],
+   "huella": "7d33cd902cc6",
+   "nota": "Confirmación de una sola opción (PRECIO VENTA) y luego «sin fecha» aunque calendario filtra COSTOS_PRODUCTOS. subieron/bajaron/igual = valores AUMENTÓ/DISMINUYÓ/ESTABLE de ESTADO. Cifra no evaluable (PBIR de CVC vacío).",
+   "archivo": "src/chatbot/query_engine.py::_query_plan_failure (confirmación de una opción)"
+  },
+  "H45": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "4",
+    "5"
+   ],
+   "huella": "0890579f96c1",
+   "nota": "Nombra el tablero («según el perfil de morbilidad») y aun así ofreció Ahorro Porcentaje de CVC. mortalidad = %DEFUNCIONES (docs). PBIR de MORBILIDAD vacío; la falla no depende de él.",
+   "archivo": "src/semantic/query_plan_builder.py::_source_context/_resolve_metric (tablero nombrado no restringe)"
+  }
+ }
+}

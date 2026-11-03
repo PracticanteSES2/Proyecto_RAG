@@ -416,13 +416,15 @@ def classify(case, turns, correct, detail):
         fallas.append("filtro")
         return fallas
     ok_dax = [d for d in last.get("dax") or [] if d.get("status") == "success"]
+    if tipo in DATA_TIPOS and last.get("route") == "rag":
+        # Pregunta de datos respondida con la documentación: es un error de
+        # enrutamiento (indicador), no una cifra inventada. Vale aunque haya
+        # DAX exitosos: son las sondas del catálogo (VALUES de columnas), no
+        # la respuesta (holdout H02, H27b, H34).
+        detail["enrutamiento"] = "rag"
+        fallas.append("indicador")
+        return fallas
     if tipo in DATA_TIPOS and not ok_dax and last.get("route") != "powerbi":
-        if last.get("route") == "rag":
-            # Pregunta de datos respondida con la documentación: es un error
-            # de enrutamiento (indicador), no una cifra inventada.
-            detail["enrutamiento"] = "rag"
-            fallas.append("indicador")
-            return fallas
         if numbers_in(last.get("answer")):
             fallas.append("inventada")
             return fallas
@@ -578,7 +580,9 @@ def main(argv=None):
         print(json.dumps(s, ensure_ascii=False, indent=1))
         if args.auditoria is not None:
             from tests.real import auditoria
-            audit = auditoria.load(args.auditoria or None)
+            # Sin archivo explícito: la auditoría DE ESTE BANCO (el holdout no
+            # hereda los veredictos del banco real).
+            audit = auditoria.load(args.auditoria or auditoria.default_path(BANCO))
             audited = auditoria.summarize(data["resultados"], audit)
             print("Auditada:", json.dumps({k: audited[k] for k in ("aciertos", "evaluados", "auditados", "sin_auditar")},
                                           ensure_ascii=False))

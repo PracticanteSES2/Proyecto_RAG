@@ -43,11 +43,35 @@ def huella(answer):
     return hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
 
 
+def default_path(banco=None):
+    """Auditoría que corresponde a un banco: banco_real.json (o ninguno) →
+    auditoria.json; banco_<nombre>.json → auditoria_<nombre>.json (p. ej. el
+    holdout usa auditoria_holdout.json y NO hereda los veredictos del real)."""
+    if not banco:
+        return AUDITORIA
+    path = Path(banco)
+    if path.name == "banco_real.json":
+        return AUDITORIA
+    name = path.stem[len("banco_"):] if path.stem.startswith("banco_") else path.stem
+    return AUDITORIA.parent / f"auditoria_{name}.json"
+
+
 def load(path=None):
     path = Path(path) if path else AUDITORIA
+    try:
+        archivo = path.resolve().relative_to(AUDITORIA.parents[2]).as_posix()
+    except ValueError:
+        archivo = str(path)
     if not path.exists():
-        return {"casos": {}}
-    return json.loads(path.read_text(encoding="utf-8"))
+        return {"casos": {}, "_archivo": archivo}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["_archivo"] = archivo
+    return data
+
+
+def causas_de(audit):
+    """Rótulos de causa raíz: los generales más los propios de la auditoría."""
+    return {**CAUSAS, **((audit or {}).get("causas") or {})}
 
 
 # ---------------------------------------------------------------- veredictos
@@ -188,6 +212,8 @@ def summarize(results, audit=None, cases=None):
         "por_causa": dict(sorted(por_causa.items(), key=lambda kv: (-len(kv[1]), kv[0]))),
         "fallas_totales": total - ok,
         "veredictos": veredictos,
+        "archivo": (audit or {}).get("_archivo") or "tests/real/auditoria.json",
+        "causas_def": causas_de(audit),
     }
 
 
@@ -270,7 +296,8 @@ def section_tasas(auto, audited):
              f"| Automática (comparador) | {auto['aciertos']}/{auto['evaluados']} | {pct(auto['aciertos'], auto['evaluados'])} |",
              f"| **Auditada** | **{audited['aciertos']}/{audited['evaluados']}** | "
              f"**{pct(audited['aciertos'], audited['evaluados'])}** |", "",
-             f"Auditada = veredicto de `tests/real/auditoria.json` cuando la respuesta del bot es la misma que se "
+             f"Auditada = veredicto de `{audited.get('archivo', 'tests/real/auditoria.json')}` cuando la respuesta "
+             f"del bot es la misma que se "
              f"auditó ({audited['auditados']} casos) y veredicto automático en el resto ({audited['sin_auditar']}). "
              f"Inconclusos (no cuentan): {', '.join(audited['inconclusos']) or 'ninguno'}.", ""]
     return lines
@@ -293,8 +320,9 @@ def section_causas(audited):
              f"Sobre {total} fallas (un caso puede tener varias causas). Auditadas: causa de la auditoría; "
              "sin auditar: causa aproximada por el DAX del bot frente al de verdad.", "",
              "| Causa raíz | Casos | % de las fallas | Ids |", "|---|---|---|---|"]
+    labels = audited.get("causas_def") or CAUSAS
     for c, ids in audited["por_causa"].items():
-        lines.append(f"| {c}. {CAUSAS.get(c, c)} | {len(ids)} | {pct(len(ids), total)} | {', '.join(ids)} |")
+        lines.append(f"| {c}. {labels.get(c, c)} | {len(ids)} | {pct(len(ids), total)} | {', '.join(ids)} |")
     return lines + [""]
 
 
@@ -321,10 +349,11 @@ def section_comparacion(prev_meta, prev_resumen, prev_audited, prev_auto, audite
         lines.append(f"| {b} | {p['aciertos']}/{p['evaluados']} | {c['aciertos']}/{c['evaluados']} "
                      f"| {c['aciertos'] - p['aciertos']:+d} |")
     lines += ["", "| Causa raíz | Anterior | Actual | Δ |", "|---|---|---|---|"]
+    labels = audited.get("causas_def") or CAUSAS
     for c in sorted(set(prev_audited["por_causa"]) | set(audited["por_causa"]), key=int):
         p = len(prev_audited["por_causa"].get(c, []))
         n = len(audited["por_causa"].get(c, []))
-        lines.append(f"| {c}. {CAUSAS.get(c, c)} | {p} | {n} | {n - p:+d} |")
+        lines.append(f"| {c}. {labels.get(c, c)} | {p} | {n} | {n - p:+d} |")
     lines += ["", "Por caso («·a» = veredicto auditado; entre paréntesis, la causa raíz):", "",
               "| Caso | Anterior | Actual | Cambio |", "|---|---|---|---|"]
     ids = list(audited["veredictos"]) + [i for i in prev_audited["veredictos"] if i not in audited["veredictos"]]
