@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import io
 import json
 import os
 import re
@@ -164,7 +165,16 @@ def _leer_csv(ruta: Path) -> list[dict]:
     if not ruta.exists():
         return []
     with open(ruta, encoding="utf-8-sig", newline="") as fh:
-        return list(csv.DictReader(fh, delimiter=";"))
+        texto = fh.read()
+    # Dos formatos: el export INFO.VIEW de sync_powerbi_metadata («[ID],[Name],...»,
+    # separado por comas) y el de tools/local_data («ID;Name;...»).
+    cabecera = texto.split("\n", 1)[0]
+    separador = ";" if cabecera.count(";") > cabecera.count(",") else ","
+    filas = csv.DictReader(io.StringIO(texto), delimiter=separador)
+    return [
+        {(clave or "").strip().strip("[]"): valor for clave, valor in fila.items()}
+        for fila in filas
+    ]
 
 
 def _bool(valor) -> bool:

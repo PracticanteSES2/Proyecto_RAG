@@ -632,3 +632,21 @@ class CliTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FormatoCsvSincronizadoTest(unittest.TestCase):
+    """El export de sync_powerbi_metadata usa comas y encabezados entre corchetes."""
+
+    def test_lee_ambos_formatos(self):
+        import tempfile
+        from src.docs_md import diccionario as D
+
+        with tempfile.TemporaryDirectory() as tmp:
+            sync = Path(tmp) / "sync.csv"
+            sync.write_text('﻿[ID],[Name],[Table],[Expression]\n1,TOTAL,VENTAS,SUM(VENTAS[X])\n', encoding="utf-8")
+            local = Path(tmp) / "local.csv"
+            local.write_text('ID;Name;Table;Expression\n1;"TOTAL";"VENTAS";"SUM(VENTAS[X])"\n', encoding="utf-8")
+            for ruta in (sync, local):
+                filas = D._leer_csv(ruta)
+                self.assertEqual(filas[0]["Name"], "TOTAL", ruta.name)
+                self.assertEqual(filas[0]["Expression"], "SUM(VENTAS[X])", ruta.name)
