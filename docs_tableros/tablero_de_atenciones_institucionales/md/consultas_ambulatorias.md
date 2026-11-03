@@ -4,8 +4,8 @@ pagina: CONSULTAS AMBULATORIAS
 nombre_funcional: Volumen y oportunidad de las consultas ambulatorias
 bloque: Histórico
 tablas: [CONSULTAS_AMBULATORIAS, CONSULTA_AMBULATORIAS, Calendario, MostrarProyeccion]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # CONSULTAS AMBULATORIAS
@@ -18,7 +18,7 @@ Muestra cuántas consultas ambulatorias (consulta externa) se atienden cada mes,
 - **CONSULTA_AMBULATORIAS**: Totales históricos de atenciones ambulatorias por año y mes; la usa la proyección.
 
 ## Indicadores
-- **Total consultas año anterior**: Consultas del año anterior. Medida por confirmar (la documentación lista AMB_ANT = CALCULATE(COUNT(CONSULTAS_AMBULATORIAS[OID_CITA]), YEAR(CONSULTAS_AMBULATORIAS[FECHA_CITA])=YEAR(TODAY())-1)).
+- **Total consultas año anterior**: Consultas del año anterior. Medida por confirmar (candidata: AMB_ANT, que en el modelo es `CALCULATE( COUNT(CONSULTAS_AMBULATORIAS[IDENTIFICACION]), YEAR(CONSULTAS_AMBULATORIAS[FECHA_CITA])=YEAR(TODAY())-1)`; la documentación la escribía con OID_CITA).
 - **Promedio mensual año anterior**: Consultas del año anterior divididas por sus meses. Medida por confirmar (en el modelo, Promedio Mensual Año Pasado).
 - **Días de asignación de cita**: Días entre la fecha en que se asigna la cita y la fecha de la cita. Cálculo: promedio_asignacion = AVERAGE(CONSULTAS_AMBULATORIAS[DIAS_REAL]); DIAS_REAL = DATEDIFF(FECHA_ASIGNA_CITA, FECHA_CITA, DAY). Unidad: días.
 - **Oportunidad dinámica**: Medida Promedio_Dinamico: con filtro de fecha muestra promedio_asignacion del filtro; sin filtro muestra el del último mes cerrado (mes anterior al actual).
@@ -52,3 +52,4 @@ Muestra cuántas consultas ambulatorias (consulta externa) se atienden cada mes,
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Cálculo de AMB_ANT corregido según el modelo sincronizado del Power BI (data/model_metadata, 2026-10-29) Autor: agente dic-pendientes.

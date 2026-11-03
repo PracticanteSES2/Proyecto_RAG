@@ -4,8 +4,8 @@ pagina: INDICADORES
 nombre_funcional: Egresos, estancia, ocupación y giro cama institucionales
 bloque: Histórico
 tablas: [FACT_EGRESOS, FACT_ESTANCIA, PORCENTAJE_OCUPACIONAL, DIM_SERVICIO, TERCERO, Calendario]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # INDICADORES
@@ -21,7 +21,7 @@ Página principal del tablero. Muestra mes a mes, comparando los dos últimos a�
 ## Indicadores
 - **Egresos**: Número de egresos del periodo. Medida del modelo Total Egresos = COUNTROWS(FACT_EGRESOS). Por confirmar que sea la de la tarjeta y el gráfico.
 - **Capacidad instalada**: Número de camas instaladas que muestra la tarjeta CAPACIDAD INSTALADA. Medida por confirmar.
-- **Promedio de estancia**: Días de estancia por egreso. Medida del modelo PROMEDIO_ESTANCIA = DIVIDE([ESTANCIA_VALIDADA], [Total Egresos], BLANK()). Por confirmar que sea la del gráfico.
+- **Promedio de estancia**: Días de estancia por egreso. La documentación cita PROMEDIO_ESTANCIA = DIVIDE([ESTANCIA_VALIDADA], [Total Egresos], BLANK()), pero esa medida ya no está en el modelo sincronizado ni en el PBIP; las de promedio de estancia vigentes son [PROMEDIO_ESTANCIA_TOTAL] y [PROMEDIO_ESTANCIA_TOTAL1] (días por egreso, horas en urgencias). Por confirmar cuál usa el gráfico.
 - **Estancia validada**: Suma de días de estancia; en URGENCIAS, URGENCIAS SALA AZUL, BOTON AZUL 3 PISO y URGENCIAS BOTON AZUL suma horas y las divide entre 24 (medida ESTANCIA_VALIDADA).
 - **Porcentaje ocupacional**: Días cama ocupados entre días cama disponibles. Medida del modelo PORCENTAJE_OCUPACIONAL_TOTAL: conteo de registros de ocupación dividido por la suma, por servicio, de camas del servicio × días del mes. Por confirmar que sea la del gráfico.
 - **Giro cama**: Egresos por cama. Medida GIRO_CAMA1 (confirmada en el PBIP): ingresos distintos con egreso tipo PUERTA o TRASLADO divididos entre la suma de camas de los servicios (NUM_CAM_EGRESOS).
@@ -57,3 +57,4 @@ Página principal del tablero. Muestra mes a mes, comparando los dos últimos a�
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: La medida citada para el promedio de estancia no existe en el modelo sincronizado del Power BI (data/model_metadata, 2026-10-29) Autor: agente dic-pendientes.

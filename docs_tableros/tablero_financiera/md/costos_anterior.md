@@ -4,8 +4,8 @@ pagina: COSTOS ANTERIOR
 nombre_funcional: Venta, costo y rentabilidad por actividad y pagador (versión anterior)
 bloque: Histórico
 tablas: [COSTOS, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # COSTOS ANTERIOR
@@ -44,7 +44,8 @@ Versión anterior del análisis de costos: venta, costo, rentabilidad y frecuenc
 ## Observaciones
 - **Página sin acceso**: Ningún botón lleva a esta página. Por confirmar si se debe eliminar.
 - **Porcentaje sumado**: %RENTABILIDAD suma la columna %RENT; en filas con varios registros el porcentaje queda inflado. Por confirmar.
-- **Segmentador validacion**: El significado y los valores de COSTOS[validacion] están por confirmar.
+- **Segmentador validacion**: COSTOS[validacion] es una columna calculada: «PÉRDIDA» si la rentabilidad unitaria de la fila (COSTOS[RENTABILIDAD], venta unitaria menos costo de la actividad) es negativa, «GANANCIA» si es positiva y vacía si es cero.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
+- **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): valores de COSTOS[validacion]. Autor: agente dic-pendientes.

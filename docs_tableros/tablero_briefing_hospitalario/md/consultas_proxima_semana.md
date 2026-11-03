@@ -4,8 +4,8 @@ pagina: CONSULTAS PROXIMA SEMANA
 nombre_funcional: Citas asignadas para los próximos días y digiturnos por tramo horario
 bloque: Día
 tablas: [BI_PROXIMAS_CITAS, AMBULATORIO_SS]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # CONSULTAS PROXIMA SEMANA
@@ -14,15 +14,15 @@ version: 2
 Muestra las citas ya asignadas desde mañana en adelante, separadas en consulta ambulatoria e imágenes diagnósticas, por fecha y por tramo horario, junto con el histórico de digiturnos asignados. Sirve para anticipar horas de alta demanda y evitar sobrecupos. Se llega desde el botón DETALLE de la matriz CONSULTAS PRÓXIMA SEMANA en INICIO.
 
 ## Fuentes de datos
-- **BI_PROXIMAS_CITAS**: Citas asignadas para los próximos días (consulta SELECT * FROM BI_PROXIMAS_CITAS) con tipo de consulta, especialidad, fecha y tramo horario; nombre de la tabla en el modelo por confirmar.
+- **BI_PROXIMAS_CITAS**: Citas asignadas para los próximos días (consulta SELECT * FROM BI_PROXIMAS_CITAS) con tipo de consulta, especialidad, fecha y tramo horario; en el modelo es la tabla AMBULATORIO_SS.
 - **AMBULATORIO_SS**: Citas usadas por la matriz de INICIO (fecha, tramo horario y cita).
-- **Digiturnos**: Fuente del histórico de digiturnos no documentada. Por confirmar.
+- **Digiturnos**: Tabla TURNOS_AMBULATORIO: turnos de digiturno (DIM_HCNCONTRDT) desde el 1 de enero de 2026 hasta hoy con prefijos PPE, PPV, EPSE, EPSV, SOAT, LPE, LPV, FMG, PCDL, PCDF y PPL; TURNO es la descripción del concepto (HCNCONCOTRI) y DIGITURNO el prefijo con el número.
 
 ## Indicadores
-- **Consultas ambulatorias**: Citas de consulta ambulatoria asignadas. Cálculo por confirmar.
-- **Consultas imágenes**: Citas de imágenes diagnósticas asignadas. Cálculo por confirmar.
+- **Consultas ambulatorias**: Citas de consulta ambulatoria asignadas. DISTINCTCOUNT(AMBULATORIO_SS[CITA]) con TIPO_CONSULTA = «CONSULTA AMBULATORIA» (filtro del visual).
+- **Consultas imágenes**: Citas de imágenes diagnósticas asignadas. DISTINCTCOUNT(AMBULATORIO_SS[CITA]) con TIPO_CONSULTA = «IMAGENES» (filtro del visual).
 - **Citas por tramo**: Número de citas en cada hora del día. En INICIO es COUNT(AMBULATORIO_SS[CITA]).
-- **Digiturnos asignados**: Turnos de digiturno entregados por tipo y por tramo horario. Cálculo por confirmar.
+- **Digiturnos asignados**: Turnos de digiturno entregados por tipo y por tramo horario. COUNT(TURNOS_AMBULATORIO[DIGITURNO]) por TURNO y por día de la semana y tramo horario.
 
 ## Visuales
 - **Tarjetas**: CONSULTAS AMBULATORIAS y CONSULTAS IMÁGENES.
@@ -44,3 +44,4 @@ Muestra las citas ya asignadas desde mañana en adelante, separadas en consulta 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Se completó con el PBIP (consultas SQL de las particiones TMDL, campos, agregaciones y filtros de los visuales, relaciones): tabla AMBULATORIO_SS, consulta de digiturnos y cálculo de las tarjetas. Autor: agente dic-pendientes.

@@ -4,8 +4,8 @@ pagina: CUPS
 nombre_funcional: Frecuencia y valor por CUPS, asegurador y servicio
 bloque: Histórico
 tablas: [CUPS, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # CUPS
@@ -40,7 +40,8 @@ Muestra la frecuencia y el valor de los servicios por código CUPS, mes a mes, c
 
 ## Observaciones
 - **Valores de mostrar medicamentos**: Los valores de INCLUIRPRODUCTOS y si por defecto se incluyen medicamentos están por confirmar.
-- **Columna de medicamentos repetida**: El segmentador usa INCLUIRPRODUCTOS y tiene un filtro sobre INCLUIRPRODUC; por confirmar si son la misma columna.
+- **Columna de medicamentos repetida**: El segmentador usa CUPS[INCLUIRPRODUCTOS] y el filtro, CUPS[INCLUIRPRODUC]: son dos columnas distintas del modelo, las dos de texto. Por confirmar si traen los mismos valores.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
+- **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): INCLUIRPRODUC e INCLUIRPRODUCTOS son dos columnas. Autor: agente dic-pendientes.

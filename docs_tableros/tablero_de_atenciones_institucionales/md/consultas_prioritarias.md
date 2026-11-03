@@ -4,8 +4,8 @@ pagina: CONSULTAS PRIORITARIAS
 nombre_funcional: Consultas prioritarias atendidas por mes
 bloque: Histórico
 tablas: [CONSULTAS PRIORITARIAS, Calendario, EGRESOS_POR_SERVICIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # CONSULTAS PRIORITARIAS
@@ -36,10 +36,11 @@ Muestra cuántas consultas prioritarias (citas de atención prioritaria efectiva
 
 ## Observaciones
 - **Título equivocado**: El gráfico se titula «PACIENTES OBSERVADOS POR MES» aunque muestra consultas prioritarias.
-- **Segmentador sin efecto**: ASEGURADOR usa la columna de EGRESOS_POR_SERVICIO, que no se relaciona con esta tabla; por confirmar si filtra algo.
+- **Segmentador sin efecto**: ASEGURADOR usa EGRESOS_POR_SERVICIO[TERNOMCOM]. En el modelo EGRESOS_POR_SERVICIO solo se une a CAMAS y recibe el filtro de Calendario en un solo sentido, y CONSULTAS PRIORITARIAS solo se une a Calendario, así que el segmentador no filtra los visuales de esta página.
 - **Filtros sobrantes**: La página tiene filtros ocultos sobre OBSERVADOS[MENORES] y OBSERVADOS[fecha] y el gráfico uno sobre CONSULTA_URGENCIAS[FECHA_FOLIO], copiados de otras páginas.
 - **Tarjetas en blanco**: En la captura las dos tarjetas muestran «(En blanco)» aunque el gráfico tiene datos del año. Causa por confirmar.
 - **Conteos distintos**: El gráfico cuenta ASEGURADOR y la tabla IDENTIFICACION; las filas sin asegurador no aparecen en el gráfico.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-11-03 · v2**: Relaciones verificadas en el modelo sincronizado del Power BI (data/model_metadata, 2026-10-29) Autor: agente dic-pendientes.

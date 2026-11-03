@@ -4,8 +4,8 @@ pagina: IMAGENES DIAGNOSTICAS
 nombre_funcional: Imágenes diagnósticas tomadas y solicitudes de la semana por día, área y tramo horario
 bloque: Día
 tablas: [IMAGENES_TOMADAS, SOLICITUDES_RESPUESTA]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # IMAGENES DIAGNOSTICAS
@@ -15,7 +15,7 @@ Muestra las imágenes diagnósticas tomadas en la semana en curso frente a las s
 
 ## Fuentes de datos
 - **IMAGENES_TOMADAS**: Estudios de imágenes y apoyo diagnóstico realizados (servicios prestados de Dinámica) con cédula, cantidad, entidad, área de servicio, fecha, hora, tramo horario, examen, grupo, tipo de ingreso e ingreso. Periodo de la semana en curso.
-- **SOLICITUDES_RESPUESTA**: Solicitudes de imágenes con el día de la semana (ORDEN_DIA). Consulta de origen por confirmar.
+- **SOLICITUDES_RESPUESTA**: Solicitudes de imágenes con el día de la semana (ORDEN_DIA). Solicitudes de imágenes (HCNSOLEXA) de la semana calculada desde hoy que ya tienen respuesta confirmada (HCNRESSVFC), una por ingreso; tiempo_respuesta son horas entre la solicitud y la confirmación (o ahora).
 
 ## Indicadores
 - **Imágenes tomadas**: Número de estudios realizados. COUNT(IMAGENES_TOMADAS[ID_INGRESO]).
@@ -45,3 +45,4 @@ Muestra las imágenes diagnósticas tomadas en la semana en curso frente a las s
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Se completó con el PBIP (consultas SQL de las particiones TMDL, campos, agregaciones y filtros de los visuales, relaciones): consulta de SOLICITUDES_RESPUESTA. Autor: agente dic-pendientes.

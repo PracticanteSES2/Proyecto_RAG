@@ -4,8 +4,8 @@ pagina: TIPO LABORATORIO PATOLOGICO
 nombre_funcional: Laboratorios de patología por aseguradora y categoría EPS
 bloque: Histórico
 tablas: [LABORATORIOS_PATOLOGICOS, Calendario]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # TIPO LABORATORIO PATOLOGICO
@@ -35,10 +35,11 @@ Muestra cuántos laboratorios de patología corresponden a cada aseguradora y a 
 - **Categoría EPS**: 125 medicina prepagada, 126 póliza, 127 particular, 122 plan complementario y el resto contributivo/subsidiada.
 
 ## Observaciones
-- **Nombre de página**: En Power BI la página se llama TIPO LABORATORIO PATOLOGICO; la documentación del propietario la titula «LABORATORIOS PATOLOGICOS». La correspondencia es probable (por el botón de llegada y el contenido, porque la página del PBIP no trae visuales); por confirmar.
+- **Nombre de página**: En Power BI la página se llama «TIPO LABORATORIO PATOLOGICO » (con un espacio al final); la documentación del propietario la titula «LABORATORIOS PATOLOGICOS». En el PBIR el botón ASEGURADOR de LABORATORIO PATOLOGICO abre esta página, que es la de laboratorios por aseguradora.
 - **Nombre parecido**: La página principal se llama LABORATORIO PATOLOGICO; se distinguen por el plural.
 - **Mapa y anillo con otro periodo**: En la captura el mapa de árbol y el anillo suman más que el total anual; parecen incluir todos los años. Por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Correspondencia de la página confirmada con la navegación del PBIR. Autor: agente dic-pendientes.

@@ -4,8 +4,8 @@ pagina: COSTO ESTIMADO
 nombre_funcional: Rentabilidad por CUPS frente al costo histórico y al costo estimado
 bloque: Histórico
 tablas: [ANALISIS_RENTABILIDAD, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # COSTO ESTIMADO
@@ -18,16 +18,16 @@ Compara por CUPS y pagador la venta con el costo histórico y con el costo estim
 - **CALENDARIO**: Jerarquía de año y mes y medidas Venta Total, Costo Total, Rentabilidad total, FRECUENCIA_TOTAL, rentabilidad_costo_ses y rentabilidad_costo_estimado.
 
 ## Indicadores
-- **Venta total**: Medida CALENDARIO[Venta Total], tarjeta y columna Venta y gráfico Total Ventas. Unidad: pesos. Cálculo: Por confirmar.
-- **Costo total**: Medida CALENDARIO[Costo Total], tarjeta Costo y gráfico Costo Total. Unidad: pesos. Cálculo: Por confirmar.
-- **Rentabilidad total**: Medida CALENDARIO[Rentabilidad total], tarjeta y gráfico Rentabilidad. Unidad: pesos. Cálculo: Por confirmar.
+- **Venta total**: Medida CALENDARIO[Venta Total], tarjeta y columna Venta y gráfico Total Ventas. Unidad: pesos. Cálculo: `SUMX(ANALISIS_RENTABILIDAD, ANALISIS_RENTABILIDAD[VLRMAXCUPS] * ANALISIS_RENTABILIDAD[CANT])`.
+- **Costo total**: Medida CALENDARIO[Costo Total], tarjeta Costo y gráfico Costo Total. Unidad: pesos. Cálculo: `SUMX(ANALISIS_RENTABILIDAD, ANALISIS_RENTABILIDAD[COSTOHIST] * ANALISIS_RENTABILIDAD[CANT])`.
+- **Rentabilidad total**: Medida CALENDARIO[Rentabilidad total], tarjeta y gráfico Rentabilidad. Unidad: pesos. Cálculo: `[Venta Total]-[Costo Total]`.
 - **Frecuencia**: Suma de ANALISIS_RENTABILIDAD[CANT], tarjeta Frecuencia. Unidad: cantidad de servicios.
-- **Frecuencia total**: Medida CALENDARIO[FRECUENCIA_TOTAL], columna Frecuencia de la tabla. Unidad: cantidad de servicios. Cálculo: Por confirmar.
+- **Frecuencia total**: Medida CALENDARIO[FRECUENCIA_TOTAL], columna Frecuencia de la tabla. Unidad: cantidad de servicios. Cálculo: `SUM(ANALISIS_RENTABILIDAD[CANT])`.
 - **Venta unitaria**: Máximo de ANALISIS_RENTABILIDAD[VLRMAXCUPS], columna Venta Unitaria. Unidad: pesos.
 - **Costo histórico**: Promedio de ANALISIS_RENTABILIDAD[COSTOHIST], columna Costo. Unidad: pesos.
 - **Costo estimado**: Promedio de ANALISIS_RENTABILIDAD[COSTOVARIACION], columna Estimado. Unidad: pesos. Por confirmar cómo se estima.
-- **Rentabilidad frente al costo**: Medida CALENDARIO[rentabilidad_costo_ses], columna Rentabilidad VS Costo. Unidad: pesos. Cálculo: Por confirmar.
-- **Rentabilidad frente al estimado**: Medida CALENDARIO[rentabilidad_costo_estimado], columna Rentabilidad VS Estimado. Unidad: pesos. Cálculo: Por confirmar.
+- **Rentabilidad frente al costo**: Medida CALENDARIO[rentabilidad_costo_ses], columna Rentabilidad VS Costo. Unidad: pesos. Cálculo: `IF( NOT( ISBLANK([VENTA_UNITARIA]) || ISBLANK( CALCULATE( AVERAGE(ANALISIS_RENTABILIDAD[COSTOHIST]) ) ) ), MAX(ANALISIS_RENTABILIDAD[VLRMAXCUPS]) - CALCULATE( AVERAGE(ANALISIS_RENTABILIDAD[COSTOHIST]) ), BLANK() )`.
+- **Rentabilidad frente al estimado**: Medida CALENDARIO[rentabilidad_costo_estimado], columna Rentabilidad VS Estimado. Unidad: pesos. Cálculo: `IF( NOT( ISBLANK([VENTA_UNITARIA]) || ISBLANK( CALCULATE( AVERAGE(ANALISIS_RENTABILIDAD[COSTOVARIACION]) ) ) ), MAX(ANALISIS_RENTABILIDAD[VLRMAXCUPS]) - CALCULATE( AVERAGE(ANALISIS_RENTABILIDAD[COSTOVARIACION]) ), BLANK() )`.
 
 ## Visuales
 - **Botón inicio**: Imagen arriba a la izquierda que vuelve a INICIO.
@@ -52,3 +52,4 @@ Compara por CUPS y pagador la venta con el costo histórico y con el costo estim
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
+- **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): DAX de los indicadores. Autor: agente dic-pendientes.

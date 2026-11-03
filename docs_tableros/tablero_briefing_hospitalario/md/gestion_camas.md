@@ -4,8 +4,8 @@ pagina: GESTIÓN CAMAS
 nombre_funcional: Capacidad y ocupación de camas por servicio en tiempo real
 bloque: Día
 tablas: [CAMAS DISPONIBLES, ORDEN CAMAS, SERVICIOS, REPS]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # GESTIÓN CAMAS
@@ -23,7 +23,7 @@ Muestra el estado actual de la capacidad hospitalaria: total de camas, ocupadas,
 - **Camas disponibles**: Camas distintas con ESTADOS_CAM igual a DISPONIBLE (estado 1), sin EXP ni OH en el código.
 - **En transición**: Camas distintas con ESTADOS_CAM igual a EN TRANSICIÓN (estado 5); muestra «(En blanco)» cuando no hay ninguna.
 - **%OCUPACION**: Porcentaje de camas ocupadas sobre camas filtradas. DIVIDE(SUM('CAMAS DISPONIBLES'[OCUPADAS]), CamasFiltradas).
-- **Capacidad instalada REPS**: Capacidad habilitada según REPS para los grupos de camas del área seleccionada. Cálculo por confirmar.
+- **Capacidad instalada REPS**: Capacidad habilitada según REPS de los grupos de camas. SUM(REPS[CAPACIDAD INSTALADA REPS]) sin los grupos CONSULTORIOS URGENCIAS, SALAS DE PARTO, SALAS DE PROCEDIMIENTO, SALAS DE QUIROFANO, SILLAS QUIMIOTERAPIA y CONSULTORIOS C. EXTERNA (filtro del visual). REPS no tiene relaciones, así que el segmentador de área no la filtra.
 
 ## Visuales
 - **Tarjetas de capacidad**: TOTAL CAMAS, CAMAS OCUPADAS, CAMAS DISPONIBLES, EN TRANSICION, %OCUPACION y CAPACIDAD INSTALADA REPS.
@@ -50,3 +50,4 @@ Muestra el estado actual de la capacidad hospitalaria: total de camas, ocupadas,
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Se completó con el PBIP (consultas SQL de las particiones TMDL, campos, agregaciones y filtros de los visuales, relaciones): cálculo de la capacidad instalada REPS. Autor: agente dic-pendientes.

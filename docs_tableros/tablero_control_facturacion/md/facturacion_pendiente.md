@@ -4,8 +4,8 @@ pagina: FACTURACION PENDIENTE
 nombre_funcional: Egresos pendientes de iniciar el trámite de facturación
 bloque: Día
 tablas: [PENDIENTES_FACTURACION]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # FACTURACION PENDIENTE
@@ -29,7 +29,7 @@ Lista los pacientes que ya egresaron y cuya cuenta todavía no tiene trazabilida
 ## Reglas de negocio
 - **Egreso pendiente**: Egreso sin ningún registro en TFACTURACI, es decir, ninguna área ha recibido todavía la cuenta.
 - **Exclusión de egresos**: Se excluyen egresos con AEEGRCORCU = 1. Significado del campo por confirmar.
-- **Estados de ingreso**: Solo ingresos con AINESTADO 0 o 3. Significado de los códigos por confirmar.
+- **Estados de ingreso**: Solo ingresos con AINESTADO 0 (registrado) o 3 (bloqueado), según los rótulos de las consultas SQL del PBIP.
 - **Filtros de página**: PENDIENTES_FACTURACION[TIPO_INGRESO] = HOSPITALARIO y FACTURACION PERFILES[PERFIL] = FACTURACION (confirmado en el PBIP); el segundo no afecta a la tabla porque no hay relación entre ambas.
 
 ## Observaciones
@@ -40,3 +40,4 @@ Lista los pacientes que ya egresaron y cuya cuenta todavía no tiene trazabilida
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Códigos AINESTADO según las consultas SQL del PBIP. Autor: agente dic-pendientes.

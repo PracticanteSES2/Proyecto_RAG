@@ -4,8 +4,8 @@ pagina: ANALISIS DE RENTABILIDAD
 nombre_funcional: Venta, costo y rentabilidad por CUPS
 bloque: Histórico
 tablas: [ANALISIS_RENTABILIDAD, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # ANALISIS DE RENTABILIDAD
@@ -18,15 +18,15 @@ Muestra la venta, el costo y la rentabilidad por CUPS: tarjetas de totales, una 
 - **CALENDARIO**: Jerarquía de año y mes y medidas Venta Total, Costo Total, Rentabilidad total, FRECUENCIA_TOTAL, venta_uni y %RENTABILIDAD.
 
 ## Indicadores
-- **Venta total**: Medida CALENDARIO[Venta Total], tarjeta Venta y gráfico Total Venta. Unidad: pesos. Cálculo: Por confirmar.
-- **Costo total**: Medida CALENDARIO[Costo Total], tarjeta Costo y gráfico Costo Total. Unidad: pesos. Cálculo: Por confirmar.
-- **Rentabilidad total**: Medida CALENDARIO[Rentabilidad total], tarjeta y gráfico Rentabilidad. Unidad: pesos. Cálculo: Por confirmar.
+- **Venta total**: Medida CALENDARIO[Venta Total], tarjeta Venta y gráfico Total Venta. Unidad: pesos. Cálculo: `SUMX(ANALISIS_RENTABILIDAD, ANALISIS_RENTABILIDAD[VLRMAXCUPS] * ANALISIS_RENTABILIDAD[CANT])`.
+- **Costo total**: Medida CALENDARIO[Costo Total], tarjeta Costo y gráfico Costo Total. Unidad: pesos. Cálculo: `SUMX(ANALISIS_RENTABILIDAD, ANALISIS_RENTABILIDAD[COSTOHIST] * ANALISIS_RENTABILIDAD[CANT])`.
+- **Rentabilidad total**: Medida CALENDARIO[Rentabilidad total], tarjeta y gráfico Rentabilidad. Unidad: pesos. Cálculo: `[Venta Total]-[Costo Total]`.
 - **Frecuencia**: Suma de ANALISIS_RENTABILIDAD[CANT], tarjeta Frecuencia. Unidad: cantidad de servicios.
-- **Frecuencia total**: Medida CALENDARIO[FRECUENCIA_TOTAL], columna Fcia de la tabla. Unidad: cantidad de servicios. Cálculo: Por confirmar.
+- **Frecuencia total**: Medida CALENDARIO[FRECUENCIA_TOTAL], columna Fcia de la tabla. Unidad: cantidad de servicios. Cálculo: `SUM(ANALISIS_RENTABILIDAD[CANT])`.
 - **Venta unitaria**: Máximo de ANALISIS_RENTABILIDAD[VLRMAXCUPS], columna Venta de la tabla. Unidad: pesos.
 - **Costo unitario histórico**: Promedio de ANALISIS_RENTABILIDAD[COSTOHIST], columna Costo de la tabla. Unidad: pesos.
-- **Rentabilidad unitaria**: Medida CALENDARIO[venta_uni], columna Rentabilidad de la tabla. Unidad y cálculo: Por confirmar (sus barras de datos van de -1 a 1, como un porcentaje).
-- **Porcentaje de rentabilidad**: Medida CALENDARIO[%RENTABILIDAD], columna % de la tabla. Unidad: porcentaje. Cálculo: Por confirmar.
+- **Rentabilidad unitaria**: Medida CALENDARIO[venta_uni], columna Rentabilidad de la tabla. Venta unitaria del CUPS menos su costo histórico unitario promedio. Unidad: pesos (formato de moneda en el modelo; no es un porcentaje). Cálculo: `MAX(ANALISIS_RENTABILIDAD[VLRMAXCUPS])-AVERAGE(ANALISIS_RENTABILIDAD[COSTOHIST])`.
+- **Porcentaje de rentabilidad**: Medida CALENDARIO[%RENTABILIDAD], columna % de la tabla. Unidad: porcentaje. Cálculo: `IFERROR([venta_uni]/AVERAGE(ANALISIS_RENTABILIDAD[COSTOHIST]),BLANK())`.
 
 ## Visuales
 - **Botón inicio**: Imagen arriba a la izquierda que vuelve a INICIO.
@@ -50,7 +50,8 @@ Muestra la venta, el costo y la rentabilidad por CUPS: tarjetas de totales, una 
 - **Promedios sobre otras columnas**: Las líneas de promedio se definen sobre sumas de VLRSERVICIOENORDEN, TOTAL_COSTO y RENTABILIDAD_TOTAL, no sobre las medidas que se grafican. Por confirmar si se muestran.
 - **Formato heredado**: La tabla guarda barras de datos para COSTOS[RENTABILIDAD] y COSTOS[%RENT], columnas que no están en el visual (restos de COSTOS ANTERIOR).
 - **Unitarios frente a totales**: La tabla muestra la venta máxima y el costo promedio por CUPS, mientras las tarjetas muestran totales.
-- **Valores de PERDIDA**: Los valores del segmentador PERDIDA están por confirmar.
+- **Valores de PERDIDA**: El segmentador PERDIDA tiene «Ganancia» (rentabilidad frente al costo SES positiva) y «Pérdida» (negativa); los CUPS con rentabilidad cero o sin costo histórico quedan vacíos. Columna calculada ANALISIS_RENTABILIDAD[PERDIDA] del modelo.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
+- **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): DAX de los indicadores, unidad de la rentabilidad unitaria y valores de PERDIDA. Autor: agente dic-pendientes.

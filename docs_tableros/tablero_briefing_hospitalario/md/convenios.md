@@ -4,8 +4,8 @@ pagina: CONVENIOS
 nombre_funcional: Convenios del hospital por tipo, vigencia y fecha de finalización
 bloque: Día
 tablas: [CONVENIOS]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # CONVENIOS
@@ -17,7 +17,7 @@ Muestra los convenios en trámite u obtenidos por el hospital con cada entidad: 
 - **CONVENIOS**: Archivo Excel «TABLERO CONVENIOS 2026.xlsx» en SharePoint con NIT, entidad, tipo, observación, fecha inicio y fecha final de cada convenio.
 
 ## Indicadores
-- **Convenios**: Número de convenios. Conteo de filas de CONVENIOS; cálculo exacto por confirmar.
+- **Convenios**: Número de convenios. COUNT(CONVENIOS[ENTIDAD ]) por tipo y por vigencia (gráficos de anillo).
 - **Tiempo restante**: Meses y días que faltan para la FECHA FINAL, contando meses de 30 días. Columna RESTANTE.
 
 ## Visuales
@@ -33,7 +33,7 @@ Muestra los convenios en trámite u obtenidos por el hospital con cada entidad: 
 
 ## Observaciones
 - **RESTANTE es columna**: La documentación la presenta como medida, pero usa el valor de cada fila (FECHA FINAL), así que es una columna calculada.
-- **Criterio de vigencia**: Cómo se calcula VIGENTE o VENCIDO no está documentado. Por confirmar si compara FECHA FINAL con hoy.
+- **Criterio de vigencia**: FILTRO_VIG compara FECHA FINAL con hoy: «VIGENTE» si faltan 0 o más días y «VENCIDO» si ya pasó. Cálculo: `IF(DATEDIFF(TODAY(),CONVENIOS[FECHA FINAL],DAY)>=0,"VIGENTE","VENCIDO")`.
 - **Tipo vacío**: Hay convenios sin tipo que aparecen como (En blanco).
 - **Siglas PAS y PCG**: Su significado está por confirmar.
 - **Nombre de página**: La página se llama CONVENIOS en Power BI; está oculta y se llega con el botón DETALLE de su visual en INICIO.
@@ -41,3 +41,4 @@ Muestra los convenios en trámite u obtenidos por el hospital con cada entidad: 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Se completó con el PBIP (consultas SQL de las particiones TMDL, campos, agregaciones y filtros de los visuales, relaciones): cálculo del conteo y de la vigencia. Autor: agente dic-pendientes.

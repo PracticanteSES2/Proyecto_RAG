@@ -4,8 +4,8 @@ pagina: DISPERSION DIA
 nombre_funcional: Atendidos frente a llegadas por tramo horario del día actual
 bloque: Día
 tablas: [ATENCIONES_DIA, OPORTUNIDAD_TRIAGE, Calendario]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # DISPERSION DIA
@@ -34,9 +34,10 @@ Gráfico de dispersión del día en curso que compara, por tramo horario, los pa
 - **Piso de pendientes acumulados**: Si la suma acumulada de pendientes es negativa se muestra 0.
 
 ## Observaciones
-- **Filtros sin efecto**: ATENCIONES_DIA solo trae el día de hoy y no tiene aseguradora ni relación con Calendario; los segmentadores de Año, Mes, Día y ASEGURADORA (de OPORTUNIDAD_TRIAGE) no deberían cambiar el gráfico. Por confirmar.
-- **Valor de las líneas guía**: Por confirmar qué valor marcan las líneas punteadas.
+- **Filtros sin efecto**: ATENCIONES_DIA solo trae el día de hoy y en el modelo no tiene ninguna relación (ni con Calendario ni con OPORTUNIDAD_TRIAGE), así que los segmentadores de Año, Mes, Día y ASEGURADORA no cambian el gráfico.
+- **Valor de las líneas guía**: Las líneas punteadas son «líneas de promedio» del gráfico (PBIR): marcan el promedio, entre los tramos horarios de hoy, de ATENCIONES_DIA[ATENDIDOS] y de ATENCIONES_DIA[LLEGADAS].
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Líneas guía leídas del PBIR y filtros sin efecto confirmados con las relaciones del modelo (ATENCIONES_DIA no tiene relaciones) Autor: agente dic-pendientes.

@@ -4,8 +4,8 @@ pagina: INTERCONSULTAS
 nombre_funcional: Interconsultas de pacientes hospitalizados sin respuesta
 bloque: Día
 tablas: [INTERCONSULTAS]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # INTERCONSULTAS
@@ -34,9 +34,10 @@ Muestra las interconsultas solicitadas en los últimos 10 días para pacientes q
 - **Sin respuesta**: Todos los visuales filtran OID_RESPUESTA vacío.
 
 ## Observaciones
-- **Área de servicio 2**: A qué área corresponde GENARESER = 2 no está documentado. Por confirmar.
-- **Filtro sobrante**: La tarjeta tiene además un filtro sobre MEDICAMENTOS DESABASTECIDOS[OID_SOLICITUD], que parece un resto de otra página. Por confirmar si afecta el resultado.
+- **Área de servicio 2**: La consulta filtra GENARESER = 2; en este mismo modelo la consulta de PACIENTES OBSERVADOS anota «2=urgencias 42=ginecop», así que el área 2 es urgencias.
+- **Filtro sobrante**: La tarjeta tiene un filtro sobre MEDICAMENTOS DESABASTECIDOS[OID_SOLICITUD] sin condición (vacío) y esa tabla no tiene relaciones; no afecta el resultado.
 - **Interconsultas antiguas**: Una interconsulta sin respuesta de más de 10 días sale del tablero aunque siga pendiente.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
+- **2026-11-03 · v2**: Se completó con el PBIP (consultas SQL de las particiones TMDL, campos, agregaciones y filtros de los visuales, relaciones): área 2 y filtro vacío de MEDICAMENTOS DESABASTECIDOS. Autor: agente dic-pendientes.

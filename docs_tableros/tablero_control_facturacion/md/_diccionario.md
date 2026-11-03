@@ -4,8 +4,8 @@ pagina: DICCIONARIO
 nombre_funcional: Diccionario de variables del tablero
 bloque: Diccionario
 tablas: [CALENDARIO, Consulta, DIM_PERFIL, DIM_TIPO_INGRESO, ENPROCESO_FACTURACION, FACTURACION, FACTURACION PERFILES, FACTURADORES, INGRESOS, PENDIENTES_FACTURACION, ULT_GESTION]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # DICCIONARIO
@@ -80,13 +80,13 @@ Diccionario de variables del tablero TABLERO CONTROL FACTURACION: qué es cada t
 - **INGRESOS[HSUNOMBRE]**: Unidad de hospitalización de la cama del ingreso; se usa como filtro de visual para excluir ingresos sin cama, de HOSPITALIZACION PARCIAL, QUIROFANO y URGENCIAS. Tipo: texto. Valores: nombres de unidades de hospitalización. Se usa en: INICIO › Tarjeta «INGRESOS ABIERTOS»; FACTURACION PENDIENTE › Tarjeta «PENDIENTES»; Duplicado de INICIO › Tarjeta «INGRESOS ABIERTOS».
 - **PENDIENTES_FACTURACION[ADEFECSAL]**: Fecha de salida (egreso) del paciente; desde ella se cuentan los días pendientes. Tipo: fecha. Se usa en: FACTURACION PENDIENTE › Tabla «INGRESO».
 - **PENDIENTES_FACTURACION[CAMA]**: Código de la cama que ocupaba el paciente. Tipo: texto. Valores: códigos de cama. Se usa en: FACTURACION PENDIENTE › Tabla «INGRESO».
-- **PENDIENTES_FACTURACION[INGRESO]**: Número de ingreso del egreso pendiente. Su conteo distinto es la tarjeta PENDIENTES. Tipo: texto. Valores: Por confirmar. Se usa en: FACTURACION PENDIENTE › Tarjeta «PENDIENTES»; FACTURACION PENDIENTE › Segmentación de PENDIENTES_FACTURACION[INGRESO]; FACTURACION PENDIENTE › Tabla «INGRESO».
+- **PENDIENTES_FACTURACION[INGRESO]**: Número de ingreso del egreso pendiente. Su conteo distinto es la tarjeta PENDIENTES. Tipo: texto. Valores: números de ingreso (identificadores; no se listan). Se usa en: FACTURACION PENDIENTE › Tarjeta «PENDIENTES»; FACTURACION PENDIENTE › Segmentación de PENDIENTES_FACTURACION[INGRESO]; FACTURACION PENDIENTE › Tabla «INGRESO».
 - **PENDIENTES_FACTURACION[PACIENTE]**: Nombre del paciente del egreso pendiente. Tipo: texto. Valores: texto, nombre completo del paciente. Se usa en: FACTURACION PENDIENTE › Tabla «INGRESO».
 - **PENDIENTES_FACTURACION[PACNUMDOC]**: Documento de identidad del paciente; segmentador DOCUMENTO para buscar un caso. Tipo: texto. Valores: número de documento de identidad. Se usa en: FACTURACION PENDIENTE › Segmentación de PENDIENTES_FACTURACION[PACNUMDOC]; FACTURACION PENDIENTE › Tabla «INGRESO».
 - **PENDIENTES_FACTURACION[SERVICIO]**: Servicio u hospitalización donde estaba el paciente; segmentador SERVICIO de la página. Tipo: texto. Valores: nombres de unidades de hospitalización. Se usa en: FACTURACION PENDIENTE › Tabla «INGRESO»; FACTURACION PENDIENTE › Segmentación de PENDIENTES_FACTURACION[SERVICIO].
 - **PENDIENTES_FACTURACION[TIPO_INGRESO]**: Tipo de ingreso del paciente; la página FACTURACION PENDIENTE filtra HOSPITALARIO. Tipo: texto. Valores: AMBULATORIO (AINTIPING 1) y HOSPITALARIO (AINTIPING 2) Se usa en: FACTURACION PENDIENTE › Filtro de la página.
 - **ULT_GESTION[AINCONSEC]**: Número de ingreso (consecutivo) de la cuenta; segmentador INGRESO de las páginas de trazabilidad. Tipo: entero. Se usa en: TRAZABILIDAD › Segmentación de ULT_GESTION[AINCONSEC]; TRAZABILIDAD › Tabla «INGRESO»; TRAZABILIDAD_H-A › Segmentación de ULT_GESTION[AINCONSEC]; TRAZABILIDAD_H-A › Tabla «FACTURACION AMBULATORIO»; TRAZABILIDAD_H-A › Tabla «FACTURACION HOSPITALARIO».
-- **ULT_GESTION[AINESTADO]**: Estado del ingreso en Dinámica. La página TRAZABILIDAD solo muestra los estados 0 y 3; el significado de cada código está por confirmar. Tipo: entero. Valores: 0 y 3 en TRAZABILIDAD (el significado de los demás está por confirmar) Se usa en: TRAZABILIDAD › Filtro de la página.
+- **ULT_GESTION[AINESTADO]**: Estado del ingreso en Dinámica. Códigos: 0 = REGISTRADO, 1 = FACTURADO, 2 = ANULADO y 3 = BLOQUEADO (rótulos de las consultas SQL del PBIP: las de este tablero marcan 0 REGISTRADO, 1 FACTURADO y 3 BLOQUEADO, y la tabla INGRESOS de BRIEFING HOSPITALARIO rotula los cuatro); el código 4, que la consulta excluye, está por confirmar. La página TRAZABILIDAD solo muestra los estados 0 (registrado) y 3 (bloqueado). Tipo: entero. Valores: 0 y 3 (la tabla excluye 1, 2 y 4). Se usa en: TRAZABILIDAD › Filtro de la página.
 - **ULT_GESTION[AREA_SERVICIO]**: Área de servicio del ingreso (GENARESER); segmentador de INICIO y de varias páginas. Tipo: texto. Valores: nombres de áreas de servicio. Se usa en: INICIO › Segmentación de ULT_GESTION[AREA_SERVICIO]; INICIO › Gráfico de barras agrupadas «VALOR ESTIMADO POR SERVICIO»; RESUMEN FACTURACION › Segmentación de ULT_GESTION[AREA_SERVICIO]; TRAZABILIDAD FACTURACION › Segmentación de ULT_GESTION[AREA_SERVICIO]; TRAZABILIDAD FACTURACION › Gráfico de barras agrupadas «MONTO FACTURADO POR ÁREA DE SERVICIO»; FACTURADORES › Segmentación de ULT_GESTION[AREA_SERVICIO] y 1 más.
 - **ULT_GESTION[CAMA]**: Código de la cama del ingreso; vacío si no tuvo cama. Tipo: texto. Valores: códigos de cama. Se usa en: TRAZABILIDAD › Tabla «INGRESO»; TRAZABILIDAD_H-A › Tabla «FACTURACION AMBULATORIO»; TRAZABILIDAD_H-A › Tabla «FACTURACION HOSPITALARIO».
 - **ULT_GESTION[ENTIDAD]**: Aseguradora o contrato del paciente (nombre del detalle de contrato) Tipo: texto. Valores: nombres de aseguradoras y contratos. Se usa en: TRAZABILIDAD › Tabla «INGRESO»; TRAZABILIDAD FACTURACION › Gráfico de barras agrupadas «MONTO FACTURADO POR ASEGURADORA»; TRAZABILIDAD_H-A › Tabla «FACTURACION AMBULATORIO»; TRAZABILIDAD_H-A › Tabla «FACTURACION HOSPITALARIO».
@@ -121,13 +121,14 @@ Diccionario de variables del tablero TABLERO CONTROL FACTURACION: qué es cada t
 - **Unidades mezcladas en TIEMPOS**: Las columnas de espera entre etapas están en minutos y las de auditoría (AUDITORIA_MEDICAMENTOS y AUDITORIA_PERTINENCIA) en horas.
 - **TIEMPO_PREFACTURA**: Mide de la entrega de ESTACION DE ENFERMERIA a la entrega de FACTURADOR SERVICIO; el título del gráfico dice «egreso del paciente y la prefactura». Por confirmar cuál es la intención.
 - **Columna fuera del modelo**: La página Duplicado de INICIO usa ULT_GESTION[SFANETOFAC] (tarjeta MONTO FACTURADO y barras por servicio), columna que no existe en el modelo; el monto está en ULT_GESTION[MONTO_FACTURADO].
-- **Filtros de visual sin efecto**: Los filtros sobre INGRESOS[HSUNOMBRE] e INGRESOS[FACTURADO] en las tarjetas INGRESOS ABIERTOS, PENDIENTES y VALOR ESTIMADO no parecen afectar a ULT_GESTION ni a PENDIENTES_FACTURACION, porque INGRESOS no se relaciona con ellas. Por confirmar en el informe publicado.
+- **Filtros de visual sin efecto**: Los filtros sobre INGRESOS[HSUNOMBRE] e INGRESOS[FACTURADO] en las tarjetas INGRESOS ABIERTOS, PENDIENTES y VALOR ESTIMADO no afectan a ULT_GESTION ni a PENDIENTES_FACTURACION. En el modelo publicado (sincronizado el 2026-10-29) INGRESOS solo se relaciona con CALENDARIO y ULT_GESTION solo recibe filtros de DIM_TIPO_INGRESO, DIM_PERFIL y CALENDARIO, todas en un solo sentido; PENDIENTES_FACTURACION solo se une a DIM_TIPO_INGRESO.
 - **Filas repetidas**: FACTURACION agrupa también por responsables y puede repetir un ingreso; FACTURACION PERFILES, ULT_GESTION e INGRESOS se unen a SLNFACTUR sin agrupar, por lo que un ingreso con varias facturas puede repetirse y duplicar sumas de monto.
 - **Estado de factura**: En FACTURACION PERFILES el estado usa el máximo de SFADOCANU: un ingreso con una factura vigente y otra anulada queda como ANULADA.
 - **Tablas sin uso**: Consulta (quimioterapia y radioterapia) y las columnas calculadas de FACTURACION TIEMPO RADICACION, TIEMPO_MODIFICACION_FACT y NOM_COM_* no aparecen en ningún visual.
 - **Listas fijas de facturadores**: Los filtros HOSPITALARIO y AMBULATORIO de FACTURADORES y de TRAZABILIDAD_H-A y el filtro de la página FACTURACION son listas de nombres escritas en Power BI; deben mantenerse a mano.
-- **Pendientes para el dueño**: Confirmar el significado de AINESTADO (0 a 4), la intención de TIEMPO_PREFACTURA, si INGRESOS debe relacionarse con ULT_GESTION, el uso de la tabla Consulta y la columna SFANETOFAC.
+- **Pendientes para el dueño**: Confirmar el significado del estado de ingreso 4, la intención de TIEMPO_PREFACTURA, si INGRESOS debe relacionarse con ULT_GESTION, el uso de la tabla Consulta y la columna SFANETOFAC.
 
 ## Historial de cambios
 - **2026-10-28 · v1**: Esqueleto generado desde data/model_metadata/tablero_control_facturacion y hechos del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Códigos AINESTADO según las consultas SQL del PBIP y filtros sin efecto confirmados con las relaciones del modelo publicado. Autor: agente dic-pendientes.

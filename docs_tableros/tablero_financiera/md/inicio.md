@@ -4,8 +4,8 @@ pagina: INICIO
 nombre_funcional: Resumen financiero del mes anterior y menú del tablero
 bloque: Histórico
 tablas: [FACTURACION, FACTURACION_PENDIENTE, REFACTURACION, FACTU_AREA, TERCEROS, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # INICIO
@@ -25,10 +25,10 @@ Página de entrada y única visible del tablero. Arriba muestra la facturación,
 - **Facturación del mes anterior**: Suma de FACTURACION[TOTALAREASERVORDEN] en el mes calendario anterior. Unidad: pesos.
 - **Ingresos abiertos del mes anterior**: Suma de FACTURACION_PENDIENTE[VLSERVICIO] en el mes calendario anterior. Unidad: pesos.
 - **Devoluciones del mes anterior**: Suma de REFACTURACION[VLRAREASERVICIO] en el mes calendario anterior. Unidad: pesos.
-- **Facturación 2025 mensual**: Medida FACTURACION[Facturacion_2025_Mensual], facturación de cada mes de 2025. Unidad: pesos. Cálculo: Por confirmar.
-- **Facturación 2026**: Medida FACTURACION[Facturacion_2026], facturación de cada mes de 2026. Unidad: pesos. Cálculo: Por confirmar.
-- **Facturación neta por servicio**: Medida CALENDARIO[NETA_AREA], mostrada como FACTURACION NETA. Unidad: pesos. Cálculo: Por confirmar (parece facturación menos devoluciones por área).
-- **Facturación neta por asegurador**: Medida FACTURACION[NETA], mostrada como FACTURACIÓN. Unidad: pesos. Cálculo: Por confirmar.
+- **Facturación 2025 mensual**: Medida FACTURACION[Facturacion_2025_Mensual], facturación de 2025 del mes del eje (CALENDARIO[MesNum]). Unidad: pesos. Cálculo: `CALCULATE( SUM(FACTURACION[TOTALAREASERVORDEN]), YEAR(Facturacion[Fecha]) = 2025, MONTH(Facturacion[Fecha]) = SELECTEDVALUE(CALENDARIO[MesNum]) )`.
+- **Facturación 2026**: Medida FACTURACION[Facturacion_2026], facturación de cada mes de 2026. Unidad: pesos. Cálculo: `CALCULATE( SUM(FACTURACION[TOTALAREASERVORDEN]), YEAR(Facturacion[Fecha]) = 2026 )`.
+- **Facturación neta por servicio**: Medida CALENDARIO[NETA_AREA], mostrada como FACTURACION NETA: facturación de FACTU_AREA menos devoluciones. Unidad: pesos. Cálculo: `SUM(FACTU_AREA[TOTALAREASERVORDEN])- SUM(REFACTURACION[VLRAREASERVICIO])`.
+- **Facturación neta por asegurador**: Medida FACTURACION[NETA], mostrada como FACTURACIÓN. Unidad: pesos. Cálculo: `SUM(FACTURACION[TOTALAREASERVORDEN])-SUM(REFACTURACION[VLRAREASERVICIO])`.
 - **Participación del asegurador**: NETA del asegurador dividida por la NETA de todos los aseguradores del gráfico (cálculo del visual, %PARTICIPACIÓN). Unidad: porcentaje.
 
 ## Visuales
@@ -57,3 +57,4 @@ Página de entrada y única visible del tablero. Arriba muestra la facturación,
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
+- **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): DAX de los indicadores de facturación. Autor: agente dic-pendientes.

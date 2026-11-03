@@ -4,8 +4,8 @@ pagina: FACTURACION DIARIA
 nombre_funcional: Facturación e ingresos abiertos del mes en curso por pagador y centro de costos
 bloque: Día
 tablas: [FACTURACION_DIARIA, INGRESOS_AB_DIARIO, TERCEROS, AREAS DE SERVICIO, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # FACTURACION DIARIA
@@ -43,8 +43,9 @@ Muestra la facturación y los ingresos abiertos del mes en curso por pagador y p
 
 ## Observaciones
 - **Diaria con datos del mes**: Pese al nombre, la página muestra todo el mes en curso; para ver un día hay que acotar el segmentador de fechas.
-- **Centro de costos de dos fuentes**: La matriz usa AREAS DE SERVICIO y la torta FACTURACION_DIARIA[SERVICIO_R]; los nombres pueden no coincidir. Por confirmar.
-- **Valores de copago y franquicia**: Los valores posibles de FACTUCOPAGO y RECAUDADO_FRANQUICIA están por confirmar.
+- **Centro de costos de dos fuentes**: La matriz agrupa por AREAS DE SERVICIO[CLASIFICACION_SERVICIO] y la torta por FACTURACION_DIARIA[SERVICIO_R], que es el nombre del centro de costos (NOMCENCOST) o «FACTURA COPAGO POR FRANQUICIA» si la factura no tiene área y es de copago. Son clasificaciones distintas, así que los nombres no tienen por qué coincidir.
+- **Valores de copago y franquicia**: RECAUDADO_FRANQUICIA vale «SI» cuando SERVICIO_R es «FACTURA COPAGO POR FRANQUICIA» y «NO» en los demás casos. FACTUCOPAGO usa «SI» para la factura de copago; sus demás valores están por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
+- **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): valores de RECAUDADO_FRANQUICIA y origen de SERVICIO_R. Autor: agente dic-pendientes.

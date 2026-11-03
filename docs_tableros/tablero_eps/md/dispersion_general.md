@@ -4,8 +4,8 @@ pagina: DISPERSION GENERAL
 nombre_funcional: Atendidos frente a llegadas por tramo horario (histórico)
 bloque: Histórico
 tablas: [OPORTUNIDAD_TRIAGE, ADMISIONES_TRIAGE, Calendario]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # DISPERSION GENERAL
@@ -33,9 +33,10 @@ Gráfico de dispersión «ATENDIDOS y LLEGADAS por TRAMO» que compara, por tram
 - **Lectura de cuadrantes**: Un tramo con muchas llegadas y pocos atendidos (arriba a la izquierda) indica demanda no atendida a tiempo.
 
 ## Observaciones
-- **Valor de las líneas guía**: Por confirmar si las líneas rojas marcan el promedio, la mediana u otro valor de atendidos y llegadas.
+- **Valor de las líneas guía**: Las dos líneas rojas son «líneas de promedio» del gráfico (PBIR): marcan el promedio, entre los tramos horarios, de los triages (conteo de OPORTUNIDAD_TRIAGE[OID_TRIAGE]) y de las llegadas (conteo de ADMISIONES_TRIAGE[Oid]).
 - **Llegadas y aseguradora**: ADMISIONES_TRIAGE no trae aseguradora; el eje de llegadas responde al filtro ASEGURADORA solo por el cruce de documento con los triages.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Valor de las líneas guía leído del PBIR (referenceLine del gráfico de dispersión) Autor: agente dic-pendientes.
