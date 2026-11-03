@@ -4,8 +4,8 @@ pagina: CIRUGÍAS PENDIENTES
 nombre_funcional: Cirugías pendientes de pacientes NAOS
 bloque: Día
 tablas: [CIRUGÍAS PENDIENTES]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # CIRUGÍAS PENDIENTES
@@ -17,7 +17,7 @@ Muestra los pacientes de medicina prepagada, póliza, particular y plan compleme
 - **CIRUGÍAS PENDIENTES**: Solicitudes de Qx_SolicitudProgramacion con documento y nombre del paciente, EPS, especialidad, procedimientos, médico, fecha de programación, estado actual, fecha de registro y tipo de paciente.
 
 ## Indicadores
-- **Total de cirugías pendientes**: Cantidad de solicitudes de cirugía pendientes según los filtros. Unidad: solicitudes. Agregación por confirmar.
+- **Total de cirugías pendientes**: Cantidad de solicitudes de cirugía pendientes según los filtros. Unidad: solicitudes. Cálculo: conteo de CIRUGÍAS PENDIENTES[Oid] (tarjeta «CIRUGÍAS PENDIENTES» del PBIR), una fila por solicitud.
 
 ## Visuales
 - **Botón de inicio**: Icono de casa que regresa a LISTADO.
@@ -44,3 +44,4 @@ Muestra los pacientes de medicina prepagada, póliza, particular y plan compleme
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Agregación del total de cirugías pendientes tomada de la tarjeta del PBIR (COUNT de CIRUGÍAS PENDIENTES[Oid]) Autor: agente dic-pendientes.

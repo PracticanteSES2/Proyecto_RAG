@@ -4,8 +4,8 @@ pagina: STOCK MINIMO
 nombre_funcional: Inventario: productos por debajo del stock mínimo
 bloque: Día
 tablas: [CANTIDAD_MINIMA, ALMACENES]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # STOCK MINIMO
@@ -30,9 +30,10 @@ Lista los productos de farmacia cuya cantidad disponible en Dinámica está por 
 - **Almacenes excluidos**: Filtro de página que excluye el almacén «STOCK URGENCIAS» y los valores vacíos de ALMACENES[IALNOMBRE].
 
 ## Observaciones
-- **Navegación por confirmar**: El botón INVENTARIO de INICIO lleva a «Duplicado de STOCK MINIMO», no a esta página; ambas están ocultas en modo vista y tienen el mismo filtro de página.
 - **Columnas por confirmar**: El PBIP solo trae el filtro de almacén y el botón de regreso a INICIO; la tabla de stock mínimo se describe con la captura de la documentación y no está en el PBIP.
+- **Navegación**: Según el PBIR, el botón INVENTARIO de INICIO lleva a «Duplicado de STOCK MINIMO», no a esta página; ambas están ocultas en modo vista y tienen el mismo filtro de página.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: La navegación del botón INVENTARIO se verificó en el PBIR (INICIO › INVENTARIO → Duplicado de STOCK MINIMO) Autor: agente dic-pendientes.

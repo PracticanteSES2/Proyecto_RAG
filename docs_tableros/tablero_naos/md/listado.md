@@ -4,8 +4,8 @@ pagina: LISTADO
 nombre_funcional: Listado de pacientes con pendientes activos
 bloque: Día
 tablas: [PACIENTES]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # LISTADO
@@ -19,7 +19,7 @@ Página principal del tablero NAOS. Muestra en tiempo real los pacientes hospita
 ## Indicadores
 - **Total de pacientes**: Cantidad de pacientes con pendientes activos según los filtros. Unidad: pacientes. Se cuenta PACIENTES[AINCONSEC] en la tarjeta; el modelo no tiene medidas.
 - **Pacientes por servicio**: Cantidad y porcentaje de pacientes por servicio hospitalario (PACIENTES[SERVICIO]). Unidad: pacientes y porcentaje.
-- **Pacientes por clasificación**: Cantidad y porcentaje de pacientes por clasificación de aseguramiento (PACIENTES[CLASIFICACION]). Unidad: pacientes y porcentaje.
+- **Pacientes por clasificación**: Cantidad y porcentaje de pacientes por clasificación de aseguramiento (gráfico «CLASIFICACIÓN», que agrupa por PACIENTES[TIPO_PACIENTE] y cuenta PACIENTES[ADNINGRESO]). Unidad: pacientes y porcentaje.
 
 ## Visuales
 - **Tarjeta total de pacientes**: Número de pacientes con el rótulo PACIENTES.
@@ -39,9 +39,10 @@ Página principal del tablero NAOS. Muestra en tiempo real los pacientes hospita
 ## Observaciones
 - **Nombre de página**: La página se llama LISTADO en Power BI; la documentación original la llama «NAOS -LISTADO».
 - **Color oculta pendientes**: Por la prioridad del color, un paciente con 6 o más días de estancia no muestra si además tiene cama, gestión clínica o dieta pendiente.
-- **Clasificación sin documentar**: La columna CLASIFICACION viene de la vista TABLERO_NAOS; su lógica (incluida PACIENTE PRIORIZADO) está por confirmar.
-- **Columnas de la tabla**: La captura no muestra todas las columnas de la tabla de detalle. Por confirmar.
+- **Clasificación sin documentar**: El modelo no tiene una columna CLASIFICACION: el gráfico «CLASIFICACIÓN» usa PACIENTES[TIPO_PACIENTE], que viene de la vista TABLERO_NAOS. Por confirmar los valores que entrega la vista (la captura muestra PACIENTE PRIORIZADO).
+- **Columnas de la tabla**: Según el PBIR, la tabla de detalle muestra PACIENTE, EDAD, DOCUMENTO, INGRESO, SERVICIO, CAMA, EPS, FAMILIAR VOCERO, TELEFONO FAMILIAR VOCERO, TIPO PACIENTE, SOLICITUD CAMA, PENDIENTES GESTION CLINICA y DIETAS (columnas de PACIENTES).
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Columnas de la tabla y campo del gráfico por clasificación tomados del PBIR; el modelo no tiene PACIENTES[CLASIFICACION]. Autor: agente dic-pendientes.
