@@ -9064,7 +9064,13 @@ class QueryPlanBuilder:
         business_question = self._metric_business_question(question, source_context)
         question_tokens = canonical_tokens(business_question)
         content = {canonical_token(word) for word in self._question_content_words(business_question)}
-        best_explained = {t for t in content if self._explains(t, self._metric_vocabulary_tokens(best))}
+        # El tablero también nombra al indicador («en urgencias» para CANTIDAD
+        # DE TRIAGES del TABLERO TIEMPOS URGENCIAS, TU04): lo distingue de sus
+        # homónimos de otros tableros.
+        best_explained = {
+            t for t in content
+            if self._explains(t, self._metric_vocabulary_tokens(best) | self._board_tokens(best))
+        }
         best_page = self._page_bonus(question_tokens, best, set(canonical_tokens(best.get("label"))))
 
         def where(metric):
@@ -9099,7 +9105,10 @@ class QueryPlanBuilder:
             ]
             if not any(name and self._name_key(name) in keys for name in names):
                 continue
-            explained = {t for t in content if self._explains(t, self._metric_vocabulary_tokens(metric))}
+            explained = {
+                t for t in content
+                if self._explains(t, self._metric_vocabulary_tokens(metric) | self._board_tokens(metric))
+            }
             if best_explained - explained:
                 continue  # la pregunta nombra algo que solo explica el elegido
             if best_page and not self._page_bonus(question_tokens, metric, set(canonical_tokens(metric.get("label")))):
@@ -9208,6 +9217,58 @@ class QueryPlanBuilder:
             "question": question, "source_context": source_context,
             "metric_resolution": {"status": "ambiguous", "candidates": items},
         }
+
+    def _homonym_tie_ambiguity(self, question, source_context, metric_result):
+        """Empate entre indicadores que son el MISMO concepto con otro nombre
+        técnico (TRIAGES, CANTIDAD DE TRIAGES: misma `_name_key`): la
+        contrapregunta es la de «existe en varios tableros», con TODOS los
+        homónimos (TOTAL_TRIAGES institucional incluido) y su filtro de
+        cobertura del periodo, no solo los dos que empataron por puntaje
+        («cuántos triages hubo en 2025», AI04). None si el empate no es de
+        homónimos o la regla de homónimos no tiene nada que preguntar."""
+        if metric_result.get("status") != "ambiguous":
+            return None
+        candidates = [item for item in metric_result.get("candidates") or [] if (item or {}).get("metric")]
+        if len(candidates) < 2:
+            return None
+        best = max(float(item.get("score") or 0.0) for item in candidates)
+        candidates = [item for item in candidates if best - float(item.get("score") or 0.0) < self.ambiguity_margin]
+        if len(candidates) < 2:
+            return None
+        keys = set()
+        for item in candidates:
+            metric = item["metric"]
+            item_keys = {self._name_key(metric.get("label")), self._name_key(item.get("matched_name"))}
+            item_keys.discard(())
+            keys.add(tuple(sorted(item_keys)))
+        flat = {key for group in keys for key in group}
+        if len(flat) != 1:
+            return None
+        # Si la pregunta nombra algo que solo explica uno de los empatados (su
+        # tablero: «en urgencias» para CANTIDAD DE TRIAGES, TU04), ya los
+        # distingue: no se abre a los homónimos de otros tableros.
+        business_question = self._metric_business_question(question, source_context)
+        content = {canonical_token(word) for word in self._question_content_words(business_question)}
+        explained = [
+            frozenset(t for t in content if self._explains(
+                t, self._metric_vocabulary_tokens(item["metric"]) | self._board_tokens(item["metric"])))
+            for item in candidates
+        ]
+        if len(set(explained)) != 1:
+            return None
+        top = max(candidates, key=lambda item: float(item.get("score") or 0.0))
+        resolved = {**metric_result, "status": "resolved", "metric": top["metric"],
+                    "matched_name": top.get("matched_name") or top["metric"].get("label"),
+                    "score": top.get("score")}
+        plan = self._same_name_ambiguity(question, source_context, resolved)
+        if not plan or plan.get("reason") != "same_name_in_several_boards":
+            return None
+        offered = {self._logical_key(item["metric"]) for item in plan["metric_resolution"]["candidates"]}
+        if not all(self._logical_key(item["metric"]) in offered for item in candidates):
+            return None  # la regla de homónimos descartó a uno de los empatados: no se arriesga
+        if len(offered) <= len(candidates):
+            return None  # no agrega a nadie: la contrapregunta original sirve
+        return plan
 
     def _counted_unit(self, question, metric, source_context):
         """«cuántas CUENTAS hay en proceso de facturación» con
@@ -11583,6 +11644,9 @@ class QueryPlanBuilder:
         if metric_result.get("status") != "resolved":
             if exploring and metric_result.get("status") == "ambiguous":
                 metric_result = self._promote_qualifier_metrics(question, source_context, metric_result)
+                same_name = self._homonym_tie_ambiguity(question, source_context, metric_result)
+                if same_name is not None:
+                    return same_name
             metric_result = self._tidy_unresolved_resolution(question, metric_result)
             plan = {
                 "status": metric_result.get("status", "not_found"),
