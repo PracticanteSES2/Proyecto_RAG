@@ -9775,6 +9775,42 @@ class QueryPlanBuilder:
                     "page": page.get("page"),
                 })
         how = "por su tema" if topic else "con «tablero/página de»"
+        # Una página nombrada (o un servicio que se llama como una página:
+        # «urgencias») no arrastra la respuesta a una tabla que no trae el
+        # periodo pedido («este mes» frente al corte del día anterior del
+        # Briefing, TU04): esas opciones se quitan y, si no queda ninguna, la
+        # página no decide (sigue el plan general).
+        period, start, end = self._requested_period_bounds(question)
+        if period is not None:
+            missing = [self._metric_misses_period(item["metric"], start, end) for item in items]
+            if any(missing):
+                dropped = ", ".join(_unique_strings(
+                    f"{item['metric'].get('label')} ({table})" for item, table in zip(items, missing) if table
+                ))
+                lost = [item for item, table in zip(items, missing) if table]
+                items = [item for item, table in zip(items, missing) if not table]
+                # Lo que queda de la página explica menos de lo que se pide
+                # («triages»: solo quedan consultas): la página tampoco decide.
+                words = self._option_words(question, source_context)
+                best_lost = max((len(self._option_coverage(i["metric"], words)) for i in lost), default=0)
+                best_kept = max((len(self._option_coverage(i["metric"], words)) for i in items), default=0)
+                if best_lost > best_kept:
+                    items = []
+                if not items:
+                    self._note(
+                        f"la pregunta nombra la página {names}, pero sus indicadores no traen «{period.get('label')}» "
+                        f"según su documentación ({dropped}): la página no decide el indicador"
+                    )
+                    return None
+                self._note(
+                    f"«{period.get('label')}»: de la página {names} se descartan los indicadores cuya tabla no "
+                    f"trae ese periodo: {dropped}"
+                )
+                kept_keys = {self._logical_key(item["metric"]) for item in items}
+                groups = [
+                    group for group in groups
+                    if any(self._logical_key(member["metric"]) in kept_keys for member in group[1])
+                ]
         # Páginas homónimas de varios tableros: cada una ya dejó sus opciones
         # que más palabras de la pregunta explican; entre páginas rige lo mismo
         # («interconsultas PENDIENTES»: solo SIN RESPUESTA lo explica, aunque
