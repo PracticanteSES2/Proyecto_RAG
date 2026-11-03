@@ -2720,6 +2720,9 @@ class QueryEngine:
                 continue
             accepted.append(metric)
             scored.append((float(item.get("score") or 0.0), metric))
+        scored = self._collapse_measure_variants(question, scored)
+        scored = self._drop_dominated_options(question, scored)
+        scored = self._options_matching_range(question, scored)
         if not scored:
             return []
         best = max(score for score, _ in scored)
@@ -2840,6 +2843,216 @@ class QueryEngine:
                 choice.pop(key, None)
         return self._finalize_choices(question, choices, metrics)
 
+    # Marcas de variante de una misma medida base: agregación (PROM_X),
+    # proyección o ventana de tiempo (X_ANUAL, X_ACUMULADO, X2025, X_AÑO_ACTUAL).
+    _VARIANT_MARKERS = {
+        "prom": ("promedio", "prom", "media"), "promedio": ("promedio", "prom", "media"),
+        "proyeccion": ("proyeccion", "proyectado", "proyectada", "proyecta"),
+        "anual": ("anual", "anterior", "pasado"), "mensual": ("mensual",),
+        "acumulado": ("acumulado", "acumulada"), "actual": ("actual",),
+        "anterior": ("anterior", "pasado"), "ano": (), "anio": (), "ytd": (), "mtd": (),
+    }
+
+    def _variant_stem(self, metric):
+        """(modelo, raíz pegada, marcas) del nombre: «PROM_ATENCION_HP» ->
+        («atencionhp», {prom}); «ATEHP2025» -> («atehp», {2025})."""
+        words = self._normalize_text(metric.get("label")).replace("_", " ").split()
+        markers, stem = set(), []
+        for word in words:
+            match = re.fullmatch(r"([a-z]*?)((?:19|20)\d{2})", word)
+            if match:
+                markers.add(match.group(2))
+                word = match.group(1)
+            if not word:
+                continue
+            if word in self._VARIANT_MARKERS:
+                markers.add(word)
+            elif word not in self._NAME_FORM_WORDS:
+                stem.append(word.rstrip("s") if len(word) > 4 else word)
+        return self._normalize_text(metric.get("semantic_model")), "".join(stem), markers
+
+    @staticmethod
+    def _abbreviates(short, long):
+        """¿`short` abrevia a `long` («atehp» -> «atencionhp»)? Misma inicial,
+        mismas 2 últimas letras y letras en orden."""
+        if len(short) < 4 or not long or short[0] != long[0] or short[-2:] != long[-2:]:
+            return False
+        position = 0
+        for char in short:
+            position = long.find(char, position)
+            if position < 0:
+                return False
+            position += 1
+        return True
+
+    def _collapse_measure_variants(self, question, scored):
+        """Regla: variantes de UNA medida base (PROM_ATENCION_HP, ATEHP2025,
+        ATENCION_ANUAL, PROYECCION_ATENHP frente a ATENCION_HP) no son
+        opciones distintas cuando la pregunta no nombra la variante
+        (promedio, proyección, anual, un año pegado al nombre): se ofrece la
+        base y el periodo lo pone la pregunta. Si la pregunta nombra la
+        variante, se queda esa."""
+        if len(scored) < 2:
+            return scored
+        question_words = set(self._normalize_text(question).split())
+        stems = [self._variant_stem(metric) for _, metric in scored]
+        # Una medida cuya expresión usa otra de las opciones ([ATENCION_HP]
+        # dentro de ATENCION_ANUAL) es una variante de ella.
+        expression_of = getattr(self.query_plan_builder, "_measure_expression", None)
+        derived = [set() for _ in scored]
+        for index, (_, metric) in enumerate(scored):
+            try:
+                expression = str(
+                    (expression_of(metric.get("semantic_model"), metric) if callable(expression_of) else None)
+                    or metric.get("dax_expression") or ""
+                ).casefold()
+            except Exception:
+                expression = str(metric.get("dax_expression") or "").casefold()
+            # Solo una medida base: DIVIDE([A], [B]) es otro indicador.
+            if len(set(re.findall(r"(?<![\w'\]])\[([^\]]+)\]", expression))) != 1:
+                continue
+            for other, (_, base) in enumerate(scored):
+                name = str(base.get("measure") or base.get("label") or "").strip().casefold()
+                if (
+                    other != index and name and stems[other][0] == stems[index][0]
+                    and f"[{name}]" in expression and expression.strip() != f"[{name}]"
+                ):
+                    derived[index].add(other)
+        parent = list(range(len(scored)))
+
+        def root(index):
+            while parent[index] != index:
+                index = parent[index]
+            return index
+
+        for index, (model, stem, _) in enumerate(stems):
+            for other in range(index):
+                other_model, other_stem, _ = stems[other]
+                same_stem = bool(stem and other_stem and other_model == model and (
+                    other_stem == stem or self._abbreviates(stem, other_stem)
+                    or self._abbreviates(other_stem, stem)
+                ))
+                if same_stem or other in derived[index] or index in derived[other]:
+                    parent[root(index)] = root(other)
+        grouped = {}
+        for index in range(len(scored)):
+            grouped.setdefault(root(index), []).append(index)
+        groups = list(grouped.values())
+        keep = set()
+        for group in groups:
+            if len(group) == 1:
+                keep.update(group)
+                continue
+
+            def named(index):
+                markers = stems[index][2]
+                return [
+                    marker for marker in markers
+                    if marker in question_words
+                    or any(word in question_words for word in self._VARIANT_MARKERS.get(marker, ()))
+                ]
+
+            asked = [index for index in group if stems[index][2] and named(index)]
+            bases = [index for index in group if not stems[index][2] and not derived[index]]
+            if asked:
+                chosen = asked
+            elif bases:
+                # Las bases (sin marca de variante) siguen siendo opciones
+                # entre sí: mismo nombre con otro cálculo se sigue preguntando.
+                chosen = bases
+            else:
+                keep.update(group)
+                continue
+            keep.update(chosen)
+            dropped = [scored[index][1].get("label") for index in group if index not in chosen]
+            if dropped:
+                self._think(
+                    "Variantes de una misma medida unificadas",
+                    f"{', '.join(str(scored[i][1].get('label')) for i in chosen)}: "
+                    f"{', '.join(str(label) for label in dropped)} son la misma medida con otra "
+                    "agregación o ventana de tiempo que la pregunta no pide; el periodo lo da la pregunta",
+                )
+        return [pair for index, pair in enumerate(scored) if index in keep]
+
+    _RANGE_UNITS = {"hora": 1 / 24, "dia": 1, "semana": 7, "mes": 30, "ano": 365}
+    _QUESTION_RANGE_RE = re.compile(
+        r"(?:entre|de)\s+(\d{1,4})\s+(?:y|a|-)\s+(\d{1,4})\s+(horas?|dias?|semanas?|mes(?:es)?|anos?)"
+    )
+    _LABEL_RANGE_RE = re.compile(r"(\d{1,4})\s*-\s*(\d{1,4})\s*(horas?|dias?|semanas?|mes(?:es)?|anos?)")
+
+    def _range_days(self, low, high, unit):
+        unit = unit.rstrip("s")
+        unit = "mes" if unit.startswith("mes") else unit
+        factor = self._RANGE_UNITS.get(unit)
+        return None if factor is None else (int(low) * factor, int(high) * factor)
+
+    def _options_matching_range(self, question, scored):
+        """Regla: si la pregunta pide un rango («entre 2 y 4 meses») y las
+        opciones son tramos con su rango en el nombre («0-30 DÍAS»,
+        «30-120 DÍAS»), se elige el único tramo que contiene el rango pedido."""
+        if len(scored) < 2 or not question:
+            return scored
+        import unicodedata
+
+        def plain(value):
+            value = unicodedata.normalize("NFD", str(value or "").lower())
+            return "".join(char for char in value if unicodedata.category(char) != "Mn")
+
+        match = self._QUESTION_RANGE_RE.search(plain(question))
+        if not match:
+            return scored
+        wanted = self._range_days(*match.groups())
+        if wanted is None:
+            return scored
+        containing, ranged = [], 0
+        for pair in scored:
+            label = plain(pair[1].get("label"))
+            found = self._LABEL_RANGE_RE.search(label)
+            span = self._range_days(*found.groups()) if found else None
+            if span is None:
+                continue
+            ranged += 1
+            if span[0] <= wanted[0] + 1e-9 and wanted[1] <= span[1] + 1e-9:
+                containing.append(pair)
+        if ranged < 2 or len(containing) != 1:
+            return scored
+        self._think(
+            "Tramo elegido por el rango de la pregunta",
+            f"«{match.group(0)}» cae en {containing[0][1].get('label')}; los demás tramos no lo contienen",
+        )
+        self._range_choice = containing[0][1].get("metric_id")
+        return containing
+
+    def _drop_dominated_options(self, question, scored):
+        """Regla: una opción que explica (por nombre, tabla, página, tablero o
+        nombre funcional) solo una parte de lo que explica otra no responde la
+        pregunta tal como está: «atenciones de hospitalización parcial» ->
+        ATENCION_HP (tabla HOSPITALIZACION_PARCIAL del tablero de ATENCIONES)
+        y no HOSPITALIZACIÓN de demanda insatisfecha."""
+        coverage_of = getattr(self.query_plan_builder, "question_coverage", None)
+        if len(scored) < 2 or not question or not callable(coverage_of):
+            return scored
+        try:
+            covered = [coverage_of(question, metric)[1] for _, metric in scored]
+        except Exception as error:
+            self._think("No se pudo comparar las opciones", f"{type(error).__name__}: {error}")
+            return scored
+        dominated = {
+            index for index, words in enumerate(covered)
+            if any(other > words for other in covered)
+        }
+        if not dominated or len(dominated) == len(scored):
+            return scored
+        self._think(
+            "Opciones que explican menos de la pregunta",
+            *[
+                f"{scored[index][1].get('label')}: explica {sorted(covered[index]) or 'nada'}; "
+                "otra opción explica eso y más"
+                for index in sorted(dominated)
+            ],
+        )
+        return [pair for index, pair in enumerate(scored) if index not in dominated]
+
     _AGGREGATION_TEXT = {
         "SUM": "suma de", "SUMX": "suma de", "AVERAGE": "promedio de", "AVERAGEX": "promedio de",
         "DISTINCTCOUNT": "conteo de", "DISTINCTCOUNTNOBLANK": "conteo de", "COUNT": "conteo de",
@@ -2955,6 +3168,7 @@ class QueryEngine:
     def _query_plan_clarification(self, plan, raw_candidates=None, prompt=None, margin=_CLARIFICATION_MARGIN):
         if raw_candidates is None:
             raw_candidates = plan.get("metric_resolution", {}).get("candidates", [])
+        self._range_choice = None
         choices = self._build_clarification_choices(
             raw_candidates, margin=margin, question=plan.get("question"),
         )
@@ -2973,6 +3187,20 @@ class QueryEngine:
             ) or {}
             direct = self._answer_single_option(
                 plan, metric, why="las demás opciones eran la misma medida",
+            )
+            if direct is not None:
+                return direct
+        elif len(choices) == 1:
+            # Nunca se confirma una sola opción si su nombre, página o
+            # documentación explican la pregunta: se responde con ella.
+            metric = next(
+                (item.get("metric") for item in raw_candidates
+                 if (item.get("metric") or {}).get("metric_id") == choices[0]["id"]),
+                None,
+            ) or {}
+            by_range = self.__dict__.get("_range_choice") == metric.get("metric_id")
+            direct = self._answer_single_option(
+                plan, metric, why="es el único tramo que contiene el rango pedido" if by_range else None,
             )
             if direct is not None:
                 return direct
@@ -3042,6 +3270,26 @@ class QueryEngine:
             )
             if direct is not None:
                 return direct
+        # Regla general: verbos («llegaron», «suben») y palabras que el propio
+        # indicador ya dice (su nombre, página, títulos, diccionario o el
+        # nombre funcional de su página: «pendientes» en LISTADO = «pacientes
+        # con pendientes activos») no son filtros: no se pregunta por ellas.
+        implied_words = getattr(self.query_plan_builder, "implied_words", None)
+        if callable(implied_words):
+            try:
+                implied, remaining = implied_words(metric, words)
+            except Exception as error:
+                self._think("No se pudo revisar las palabras sin interpretar", f"{type(error).__name__}: {error}")
+                implied, remaining = [], words.split()
+            if implied and not remaining:
+                direct = self._answer_single_option(
+                    plan, metric,
+                    why=f"«{words}» lo dice el propio indicador o es forma de la pregunta, no un filtro",
+                )
+                if direct is not None:
+                    return direct
+            elif implied:
+                words = " ".join(remaining)
         label = str(metric.get("label") or "").strip()
         report, page, model = self._clarification_context(metric)
         choices = self._finalize_choices(plan.get("question"), [{
@@ -3672,6 +3920,21 @@ class QueryEngine:
                 self._think("No se pudo revisar la única opción", f"{type(error).__name__}: {error}")
                 return None
             why = "su nombre explica todas las palabras de la pregunta"
+        # Una fuente que no trae el periodo pedido (citas de los próximos días
+        # para «el mes pasado») nunca se responde sola.
+        not_covered = getattr(self.query_plan_builder, "period_not_covered", None)
+        try:
+            missing = not_covered(question, metric) if callable(not_covered) else None
+        except Exception as error:
+            self._think("No se pudo revisar el periodo de la única opción", f"{type(error).__name__}: {error}")
+            missing = None
+        if missing:
+            self._think(
+                "La única opción no trae el periodo pedido",
+                f"{metric.get('label')}: su tabla ({missing}) no cubre el periodo según su documentación; "
+                "no se responde con ella",
+            )
+            return None
         label = str(metric.get("label") or metric_id)
         try:
             direct = self.query_plan_builder.build(question, selected_metric_id=metric_id)
@@ -6236,6 +6499,24 @@ class QueryEngine:
                         "Pregunta de ranking",
                         "pide ordenar o limitar un indicador («top», «con más/menos»): "
                         "se contrapregunta por el indicador sin pasar por la documentación",
+                    )
+                    return early_response
+                names_page = getattr(self.query_plan_builder, "names_data_page", None)
+                try:
+                    page_named = (
+                        early_response.get("status") == "needs_clarification"
+                        and callable(names_page) and names_page(message)
+                    )
+                except Exception as error:
+                    self._think("No se pudo revisar si la pregunta nombra una página", f"{type(error).__name__}: {error}")
+                    page_named = False
+                if page_named:
+                    # Regla: una frase nominal sobre una página con datos
+                    # («medicamentos vencidos del tablero de farmacia») pide
+                    # sus cifras; la documentación nunca da cifras.
+                    self._think(
+                        "La pregunta nombra una página con indicadores",
+                        "se ofrecen sus indicadores sin pasar por la documentación (RAG)",
                     )
                     return early_response
                 # Métrica no resuelta: la pregunta puede ser documental

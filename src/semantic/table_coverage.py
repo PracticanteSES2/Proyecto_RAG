@@ -99,6 +99,15 @@ def coverage_window(text, today):
             r"hech[oa]s hoy|del dia de la ultima actualizacion)(?![a-z])",
             today_text):
         starts.append(today)
+    # Tablas de lo que viene («citas asignadas para los próximos días», «una
+    # fila por cita ambulatoria próxima», «agenda futura»): solo traen desde
+    # hoy en adelante; no responden un periodo pasado («el mes pasado»).
+    if re.search(
+            r"(?<![a-z])(?:para |de |en )?(?:los |las )?proxim[oa]s (?:dias|semanas|meses|citas|cirugias)(?![a-z])"
+            r"|(?<![a-z])(?:citas?|cirugias?|consultas?|turnos?|programacion(?:es)?)(?: [a-z]+)? proxim[oa]s?(?![a-z])"
+            r"|(?<![a-z])(?:a futuro|agenda futura|citas futuras|programad[oa]s a partir de hoy|desde hoy en adelante)(?![a-z])",
+            norm):
+        starts.append(today)
     # «Sin límite de fechas», «no limita fechas», «todo el histórico»: la
     # tabla trae cualquier periodo (aunque la página sea una foto del día).
     if re.search(
