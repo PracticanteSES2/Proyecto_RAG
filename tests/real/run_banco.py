@@ -9,6 +9,7 @@ del día cambian a cada rato).
     python -X utf8 -m tests.real.run_banco --tablero "TABLERO EPS"
     python -X utf8 -m tests.real.run_banco --reevaluar tests/real/out/banco_<fecha>/resultados.json
     python -X utf8 -m tests.real.run_banco --reevaluar <resultados.json> --auditoria   # + veredictos auditados
+    python -X utf8 -m tests.real.run_banco --banco tests/real/banco_holdout.json       # otro banco (holdout)
 
 Salida: tests/real/out/banco_<fecha>/resultados.json y resumen.md (la carpeta
 out/ no se versiona). Nunca guarda filas de pacientes: la verdad solo usa
@@ -42,7 +43,20 @@ FALLAS = {
     "rag": "RAG pobre",
     "inventada": "respuesta inventada",
     "lenta": "lenta (>30 s)",
+    "alcance": "fuera de alcance no rechazado",
 }
+
+# Señales de que el bot rechazó una pregunta fuera de alcance (texto plegado).
+RECHAZO = ("no puedo", "solo puedo", "solo respondo", "unicamente", "fuera de", "alcance", "no tengo informacion",
+           "no tengo datos", "no esta relacionad", "no estoy disenad", "tableros", "indicadores", "no encontr",
+           "no dispongo", "no cuento con")
+
+
+def set_banco(path):
+    """Cambia el banco activo (por defecto banco_real.json)."""
+    global BANCO
+    BANCO = Path(path).resolve() if path else HERE / "banco_real.json"
+    return BANCO
 
 
 # ---------------------------------------------------------------- periodos
@@ -53,6 +67,7 @@ def period_values(today=None):
     year = today.year
     return {
         "HOY": today, "AYER": today - timedelta(days=1), "INI_MES": first,
+        "INI_SEMANA": today - timedelta(days=today.weekday()),
         "INI_MES_PASADO": last_prev.replace(day=1), "FIN_MES_PASADO": last_prev,
         "INI_ANO": date(year, 1, 1), "INI_AGO": date(year, 8, 1), "FIN_AGO": date(year, 8, 31),
         "INI_ANO_PASADO": date(year - 1, 1, 1), "FIN_ANO_PASADO": date(year - 1, 12, 31),
@@ -211,6 +226,14 @@ def evaluate(case, turns, truth):
         detail = {"todas": ok_all, "alguna": ok_any}
     elif tipo == "comportamiento":
         correct = None
+    elif tipo == "fuera_alcance":
+        # Debe rechazarse: sin consultas a Power BI exitosas y con un texto de
+        # rechazo (o una contrapregunta sin cifras inventadas).
+        text = fold(answer)
+        ok_dax = [d for t in turns for d in t.get("dax") or [] if d.get("status") == "success"]
+        rechazo = any(w in text for w in RECHAZO)
+        correct = bool(not ok_dax and rechazo)
+        detail = {"rechazo": rechazo, "dax_exitosos": len(ok_dax)}
     elif truth is None or truth.get("error"):
         correct = None
         detail = {"verdad_error": (truth or {}).get("error")}
@@ -379,6 +402,9 @@ def classify(case, turns, correct, detail):
         fallas.append("dax")
         return fallas
     tipo = case["tipo"]
+    if tipo == "fuera_alcance":
+        fallas.append("alcance")
+        return fallas
     if tipo == "definicion":
         fallas.append("rag")
         return fallas
@@ -534,7 +560,10 @@ def main(argv=None):
                         help="con --reevaluar: aplica los veredictos de tests/real/auditoria.json (u otro archivo)")
     parser.add_argument("--sim", action="store_true",
                         help="Power BI simulado + LLM falso: valida el flujo (sin verdad ni producción)")
+    parser.add_argument("--banco", help="banco JSON (por defecto tests/real/banco_real.json)")
     args = parser.parse_args(argv)
+    if args.banco:
+        set_banco(args.banco)
     real_env.setup_env()
     cases = {c["id"]: c for c in json.loads(BANCO.read_text(encoding="utf-8"))["casos"]}
 
