@@ -81,7 +81,7 @@ OUT = REAL / "out_regresion"
 RED = re.compile(r"time ?out|timed out|tiempo de espera|connection|conexi[oó]n|connect|max retries|"
                  r"name ?resolution|getaddrinfo|temporary failure|remote end closed|ssl|proxy|"
                  r"\b(?:401|403|408|429|500|502|503|504)\b|unauthori[sz]ed|token|aadsts|device[_ ]code|"
-                 r"httpsconnectionpool|readerror|socket", re.I)
+                 r"httpsconnectionpool|readerror|socket|sesi[oó]n de power bi", re.I)
 
 
 # ---------------------------------------------------------------- resumen por caso
