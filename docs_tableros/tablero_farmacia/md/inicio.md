@@ -4,8 +4,8 @@ pagina: INICIO
 nombre_funcional: Resumen de farmacia: oportunidad, pendientes, inventario mínimo y vencimientos
 bloque: Día
 tablas: [PENDIENTES_FARMACIA, TIEMPOS_DISPENSACIÓN, CANTIDAD_MINIMA, PRODUCTOS_VENCIDOS, VENCIMIENTO_PRODUCTOS, ALMACENES]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # INICIO
@@ -39,9 +39,10 @@ Página principal del tablero de farmacia. Resume con tarjetas la oportunidad de
 ## Observaciones
 - **Hueco en 36 horas**: El rango 5 llega hasta menos de 36 horas y el 6 empieza en más de 36, así que una espera de exactamente 36 horas queda sin rango; en la captura aparece una columna «(En blanco)».
 - **Vencimiento cuenta filas**: CANTIDAD por VENCIMIENTO EN MESES cuenta registros (COUNT de IFICANTID), no suma unidades.
-- **Vencidos en blanco**: En la captura la tarjeta MEDICAMENTOS VENCIDOS de INICIO sale «(En blanco)» mientras la página MEDICAMENTOS VENCIDOS muestra 88. Por confirmar.
+- **Vencidos en blanco**: En la captura la tarjeta MEDICAMENTOS VENCIDOS de INICIO sale «(En blanco)» mientras la página MEDICAMENTOS VENCIDOS muestra 88. La tarjeta sale en blanco cuando PRODUCTOS_VENCIDOS no trae ajustes por vencimiento en su ventana de tres meses (así estaba el 2026-11-03). Por confirmar de dónde sale el 88 de la página en la captura.
 - **Visuales fuera del PBIP**: La tarjeta OPORTUNIDAD DE DISPENSACIÓN y el botón SUMINISTROS PENDIENTES están en la captura de la documentación pero no en el PBIP actual.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta farmacia-05 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

@@ -4,8 +4,8 @@ pagina: INICIO
 nombre_funcional: Resumen de solicitudes de referencia recibidas
 bloque: Día
 tablas: [REFERENCIA]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # INICIO
@@ -33,8 +33,9 @@ Página principal del tablero. Resume las solicitudes de referencia recibidas en
 - **Rangos de tiempo**: 0-24 HORAS de 0 a 24 horas; 24-72 HORAS de más de 24 a 72; 72-120 HORAS de más de 72 a 120; MAYOR A 120 HORAS de más de 120.
 
 ## Observaciones
-- **Especialidad vacía**: En la captura de la documentación la fila sin especialidad es la mayor de la tabla (41,78 %); por confirmar por qué tantas solicitudes no tienen especialidad.
+- **Especialidad vacía**: En la captura de la documentación la fila sin especialidad es la mayor de la tabla (41,78 %). En los datos actuales ninguna solicitud tiene REFERENCIA[SERVICIO] vacío, así que la fila vacía debe venir de otra columna (GEEDESCRI) o de datos anteriores; por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta referencia-02 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

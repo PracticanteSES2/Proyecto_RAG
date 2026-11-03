@@ -4,8 +4,8 @@ pagina: Página 1
 nombre_funcional: Peso mensual de ropa por servicio, colaborador y turno
 bloque: Histórico
 tablas: [LAVANDERIA]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # Página 1
@@ -35,7 +35,7 @@ version: 2
 
 ## Observaciones
 - **Filtro de aseguradora inexistente**: La documentación dice que hay filtro por Aseguradora, pero la página solo tiene Año y Mes.
-- **Fecha de los filtros**: No está documentado si Año y Mes usan Fecha (encabezado) o FechaRegistro (pesaje). Por confirmar.
+- **Fecha de los filtros**: No está documentado si Año y Mes usan Fecha (encabezado) o FechaRegistro (pesaje). Por confirmar; casi no cambia el resultado, porque menos del 1 % de los pesajes cae en otro mes según una u otra fecha.
 - **Turno en blanco**: Una parte del peso aparece como (En blanco) en el gráfico de turnos: pesajes con turno distinto de 1, 2 o 3 o sin turno.
 - **Usuario en blanco**: La matriz de usuarios muestra una fila sin nombre: pesajes sin usuario asociado.
 - **PBIP sin visuales**: El PBIP local solo trae la página «Página 1» sin visuales ni segmentadores; los visuales descritos provienen de la documentación del propietario y están por confirmar contra el informe publicado.
@@ -43,3 +43,4 @@ version: 2
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe; la página se renombra a «Página 1» como en el PBIP.
+- **2026-11-03 · v3**: Resultados de la consulta lavanderia-02 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

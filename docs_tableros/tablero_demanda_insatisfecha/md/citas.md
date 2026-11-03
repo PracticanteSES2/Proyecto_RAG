@@ -4,8 +4,8 @@ pagina: CITAS
 nombre_funcional: Citas canceladas por causas institucionales
 bloque: Histórico
 tablas: [CITAS MEDICAS]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # CITAS
@@ -34,8 +34,9 @@ Analiza las citas ambulatorias (consulta médica e imágenes) canceladas por cau
 
 ## Observaciones
 - **Promedio en blanco**: En la captura de la documentación PROMEDIO MENSUAL aparece «(En blanco)»; ocurre cuando no hay citas canceladas en el año en curso.
-- **Estado de la cita**: Por confirmar qué significa CCMESTADO = 1 en citas con causa de cancelación.
+- **Estado de la cita**: Todas las citas con causa de cancelación tienen CCMESTADO = 1 y el nombre del estado vacío. Por confirmar qué significa CCMESTADO = 1.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta demanda-03 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

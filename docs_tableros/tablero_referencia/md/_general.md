@@ -4,8 +4,8 @@ pagina: GENERAL
 nombre_funcional: Seguimiento del proceso de referencia (recepción y remisión de pacientes)
 bloque: General
 tablas: [REFERENCIA, DETALLE_REMISIONES, DETALLE_RECEPCIONES, CONTRARREFERENCIA]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # GENERAL
@@ -34,9 +34,11 @@ Hace seguimiento al proceso de referencia de pacientes. La parte de recepción m
 
 ## Observaciones
 - **Nombres de página**: Las páginas del informe son INICIO, DETALLE NO ACEPTADOS RECEPCION, DETALLE ACEPTADOS RECEPCION, DETALLE_RECEPCIONES (SEGUIMIENTO DE RECEPCION en la documentación del propietario), DETALLE REMISION (SEGUIMIENTO DE REMISION en la documentación) y SEGUIMIENTOS REMISION. El PBIP local no incluye los visuales.
-- **Solicitudes sin respuesta**: Para solicitudes sin aceptación ni rechazo el tiempo de respuesta crece hasta hoy, lo que eleva el tiempo promedio de respuesta. Por confirmar si deben excluirse.
+- **Solicitudes sin respuesta**: Para solicitudes sin aceptación ni rechazo el tiempo de respuesta crece hasta hoy, lo que eleva el tiempo promedio de respuesta. En los datos la mayoría de las solicitudes no tiene fecha de aceptación ni de no aceptación. Por confirmar si deben excluirse.
 - **Llamadas de hoy**: TODAY() corresponde a la medianoche; una solicitud sin respuesta llamada hoy da horas negativas y queda sin rango de remisión.
+- **Datos sin actualizar**: En la consulta del 2026-11-03 las llamadas de REFERENCIA iban del 21 de abril al 13 de mayo de 2026, aunque la consulta toma los últimos 30 días: el conjunto de datos no se actualiza desde mayo de 2026. Por confirmar si la actualización programada está detenida.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta referencia-02 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

@@ -4,8 +4,8 @@ pagina: EXAMENES
 nombre_funcional: Exámenes y estudios diagnósticos pendientes por paciente
 bloque: Día
 tablas: [PACIENTES, EXAMENES, ResumenExamenes]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # EXAMENES
@@ -33,10 +33,11 @@ Muestra los pacientes del tablero NAOS que tienen exámenes o estudios diagnóst
 - **Un registro por ingreso**: Los exámenes pendientes de un mismo ingreso se concatenan en una sola celda.
 
 ## Observaciones
-- **Consulta de EXAMENES_NAOS**: La lógica de la vista y los valores posibles de ESTADO_EXAMEN además de PENDIENTE no están documentados. Por confirmar.
+- **Consulta de EXAMENES_NAOS**: ESTADO_EXAMEN vale PENDIENTE o RESULTADO DISPONIBLE; la lógica de la vista EXAMENES_NAOS no está documentada (por confirmar).
 - **Filas sin pendientes**: ResumenExamenes tiene una fila por ingreso aunque no tenga exámenes pendientes; en ese caso ExamenesPendientes queda vacío. Por confirmar si la tabla los oculta.
 - **Sin filtro de tipo de paciente**: A diferencia de las demás páginas, no tiene filtro TIPO PACIENTE.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta naos-02 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

@@ -4,8 +4,8 @@ pagina: DICCIONARIO
 nombre_funcional: Diccionario de variables del tablero
 bloque: Diccionario
 tablas: [CIRUGÍAS PENDIENTES, ENCUESTAS, Encuestas_Pivot, EXAMENES, GESTION_CLINICA, PACIENTES, ResumenExamenes]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # DICCIONARIO
@@ -52,8 +52,8 @@ Diccionario de variables del tablero TABLERO NAOS: qué es cada tabla, columna c
 - **PACIENTES[HCACODIGO]**: Código de la cama que ocupa el paciente. Tipo: texto. Valores: códigos de cama de la clínica. Se usa en: LISTADO › Tabla «PACIENTE».
 - **PACIENTES[HSUNOMBRE]**: Nombre del servicio hospitalario donde está el paciente; filtra las páginas LISTADO, EXAMENES y GESTION CLINICA. Tipo: texto. Valores: servicios hospitalarios como pisos, cuidado intermedio y atención domiciliaria. Se usa en: LISTADO › Filtro de la página; LISTADO › Segmentación de PACIENTES[HSUNOMBRE]; LISTADO › Tabla «PACIENTE»; LISTADO › Gráfico circular «SERVICIO»; EXAMENES › Filtro de la página; GESTION CLINICA › Segmentación de PACIENTES[HSUNOMBRE] y 1 más.
 - **PACIENTES[PACNUMDOC]**: Número de documento del paciente. Tipo: texto. Valores: identificador personal, no se documentan valores. Se usa en: LISTADO › Tabla «PACIENTE».
-- **PACIENTES[SOLICITUD_CAMA]**: Marca de solicitud de cama; vale «SOLICITUD DE CAMA PENDIENTE» cuando hay una solicitud sin atender. Alimenta el color azul claro. Tipo: texto. Valores: SOLICITUD DE CAMA PENDIENTE u otro texto de la vista, por confirmar. Se usa en: LISTADO › Tabla «PACIENTE».
-- **PACIENTES[TIPO_PACIENTE]**: Tipo de paciente según el convenio (GDECONFAC); filtra LISTADO y GESTION CLINICA y alimenta el gráfico por clasificación. Tipo: texto. Valores: MEDICINA PREPAGADA, PÓLIZA, PARTICULAR, PLAN COMPLEMENTARIO (convenios 125, 126, 127 y 122). Se usa en: LISTADO › Segmentación de PACIENTES[TIPO_PACIENTE]; LISTADO › Tabla «PACIENTE»; LISTADO › Gráfico circular «CLASIFICACIÓN»; GESTION CLINICA › Segmentación de PACIENTES[TIPO_PACIENTE].
+- **PACIENTES[SOLICITUD_CAMA]**: Marca de solicitud de cama; vale «SOLICITUD DE CAMA PENDIENTE» cuando hay una solicitud sin atender. Alimenta el color azul claro. Tipo: texto. Valores: «SOLICITUD DE CAMA PENDIENTE» o vacío. Se usa en: LISTADO › Tabla «PACIENTE».
+- **PACIENTES[TIPO_PACIENTE]**: Tipo de paciente según el convenio (GDECONFAC); filtra LISTADO y GESTION CLINICA y alimenta el gráfico por clasificación. Tipo: texto. Valores: MEDICINA PREPAGADA, PLAN COMPLEMENTARIO, PÓLIZA y PACIENTE PRIORIZADO; la consulta prevé también PARTICULAR (convenios 125, 126, 127 y 122). Se usa en: LISTADO › Segmentación de PACIENTES[TIPO_PACIENTE]; LISTADO › Tabla «PACIENTE»; LISTADO › Gráfico circular «CLASIFICACIÓN»; GESTION CLINICA › Segmentación de PACIENTES[TIPO_PACIENTE].
 - **ResumenExamenes[AINCONSEC]**: Consecutivo del ingreso; une el resumen con PACIENTES. Tipo: entero. Se usa en: EXAMENES › Tabla «INGRESO».
 - **ResumenExamenes[ExamenesPendientes]**: Nombres de los exámenes con estado PENDIENTE del ingreso, separados por coma. Tipo: texto. Valores: lista de exámenes de laboratorio, imágenes, terapias y procedimientos. Se usa en: EXAMENES › Tabla «INGRESO».
 - **ResumenExamenes[GPANOMCOM]**: Nombre completo del paciente. Tipo: texto. Valores: nombres de personas, no se documentan. Se usa en: EXAMENES › Tabla «INGRESO».
@@ -71,9 +71,10 @@ Diccionario de variables del tablero TABLERO NAOS: qué es cada tabla, columna c
 - **Consulta de gestión clínica distinta de la documentación**: La consulta excluye solicitudes en estados 4, 12, 5 y 6 (la documentación solo menciona el 4), incluye la categoría 404 que la documentación no lista y no filtra por HCAESTADO (está comentado). Por confirmar con el dueño del tablero.
 - **Priorizados sin filtro de convenio**: El segundo grupo de GESTION_CLINICA toma cualquier convenio con una solicitud de categoría 378; el primero solo 125, 126 y 127.
 - **Nombre de tabla**: La documentación original llama NAOS_GESTION_CLINICA y NAOS_CIRUGIAS_PENDIENTES a las tablas que en el modelo se llaman GESTION_CLINICA y CIRUGÍAS PENDIENTES.
-- **Vista TABLERO_NAOS**: La lógica de la vista, incluidas CLASIFICACION, SOLICITUD_CAMA y los valores posibles de las marcas, no está documentada. Por confirmar.
+- **Vista TABLERO_NAOS**: Los valores de las marcas ya se conocen (TIPO_PACIENTE y SOLICITUD_CAMA, ver Columnas clave), pero la lógica de la vista no está documentada: por confirmar cómo elige a los pacientes y cuándo asigna PACIENTE PRIORIZADO.
 - **Pendientes para el dueño del tablero**: Significado de la sigla NAOS, de los estados 4, 5, 6 y 12 de la solicitud, del estado 3 del historial y de TipoCirugiaOid = 1.
 
 ## Historial de cambios
 - **2026-10-28 · v1**: Esqueleto generado desde data/model_metadata/tablero_naos y hechos del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta naos-01, naos-02 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

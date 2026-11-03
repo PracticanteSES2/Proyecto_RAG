@@ -4,8 +4,8 @@ pagina: DICCIONARIO
 nombre_funcional: Diccionario de variables del tablero
 bloque: Diccionario
 tablas: [AMBULATORIO, Calendario, FACTURACION, MATRIZ 2024, ONCOLOGICO, PERIOPERATORIA]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # DICCIONARIO
@@ -19,7 +19,7 @@ Diccionario de variables del tablero TABLERO PERFIL DE MORBILIDAD: qué es cada 
 - **FACTURACION**: Valor neto de las facturas (SFANETOFAC) por número de ingreso, para ingresos desde 2024-01-01 con estado distinto de 2 y 4, facturas en estado 1 y no anuladas. Se relaciona con MATRIZ 2024 por ingreso (muchos a muchos, en ambos sentidos). Modo import. Origen: consulta SQL sobre DGEMPRES10.DBO.ADNINGRESO, DGEMPRES10.DBO.SLNFACTUR en la base DWSES (Import). Granularidad: un registro por factura válida, identificada por el consecutivo del ingreso (INGRESO); un ingreso puede tener varias facturas. Columnas principales: INGRESO, VALOR_FACTURA.
 - **MATRIZ 2024**: Egresos hospitalarios, una fila por egreso. Origen: consulta SQL sobre DW_MATRIZ_EGRESOS, PLANILLAUSUARIO.DBO.TABLEROGRD, DGEMPRES10.DBO.GENDIAGNO, PLANILLAUSUARIO.DBO.TbRelacionDiag, PLANILLAUSUARIO.DBO.TBCODIGOGRD en la base DWSES (Import). Granularidad: un registro por egreso hospitalario. Columnas principales: GRD_OK, GRD_R, Anno, Asegurador, Certificado_de_defuncion, certificado_de_nacido_vivo, CIE10_R, CMD_OK y 40 más.
 - **ONCOLOGICO**: Catálogo de diagnósticos CIE10 con su GRD, su CMD y la marca ONCOLOGICO o NO ONCOLOGICO según la tabla de relación de diagnósticos. Filtra MATRIZ 2024 por el código CIE10 calculado. Modo import. Origen: consulta SQL sobre PLANILLAUSUARIO.DBO.TbRelacionDiag, DGEMPRES10.DBO.GENDIAGNO, PLANILLAUSUARIO.DBO.TBCODIGOGRD, PLANILLAUSUARIO.DBO.TBCODIGOCMD en la base DWSES (Import). Granularidad: un registro por diagnóstico CIE10 (DIACODIGO). Columnas principales: CMD, DIACODIGO, DIANOMBRE, GRD, ONCOLOGICO.
-- **PERIOPERATORIA**: Cirugías (CIRUGIAS_DWSES) con diagnóstico, CMD, GRD, edad a la fecha de cirugía y asegurador. Modo import. Origen: consulta SQL sobre CIRUGIAS_DWSES, DIM_DIAGNOSTICO, planillausuario.dbo.TbRelacionDiag, planillaUsuario.dbo.TbCodigoGRD, planillausuario.dbo.TbCodigoCMD en la base DWSES (Import). Granularidad: un registro de CIRUGIAS_DWSES (cirugía o procedimiento); por confirmar si una cirugía con varios procedimientos se repite. Columnas principales: ASEGURADOR, ASEGURADOR2, CEDULA, CIRUGIA, CIRUJANO, COD_CMD, CUPS, DESC_CMD y 21 más.
+- **PERIOPERATORIA**: Cirugías (CIRUGIAS_DWSES) con diagnóstico, CMD, GRD, edad a la fecha de cirugía y asegurador. Modo import. Origen: consulta SQL sobre CIRUGIAS_DWSES, DIM_DIAGNOSTICO, planillausuario.dbo.TbRelacionDiag, planillaUsuario.dbo.TbCodigoGRD, planillausuario.dbo.TbCodigoCMD en la base DWSES (Import). Granularidad: un registro de CIRUGIAS_DWSES (cirugía o procedimiento); algunas cirugías (ingreso y fecha) aparecen en más de una fila con el mismo CUPS, así que la repetición viene de las uniones de diagnóstico, CMD o GRD y no de varios procedimientos. Datos desde 2025-01-01. Columnas principales: ASEGURADOR, ASEGURADOR2, CEDULA, CIRUGIA, CIRUJANO, COD_CMD, CUPS, DESC_CMD y 21 más.
 
 ## Medidas
 - **[moda_AMB]**: Edad más frecuente entre las consultas ambulatorias del contexto; si hay empate lista las edades separadas por «/». Unidad: años. Tabla: AMBULATORIO. Cálculo: `var grupos = SUMMARIZE(AMBULATORIO, AMBULATORIO[Edad] , "Total" , COUNTROWS(AMBULATORIO) ) var maximo = MAXX(grupos , [total]) var modas = filter(grupos, [total] = maximo) return CONCATENATEX(modas,[Edad] , "/" )`. Se usa en: sin dato (el PBIP no trae la definición de los visuales).
@@ -67,9 +67,10 @@ Diccionario de variables del tablero TABLERO PERFIL DE MORBILIDAD: qué es cada 
 - **Marca oncológica dispersa**: Hay cuatro formas de marcar un diagnóstico como oncológico: ONCOLOGICO[ONCOLOGICO], AMBULATORIO[ONCOLOGICO], MATRIZ 2024[ONCOLOGICOM] y MATRIZ 2024[P_ONCOLOGICO]. Las dos primeras con letra C o D buscan el texto en cualquier posición del código. Por confirmar cuál usa el botón ONCOLOGICO.
 - **Mortalidad con denominador parcial**: [%DEFUNCIONES] divide entre los egresos con código CIE10 de egreso; los egresos sin ese código muestran «Infinito».
 - **Datos personales en AMBULATORIO**: La tabla AMBULATORIO trae columnas con nombre, documento, teléfono y dirección del paciente. No se documentan sus valores; conviene confirmar si deben estar en el modelo.
-- **Facturación 2025**: FACTURACION cruza por el consecutivo del ingreso y los egresos de 2025 en adelante traen el identificador interno; su facturación podría no cruzar. Por confirmar.
+- **Facturación 2025**: FACTURACION cruza por el consecutivo del ingreso y los egresos de 2025 en adelante traen el identificador interno: en 2025 la mayoría de los egresos todavía cruza, pero desde 2026 prácticamente ninguno encuentra su factura.
 - **Columnas técnicas**: Las tablas de fecha automáticas de Power BI no se documentan. Las columnas no listadas en Columnas clave no se usan en los filtros de página conocidos.
 
 ## Historial de cambios
 - **2026-10-28 · v1**: Esqueleto generado desde data/model_metadata/tablero_perfil_de_morbilidad y hechos del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe: descripciones, unidades, granularidad y observaciones.
+- **2026-11-03 · v3**: Resultados de la consulta morbilidad-01, morbilidad-02 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

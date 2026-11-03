@@ -4,8 +4,8 @@ pagina: DETALLE NEDOCS
 nombre_funcional: Nivel de sobreocupación de urgencias con la escala NEDOCS
 bloque: Día
 tablas: [NEDOCS]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # DETALLE NEDOCS
@@ -39,9 +39,10 @@ Muestra el valor actual del NEDOCS, su clasificación, las siete variables que l
 ## Observaciones
 - **Valores entre rangos**: La columna etiqueta deja sin clasificación los valores negativos y los que caen entre 180,99 y 181.
 - **Descripción de A2**: La documentación describe A2 como «camas disponibles en el servicio», pero la tarjeta dice CAMAS EN EL SERVICIO DE URGENCIAS. Por confirmar si son camas totales o disponibles.
-- **Unidades de C y D**: En la escala NEDOCS estándar los tiempos van en horas; la documentación no lo indica. Por confirmar.
+- **Unidades de C y D**: En la escala NEDOCS estándar los tiempos van en horas; la documentación no lo indica y la tabla GH_NEDOCS trae una sola fila (el corte actual), así que sus valores no bastan para deducir la unidad. Por confirmar.
 - **Medida repetida**: La documentación original repite dos veces TotalN y TextoConResultadoHTML.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta briefing-03 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

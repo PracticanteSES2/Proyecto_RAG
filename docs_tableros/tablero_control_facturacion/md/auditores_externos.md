@@ -4,8 +4,8 @@ pagina: AUDITORES EXTERNOS
 nombre_funcional: Tiempo de gestión en auditores externos
 bloque: Histórico
 tablas: [FACTURACION PERFILES, CALENDARIO]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # AUDITORES EXTERNOS
@@ -32,10 +32,11 @@ Muestra cuánto tardan las cuentas en el perfil AUDITORES EXTERNOS, es decir en 
 - **Primera gestión**: Para cada cuenta se toma la primera vez que el perfil la recibió y la entrega correspondiente.
 
 ## Observaciones
-- **Sin datos en la captura**: En la captura de la documentación la tarjeta aparece «(En blanco)» y los gráficos vacíos. Por confirmar si el perfil tiene registros.
+- **Sin datos en la captura**: En la captura de la documentación la tarjeta aparece «(En blanco)» y los gráficos vacíos: FACTURACION PERFILES no tiene registros con PERFIL «AUDITORES EXTERNOS». Los perfiles con datos son FACTURACION, FACTURACION IMAGENES, ESTACION DE ENFERMERIA, AUDITORIA MEDICAMENTOS, AUDITORIA PERTINENCIA, CUENTAS, RADICACION DE CUENTAS, REGISTRO DE CUENTAS, GESTION DE LA INFORMACION Y ARCHIVO, ESCANEO FOTOCOPIAS, MODIFICACIONES MEDICAMENTOS y MODIFICACIONES FACTURAS, con datos desde 2025-08-01.
 - **Sin página en el PBIP**: El PBIP local no trae esta página: el botón AUDITORES EXTERNOS de RESUMEN FACTURACION no tiene destino configurado. Describe la documentación del propietario.
 - **Horas por día**: FACTURACION PERFILES convierte FECHA_RECIBE y FECHA_ENTREGA a fecha sin hora, por lo que el tiempo de gestión en horas es siempre un múltiplo de 24 (equivale a días por 24)
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta control_facturacion-03 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

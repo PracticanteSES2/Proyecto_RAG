@@ -4,8 +4,8 @@ pagina: URGENCIAS
 nombre_funcional: Consultas médicas de urgencias por mes y clasificación
 bloque: Histórico
 tablas: [CONSULTA_URGENCIAS, Calendario, TERCERO]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # URGENCIAS
@@ -39,7 +39,7 @@ Muestra cuántas consultas médicas de urgencias se hacen cada mes, compara los 
 
 ## Observaciones
 - **Nombre de página**: Coincide con la página URGENCIAS del PBIP.
-- **Consulta desactualizada**: La consulta documentada para esta página trae OID_TRIAGE, TIPO_TRIAGE y TIEMPO_PARA_CONSULTA desde 2023; el modelo actual coincide con la consulta de OPORTUNIDAD URGENCIAS, que carga desde 2025-01-01 y no tiene OID_TRIAGE. Por confirmar si la página ya no muestra 2023 y 2024.
+- **Consulta desactualizada**: La consulta documentada para esta página trae OID_TRIAGE, TIPO_TRIAGE y TIEMPO_PARA_CONSULTA desde 2023; el modelo actual coincide con la consulta de OPORTUNIDAD URGENCIAS, que carga desde 2025-01-01 y no tiene OID_TRIAGE. Los datos de CONSULTA_URGENCIAS empiezan el 2025-01-01, así que la página ya no muestra 2023 ni 2024.
 - **Medidas con COUNT de OID_TRIAGE**: La documentación cuenta CONSULTA_URGENCIAS[OID_TRIAGE], columna que ya no existe; el modelo cuenta DOCUMENTO.
 - **Nombre PRIORITARIAS**: Las medidas de esta página se llaman PRIORITARIAS aunque cuentan todas las consultas de urgencias.
 - **Fecha de unión**: La tabla se une al Calendario por fecha de admisión, pero las medidas por año filtran por fecha del folio.
@@ -47,3 +47,4 @@ Muestra cuántas consultas médicas de urgencias se hacen cada mes, compara los 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta atenciones-06 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

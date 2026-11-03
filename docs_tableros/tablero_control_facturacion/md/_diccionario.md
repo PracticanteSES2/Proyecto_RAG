@@ -5,7 +5,7 @@ nombre_funcional: Diccionario de variables del tablero
 bloque: Diccionario
 tablas: [CALENDARIO, Consulta, DIM_PERFIL, DIM_TIPO_INGRESO, ENPROCESO_FACTURACION, FACTURACION, FACTURACION PERFILES, FACTURADORES, INGRESOS, PENDIENTES_FACTURACION, ULT_GESTION]
 actualizado: 2026-11-03
-version: 3
+version: 4
 ---
 
 # DICCIONARIO
@@ -86,7 +86,7 @@ Diccionario de variables del tablero TABLERO CONTROL FACTURACION: qué es cada t
 - **PENDIENTES_FACTURACION[SERVICIO]**: Servicio u hospitalización donde estaba el paciente; segmentador SERVICIO de la página. Tipo: texto. Valores: nombres de unidades de hospitalización. Se usa en: FACTURACION PENDIENTE › Tabla «INGRESO»; FACTURACION PENDIENTE › Segmentación de PENDIENTES_FACTURACION[SERVICIO].
 - **PENDIENTES_FACTURACION[TIPO_INGRESO]**: Tipo de ingreso del paciente; la página FACTURACION PENDIENTE filtra HOSPITALARIO. Tipo: texto. Valores: AMBULATORIO (AINTIPING 1) y HOSPITALARIO (AINTIPING 2) Se usa en: FACTURACION PENDIENTE › Filtro de la página.
 - **ULT_GESTION[AINCONSEC]**: Número de ingreso (consecutivo) de la cuenta; segmentador INGRESO de las páginas de trazabilidad. Tipo: entero. Se usa en: TRAZABILIDAD › Segmentación de ULT_GESTION[AINCONSEC]; TRAZABILIDAD › Tabla «INGRESO»; TRAZABILIDAD_H-A › Segmentación de ULT_GESTION[AINCONSEC]; TRAZABILIDAD_H-A › Tabla «FACTURACION AMBULATORIO»; TRAZABILIDAD_H-A › Tabla «FACTURACION HOSPITALARIO».
-- **ULT_GESTION[AINESTADO]**: Estado del ingreso en Dinámica. Códigos: 0 = REGISTRADO, 1 = FACTURADO, 2 = ANULADO y 3 = BLOQUEADO (rótulos de las consultas SQL del PBIP: las de este tablero marcan 0 REGISTRADO, 1 FACTURADO y 3 BLOQUEADO, y la tabla INGRESOS de BRIEFING HOSPITALARIO rotula los cuatro); el código 4, que la consulta excluye, está por confirmar. La página TRAZABILIDAD solo muestra los estados 0 (registrado) y 3 (bloqueado). Tipo: entero. Valores: 0 y 3 (la tabla excluye 1, 2 y 4). Se usa en: TRAZABILIDAD › Filtro de la página.
+- **ULT_GESTION[AINESTADO]**: Estado del ingreso en Dinámica. Códigos: 0 = REGISTRADO, 1 = FACTURADO, 2 = ANULADO y 3 = BLOQUEADO (rótulos de las consultas SQL del PBIP: las de este tablero marcan 0 REGISTRADO, 1 FACTURADO y 3 BLOQUEADO, y la tabla INGRESOS de BRIEFING HOSPITALARIO rotula los cuatro); el código 4 no tiene rótulo en las consultas, pero esta tabla lo excluye y no aparece en los datos, así que no afecta al tablero. La página TRAZABILIDAD solo muestra los estados 0 (registrado) y 3 (bloqueado). Tipo: entero. Valores: 0 y 3 (la tabla excluye 1, 2 y 4; los datos solo traen 0 y 3). Se usa en: TRAZABILIDAD › Filtro de la página.
 - **ULT_GESTION[AREA_SERVICIO]**: Área de servicio del ingreso (GENARESER); segmentador de INICIO y de varias páginas. Tipo: texto. Valores: nombres de áreas de servicio. Se usa en: INICIO › Segmentación de ULT_GESTION[AREA_SERVICIO]; INICIO › Gráfico de barras agrupadas «VALOR ESTIMADO POR SERVICIO»; RESUMEN FACTURACION › Segmentación de ULT_GESTION[AREA_SERVICIO]; TRAZABILIDAD FACTURACION › Segmentación de ULT_GESTION[AREA_SERVICIO]; TRAZABILIDAD FACTURACION › Gráfico de barras agrupadas «MONTO FACTURADO POR ÁREA DE SERVICIO»; FACTURADORES › Segmentación de ULT_GESTION[AREA_SERVICIO] y 1 más.
 - **ULT_GESTION[CAMA]**: Código de la cama del ingreso; vacío si no tuvo cama. Tipo: texto. Valores: códigos de cama. Se usa en: TRAZABILIDAD › Tabla «INGRESO»; TRAZABILIDAD_H-A › Tabla «FACTURACION AMBULATORIO»; TRAZABILIDAD_H-A › Tabla «FACTURACION HOSPITALARIO».
 - **ULT_GESTION[ENTIDAD]**: Aseguradora o contrato del paciente (nombre del detalle de contrato) Tipo: texto. Valores: nombres de aseguradoras y contratos. Se usa en: TRAZABILIDAD › Tabla «INGRESO»; TRAZABILIDAD FACTURACION › Gráfico de barras agrupadas «MONTO FACTURADO POR ASEGURADORA»; TRAZABILIDAD_H-A › Tabla «FACTURACION AMBULATORIO»; TRAZABILIDAD_H-A › Tabla «FACTURACION HOSPITALARIO».
@@ -132,3 +132,4 @@ Diccionario de variables del tablero TABLERO CONTROL FACTURACION: qué es cada t
 - **2026-10-28 · v1**: Esqueleto generado desde data/model_metadata/tablero_control_facturacion y hechos del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
 - **2026-11-03 · v3**: Códigos AINESTADO según las consultas SQL del PBIP y filtros sin efecto confirmados con las relaciones del modelo publicado. Autor: agente dic-pendientes.
+- **2026-11-03 · v4**: Resultados de la consulta control_facturacion-01 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

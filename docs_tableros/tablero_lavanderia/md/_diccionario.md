@@ -4,8 +4,8 @@ pagina: DICCIONARIO
 nombre_funcional: Diccionario de variables del tablero
 bloque: Diccionario
 tablas: [LAVANDERIA]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # DICCIONARIO
@@ -30,7 +30,7 @@ Diccionario de variables del tablero TABLERO LAVANDERIA: qué es la tabla LAVAND
 
 ## Observaciones
 - **Unidad del peso**: La documentación no indica si el peso está en kilogramos o libras. Por confirmar con el dueño del tablero.
-- **Fecha de los filtros**: No se sabe si los segmentadores de Año y Mes usan Fecha (encabezado) o FechaRegistro (pesaje). Por confirmar.
+- **Fecha de los filtros**: No se sabe si los segmentadores de Año y Mes usan Fecha (encabezado) o FechaRegistro (pesaje). Por confirmar; en la práctica casi no cambia el resultado, porque menos del 1 % de los pesajes tiene FechaRegistro en otro mes que Fecha. Los datos empiezan el 2025-05-01 y llegan hasta el día en curso.
 - **PBIP sin visuales**: El PBIP local solo trae la página «Página 1» sin visuales; la descripción de visuales proviene de la documentación del propietario.
 - **Pendientes para el dueño**: Confirmar unidad del peso, fecha que usan los filtros y significado de los pesajes sin turno, sin servicio o sin usuario (aparecen como (En blanco))
 - **Sin medidas DAX**: El modelo no tiene medidas; los totales salen de sumar LAVANDERIA[Peso] en cada visual y el cálculo del porcentaje de participación no está en el modelo (se define en el visual). Por confirmar.
@@ -38,3 +38,4 @@ Diccionario de variables del tablero TABLERO LAVANDERIA: qué es la tabla LAVAND
 ## Historial de cambios
 - **2026-10-28 · v1**: Esqueleto generado desde data/model_metadata/tablero_lavanderia y hechos del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta lavanderia-01, lavanderia-02 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

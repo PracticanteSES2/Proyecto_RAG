@@ -4,8 +4,8 @@ pagina: SOLICITUD CAMAS
 nombre_funcional: Solicitudes de cama no asignadas
 bloque: Histórico
 tablas: [SOLICITUD DE CAMAS]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # SOLICITUD CAMAS
@@ -36,8 +36,9 @@ Analiza las solicitudes de cama que no se asignaron: total, promedio mensual, ev
 ## Observaciones
 - **Promedio sin filtro de año**: DEMANDA_INS_PM no se limita al año en curso, a diferencia de los promedios de las otras páginas.
 - **Unión de subgrupo**: La consulta une HPNSUBGRU por el OID del ingreso igual al servicio solicitante (d.OID = a.serviciooid); el nombre de subgrupo (HSUNOMBRE) puede ser incorrecto. Por confirmar.
-- **Dos reglas de cama**: DEMANDA_INS (estado igual a 4) y TOTAL_SOLICITUD_CAMAS (estado distinto de 4) usan estados opuestos; una de las dos puede estar mal. Por confirmar el significado del estado 4.
+- **Dos reglas de cama**: DEMANDA_INS (estado igual a 4) y TOTAL_SOLICITUD_CAMAS (estado distinto de 4) usan estados opuestos; una de las dos puede estar mal. En los datos casi todas las solicitudes tienen EstadoOid 4 (los demás estados son 2, 3, 5 y 12) y solo esas marcan DEMANDA_INS, así que la regla «distinto de 4» deja muy pocas solicitudes. Por confirmar el significado del estado 4.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta demanda-01 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

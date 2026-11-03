@@ -5,7 +5,7 @@ nombre_funcional: Egresos pendientes de iniciar el trámite de facturación
 bloque: Día
 tablas: [PENDIENTES_FACTURACION]
 actualizado: 2026-11-03
-version: 3
+version: 4
 ---
 
 # FACTURACION PENDIENTE
@@ -35,9 +35,10 @@ Lista los pacientes que ya egresaron y cuya cuenta todavía no tiene trazabilida
 ## Observaciones
 - **Llave de trazabilidad**: Esta consulta une TFACTURACI por el OID del ingreso, mientras las demás consultas del tablero la unen por el consecutivo (AINCONSEC). Si la llave es el consecutivo, ingresos con trazabilidad podrían aparecer como pendientes. Por confirmar.
 - **Sin filtro de año**: La página no tiene filtros de año o mes; muestra todos los pendientes desde agosto de 2025.
-- **Botón AMBULATORIO**: La página filtra HOSPITALARIO, por lo que el botón AMBULATORIO del segmentador no muestra pendientes (el filtro de página y el segmentador se combinan). Por confirmar.
+- **Botón AMBULATORIO**: La página filtra HOSPITALARIO, por lo que el botón AMBULATORIO del segmentador no muestra pendientes (el filtro de página y el segmentador se combinan), aunque la tabla sí trae pendientes de tipo AMBULATORIO. Por confirmar.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
 - **2026-11-03 · v3**: Códigos AINESTADO según las consultas SQL del PBIP. Autor: agente dic-pendientes.
+- **2026-11-03 · v4**: Resultados de la consulta control_facturacion-02 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

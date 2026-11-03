@@ -4,8 +4,8 @@ pagina: GENERAL
 nombre_funcional: Perfil epidemiológico de los egresos hospitalarios
 bloque: General
 tablas: [MATRIZ 2024, FACTURACION, ONCOLOGICO, AMBULATORIO, PERIOPERATORIA, Calendario]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # GENERAL
@@ -41,11 +41,12 @@ Describe el perfil de morbilidad de la población atendida: egresos por diagnós
 ## Observaciones
 - **Páginas de perioperatoria y ambulatorio**: El informe tiene siete páginas ocultas de perioperatoria y atenciones ambulatorias que la documentación del propietario no describe; sus archivos solo recogen lo que se deduce del PBIP y quedan por confirmar.
 - **PBIP sin visuales**: El PBIP del informe trae las 11 páginas, todas ocultas salvo INICIO, pero ningún visual; los visuales se describen con la documentación y sus capturas y los campos exactos de cada uno quedan por confirmar.
-- **Número de ingreso distinto por origen**: En los egresos de TABLEROGRD la columna Ingreso es el identificador interno del ingreso, mientras FACTURACION usa el consecutivo (AINCONSEC); la facturación de esos egresos podría no cruzar. Por confirmar.
-- **Posibles duplicados**: Si la matriz histórica también trae egresos de 2025, se sumarían a los de TABLEROGRD; y la unión con epicrisis puede repetir egresos con más de una epicrisis. Por confirmar.
+- **Número de ingreso distinto por origen**: En los egresos de TABLEROGRD la columna Ingreso es el identificador interno del ingreso, mientras FACTURACION usa el consecutivo (AINCONSEC): en 2025 la mayoría de los egresos todavía cruza, pero desde 2026 prácticamente ninguno encuentra su factura.
+- **Posibles duplicados**: MATRIZ 2024 tiene más filas que ingresos distintos en todos los años (2024 a 2026), así que hay egresos repetidos, compatible con la unión con epicrisis. Por confirmar si además la matriz histórica y TABLEROGRD se solapan en 2025.
 - **Descripción y código CIE10 desalineados**: Para pacientes de urgencias el código CIE10 calculado es el de ingreso, pero la descripción (CIE10_R) prioriza la de egreso.
 - **Condición de urgencias amplia**: GRD_OK y COD_CIE10_R exigen que el paciente pase por urgencias y que alguna otra bandera de servicio sea «NO», lo que casi siempre se cumple; en la práctica basta con haber pasado por urgencias.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP (solo modelo semántico).
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta morbilidad-02 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

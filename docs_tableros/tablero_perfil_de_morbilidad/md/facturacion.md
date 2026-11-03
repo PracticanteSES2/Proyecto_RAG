@@ -4,8 +4,8 @@ pagina: FACTURACION
 nombre_funcional: Atenciones y facturación por CMD, GRD y CIE10
 bloque: Histórico
 tablas: [MATRIZ 2024, FACTURACION, ONCOLOGICO]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # FACTURACION
@@ -23,7 +23,7 @@ Cruza los egresos con la facturación: para cada CMD, GRD y diagnóstico CIE10 m
 - **% atenciones**: Atenciones del grupo sobre el total de atenciones filtradas.
 - **Facturación**: Valor neto facturado en pesos. SUM(FACTURACION[VALOR_FACTURA]).
 - **% facturación**: Facturación del grupo sobre la facturación total filtrada.
-- **Promedio de facturación**: Valor promedio en pesos; según las cifras de la captura es el promedio por factura (AVERAGE de FACTURACION[VALOR_FACTURA]) y no por atención. Por confirmar.
+- **Promedio de facturación**: Valor promedio en pesos; según las cifras de la captura es el promedio por factura (AVERAGE de FACTURACION[VALOR_FACTURA]) y no por atención. FACTURACION tiene varias facturas por ingreso, así que el promedio por factura es menor que el promedio por atención. Por confirmar.
 
 ## Visuales
 - **Filtros de la página**: Segmentadores de Año, Mes, Asegurador, GRD y Sexo (FEMENINO, MASCULINO), botón ONCOLOGICO y botones de servicio (GINECO, HOSPITALIZACION, HOSPITALIZACION PARCIAL, NEONATOS, SALA AZUL, UCI/UCIN, URGENCIAS).
@@ -37,9 +37,10 @@ Cruza los egresos con la facturación: para cada CMD, GRD y diagnóstico CIE10 m
 - **Cruce por ingreso**: La relación FACTURACION–MATRIZ 2024 es de muchos a muchos y filtra en ambos sentidos; cada grupo suma las facturas de sus ingresos.
 
 ## Observaciones
-- **Cruce incompleto en 2025**: Los egresos de 2025 en adelante usan el identificador interno del ingreso y FACTURACION el consecutivo, así que su facturación podría no aparecer. Por confirmar.
+- **Cruce incompleto en 2025**: Los egresos de 2025 en adelante usan el identificador interno del ingreso y FACTURACION el consecutivo: en 2025 la mayoría todavía cruza, pero desde 2026 prácticamente ninguno muestra facturación.
 - **Filtro de día anunciado**: La documentación menciona un filtro por día que no aparece en la captura.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP (solo modelo semántico).
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta morbilidad-02, morbilidad-03 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

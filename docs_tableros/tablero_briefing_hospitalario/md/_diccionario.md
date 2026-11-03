@@ -5,7 +5,7 @@ nombre_funcional: Diccionario de variables del tablero
 bloque: Diccionario
 tablas: [AMBULATORIO_SS, ATENCIONES_SERVICIO, AUDITORIA_CONCURRENTE, BOLETIN, CALENDARIO, CALENDARIO_IMAGENES, CAMAS DISPONIBLES, CONSULTAS PRIORITARIAS, CONSULTAS URGENCIAS, CONVENIOS, DETALLE RECEPCION, EGRESOS, EGRESOS PROBABLES, EPS, ESTADOS CAMA, GESTIÓN CAMAS, IMAGENES_TOMADAS, INGRESOS, INTERCONSULTAS, MEDICAMENTOS DESABASTECIDOS]
 actualizado: 2026-11-03
-version: 3
+version: 4
 ---
 
 # DICCIONARIO
@@ -93,7 +93,7 @@ Diccionario de variables del tablero BRIEFING HOSPITALARIO: qué es cada tabla, 
 - **Medidas con exclusiones distintas**: [%OCUPACION] suma OCUPADAS sin excluir camas EXP ni OH, pero divide entre [CamasFiltradas], que sí las excluye; [TOTAL_OCUPADAS] no se usa en ningún visual.
 - **CONSULTAS_REALIZADAS**: La marca vale 1 en triages obstétricos y de muerto y 0 en I, II y III; por confirmar con el dueño si ese es el criterio de consulta realizada de la tarjeta CONSULTAS URGENCIAS.
 - **Unidades de NEDOCS**: No se documenta la unidad de las variables C y D (tiempos de espera); por confirmar.
-- **Vistas de origen**: Las vistas CAMAS_DISPONIBLES, BI_PROXIMAS_CITAS, Cd_CensoGlobal_2 y la vista de remisiones no están definidas en el modelo; sus reglas internas, incluidos MOSTRAR_6TO y TIPO_CONSULTA, están por confirmar.
+- **Vistas de origen**: Las vistas CAMAS_DISPONIBLES, BI_PROXIMAS_CITAS, Cd_CensoGlobal_2 y la vista de remisiones no están definidas en el modelo; sus reglas internas, incluido MOSTRAR_6TO, están por confirmar; TIPO_CONSULTA solo trae «CONSULTA AMBULATORIA» e «IMAGENES», y MOSTRAR_6TO vale 0 o 1.
 - **Estados sin nombre**: No se documenta el significado de los estados de SOLICITUD CAMAS[estadooid] (2, 3, 4, 5, 8), de EstadoOid = 1 y EstadosRecOid = 4 en remisiones, de OidEstado = 7 en recepciones ni de los estados de ESTADO_TRAMITE.
 - **Tablas retiradas**: PACIENTES POR ESTANCIA y la página OCUPACIÓN POR ESTANCIA ya no existen en el modelo ni en el informe.
 - **Tablas sin visual**: ESTADOS CAMA, Tabla7 y ORDEN CAMAS no alimentan ningún visual; por confirmar si pueden retirarse.
@@ -104,3 +104,4 @@ Diccionario de variables del tablero BRIEFING HOSPITALARIO: qué es cada tabla, 
 - **2026-10-28 · v1**: Esqueleto generado desde data/model_metadata/briefing_hospitalario y hechos del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
 - **2026-11-03 · v3**: Se completó con el PBIP (consultas SQL de las particiones TMDL, campos, agregaciones y filtros de los visuales, relaciones): consultas de origen de AUDITORIA_CONCURRENTE, DETALLE RECEPCION y SOLICITUDES_RESPUESTA. Autor: agente dic-pendientes.
+- **2026-11-03 · v4**: Resultados de la consulta briefing-01, briefing-05 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

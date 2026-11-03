@@ -4,8 +4,8 @@ pagina: CVC
 nombre_funcional: Aumentos y disminuciones de costo de compra por producto y mes
 bloque: Histórico
 tablas: [COSTOS_PRODUCTOS, COSTOS_VARIACION, DESABASTECIDOS, PRODUCTOS_REGULADOS, calendario]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # CVC
@@ -17,7 +17,7 @@ version: 2
 - **COSTOS_PRODUCTOS**: Registros de costo del almacén 062 desde 2025-01-01 con costo actual, costo anterior, cantidad y clasificación del producto.
 
 ## Indicadores
-- **Total productos**: Número de productos o registros comprados según los filtros. Cálculo por confirmar.
+- **Total productos**: Número de productos distintos (IPRCODIGO) comprados según los filtros, coherente con la cifra de la captura; la medida exacta del visual no está en el PBIP.
 - **Total compras con aumento**: Valor en pesos de las compras cuyo costo aumentó. Por confirmar si es la suma de COMPRA_TOTAL con ESTADO = "AUMENTÓ".
 - **Total compras con disminución**: Valor en pesos de las compras cuyo costo disminuyó. Por confirmar si es la suma de COMPRA_TOTAL con ESTADO = "DISMINUYÓ".
 - **Variación porcentual**: Cambio del costo actual frente al costo anterior. Columna variacion_porcent; si el costo anterior es 1 o menos usa el costo promedio (COSTOPROM) como base.
@@ -37,12 +37,13 @@ version: 2
 - **Columna COMPRA_TOTAL**: CANTIDAD multiplicada por ULTIMOCOSTO.
 
 ## Observaciones
-- **Primera compra como aumento**: Si un producto no tiene costo anterior, la resta usa 0 y el registro queda como AUMENTÓ. Por confirmar si debería quedar sin estado.
+- **Primera compra como aumento**: Si un producto no tiene costo anterior, la resta usa 0 y el registro queda como AUMENTÓ; en los datos le pasa a la primera compra de todos los productos. Por confirmar si debería quedar sin estado.
 - **Medidas del catálogo local**: El catálogo local tiene medidas inferidas que cuentan filas para las tarjetas de aumento y disminución, pero la captura muestra valores en pesos. No se usan esas medidas como fuente.
-- **Total productos igual a aumentos**: En la captura, TOTAL PRODUCTOS (4.367) coincide con el número de registros AUMENTÓ del gráfico de volatilidad. Por confirmar qué cuenta la tarjeta.
+- **Total productos igual a aumentos**: En la captura, TOTAL PRODUCTOS (4.367) coincide con los AUMENTÓ del gráfico de volatilidad. Los datos lo explican: los registros AUMENTÓ son muchos más que los productos, pero cada producto tiene su primera compra marcada AUMENTÓ, así que productos distintos y productos con algún aumento son el mismo número; la tarjeta cuenta productos distintos, no registros.
 - **Texto copiado**: La documentación describe los segmentadores como filtros de «citas asignadas»; es un error de copia.
-- **Producto regulado**: La marca PRODUCTO REGULADO sale de PRODUCTOS_REGULADOS[PROD_REGULADO], construida del Excel de regulados y unida por IPRCODIGO. Por confirmar qué cuenta como regulado en la columna REGULADO.
+- **Producto regulado**: La marca PRODUCTO REGULADO sale de PRODUCTOS_REGULADOS[PROD_REGULADO], construida del Excel de regulados y unida por IPRCODIGO. Cuenta como regulado todo producto con REGULADO no vacío: «REGULADO» o «Regulado Circular 13 , 14 y 15».
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta cvc-01, cvc-02 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

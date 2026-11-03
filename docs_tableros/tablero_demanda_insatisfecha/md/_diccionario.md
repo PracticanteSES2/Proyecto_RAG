@@ -4,8 +4,8 @@ pagina: DICCIONARIO
 nombre_funcional: Diccionario de variables del tablero
 bloque: Diccionario
 tablas: [CALENDARIO, CIRUGIAS REALIZADAS, CIRUGÍAS, CITAS MEDICAS, CITAS_REALIZADAS, CONTRAREFERENCIA, REFERENCIA, REFERENCIA_ACEPTADO, SOLICITUD DE CAMAS, TERCEROS, TRIAGE, TRIAGES_REALIZADOS]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # DICCIONARIO
@@ -71,7 +71,7 @@ Diccionario de variables del tablero DEMANDA INSATISFECHA: qué es cada tabla, m
 - **SOLICITUD DE CAMAS[GDPNOMBRE]**: Nombre del servicio o dependencia que solicita la cama (GENDEPEND). Los filtros de página dejan solo cinco servicios. Tipo: texto. Valores: QUIROFANOS, SALA AZUL 3 PISO, UCI ADULTOS, URGENCIAS y CUIDADO INTERMEDIO SUR (los que pasan el filtro) Se usa en: CONSOLIDADO › Filtro de la página; SOLICITUD CAMAS › Filtro de la página; SOLICITUD CAMAS › Segmentación de SOLICITUD DE CAMAS[GDPNOMBRE]; SOLICITUD CAMAS › Gráfico circular «SERVICIO».
 - **SOLICITUD DE CAMAS[Oid]**: Identificador de la solicitud de cama. Su conteo distinto es el total de solicitudes (denominador de RELACIÓN SOLICITUD CAMAS) Tipo: entero. Se usa en: SOLICITUD CAMAS › Gráfico de barras agrupadas «ASEGURADOR»; las medidas [RELACIÓN SOLICITUD CAMAS], [TOTAL_SOLICITUD_CAMAS].
 - **TERCEROS[TERNOMCOM]**: Nombre comercial del tercero; se usa como asegurador en el treemap de CONSOLIDADO y en los gráficos y segmentadores de CITAS. Tipo: texto. Valores: nombres de aseguradoras y otras entidades. Se usa en: CONSOLIDADO › Mapa de árbol «ASEGURADOR»; CITAS › Segmentación de TERCEROS[TERNOMCOM]; CITAS › Gráfico de barras agrupadas «ASEGURADOR».
-- **TRIAGE[HCCESTADO]**: Código de estado del turno de triage (HCNCONTRDT). La página TRIAGES filtra HCCESTADO = 2; el significado del código está por confirmar. Tipo: entero. Valores: 2 en la página TRIAGES; los demás códigos no están documentados. Se usa en: TRIAGES › Filtro de la página.
+- **TRIAGE[HCCESTADO]**: Código de estado del turno de triage (HCNCONTRDT). La página TRIAGES filtra HCCESTADO = 2; el significado del código está por confirmar. Tipo: entero. Valores: 1, 2 y 3 (el 2 es el más frecuente); la página TRIAGES usa solo el 2. Se usa en: TRIAGES › Filtro de la página.
 - **TRIAGE[OID]**: Identificador del turno de triage no atendido. Su conteo distinto es el número de triages no atendidos. Tipo: entero. Se usa en: CONSOLIDADO › Tarjeta «TRIAGES»; CONSOLIDADO › Gráfico circular «TRIAGES»; TRIAGES › Tarjeta «TRIAGES NO ATENDIDOS»; TRIAGES › Gráfico de líneas «Date Mes»; TRIAGES › Mapa de árbol «ASEGURADOR»; las medidas [%TRIAGE], [PROM_TRIAGE], [RELACIÓN TRIAGES], [TOTAL_DEMANDA_INSATISFECHA].
 - **TRIAGE[TERNOMCOM]**: Asegurador (tercero) del paciente del turno, obtenido por el documento registrado en AdmisionTriage; queda en blanco si el turno no tiene documento. Tipo: texto. Valores: nombres de aseguradoras. Se usa en: TRIAGES › Segmentación de TRIAGE[TERNOMCOM]; TRIAGES › Mapa de árbol «ASEGURADOR»; CIRUGÍAS › Mapa de árbol «ASEGURADOR».
 
@@ -104,3 +104,4 @@ Diccionario de variables del tablero DEMANDA INSATISFECHA: qué es cada tabla, m
 ## Historial de cambios
 - **2026-10-28 · v1**: Esqueleto generado desde data/model_metadata/demanda_insatisfecha y hechos del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta demanda-02 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

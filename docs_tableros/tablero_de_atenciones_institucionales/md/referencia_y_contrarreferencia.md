@@ -5,7 +5,7 @@ nombre_funcional: Solicitudes de referencia por mes y estado de aceptación
 bloque: Histórico
 tablas: [REFERENCIA, ASEGURADORAS]
 actualizado: 2026-11-03
-version: 3
+version: 4
 ---
 
 # REFERENCIA Y CONTRARREFERENCIA
@@ -34,7 +34,7 @@ Muestra cuántas solicitudes de referencia y contrarreferencia recibe el hospita
 
 ## Observaciones
 - **Nombre de página**: El PBIP actual no trae una página con este nombre; la página existe en la documentación del propietario. Por confirmar su nombre en Power BI.
-- **Posibles duplicados**: La consulta une cada solicitud con todas sus causas; una solicitud con varias causas aparece varias veces y puede contarse de más si se cuentan filas. Por confirmar.
+- **Posibles duplicados**: La consulta une cada solicitud con todas sus causas: en todos los estados (Es Urgencia Vital, No Aceptado, Con Ingreso, Aceptado y Tramite Por SES) hay más filas que solicitudes distintas, así que contar filas cuenta de más a las solicitudes con varias causas.
 - **Aseguradora por documento**: La aseguradora se busca por el documento del paciente en la tabla de pacientes, no por la solicitud; es la aseguradora actual del paciente.
 - **Sin relación con el Calendario**: Confirmado en el modelo: REFERENCIA no tiene relación con Calendario (solo se une a ASEGURADORAS). Un segmentador o filtro sobre Calendario no la filtra; los segmentadores Año y Mes solo funcionan si usan la fecha de la propia tabla.
 
@@ -42,3 +42,4 @@ Muestra cuántas solicitudes de referencia y contrarreferencia recibe el hospita
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
 - **2026-11-03 · v3**: Relaciones verificadas en el modelo sincronizado del Power BI (data/model_metadata, 2026-10-29) Autor: agente dic-pendientes.
+- **2026-11-03 · v4**: Resultados de la consulta atenciones-10 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

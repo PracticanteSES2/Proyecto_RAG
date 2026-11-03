@@ -5,7 +5,7 @@ nombre_funcional: Volumen y oportunidad de las consultas ambulatorias
 bloque: Histórico
 tablas: [CONSULTAS_AMBULATORIAS, CONSULTA_AMBULATORIAS, Calendario, MostrarProyeccion]
 actualizado: 2026-11-03
-version: 3
+version: 4
 ---
 
 # CONSULTAS AMBULATORIAS
@@ -14,7 +14,7 @@ version: 3
 Muestra cuántas consultas ambulatorias (consulta externa) se atienden cada mes, compara los años con proyección opcional y presenta la oportunidad en días para consulta general, de control y de primera vez. Desde aquí se llega a DETALLE ESPECIALIDADES.
 
 ## Fuentes de datos
-- **CONSULTAS_AMBULATORIAS**: Citas médicas desde 2025-11-01 con folio de historia clínica el mismo día, unidas a la tabla histórica AT_AMB_MAYO_2025 (periodo que cubre por confirmar). Trae asegurador, especialidad agrupada, médico, fechas de asignación y de cita, tipo de atención, primera vez o control y estado de la cita.
+- **CONSULTAS_AMBULATORIAS**: Citas médicas desde 2025-11-01 con folio de historia clínica el mismo día, unidas a la tabla histórica AT_AMB_MAYO_2025 (la parte histórica cubre del 2025-01-02 al 2025-10-31). Trae asegurador, especialidad agrupada, médico, fechas de asignación y de cita, tipo de atención, primera vez o control y estado de la cita.
 - **CONSULTA_AMBULATORIAS**: Totales históricos de atenciones ambulatorias por año y mes; la usa la proyección.
 
 ## Indicadores
@@ -53,3 +53,4 @@ Muestra cuántas consultas ambulatorias (consulta externa) se atienden cada mes,
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
 - **2026-11-03 · v3**: Cálculo de AMB_ANT corregido según el modelo sincronizado del Power BI (data/model_metadata, 2026-10-29) Autor: agente dic-pendientes.
+- **2026-11-03 · v4**: Resultados de la consulta atenciones-03 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

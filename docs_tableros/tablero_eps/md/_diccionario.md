@@ -5,7 +5,7 @@ nombre_funcional: Diccionario de variables del tablero
 bloque: Diccionario
 tablas: [%OCUPACIONAL, ADMISIONES_TRIAGE, ASEGURADORAS, ATENCIONES_DIA, ATENCIONES_GINECO, Calendario, CONSULTA_URGENCIAS, CONSULTAS_PRIORITARIAS, GENTERCER, OPORTUNIDAD_TRIAGE, PACIENTES, PACIENTES_HOSPITALIZADOS, PACIENTES_OBSERVADOS]
 actualizado: 2026-11-03
-version: 3
+version: 4
 ---
 
 # DICCIONARIO
@@ -42,7 +42,7 @@ Diccionario de variables del tablero TABLERO EPS: qué es cada tabla, medida y c
 - **OPORTUNIDAD_TRIAGE[HH]**: Hora del tramo horario convertida a valor de hora, para ordenar los tramos. Tipo: fecha. Cálculo: `TIMEVALUE(OPORTUNIDAD_TRIAGE[TramoHorario])`. Se usa en: no aparece en visuales ni filtros del informe.
 
 ## Columnas clave
-- **%OCUPACIONAL[codcama]**: Código de la cama. En la tarjeta de ocupación se excluyen los códigos que contienen EXP, y los que contienen CRIT se asignan al servicio CUIDADO CRÍTICO OBSTETRICO. Tipo: texto. Valores: códigos de cama; el significado de EXP está por confirmar. Se usa en: TRIAGES ATENDIDOS › Tarjeta «Ocupación de urgencias».
+- **%OCUPACIONAL[codcama]**: Código de la cama. En la tarjeta de ocupación se excluyen los códigos que contienen EXP, y los que contienen CRIT se asignan al servicio CUIDADO CRÍTICO OBSTETRICO. Tipo: texto. Valores: códigos de cama; hay camas con EXP en URGENCIAS, URGENCIAS 2 PISO, SEXTO PISO, OBSTETRICIA, HOSPITALIZACION NEONATOS y SEGUNDO PISO SUR. El significado de EXP está por confirmar. Se usa en: TRIAGES ATENDIDOS › Tarjeta «Ocupación de urgencias».
 - **%OCUPACIONAL[SERVICIO]**: Servicio al que pertenece la cama. La tarjeta de ocupación de urgencias usa URGENCIAS y SEXTO PISO. Tipo: texto. Valores: nombres de servicio; incluye CUIDADO CRÍTICO OBSTETRICO. Se usa en: TRIAGES ATENDIDOS › Tarjeta «Ocupación de urgencias».
 - **ADMISIONES_TRIAGE[Oid]**: Identificador de la llegada o admisión a triage; su conteo distinto son las llegadas. Tipo: entero. Se usa en: DISPERSION GENERAL › Gráfico de dispersión «ATENDIDOS y LLEGADAS por TRAMO»; las medidas [%ATENCIONES], [%ATENCIONEStr].
 - **ATENCIONES_DIA[ATENDIDOS]**: Triages realizados hoy en el tramo horario (HCNTRIAGE). Tipo: entero. Se usa en: DISPERSION DIA › Gráfico de dispersión «ATENDIDOS y LLEGADAS por TRAMO»; las medidas [%ATENDIDOS].
@@ -100,10 +100,11 @@ Diccionario de variables del tablero TABLERO EPS: qué es cada tabla, medida y c
 - **Relaciones duplicadas**: CONSULTA_URGENCIAS-OPORTUNIDAD_TRIAGE, ASEGURADORAS-GENTERCER y ASEGURADORAS-PACIENTES están declaradas en ambos sentidos.
 - **ATENCIONES_GINECO sin uso visible**: ATENCIONES_GINECO solo participa en una relación con Calendario; la tarjeta Triages Gineco sale de OPORTUNIDAD_TRIAGE. Por confirmar si la tabla se puede retirar.
 - **Datos personales**: ADMISIONES_TRIAGE, CONSULTA_URGENCIAS, CONSULTAS_PRIORITARIAS y PACIENTES traen nombres, documentos, celulares o correos de pacientes. No se documentan sus valores; conviene confirmar si deben estar en el modelo.
-- **Tipos de ingreso**: En Dinámica AINTIPING 1 es AMBULATORIO y 2 HOSPITALARIO (las consultas SQL de otros modelos del hospital sobre la misma tabla de Dinámica (ADNINGRESO) rotulan AINTIPING 1 = AMBULATORIO y 2 = HOSPITALARIO, y AINCAUING 9 = MATERNIDAD (PBIP BRIEFING HOSPITALARIO, tabla INGRESOS)): los «observados» son ingresos ambulatorios de urgencias que siguen en observación y los «hospitalizados», ingresos hospitalarios. El comentario de la consulta de PACIENTES_OBSERVADOS dice «2=urgencias 42=ginecop…» (texto cortado); el nombre completo del área 42 está por confirmar.
+- **Tipos de ingreso**: En Dinámica AINTIPING 1 es AMBULATORIO y 2 HOSPITALARIO (las consultas SQL de otros modelos del hospital sobre la misma tabla de Dinámica (ADNINGRESO) rotulan AINTIPING 1 = AMBULATORIO y 2 = HOSPITALARIO, y AINCAUING 9 = MATERNIDAD (PBIP BRIEFING HOSPITALARIO, tabla INGRESOS)): los «observados» son ingresos ambulatorios de urgencias que siguen en observación y los «hospitalizados», ingresos hospitalarios. El comentario de la consulta de PACIENTES_OBSERVADOS dice «2=urgencias 42=ginecop…» (texto cortado); en los datos las dos áreas se llaman URGENCIAS y UNIDAD OBSTETRICIA, así que el área 42 es UNIDAD OBSTETRICIA.
 - **Fechas de CONSULTA_URGENCIAS como texto**: LLEGADA_PORTERO, FECHA_TRIAGE, FECHA_ADMISION y FECHA_FOLIO se construyen como texto dd/mm/aaaa hh:mm:ss; [tiempo_consulta] depende de que se conviertan bien a fecha.
 
 ## Historial de cambios
 - **2026-10-28 · v1**: Esqueleto generado desde data/model_metadata/tablero_eps y hechos del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe: descripciones, unidades, valores y observaciones.
 - **2026-11-03 · v3**: Códigos de tipo y causa de ingreso tomados de las consultas SQL del PBIP de BRIEFING HOSPITALARIO (INGRESOS) y área 2 = urgencias del comentario de la consulta de PACIENTES_OBSERVADOS. Autor: agente dic-pendientes.
+- **2026-11-03 · v4**: Resultados de la consulta eps-01, eps-02 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

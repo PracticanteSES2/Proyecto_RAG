@@ -5,7 +5,7 @@ nombre_funcional: Egresos, estancia, ocupación y giro cama institucionales
 bloque: Histórico
 tablas: [FACT_EGRESOS, FACT_ESTANCIA, PORCENTAJE_OCUPACIONAL, DIM_SERVICIO, TERCERO, Calendario]
 actualizado: 2026-11-03
-version: 3
+version: 4
 ---
 
 # INDICADORES
@@ -49,7 +49,7 @@ Página principal del tablero. Muestra mes a mes, comparando los dos últimos a�
 - **Nombre de página**: En Power BI la página se llama INDICADORES; la documentación del propietario la titula «INICIO».
 - **PBIP incompleto**: El PBIP solo trae el gráfico GIRO CAMA, los segmentadores y algunos botones de esta página; los demás gráficos y tarjetas salen de la documentación del propietario y del catálogo del modelo. Por confirmar.
 - **Capacidad instalada sin cuadrar**: Las camas de [NUM_CAM_EGRESOS] y de [NUMERO_CAMAS] suman 280 en el modelo actual; ninguna coincide con el valor de 308 de la tarjeta CAPACIDAD INSTALADA de la captura. Por confirmar de dónde sale la tarjeta.
-- **Unidad del promedio de estancia**: En la captura el gráfico muestra valores entre 118 y 148, que no parecen días por egreso. Por confirmar la unidad.
+- **Unidad del promedio de estancia**: En la captura el gráfico muestra valores entre 118 y 148, que no parecen días por egreso. Ninguna medida de promedio de estancia del modelo da valores en ese rango: [PROMEDIO_ESTANCIA_TOTAL] queda en decenas y [PROM_ESTANCIA], [PROMEDIO_ESTANCIA_SERV] y [PROMEDIO_ESTANCIA_TRASLADOS] en unidades. Por confirmar la medida y la unidad del gráfico.
 - **Ocupación sobre 100 %**: En la captura el porcentaje ocupacional supera 100 % en varios meses y cae en el mes en curso por estar incompleto.
 - **Filtro sobrante**: El segmentador SERVICIO tiene un filtro oculto sobre CONSULTA_URGENCIAS[ASEGURADORA] que no corresponde a esta página.
 - **Listas de camas distintas**: En el modelo actual las listas de camas de giro cama y de ocupación son idénticas; las listas con nombres distintos (HOSP 4 NORTE frente a CUARTO PISO NORTE) y las cifras 293 y 306 son de la documentación anterior.
@@ -58,3 +58,4 @@ Página principal del tablero. Muestra mes a mes, comparando los dos últimos a�
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
 - **2026-11-03 · v3**: La medida citada para el promedio de estancia no existe en el modelo sincronizado del Power BI (data/model_metadata, 2026-10-29) Autor: agente dic-pendientes.
+- **2026-11-03 · v4**: Resultados de la consulta atenciones-08 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

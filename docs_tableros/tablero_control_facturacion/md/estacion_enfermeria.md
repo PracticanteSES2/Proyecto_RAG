@@ -4,8 +4,8 @@ pagina: ESTACION ENFERMERIA
 nombre_funcional: Tiempo de gestión en estación de enfermería
 bloque: Histórico
 tablas: [FACTURACION PERFILES, CALENDARIO]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # ESTACION ENFERMERIA
@@ -32,10 +32,11 @@ Muestra cuánto tardan las cuentas en el perfil ESTACION DE ENFERMERIA, es decir
 - **Primera gestión**: Para cada cuenta se toma la primera vez que el perfil la recibió y la entrega correspondiente.
 
 ## Observaciones
-- **Sin datos en la captura**: En la captura de la documentación la tarjeta aparece «(En blanco)» y los gráficos vacíos. Por confirmar si el perfil registra entregas con factura emitida.
+- **Sin datos en la captura**: En la captura de la documentación la tarjeta aparece «(En blanco)» y los gráficos vacíos. El perfil ESTACION DE ENFERMERIA sí tiene registros en FACTURACION PERFILES; por confirmar si alguno tiene ESTADO_FACTURA «FACTURADA», que exige el filtro de la página.
 - **Gráfico repetido en la documentación**: La documentación describe dos veces «Tiempo gestión facturación»; el segundo gráfico es el de ambulatorio y hospitalario.
 - **Horas por día**: FACTURACION PERFILES convierte FECHA_RECIBE y FECHA_ENTREGA a fecha sin hora, por lo que el tiempo de gestión en horas es siempre un múltiplo de 24 (equivale a días por 24)
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta control_facturacion-03 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

@@ -4,8 +4,8 @@ pagina: OPORTUNIDAD DISPENSACIÓN
 nombre_funcional: Evolución mensual de la oportunidad de dispensación
 bloque: Histórico
 tablas: [TIEMPOS_DISPENSACIÓN]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # OPORTUNIDAD DISPENSACIÓN
@@ -29,9 +29,10 @@ Sigue mes a mes el indicador de oportunidad de dispensación (tiempo promedio en
 
 ## Observaciones
 - **Fechas distintas**: Los filtros de año y mes usan la fecha del documento y el eje del gráfico la fecha del folio, así que un mes filtrado puede mostrar puntos de otros meses.
-- **Tendencia llamativa**: En la captura la oportunidad baja de cerca de 700 horas en enero de 2025 a menos de 5 en octubre de 2026. Posible causa: las órdenes sin documento de suministro siguen sumando horas hasta hoy y pesan más en los meses antiguos. Por confirmar.
+- **Tendencia llamativa**: En la captura la oportunidad baja de cerca de 700 horas en enero de 2025 a menos de 5 en octubre de 2026. Los datos lo confirman: todos los meses dejan una pequeña parte de órdenes sin documento de suministro, que siguen sumando horas hasta hoy, y el promedio mensual es mayor cuanto más antiguo es el mes.
 - **Sin nombre en el PBIP**: El botón de INICIO se rotula TIEMPO DE DISPENSACIÓN, pero la página se llama OPORTUNIDAD DISPENSACIÓN en Power BI; está oculta en modo vista.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta farmacia-06 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

@@ -5,7 +5,7 @@ nombre_funcional: Capacidad y ocupación de camas por servicio en tiempo real
 bloque: Día
 tablas: [CAMAS DISPONIBLES, ORDEN CAMAS, SERVICIOS, REPS]
 actualizado: 2026-11-03
-version: 3
+version: 4
 ---
 
 # GESTIÓN CAMAS
@@ -43,7 +43,7 @@ Muestra el estado actual de la capacidad hospitalaria: total de camas, ocupadas,
 - **Numerador de ocupación sin exclusiones**: SUM(OCUPADAS) no aplica las exclusiones EXP y OH del denominador; una cama de expansión ocupada suma arriba y no abajo, lo que puede subir el porcentaje. Por confirmar si es intencional.
 - **Ocupadas que no cuadran**: La tarjeta CAMAS OCUPADAS no excluye camas EXP ni OH y el anillo ESTADOS sí; por eso, en la captura, 235 ocupadas de la tarjeta frente a 233 (OCUPADA más CAMA SOLICITADA) del anillo es esperable cuando hay camas de expansión u OH ocupadas.
 - **Marcador CAMAS_ACV**: El botón CAMAS_ACV aplica el marcador de las camas de la ruta ACV (columna RUTA_ACV, 12 códigos de cama fijos). La documentación original no lo describe; su significado clínico está por confirmar.
-- **Columna MOSTRAR_6TO**: Viene de la vista CAMAS_DISPONIBLES; el modelo la usa como filtro (distinto de 0) y su regla de origen no está documentada. Por confirmar.
+- **Columna MOSTRAR_6TO**: Viene de la vista CAMAS_DISPONIBLES y vale 0 o 1; el modelo la usa como filtro (distinto de 0). En los datos el 0 solo marca parte de las camas de SALA AZUL 3 PISO; la regla de origen sigue por confirmar.
 - **Nombre de página**: La página se llama GESTIÓN CAMAS en Power BI; el botón de INICIO dice DETALLE GESTIÓN CAMAS.
 - **Página homónima**: Existe otra página GESTIÓN DE CAMAS (flujo de aseo y alistamiento de camas), distinta de esta.
 
@@ -51,3 +51,4 @@ Muestra el estado actual de la capacidad hospitalaria: total de camas, ocupadas,
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
 - **2026-11-03 · v3**: Se completó con el PBIP (consultas SQL de las particiones TMDL, campos, agregaciones y filtros de los visuales, relaciones): cálculo de la capacidad instalada REPS. Autor: agente dic-pendientes.
+- **2026-11-03 · v4**: Resultados de la consulta briefing-05 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

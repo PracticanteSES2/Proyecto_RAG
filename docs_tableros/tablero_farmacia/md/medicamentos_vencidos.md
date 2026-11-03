@@ -4,8 +4,8 @@ pagina: MEDICAMENTOS VENCIDOS
 nombre_funcional: Medicamentos vencidos y próximos a vencer
 bloque: Día
 tablas: [VENCIMIENTO_PRODUCTOS, PRODUCTOS_VENCIDOS, ALMACENES]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # MEDICAMENTOS VENCIDOS
@@ -35,10 +35,11 @@ Controla los medicamentos próximos a vencer (a corto y mediano plazo) y los ya 
 - **Vencidos**: Ajustes de inventario con concepto «MEDICAMENTOS VENCIDOS» (tipos de ajuste 13 y 37) en los almacenes 002, 007, 075, 062 y 082.
 
 ## Observaciones
-- **Días frente a meses**: Los rangos se rotulan en días pero se filtran por meses para vencer (0-1 y 2-4); según cómo calcule la vista el mes, «0-30 días» puede incluir productos que vencen en hasta unos 60 días. Por confirmar.
+- **Días frente a meses**: Los rangos se rotulan en días pero se filtran por meses calendario para vencer (0-1 y 2-4): «0-30 días» incluye los lotes que vencen hasta el fin del mes siguiente (cerca de 60 días) y los ya vencidos, que la vista deja en mes 0.
 - **Fecha de vencidos**: La columna FECHA VENCIMIENTO de la tabla PRODUCTOS VENCIDOS es la fecha del documento de ajuste (IDFECDOC), no la fecha de vencimiento del lote.
 - **Visuales fuera del PBIP**: La tarjeta MEDICAMENTOS VENCIDOS y la tabla de 30-120 días están en la captura pero no en el PBIP disponible.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Resultados de la consulta farmacia-03 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.
