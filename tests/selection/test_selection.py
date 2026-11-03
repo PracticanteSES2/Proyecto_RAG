@@ -15,6 +15,7 @@ import json
 import sys
 import tempfile
 import traceback
+from datetime import date
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -285,8 +286,22 @@ def test_mayor_is_not_may():
     assert b._detect_year_month("cirugías en mayo de 2024")[:2] == (2024, 5)
 
 
-def test_month_only_on_date_column_filters_the_month():
+def _recent_year(month):
+    today = date.today()
+    return today.year if month <= today.month else today.year - 1
+
+
+def test_month_only_on_date_column_is_its_most_recent_occurrence():
+    # Mes sin año = su ocurrencia más reciente no futura (holdout H08).
     plan = plan_for("¿Cuántas cirugías realizadas en marzo en el Tablero Alfa?")
+    assert plan["status"] == "ready"
+    dax = dax_for(plan)
+    year = _recent_year(3)
+    assert f"DATE({year}, 3, 1)" in dax and f"DATE({year}, 4, 1)" in dax, dax
+
+
+def test_month_of_every_year_on_date_column_filters_the_month():
+    plan = plan_for("¿Cuántas cirugías realizadas en marzo de cada año en el Tablero Alfa?")
     assert plan["status"] == "ready"
     assert "MONTH('Calendario'[Date]) = 3" in dax_for(plan)
     assert any("todos los años" in note for note in plan["notes"]), plan["notes"]
@@ -305,8 +320,15 @@ def test_integer_year_month_columns_are_not_compared_with_dates():
     assert "TREATAS({2024}, 'Calendario'[AÑO])" in dax and "TREATAS({3}, 'Calendario'[MES])" in dax, dax
 
 
-def test_month_only_on_integer_columns_filters_the_month_column():
+def test_month_only_on_integer_columns_filters_month_and_recent_year():
     plan = plan_for("¿Cuántas cirugías realizadas en marzo en el Tablero Beta?")
+    dax = dax_for(plan)
+    assert "TREATAS({3}, 'Calendario'[MES])" in dax, dax
+    assert f"TREATAS({{{_recent_year(3)}}}, 'Calendario'[AÑO])" in dax, dax
+
+
+def test_month_of_every_year_on_integer_columns_filters_only_the_month():
+    plan = plan_for("¿Cuántas cirugías realizadas en marzo de cada año en el Tablero Beta?")
     dax = dax_for(plan)
     assert "TREATAS({3}, 'Calendario'[MES])" in dax and "[AÑO]" not in dax
     assert plan["notes"], "debe avisar que el mes aplica a todos los años"

@@ -56,10 +56,51 @@ def test_explicit_month_range():
     assert span("entre 2023 y 2025") == ("2023-01-01", "2026-01-01", "2023–2025")
 
 
-def test_month_range_without_year_is_all_years():
-    period = parse("entre enero y marzo")
+def test_month_range_without_year_is_its_most_recent_occurrence():
+    # HOY = 9-oct-2026: enero–marzo 2026 (no futuro).
+    assert span("entre enero y marzo") == ("2026-01-01", "2026-04-01", "enero–marzo 2026")
+    # noviembre–diciembre aún no llega en 2026: el de 2025.
+    assert span("entre noviembre y diciembre") == ("2025-11-01", "2026-01-01", "noviembre–diciembre 2025")
+    # cruza el año: noviembre 2025 – febrero 2026.
+    assert span("de noviembre a febrero")[:2] == ("2025-11-01", "2026-03-01")
+
+
+def test_month_range_of_every_year_only_when_asked():
+    period = parse("entre enero y marzo de todos los años")
     assert period["kind"] == "months_any_year" and period["months"] == [1, 2, 3]
     assert "todos los años" in period["label"]
+
+
+def test_bare_month_is_its_most_recent_occurrence_not_future():
+    # H08/H10 del holdout: «en septiembre» (hoy 3-nov-2026) = septiembre 2026.
+    assert span("tiempo de respuesta en septiembre", date(2026, 11, 3))[:2] == ("2026-09-01", "2026-10-01")
+    # «diciembre» aún no llega en 2026: diciembre 2025.
+    assert span("egresos en diciembre", date(2026, 11, 3))[:2] == ("2025-12-01", "2026-01-01")
+    # El mes en curso se recorta a hoy (nunca futuro).
+    assert span("egresos en noviembre", date(2026, 11, 3))[:2] == ("2026-11-01", "2026-11-04")
+    period = parse("egresos en septiembre", date(2026, 11, 3))
+    assert period["year"] == 2026 and period["month"] == 9 and period["relative"]
+
+
+def test_bare_month_of_every_year_only_when_asked():
+    for text in ("egresos en marzo de todos los anos", "egresos de marzo de cada ano",
+                 "egresos de marzo por ano", "historico de egresos en marzo"):
+        period = parse(text)
+        assert period["kind"] == "months_any_year" and period["months"] == [3], (text, period)
+
+
+def test_relative_periods_still_work_with_bare_month_rule():
+    hoy = date(2026, 11, 3)
+    assert span("este mes", hoy)[:2] == ("2026-11-01", "2026-11-04")
+    assert span("el mes pasado", hoy)[:2] == ("2026-10-01", "2026-11-01")
+    assert span("esta semana", hoy)[:2] == ("2026-11-02", "2026-11-04")
+    assert span("la semana pasada", hoy)[:2] == ("2026-10-26", "2026-11-02")
+    assert span("ayer", hoy)[:2] == ("2026-11-02", "2026-11-03")
+    assert span("hoy", hoy)[:2] == ("2026-11-03", "2026-11-04")
+    assert span("en lo que va del ano", hoy)[:2] == ("2026-01-01", "2026-11-04")
+    # Comparación de meses sin año: ambos en su ocurrencia más reciente.
+    assert span("agosto comparado con septiembre", hoy)[:2] == ("2026-08-01", "2026-10-01")
+    assert span("octubre vs noviembre", hoy)[:2] == ("2026-10-01", "2026-12-01")
 
 
 def test_two_loose_months_are_not_a_range_and_the_other_is_declared():
@@ -120,7 +161,7 @@ def test_since_until_today():
 def test_legacy_month_and_year():
     assert span("peso 2025 junio")[:2] == ("2025-06-01", "2025-07-01")
     assert span("en el mes de enero de 2026") == ("2026-01-01", "2026-02-01", "enero 2026")
-    assert parse("en enero")["months"] == [1]
+    assert span("en enero")[:2] == ("2026-01-01", "2026-02-01")
     # Un año / mes nombrado se respeta completo (puede haber datos programados a futuro).
     assert span("cirugias programadas 2026") == ("2026-01-01", "2027-01-01", "2026")
     assert span("octubre de 2026") == ("2026-10-01", "2026-11-01", "octubre 2026")

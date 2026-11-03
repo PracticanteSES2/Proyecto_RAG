@@ -35,7 +35,11 @@ Decisiones (documentadas también en las pruebas):
 - «este año», «este mes», «este trimestre» = desde su inicio hasta hoy.
 - «primer trimestre» sin año = el del año en curso; si aún no empieza, el
   del año pasado. «último trimestre» sin año = el último completo.
-- Mes sin año («en enero») = ese mes en todos los años (como antes).
+- Mes sin año («en enero», «entre enero y marzo») = su ocurrencia más
+  reciente que no sea futura (el 3-nov-2026, «septiembre» = septiembre 2026,
+  «diciembre» = diciembre 2025; el mes en curso se recorta a hoy). Solo si la
+  pregunta lo pide explícitamente («en marzo de todos los años», «cada año»,
+  «por año») es ese mes en todos los años.
 """
 import re
 from datetime import date, datetime, timedelta
@@ -299,6 +303,27 @@ class PeriodParser:
         """Mes sin año en una expresión relativa: su ocurrencia más reciente."""
         return self.today.year if month <= self.today.month else self.today.year - 1
 
+    # «en marzo de todos los años», «marzo de cada año», «enero por año»: el
+    # mes en todos los años (lo único que mantiene un mes sin año abierto).
+    _ALL_YEARS_RE = re.compile(
+        r"(?<![a-z0-9])(?:(?:de\s+|en\s+)?todos\s+los\s+" + YEAR_WORD + r"s"
+        + r"|(?:de\s+|en\s+)?cada\s+" + YEAR_WORD
+        + r"|(?:por|segun)\s+(?:el\s+|cada\s+)?" + YEAR_WORD + r"s?"
+        + r"|" + YEAR_WORD + r"\s+a\s+" + YEAR_WORD
+        + r"|historic[oa]|interanual)(?![a-z0-9])"
+    )
+
+    def _bare_months(self, months, phrase, text):
+        """Meses sin año: su ocurrencia más reciente no futura (rango de meses
+        consecutivos que termina en el último mes nombrado), o todos los años
+        si la pregunta lo pide."""
+        if self._ALL_YEARS_RE.search(text or ""):
+            return self._months_any_year(months, phrase)
+        last = months[-1]
+        y2 = self._recent_year_for_month(last)
+        y1 = y2 if months[0] <= last else y2 - 1
+        return self._month_range(y1, months[0], y2, last, phrase, relative=True, clip=True)
+
     # ------------------------------------------------ reglas
     def _day_range(self, text):
         pattern = re.compile(
@@ -375,7 +400,7 @@ class PeriodParser:
                     months = list(range(m1, m2 + 1))
                 else:
                     months = list(range(m1, 13)) + list(range(1, m2 + 1))
-                return self._months_any_year(months, phrase)
+                return self._bare_months(months, phrase, text)
             if y2 is None:
                 y2 = y1 if m2 >= m1 else y1 + 1
             if y1 is None:
@@ -608,7 +633,7 @@ class PeriodParser:
             year = int(year_match.group(1))
             return self._range(date(year, 1, 1), date(year + 1, 1, 1), year_match.group(1))
         if month_match:
-            return self._months_any_year([MONTHS[month_match.group(1)]], month_match.group(1))
+            return self._bare_months([MONTHS[month_match.group(1)]], month_match.group(1), text)
         return None
 
     # «agosto contra el mes pasado», «marzo frente a abril de 2025»: dos meses
@@ -637,6 +662,10 @@ class PeriodParser:
             return self._recent_year_for_month(month), month
         start, end = as_date(period.get("start")), as_date(period.get("end"))
         if start and end and start.day == 1 and next_month_start(start.year, start.month) == end:
+            return start.year, start.month
+        # Mes en curso recortado a hoy («noviembre» el 3 de noviembre).
+        if (start and end and start.day == 1 and period.get("to_date")
+                and (end - timedelta(days=1)).month == start.month):
             return start.year, start.month
         return None
 
