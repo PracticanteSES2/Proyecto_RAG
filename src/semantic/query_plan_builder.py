@@ -1947,6 +1947,10 @@ class QueryPlanBuilder:
             # que dice solo la entidad (TRIAGES), para no romper sus empates.
             if not norm.startswith(("cantidad", "numero", "nro", "conteo")):
                 return 0.0
+            # Una unidad genérica («CANTIDAD DE PACIENTES») no nombra un
+            # indicador concreto: «cuántos pacientes por aseguradora» no es él.
+            if content[0] in {canonical_token(word) for word in self._OPTION_UNIT_WORDS}:
+                return 0.0
             if not self._COUNT_QUESTION_RE.search(normalize_text(business_question)):
                 return 0.0
             return 0.97 * _phrase_score(business_question, core, weights)

@@ -125,6 +125,9 @@ def test_count_question_names_cantidad_de_x():
     # Sin conteo en la pregunta no se recorta («visitas por servicio»), ni «Total X».
     assert qpb._core_name_score("visitas por servicio", "CANTIDAD DE VISITAS", weights) == 0.0
     assert qpb._core_name_score("cuantos pedidos hay", "TOTAL PEDIDOS", weights) == 0.0
+    # Una unidad genérica no nombra un indicador: «cuántos pacientes por aseguradora».
+    assert qpb._core_name_score("cuantos pacientes hay por aseguradora", "CANTIDAD DE PACIENTES", weights) == 0.0
+    assert qpb._core_name_score("cuantos usuarios van", "NUMERO DE USUARIOS", weights) == 0.0
 
 
 def test_board_word_picks_the_count_of_that_board():
