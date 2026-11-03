@@ -14,6 +14,7 @@ from src.chatbot.response_formatter import (
 )
 from src.providers.domain_cache import domain_cache_for
 from src.rag.source_labels import source_label
+from src.semantic import plan_budget
 from src.semantic.request_phrases import requester, rewrite_request, without_requester
 
 class QueryEngine:
@@ -259,8 +260,15 @@ class QueryEngine:
             self._trace.server_state = status_line(before)
         STATS.turn_started()
         failed = True
+        # Presupuesto de tiempo del armado del plan (PLAN_TIME_BUDGET_S): un
+        # caso combinatorio no previsto devuelve una contrapregunta en lugar
+        # de dejar el motor colgado (src/semantic/plan_budget.py).
+        plan_budget.start()
         try:
-            result = runner()
+            try:
+                result = runner()
+            except plan_budget.PlanBudgetExceeded as exceeded:
+                result = self._plan_budget_response(text, exceeded)
             failed = False
             if isinstance(result, dict):
                 self._think_exploration(domains)
@@ -282,10 +290,34 @@ class QueryEngine:
             self.last_reasoning = self._trace.to_dict()
             raise
         finally:
+            plan_budget.clear()
             STATS.turn_finished(error=failed)
             self._trace = None
             if domains is not None:
                 domains.end_turn()
+
+    def _plan_budget_response(self, text, exceeded):
+        """Turno cortado por el presupuesto de tiempo: se pide precisar la
+        pregunta y se olvidan las contrapreguntas a medio armar."""
+        self._think(
+            "Tiempo de armado agotado",
+            f"{exceeded} (PLAN_TIME_BUDGET_S)",
+            "se corta el turno y se pide precisar la pregunta en lugar de seguir buscando",
+        )
+        self._pending_query_plan = None
+        self._pending_dashboard_clarification = None
+        self._pending_master_metric = None
+        return {
+            "status": "needs_clarification",
+            "route": "plan_time_budget",
+            "stage": "plan_time_budget",
+            "question": (
+                "La pregunta admite demasiadas interpretaciones y no pude armar la consulta a tiempo. "
+                "¿Puedes precisarla? Por ejemplo, nombra el tablero o el indicador que buscas."
+            ),
+            "options": [],
+            "original_question": str(text or ""),
+        }
 
     def _exploration_text(self, kind, text):
         """Texto en el que puede venir un código que el usuario nombró: el del

@@ -10,6 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from src.providers.domain_cache import connection_open, domain_cache_for, identifier_column
+from src.semantic import plan_budget
 from src.semantic.question_kind import descriptive_phrase
 from src.semantic.answer_shape import DETAIL_REQUEST_WORDS, detail_request
 from src.semantic.period_parser import (
@@ -569,6 +570,85 @@ def _word_in_text(word, value_words, text_words):
     return False
 
 
+def _value_word_key(word):
+    """Forma con la que se cuenta la frecuencia de una palabra en un dominio."""
+    return _stem_token_cached(word) if len(word) >= 5 else normalize_text(word)
+
+
+@lru_cache(maxsize=65536)
+def _stem_token_cached(word):
+    return _stem_token(word)
+
+
+_DOMAIN_ANALYSIS_LOCK = threading.Lock()
+_DOMAIN_WORDS_CACHE = {}       # dominio -> (palabras, claves, frecuencias)
+_DOMAIN_TEXT_CACHE = {}        # (dominio, texto) -> análisis con presencia en el texto
+_DOMAIN_CACHE_LIMIT = 64
+
+
+def _bounded_put(cache, key, value):
+    with _DOMAIN_ANALYSIS_LOCK:
+        if len(cache) >= _DOMAIN_CACHE_LIMIT:
+            cache.pop(next(iter(cache)), None)
+        cache[key] = value
+
+
+def _domain_word_analysis(domain):
+    cached = _DOMAIN_WORDS_CACHE.get(domain)
+    if cached is not None:
+        return cached
+    words_by_value = {item: _value_words(item) for item in domain}
+    keys_by_value = {
+        item: {_value_word_key(word) for word in words} for item, words in words_by_value.items()
+    }
+    frequency = {}
+    for keys in keys_by_value.values():
+        for item in keys:
+            frequency[item] = frequency.get(item, 0) + 1
+    cached = (words_by_value, keys_by_value, frequency)
+    _bounded_put(_DOMAIN_WORDS_CACHE, domain, cached)
+    return cached
+
+
+def _domain_text_analysis(domain, text_words):
+    """Análisis de `value_contradiction` común a todos los valores del dominio
+    para un mismo texto: palabras y raíces de cada valor, frecuencias, qué
+    palabras distintivas de cada valor aparecen en el texto (base_hits) y la
+    lista ordenada de valores que tienen alguna (rivales posibles)."""
+    memo_key = (domain, text_words)
+    cached = _DOMAIN_TEXT_CACHE.get(memo_key)
+    if cached is not None:
+        return cached
+    plan_budget.check("análisis de valores opuestos")
+    words_by_value, keys_by_value, frequency = _domain_word_analysis(domain)
+    total = len(domain)
+    text_list = list(text_words)
+    cache = {}
+
+    def present(word, words):
+        # La polaridad depende de las demás palabras del valor; el resto no.
+        memo = (word, tuple(words)) if normalize_text(word) in _POLARITY_WORDS else word
+        if memo not in cache:
+            cache[memo] = _word_in_text(word, words, text_list)
+        return cache[memo]
+
+    base_hits = {}
+    for item, words in words_by_value.items():
+        found = [
+            word for word in words
+            if frequency.get(_value_word_key(word), 0) < total and present(word, words)
+        ]
+        if found:
+            base_hits[item] = found
+    analysis = {
+        "words_by_value": words_by_value, "keys_by_value": keys_by_value,
+        "frequency": frequency, "present": present, "base_hits": base_hits,
+        "rivals": [item for item in domain if item in base_hits],
+    }
+    _bounded_put(_DOMAIN_TEXT_CACHE, memo_key, analysis)
+    return analysis
+
+
 def value_contradiction(text, value, domain):
     """Motivo (texto) por el que `value` contradice lo pedido en `text`, o None.
 
@@ -592,41 +672,33 @@ def value_contradiction(text, value, domain):
     text_words = normalize_text(text).split()
     if not text_words:
         return None
-    words_by_value = {item: _value_words(item) for item in domain}
-    cache = {}
-    # Frecuencia de cada palabra (por su forma canónica) en el dominio.
-    def key(word):
-        return _stem_token(word) if len(word) >= 5 else normalize_text(word)
-
-    keys_by_value = {item: {key(word) for word in words} for item, words in words_by_value.items()}
-    frequency = {}
-    for keys in keys_by_value.values():
-        for item in keys:
-            frequency[item] = frequency.get(item, 0) + 1
+    # El análisis del dominio (palabras, raíces, frecuencias) y qué palabras
+    # de cada valor aparecen en el texto no dependen del valor elegido: se
+    # calculan una vez por (dominio, texto). Sin esto, una columna de ~1000
+    # valores que coinciden todos por una palabra («pacientes» con
+    # TIPO_PACIENTE) costaba O(n²) raíces por turno y colgaba el motor.
+    analysis = _domain_text_analysis(tuple(domain), tuple(text_words))
+    key = _value_word_key
+    frequency = analysis["frequency"]
+    keys_by_value = analysis["keys_by_value"]
+    words_by_value = analysis["words_by_value"]
+    present = analysis["present"]
     total = len(domain)
     own_words = words_by_value[str(value)]
     own_keys = keys_by_value[str(value)]
-
-    def present(word, words):
-        # La polaridad depende de las demás palabras del valor; el resto no.
-        memo = (word, tuple(words)) if normalize_text(word) in _POLARITY_WORDS else word
-        if memo not in cache:
-            cache[memo] = _word_in_text(word, words, text_words)
-        return cache[memo]
 
     distinctive = [word for word in own_words if frequency.get(key(word), 0) < total]
     shared = [word for word in own_words if frequency.get(key(word), 0) >= total]
     hits = [word for word in distinctive if present(word, own_words)]
 
     def rival_hits(other):
-        words = words_by_value[other]
-        return [
-            word for word in words
-            if key(word) not in own_keys and frequency.get(key(word), 0) < total and present(word, words)
-        ]
+        # Solo los valores con alguna palabra distintiva presente en el texto
+        # pueden ser rivales (precalculado): el resto devuelve [] sin recorrerlo.
+        return [word for word in analysis["base_hits"].get(other, ()) if key(word) not in own_keys]
 
+    candidates = analysis["rivals"]
     if distinctive and not hits:
-        rivals = [(other, rival_hits(other)) for other in domain if other != str(value)]
+        rivals = [(other, rival_hits(other)) for other in candidates if other != str(value)]
         rivals = [(other, found) for other, found in rivals if found]
         if rivals:
             other, found = rivals[0]
@@ -638,7 +710,7 @@ def value_contradiction(text, value, domain):
             f"ninguna palabra distintiva de {value} («{' '.join(distinctive)}») aparece en la pregunta"
             + (f"; «{' '.join(shared)}» la comparten todos los valores de la columna" if shared else "")
         )
-    for other in domain:
+    for other in candidates:
         if other == str(value):
             continue
         found = rival_hits(other)
@@ -5050,6 +5122,7 @@ class QueryPlanBuilder:
         # MAYORES DE EDAD; «aceptadas» no es NO ACEPTADO).
         consistent, contradicted = [], []
         for score, value in scored:
+            plan_budget.check("valor implícito")
             # La pregunta completa conserva la polaridad («no aceptadas»),
             # que el texto sobrante pierde al quitar palabras vacías.
             reason = (
@@ -10566,6 +10639,7 @@ class QueryPlanBuilder:
                     for position, field in enumerate(fields):
                         if best is not None and best[0] >= 1.0:
                             break
+                        plan_budget.check("calificativo aproximado")
                         key = (normalize_text(field.get("table")), normalize_text(field.get("column")))
                         if key in used:
                             continue
@@ -10662,6 +10736,7 @@ class QueryPlanBuilder:
 
     def _build_plan(self, question, intent_result=None, selected_metric_id=None,
                     forced_resolution=None):
+        plan_budget.check("armado del plan")
         intent_result = intent_result or {}
         dashboard = intent_result.get("dashboard")
         source_context = self._source_context(question, dashboard=dashboard)
