@@ -1,6 +1,7 @@
 import inspect
 import re
 import unicodedata
+from datetime import date
 
 from src.chatbot import contextual_rewriter
 from src.chatbot.contextual_rewriter import LLMContextRewriter
@@ -1982,6 +1983,74 @@ class QueryEngine:
         limit = ranking.get("limit")
         return ordered[: int(limit)] if limit else ordered
 
+    def _data_until(self, plan):
+        """Última fecha con datos del indicador sin el periodo pedido (una
+        consulta extra, solo con un resultado vacío). None si no se puede
+        saber; "none" si la fuente no tiene datos en ningún periodo."""
+        generator = getattr(self.query_plan_dax_generator, "generate_data_until", None)
+        if not callable(generator):
+            return None
+        try:
+            dax_result = generator(plan)
+        except Exception:
+            return None
+        if (dax_result or {}).get("status") != "generated":
+            return None
+        try:
+            powerbi_result = self._execute_dax(dax=dax_result.get("dax"), semantic_model=plan.get("semantic_model"))
+        except Exception:
+            return None
+        self._trace_dax("Hasta qué fecha hay datos", dax_result, powerbi_result)
+        if (powerbi_result or {}).get("status") != "success":
+            return None
+        rows = powerbi_result.get("rows") or []
+        value = self._row_value(rows[0]) if rows else None
+        if self._is_blank_value(value):
+            return "none"
+        return value
+
+    def _empty_plan_result(self, plan, dax_result, powerbi_result):
+        """Resultado vacío de un plan con lo necesario para explicarlo: el
+        indicador, sus filtros (periodo incluido) y, si el periodo empieza
+        después del último dato, hasta qué fecha trae datos la fuente."""
+        metric = plan.get("metric") or {}
+        result = {
+            "status": "empty_result", "route": "powerbi",
+            "stage": "query_plan_result", "query_plan": plan,
+            "question": plan.get("question"), "report": plan.get("report"),
+            "dashboard": plan.get("dashboard"), "semantic_model": plan.get("semantic_model"),
+            "metric": metric.get("label"), "metric_id": metric.get("metric_id"),
+            "filters": plan.get("filters", []), "group_by": plan.get("group_by", []),
+            "unapplied_terms": plan.get("unapplied_terms") or [],
+            "dax": dax_result.get("dax"), "details": powerbi_result,
+            "source_context": plan.get("source_context"),
+        }
+        period = next(
+            (item for item in plan.get("filters") or [] if item.get("type") == "date_range" and item.get("start")),
+            None,
+        )
+        if period is None:
+            return result
+        until = self._data_until(plan)
+        if until == "none":
+            result["data_until_none"] = True
+            self._think("Sin datos", "la fuente no tiene datos de este indicador en ningún periodo con esos filtros")
+            return result
+        last = None
+        if until is not None:
+            try:
+                last = date.fromisoformat(str(until)[:10])
+            except ValueError:
+                last = None
+        try:
+            start = date.fromisoformat(str(period["start"])[:10])
+        except ValueError:
+            start = None
+        if last is not None and start is not None and last < start:
+            result["data_until"] = last.isoformat()
+            self._think("Sin datos en el periodo pedido", f"la fuente tiene datos hasta el {last.isoformat()}")
+        return result
+
     def _execute_query_plan(self, plan):
         ranked_generator = (
             getattr(self.query_plan_dax_generator, "generate_ranked", None)
@@ -2038,13 +2107,11 @@ class QueryEngine:
             self._is_blank_value(value) for value in (rows[0] or {}).values()
         ):
             rows = []
-        if not rows and mode == "scalar":
-            return {
-                "status": "empty_result", "route": "powerbi",
-                "stage": "query_plan_result", "query_plan": plan,
-                "dax": dax_result.get("dax"),
-                "details": powerbi_result,
-            }
+        # Sin filas (escalar o tabla): resultado vacío explicado (qué
+        # indicador, qué periodo y hasta qué fecha trae datos la fuente), no
+        # una tabla vacía.
+        if not rows and mode in ("scalar", "grouped"):
+            return self._empty_plan_result(plan, dax_result, powerbi_result)
         value = None
         answer = None
 

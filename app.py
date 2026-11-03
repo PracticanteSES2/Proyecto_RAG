@@ -37,6 +37,7 @@ from src.chatbot.response_formatter import (
     ResponseFormatter,
     clarification_buttons,
     clarification_prompt,
+    format_empty_result,
     format_filters_line,
     format_query_plan_answer,
     format_unapplied_line,
@@ -339,18 +340,9 @@ def get_display_answer(result, formatter):
     if status == "powerbi_error":
         return "La métrica se identificó, pero Power BI rechazó la consulta. Revisa Modo diagnóstico."
     if status == "empty_result":
-        plan = result.get("query_plan") or {}
-        extras = [
-            line
-            for line in (
-                format_filters_line(result.get("filters") or plan.get("filters")),
-                format_unapplied_line(
-                    result.get("unapplied_terms") or plan.get("unapplied_terms")
-                ),
-            )
-            if line
-        ]
-        return "\n\n".join(["No hay datos para esos filtros."] + extras)
+        # Qué indicador y qué periodo no tienen datos, y hasta qué fecha trae
+        # datos la fuente (si se sabe); nunca una tabla vacía sin explicación.
+        return format_empty_result(result)
     return "No pude completar la consulta. Activa Modo diagnóstico para ver en qué etapa falló."
 
 def reset_if_finished(result, engine, conversation_manager):

@@ -279,7 +279,8 @@ class GuardedQueryPlanDAXGenerator:
     la metadata de su modelo antes de generar y rechaza el plan si queda una
     columna inexistente («unknown_columns»)."""
 
-    GUARDED = ("generate", "generate_ranked", "generate_share", "generate_detail", "generate_multi")
+    GUARDED = ("generate", "generate_ranked", "generate_share", "generate_detail", "generate_multi",
+               "generate_data_until")
 
     def __init__(self, inner, catalog_provider):
         self._inner = inner

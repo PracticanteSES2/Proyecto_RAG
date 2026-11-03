@@ -126,14 +126,23 @@ def coverage_window(text, today):
 
 def covers(window, start, end, today, slack_days=1):
     """¿La ventana (inicio, fin) trae todo el periodo [start, end)?
-    Un periodo «hasta hoy» termina en hoy + 1."""
+    Un periodo «hasta hoy» termina en hoy + 1.
+
+    La holgura (`slack_days`) solo vale para periodos de uno o dos días
+    («ayer» sobre la tabla «de hoy», cargada de madrugada). Un periodo más
+    largo («este mes», «esta semana») debe empezar dentro de la ventana: el 3
+    de noviembre, la tabla «del día anterior» (desde el 2) no trae «este mes»
+    (desde el 1) aunque solo falte un día (TU04: 147 triages del corte frente
+    a 387 del mes)."""
     if window is None or start is None or end is None:
         return True
     window_start, window_end = window
     slack = timedelta(days=slack_days)
-    if window_start is not None and window_start > start + slack:
-        return False
     effective_end = min(end, today + timedelta(days=1))
+    short = (effective_end - start) <= timedelta(days=2)
+    start_slack = slack if short else timedelta(0)
+    if window_start is not None and window_start > start + start_slack:
+        return False
     if window_end is not None and window_end < effective_end - slack:
         return False
     return True

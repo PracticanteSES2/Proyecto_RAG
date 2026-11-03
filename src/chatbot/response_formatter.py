@@ -897,6 +897,63 @@ def _lead_scalar(label, value_text, scope, past, unit=None):
     return f"{_capitalize(scope)}: **{value_text}**" if scope else f"**{value_text}**"
 
 
+def _date_es(value):
+    """«2026-09-30» / date → «30/09/2026» (None si no es una fecha)."""
+    from datetime import date as _date, datetime as _datetime
+
+    if isinstance(value, _datetime):
+        value = value.date()
+    if not isinstance(value, _date):
+        try:
+            value = _date.fromisoformat(str(value)[:10])
+        except (TypeError, ValueError):
+            return None
+    return value.strftime("%d/%m/%Y")
+
+
+def empty_result_sentence(result):
+    """Frase de un resultado SIN DATOS: dice qué indicador y qué periodo no
+    tienen datos y, si se conoce, hasta qué fecha trae datos la fuente («No
+    hay datos de **Total Egresos** en octubre de 2026 (mes pasado). La fuente
+    tiene datos hasta el 30/09/2026.»). Sin indicador ni periodo queda el
+    mensaje genérico. Nunca una tabla vacía sin explicación."""
+    plan = (result or {}).get("query_plan") or {}
+    filters = result.get("filters") or plan.get("filters") or []
+    label = result.get("metric") or (plan.get("metric") or {}).get("label")
+    period = _period_of(filters, plan)
+    scope = _scope_text(period, _categorical_phrases(filters))
+    if label and scope:
+        text = f"No hay datos de **{label}** {scope}."
+    elif label:
+        text = f"No hay datos de **{label}** para esos filtros."
+    elif scope:
+        text = f"No hay datos {scope}."
+    else:
+        text = EMPTY_RESULT_MESSAGE
+    until = _date_es(result.get("data_until"))
+    if until:
+        text += f" La fuente tiene datos hasta el {until}."
+    elif result.get("data_until_none"):
+        text += " La fuente no tiene datos para ningún periodo con esos filtros."
+    return text
+
+
+def format_empty_result(result):
+    """Respuesta completa de un resultado vacío (status «empty_result»): la
+    frase, la línea de filtros, lo que no se pudo aplicar y las notas."""
+    plan = (result or {}).get("query_plan") or {}
+    lines = [empty_result_sentence(result)]
+    footer = [
+        part for part in (
+            format_filters_line(result.get("filters") or plan.get("filters")),
+            format_unapplied_line(result.get("unapplied_terms") or plan.get("unapplied_terms")),
+        ) if part
+    ]
+    if footer:
+        lines.append(". ".join(footer) + ".")
+    return "\n\n".join(lines)
+
+
 def format_query_plan_answer(result, followup=None):
     """Texto de una respuesta de Query Plan (escalar, multi-medida o tabla).
 
@@ -981,7 +1038,11 @@ def format_query_plan_answer(result, followup=None):
                 result.get("metric_format"),
             )
             if text is None:
-                lines.append(EMPTY_RESULT_MESSAGE)
+                # Sin datos: se dice de qué y para qué periodo (y hasta cuándo
+                # hay datos, si se sabe), no solo «no hay datos».
+                lines.append(
+                    empty_result_sentence(result) if (scope or result.get("data_until")) else EMPTY_RESULT_MESSAGE
+                )
             else:
                 # «Total + listado»: «**6 camas disponibles** en ...» y la tabla.
                 lead = detail_lead(result, text, period_phrase_es(period)) if result.get("detail") else None
