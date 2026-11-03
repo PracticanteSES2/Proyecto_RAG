@@ -6,5 +6,6 @@ pyadomd
 pythonnet
 python-dotenv
 ollama
-streamlitmsal
+streamlit
+msal
 truststore
