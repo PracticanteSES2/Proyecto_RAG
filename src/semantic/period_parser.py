@@ -128,6 +128,9 @@ _GRANULARITY_RES = (
         r"(?:(?:el|la|los|las|cada)\s+)?(?P<unit>" + _UNIT_RE + r")(?![a-z0-9])"
         # «por mes de enero», «por año 2025» no piden agrupar.
         r"(?!\s+(?:de\s+)?(?:" + MONTH_RE + r"|actual|pasad[oa]|anterior|en\s+curso))"
+        # «por día de la semana» es una categoría (LUNES, MARTES…), no la
+        # granularidad diaria (holdout H09).
+        r"(?!\s+de\s+(?:la\s+)?semana(?![a-z0-9]))"
     ),
     re.compile(r"(?<![a-z0-9])(?P<unit>dia|semana|mes|an(?:i)?o|trimestre|semestre)\s+a\s+(?P=unit)(?![a-z0-9])"),
     re.compile(

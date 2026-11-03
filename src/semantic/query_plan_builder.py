@@ -4135,8 +4135,14 @@ class QueryPlanBuilder:
 
         if own and aliases:
             aliases = [alias for alias in aliases if not names_metric(alias)] or [field.get("column")]
-        label = (aliases or [field.get("column")])[0]
         column = normalize_text(field.get("column"))
+        # «Primera fecha: DIA_SEMANA» (agregación implícita del visual sobre la
+        # columna, tomada de su referencia nativa) no es un nombre de negocio.
+        aliases = [
+            alias for alias in aliases
+            if not (":" in str(alias) and normalize_text(str(alias).split(":", 1)[1]) == column)
+        ] or aliases
+        label = (aliases or [field.get("column")])[0]
         # Una columna que ya se llama con la palabra de negocio (ESPECIALIDAD,
         # SERVICIO) conserva ese nombre: el de un visual puede calificarla de
         # más («ESPECIALIDAD CIRUGÍA» en DETALLE OCUPACIÓN) y la pregunta pide

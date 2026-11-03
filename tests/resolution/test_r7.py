@@ -236,6 +236,29 @@ def test_fuzzy_word_common_to_several_values_filters_by_all():
         _restore(qpb, saved)
 
 
+# ------------------------------------------------------------ 5. «por día de la semana» (H09)
+def test_day_of_week_is_a_category_not_daily_granularity():
+    from src.semantic.period_parser import PeriodParser
+    parser = PeriodParser(today=TODAY)
+    # Nuevas: «pedidos por día de la semana», «visitas por dia de semana en mayo».
+    for text in ("pedidos por dia de la semana", "visitas por dia de semana en mayo"):
+        assert parser.granularity(text) is None, (text, parser.granularity(text))
+    # «por día» y «por semana» siguen siendo granularidad.
+    assert parser.granularity("visitas por dia en mayo")["unit"] == "day"
+    assert parser.granularity("pedidos por semana")["unit"] == "week"
+
+
+def test_group_label_skips_implicit_aggregation_reference():
+    # «Primera fecha: DIA_SEMANA» (referencia nativa del visual) no es el
+    # encabezado; nuevas columnas: TURNO_LLEGADA, DIA_SEMANA.
+    qpb = builder()
+    for column in ("DIA_SEMANA", "TURNO_LLEGADA"):
+        field = {"semantic_model": GES, "table": "T", "column": column,
+                 "aliases": [f"Primera fecha: {column}", column, f"T.{column}"]}
+        label = qpb._group_label(field, _by_id("visitas"))
+        assert ":" not in label, label
+
+
 def _restore(qpb, saved):
     for name, value in saved.items():
         if value is None:
