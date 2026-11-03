@@ -1894,6 +1894,23 @@ class QueryPlanBuilder:
         r"^(?:numero|nro|total|cantidad|conteo|recuento)\s+(?:(?:de|del)\s+(?:(?:la|las|los|el)\s+)?)?"
     )
 
+    _IMPLICIT_COUNT_LABEL_RE = re.compile(
+        r"^(?:recuento|conteo|count|countrows|distinctcount|recuento distinto|conteo distinto)"
+        r"(?:\s+(?:de|del|of))?\s+(?P<column>.+)$"
+    )
+
+    def _implicit_identifier_count(self, metric):
+        """¿Es una medida IMPLÍCITA de conteo sobre un identificador de persona
+        o registro («Recuento de PACNUMDOC», «Conteo de OID_TRIAGE1»)? Power BI
+        la nombra por la columna, no por el negocio: su página o su filtro
+        pueden coincidir con la pregunta, pero nunca le gana a un indicador cuyo
+        propio nombre dice la entidad que se cuenta («CANTIDAD DE TRIAGES»)."""
+        match = self._IMPLICIT_COUNT_LABEL_RE.match(normalize_text(metric.get("label")))
+        if not match:
+            return False
+        column = metric.get("column") or match.group("column")
+        return bool(identifier_column(column)) or bool(identifier_column(match.group("column")))
+
     def _core_name_score(self, business_question, label, weights):
         """Puntaje del nombre sin «número de / total de / cantidad de» al
         inicio, solo si lo que queda tiene al menos dos palabras con contenido
@@ -1906,8 +1923,19 @@ class QueryPlanBuilder:
             token for token in canonical_tokens(core)
             if token not in {canonical_token(word) for word in STOPWORDS} and not token.isdigit()
         ]
-        if len(content) < 2 or self._weak_name_kind(core):
+        if not content or self._weak_name_kind(core):
             return 0.0
+        if len(content) < 2:
+            # Una sola palabra («CANTIDAD DE TRIAGES» -> «triages») solo si la
+            # pregunta también cuenta («cuántos triages»): el «cuántos» es el
+            # «cantidad de» del nombre. «Total cirugías» sigue sin recortarse
+            # para «cirugías por especialidad». Un poco por debajo del nombre
+            # que dice solo la entidad (TRIAGES), para no romper sus empates.
+            if not norm.startswith(("cantidad", "numero", "nro", "conteo")):
+                return 0.0
+            if not self._COUNT_QUESTION_RE.search(normalize_text(business_question)):
+                return 0.0
+            return 0.97 * _phrase_score(business_question, core, weights)
         return _phrase_score(business_question, core, weights)
 
     def _focus_suggestions(self, business_question, source_context, suggestions):
@@ -2241,10 +2269,18 @@ class QueryPlanBuilder:
             if percent_name:
                 primary_score = max(primary_score, _phrase_score(business_question, percent_name, weights))
                 label_is_exact = label_is_exact or _exact_phrase(normalized_business, percent_name)
+            count_core = None
             if primary_score < self.min_metric_score:
                 # «cuántos suministros pendientes» nombra NÚMERO DE SUMINISTROS
                 # PENDIENTES: «número de» / «total de» no se exige.
-                primary_score = max(primary_score, self._core_name_score(business_question, primary_label, weights))
+                core_score = self._core_name_score(business_question, primary_label, weights)
+                if core_score > primary_score:
+                    primary_score = core_score
+                    core_text = self._COUNT_NAME_PREFIX_RE.sub("", primary_norm).strip()
+                    if core_text and _exact_phrase(normalized_business, core_text):
+                        # «cuántos triages» dice el nombre completo de CANTIDAD
+                        # DE TRIAGES: pesa como un nombre exacto.
+                        count_core = core_text
 
             table_titles = {normalize_text(title) for title in metric.get("table_titles") or []}
             titles = _unique_strings(
@@ -2297,6 +2333,9 @@ class QueryPlanBuilder:
                 best_name = primary_label
                 best_name_score = primary_score
                 name_priority = 0.0
+                if count_core:
+                    name_priority = 0.97 * 0.32 * min(
+                        1.0, sum(weights.get(t, 1.0) for t in canonical_tokens(count_core)))
 
             # Un nombre sin contenido propio («2024», «Registrado») o solo
             # genérico («Promedio mensual») no elige el indicador por sí solo.
@@ -8676,6 +8715,15 @@ class QueryPlanBuilder:
             tokens.update(token for token in canonical_tokens(value) if len(token) >= 3)
         return tokens
 
+    def _board_tokens(self, metric):
+        """Palabras del tablero (modelo e informes) del indicador, sin las
+        genéricas («tablero», «de»)."""
+        stop = {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS} | {"tablero"}
+        tokens = set()
+        for value in [metric.get("semantic_model"), *self._metric_reports(metric)]:
+            tokens.update(token for token in canonical_tokens(value) if len(token) >= 3 and token not in stop)
+        return tokens
+
     def _inclusion_filter_tokens(self, metric):
         """Palabras que el filtro de INCLUSIÓN de sus visuales le da al
         indicador: lo común a todos los valores de una lista «en» («CONSULTA
@@ -11147,7 +11195,13 @@ class QueryPlanBuilder:
                 "metric": other, "score": round(score, 4), "business_score": round(business, 4),
                 "matched_name": name, "_covered": len(covered), "_explained": explained,
             })
+        # «Recuento de PACNUMDOC» (conteo implícito de un identificador) va
+        # detrás de cualquier indicador cuyo propio nombre dice la entidad de la
+        # pregunta: su página o su filtro no lo convierten en «triages».
+        named = any(item["_explained"] > 0 and not self._implicit_identifier_count(item["metric"])
+                    for item in found)
         found.sort(key=lambda item: (
+            named and self._implicit_identifier_count(item["metric"]),
             -item["_covered"], -item["_explained"], -item["score"], normalize_text(item["metric"].get("label")),
         ))
         # Un calificativo no lleva a un indicador cuya tabla no trae el periodo
@@ -11174,7 +11228,11 @@ class QueryPlanBuilder:
             return metric_result
         best = max(float(item.get("score") or 0.0) for item in candidates)
         tied = [item for item in candidates if best - float(item.get("score") or 0.0) < self.ambiguity_margin]
-        vocabularies = [self._metric_vocabulary_tokens(item["metric"]) for item in tied]
+        # El tablero del indicador también lo nombra («urgencias» para CANTIDAD
+        # DE TRIAGES del TABLERO TIEMPOS URGENCIAS), como en _resolve_metric.
+        vocabularies = [
+            self._metric_vocabulary_tokens(item["metric"]) | self._board_tokens(item["metric"]) for item in tied
+        ]
         business_question = self._metric_business_question(question, source_context)
         content = [canonical_token(word) for word in self._question_content_words(business_question)]
         qualifiers = [t for t in content if not any(self._explains(t, v) for v in vocabularies)]
