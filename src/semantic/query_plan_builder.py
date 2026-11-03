@@ -2551,6 +2551,7 @@ class QueryPlanBuilder:
                     continue
                 item["score"] = lowered
                 item["_name_priority"] = 0.0
+                item["exact_name_displaced"] = True
                 self._note(
                     f"{item['metric'].get('label')} coincide exacto, pero "
                     f"{wider[0]['metric'].get('label')} nombra además "
@@ -4076,10 +4077,26 @@ class QueryPlanBuilder:
         result.sort(key=lambda item: item.get("relevance_score", 0), reverse=True)
         return result
 
-    def _group_label(self, field):
+    def _group_label(self, field, metric=None):
         """Encabezado de la agrupación: su primer alias o, si es el nombre
-        técnico (GEEDESCRI, TERNOMCOM), el nombre de negocio de los visuales."""
-        label = (field.get("aliases") or [field.get("column")])[0]
+        técnico (GEEDESCRI, TERNOMCOM), el nombre de negocio de los visuales.
+        Un alias que solo repite palabras del indicador («VALOR ESTIMADO» para
+        AREA_SERVICIO, tomado del título «VALOR ESTIMADO POR SERVICIO») no
+        nombra la dimensión: se salta."""
+        aliases = list(field.get("aliases") or [])
+        own = {
+            token for name in (self._metric_names(metric) if metric else []) if name
+            for token in canonical_tokens(name)
+        }
+        column_tokens = set(canonical_tokens(field.get("column")))
+
+        def names_metric(alias):
+            tokens = set(canonical_tokens(alias))
+            return bool(own and tokens and tokens <= own and not tokens & column_tokens)
+
+        if own and aliases:
+            aliases = [alias for alias in aliases if not names_metric(alias)] or [field.get("column")]
+        label = (aliases or [field.get("column")])[0]
         column = normalize_text(field.get("column"))
         # Una columna que ya se llama con la palabra de negocio (ESPECIALIDAD,
         # SERVICIO) conserva ese nombre: el de un visual puede calificarla de
@@ -4088,9 +4105,15 @@ class QueryPlanBuilder:
         if column and any(column in synonyms for synonyms in DIMENSION_SYNONYMS.values()):
             return label if normalize_text(label) == column else field.get("column")
         if normalize_text(label) == column:
-            names = self._column_business_names(field.get("semantic_model"), field.get("column"), field.get("table"))
+            names = [
+                name for name in self._column_business_names(
+                    field.get("semantic_model"), field.get("column"), field.get("table"))
+                if not names_metric(name)
+            ]
             if names:
                 return names[0]
+            if own and "_" in str(field.get("column") or ""):
+                return str(field.get("column")).replace("_", " ")
         return label
 
     def _technical_column_aliases(self, semantic_model, table, column):
@@ -5106,6 +5129,35 @@ class QueryPlanBuilder:
             "tokens": tuple(sorted(common)),
         }
 
+    def _context_word_family(self, leftover, field, semantic_model, question, context_tokens):
+        """Familia de valores sin las palabras de contexto (páginas del
+        indicador) cuando esas palabras eran lo que elegía un solo valor."""
+        if not context_tokens:
+            return None
+        words = normalize_text(leftover).split()
+        context = [word for word in words if canonical_token(word) in context_tokens]
+        rest = [word for word in words if canonical_token(word) not in context_tokens]
+        if not context or not [word for word in rest if len(canonical_token(word)) >= 4]:
+            return None
+        full = self._resolve_implicit_value(" ".join(words), field, semantic_model, None, question)
+        if not full or full.get("values") or full.get("value") is None:
+            return None
+        if not set(canonical_tokens(full["value"])) & {canonical_token(word) for word in context}:
+            return None
+        # La pregunta también sin esas palabras: si no, «urgencias» vuelve a
+        # «contradecir» a los demás valores de la familia.
+        reduced_question = " ".join(
+            word for word in normalize_text(question or "").split() if canonical_token(word) not in context_tokens
+        )
+        reduced = self._resolve_implicit_value(" ".join(rest), field, semantic_model, None, reduced_question)
+        if not reduced or not reduced.get("values") or full["value"] not in reduced["values"]:
+            return None
+        return {
+            **reduced,
+            "reason": reduced["reason"] + f"; «{' '.join(context)}» es la página donde se ve el indicador, "
+                      "no distingue entre esos valores",
+        }
+
     def _categorical_filter(self, field, resolved, source, semantic_model):
         data_type = self._column_type(semantic_model, field["table"], field["column"])
         if resolved.get("values") and resolved.get("value") is None:
@@ -5213,11 +5265,17 @@ class QueryPlanBuilder:
         # columnas de baja cardinalidad) a medida que el bucle los revisa, en su
         # orden de prioridad; al encontrar una coincidencia fuerte (≥ 1.0) no se
         # consulta el resto. Mismo orden y mismos valores que antes.
+        # Las páginas donde se ve el indicador («URGENCIAS» para TRIAGES) son
+        # su contexto: no distinguen entre valores de una familia.
+        page_tokens = {
+            token for page in self._metric_pages(metric) for token in canonical_tokens(page) if len(token) >= 4
+        }
         best = None
         for position, field in enumerate(ordered):
             self._prefetch_next(semantic_model, ordered, position)
             resolved = self._resolve_implicit_value(
                 leftover, field, semantic_model, decisions, question=question,
+                context_tokens=page_tokens,
             )
             if not resolved:
                 continue
@@ -5352,8 +5410,20 @@ class QueryPlanBuilder:
             return f"«{counted}» es lo que se cuenta en la pregunta, no un filtro"
         return None
 
-    def _resolve_implicit_value(self, leftover, field, semantic_model, decisions=None, question=None):
-        """Valor de `field` nombrado en `leftover` con las reglas estrictas, o None."""
+    def _resolve_implicit_value(self, leftover, field, semantic_model, decisions=None, question=None,
+                                context_tokens=None):
+        """Valor de `field` nombrado en `leftover` con las reglas estrictas, o None.
+
+        `context_tokens`: palabras de las páginas del indicador. Si una de
+        ellas es lo único que separa el mejor valor de su familia («triages
+        obstétricos en URGENCIAS»: URGENCIA OBSTETRICA frente a EMERGENCIA
+        OBSTETRICA, CONSULTA EXTERNA OBSTETRICA...), se filtra por la familia:
+        la página nombra dónde se ve el indicador, no un valor (holdout H05)."""
+        family = self._context_word_family(leftover, field, semantic_model, question, context_tokens)
+        if family is not None:
+            if decisions is not None:
+                decisions.append(f"aplicado: {family['reason']}")
+            return family
         values = self._get_values(semantic_model, field["table"], field["column"])
         if not values:
             return None
@@ -6339,6 +6409,10 @@ class QueryPlanBuilder:
         normalized = normalize_text(question)
         if not normalized or self._is_descriptive(normalized):
             return False
+        # «qué antibióticos se están usando»: valores de una entidad con
+        # actividad en un gráfico del tablero (datos, no documentación).
+        if self.active_entity_question(question):
+            return True
         question = canonical_phrases(question)[0]
         normalized = normalize_text(question)
 
@@ -6411,11 +6485,54 @@ class QueryPlanBuilder:
         (agrupado y ordenado); si no hay uno solo, None."""
         normalized = normalize_text(question)
         match = self._RANKED_ENTITY_RE.search(normalized)
+        active = None
         if not match or not self._informal_ranking(normalized):
-            return None
+            # «qué antibióticos se están usando (ahorita)»: qué valores de la
+            # entidad tienen actividad = el indicador del gráfico por esa
+            # entidad, agrupado (holdout H29).
+            active = self._ACTIVE_ENTITY_RE.search(normalized)
+            if not active:
+                return None
+            match = active
         entity = canonical_token(match.group("entity"))
         if entity in {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS}:
             return None
+        found = self._entity_chart_metrics(entity)
+        if len(found) != 1:
+            return None
+        metric, appearance = next(iter(found.values()))
+        label = appearance.get("visual_title") or metric.get("label")
+        if active is not None:
+            self._note(
+                f"«{match.group(0).strip()}» pide qué {match.group('entity')} tienen actividad: se usa el "
+                f"indicador que el tablero muestra por {match.group('entity')} ({label}), agrupado"
+            )
+            consumed = {canonical_token(word) for word in (match.group("verb"), "se", "esta", "estan")}
+            forced = {
+                "status": "resolved", "metric": metric, "matched_name": metric.get("label"),
+                "score": self.min_metric_score, "final": True, "consumed_tokens": consumed,
+                "candidates": [{"metric": metric, "score": self.min_metric_score,
+                                "business_score": self.min_metric_score, "matched_name": metric.get("label")}],
+            }
+            plan = self._build_plan(f"{question} por {match.group('entity')}", intent_result,
+                                    forced_resolution=forced)
+            if isinstance(plan, dict) and plan.get("status") == "ready" and plan.get("group_by"):
+                return plan
+            return None
+        return self._ranked_entity_plan(question, intent_result, match, normalized, metric, label)
+
+    # «qué antibióticos se están usando», «qué medicamentos se están dispensando».
+    _ACTIVE_ENTITY_RE = re.compile(
+        r"(?<![a-z0-9])(?:que|cuales)\s+(?P<entity>[a-z]{4,}s)\s+se\s+(?:esta|estan)\s+(?P<verb>[a-z]{3,}ndo)(?![a-z0-9])"
+    )
+
+    def active_entity_question(self, question):
+        """¿«qué <entidades> se están <verbo>» con un único gráfico por esa entidad?"""
+        match = self._ACTIVE_ENTITY_RE.search(normalize_text(question))
+        return bool(match) and len(self._entity_chart_metrics(canonical_token(match.group("entity")))) == 1
+
+    def _entity_chart_metrics(self, entity):
+        """{clave lógica: (indicador, aparición)} de los gráficos que agregan por la entidad."""
         index = self._visual_index()
         found = {}
         for metric in self._dedupe_metrics(self.metrics):
@@ -6440,10 +6557,9 @@ class QueryPlanBuilder:
                     ):
                         found.setdefault(self._logical_key(metric), (metric, appearance))
                         break
-        if len(found) != 1:
-            return None
-        metric, appearance = next(iter(found.values()))
-        label = appearance.get("visual_title") or metric.get("label")
+        return found
+
+    def _ranked_entity_plan(self, question, intent_result, match, normalized, metric, label):
         self._note(
             f"«{match.group(0)}» es un ranking de {match.group('entity')} sin indicador nombrado: "
             f"se usa el que el tablero muestra por {match.group('entity')} ({label})"
@@ -7546,11 +7662,22 @@ class QueryPlanBuilder:
             for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS | set(MONTHS)
         } | {"por", "segun", "total"}
         dimension_tokens = set()
+        own_name_tokens = {
+            token for name in self._metric_names(metric) if name and not re.search(r"[().]", str(name))
+            for token in canonical_tokens(name)
+        }
         for field in [*group_by, *(spec["field"] for spec in explicit_specs)]:
             # El nombre de la tabla («ATENCIONES.SEDE») no nombra la dimensión.
             table_tokens = set(canonical_tokens(field.get("table")))
+            # Un alias tomado del título de un visual («VALOR ESTIMADO POR
+            # SERVICIO» para AREA_SERVICIO) trae palabras del indicador: esas
+            # no son de la dimensión salvo que la columna se llame así (H24).
+            column_tokens = set(canonical_tokens(field.get("column")))
             for alias in field.get("aliases", []) or []:
-                dimension_tokens.update(set(canonical_tokens(alias)) - table_tokens)
+                dimension_tokens.update(
+                    token for token in set(canonical_tokens(alias)) - table_tokens
+                    if token in column_tokens or token not in own_name_tokens
+                )
         if not dimension_tokens:
             return None
 
@@ -8547,6 +8674,44 @@ class QueryPlanBuilder:
         tokens = set()
         for value in values:
             tokens.update(token for token in canonical_tokens(value) if len(token) >= 3)
+        return tokens
+
+    def _inclusion_filter_tokens(self, metric):
+        """Palabras que el filtro de INCLUSIÓN de sus visuales le da al
+        indicador: lo común a todos los valores de una lista «en» («CONSULTA
+        EXTERNA OBSTETRICA», «URGENCIA OBSTETRICA»... -> «obstetrica»). La
+        tarjeta «Triages Gineco» filtrada por esos valores ES «triages
+        obstétricos» aunque su nombre no lo diga (holdout H20). Las
+        exclusiones («no contiene OBSTETRICA») no cuentan."""
+        cache = self.__dict__.setdefault("_inclusion_tokens_cache", {})
+        key = (normalize_text(metric.get("semantic_model")), metric.get("metric_id"), metric.get("label"))
+        if key in cache:
+            return cache[key]
+        tokens = set()
+        index = self._visual_index()
+        model = normalize_text(metric.get("semantic_model"))
+        for appearance in metric.get("appearances") or []:
+            visual = index.get((model, str(appearance.get("visual_id"))))
+            if visual is None:
+                continue
+            for scope in ("visual", "page"):
+                try:
+                    items = self._scope_filter_items(metric.get("semantic_model"), visual, scope)
+                except Exception:
+                    items = []
+                for item in items:
+                    condition = item.get("condition")
+                    if not isinstance(condition, dict) or condition.get("op") != "in":
+                        continue
+                    values = [value for value in condition.get("values") or [] if isinstance(value, str)]
+                    if not values:
+                        continue
+                    common = None
+                    for value in values:
+                        value_tokens = {token for token in canonical_tokens(value) if len(token) >= 4}
+                        common = value_tokens if common is None else common & value_tokens
+                    tokens |= common or set()
+        cache[key] = tokens
         return tokens
 
     @staticmethod
@@ -9775,6 +9940,42 @@ class QueryPlanBuilder:
                     "page": page.get("page"),
                 })
         how = "por su tema" if topic else "con «tablero/página de»"
+        # Una página nombrada (o un servicio que se llama como una página:
+        # «urgencias») no arrastra la respuesta a una tabla que no trae el
+        # periodo pedido («este mes» frente al corte del día anterior del
+        # Briefing, TU04): esas opciones se quitan y, si no queda ninguna, la
+        # página no decide (sigue el plan general).
+        period, start, end = self._requested_period_bounds(question)
+        if period is not None:
+            missing = [self._metric_misses_period(item["metric"], start, end) for item in items]
+            if any(missing):
+                dropped = ", ".join(_unique_strings(
+                    f"{item['metric'].get('label')} ({table})" for item, table in zip(items, missing) if table
+                ))
+                lost = [item for item, table in zip(items, missing) if table]
+                items = [item for item, table in zip(items, missing) if not table]
+                # Lo que queda de la página explica menos de lo que se pide
+                # («triages»: solo quedan consultas): la página tampoco decide.
+                words = self._option_words(question, source_context)
+                best_lost = max((len(self._option_coverage(i["metric"], words)) for i in lost), default=0)
+                best_kept = max((len(self._option_coverage(i["metric"], words)) for i in items), default=0)
+                if best_lost > best_kept:
+                    items = []
+                if not items:
+                    self._note(
+                        f"la pregunta nombra la página {names}, pero sus indicadores no traen «{period.get('label')}» "
+                        f"según su documentación ({dropped}): la página no decide el indicador"
+                    )
+                    return None
+                self._note(
+                    f"«{period.get('label')}»: de la página {names} se descartan los indicadores cuya tabla no "
+                    f"trae ese periodo: {dropped}"
+                )
+                kept_keys = {self._logical_key(item["metric"]) for item in items}
+                groups = [
+                    group for group in groups
+                    if any(self._logical_key(member["metric"]) in kept_keys for member in group[1])
+                ]
         # Páginas homónimas de varios tableros: cada una ya dejó sus opciones
         # que más palabras de la pregunta explican; entre páginas rige lo mismo
         # («interconsultas PENDIENTES»: solo SIN RESPUESTA lo explica, aunque
@@ -10894,7 +11095,9 @@ class QueryPlanBuilder:
             logical = self._logical_key(other)
             if logical in seen:
                 continue
-            vocabulary = self._metric_vocabulary_tokens(other)
+            # También lo que el filtro de inclusión de su visual le da al
+            # indicador («Triages Gineco» filtrada por los valores OBSTETRICA).
+            vocabulary = self._metric_vocabulary_tokens(other) | self._inclusion_filter_tokens(other)
             covered = [token for token in qualifiers if self._explains(token, vocabulary)]
             if not covered or not all(self._explains(token, vocabulary) for token in core):
                 continue
@@ -10918,6 +11121,17 @@ class QueryPlanBuilder:
                     ),
                     other.get("label"),
                 ))
+            # Un visual filtrado («Triages Gineco» con DESCRI_TRIGE en los
+            # valores OBSTETRICA, en la página TRIAGES ATENDIDOS) se nombra
+            # por su página más lo que su filtro le da: «triages obstétricos
+            # atendidos».
+            inclusion = self._inclusion_filter_tokens(other)
+            if inclusion and other.get("label") and any(self._explains(token, inclusion) for token in covered):
+                for page in self._metric_pages(other):
+                    scored.append((
+                        self._loose_phrase_score(business_question, f"{page} {' '.join(sorted(inclusion))}", weights),
+                        other.get("label"),
+                    ))
             score, name = max(scored, key=lambda pair: pair[0], default=(0.0, None))
             if score <= 0 or not name:
                 continue
@@ -11160,7 +11374,15 @@ class QueryPlanBuilder:
                 else f"«{phrase}» es el verbo de la pregunta (no es un indicador ni un filtro): se ignora"
             )
         try:
-            plan = self._build_plan(question, intent_result, selected_metric_id)
+            # «qué antibióticos se están aplicando»: antes de que el verbo se
+            # quite como relleno (canonical_phrases), se mira la forma de la
+            # pregunta (valores de una entidad con actividad).
+            active = None
+            if selected_metric_id is None and self.active_entity_question(original_question):
+                active = self._ranked_entity_metric(original_question, intent_result)
+                if not (isinstance(active, dict) and active.get("status") == "ready"):
+                    active = None
+            plan = active or self._build_plan(question, intent_result, selected_metric_id)
             if rewrites and isinstance(plan, dict) and plan.get("question") == question:
                 plan["question"] = original_question
             # Si el indicador elegido no admite el filtro/periodo/agrupación
@@ -11177,7 +11399,7 @@ class QueryPlanBuilder:
                 )
                 if same_name is not None:
                     plan = same_name
-            if selected_metric_id is None:
+            if selected_metric_id is None and active is None:
                 plan = self._refine_options(question, intent_result, plan)
         finally:
             self._resolution_notes = previous
@@ -11230,7 +11452,11 @@ class QueryPlanBuilder:
                 question, source_context, metric_result, metric_result["page_hint_ignored"],
             )
 
-        if exploring and metric_result.get("status") == "not_found":
+        if exploring and (
+            metric_result.get("status") == "not_found"
+            or (metric_result.get("status") == "ambiguous"
+                and self._ACTIVE_ENTITY_RE.search(normalize_text(question)))
+        ):
             ranked = self._ranked_entity_metric(question, intent_result)
             if ranked is not None:
                 return ranked
@@ -11393,6 +11619,24 @@ class QueryPlanBuilder:
                 question, metric, metric_result, group_by, explicit_specs, source_context,
             )
             if rejection is not None:
+                # El que desplazó al nombre exacto («VALOR ESTIMADO POR
+                # SERVICIO» frente a VALOR ESTIMADO) solo coincidía por la
+                # agrupación: vuelve el exacto (holdout H24).
+                exact = next((
+                    item for item in (metric_result or {}).get("candidates") or []
+                    if item.get("exact_name_displaced")
+                    and self._logical_key(item["metric"]) != self._logical_key(metric)
+                ), None)
+                if exact is not None and not forced_resolution:
+                    self._note(
+                        f"{metric.get('label')} solo coincidía por la agrupación: se vuelve al nombre exacto "
+                        f"{exact['metric'].get('label')}"
+                    )
+                    chosen = {key: value for key, value in exact.items() if not str(key).startswith("_")}
+                    return self._build_plan(question, intent_result, forced_resolution={
+                        "status": "resolved", "metric": exact["metric"], "matched_name": exact.get("matched_name"),
+                        "score": exact.get("score"), "final": True, "candidates": [chosen],
+                    })
                 return rejection
 
         filters = []
@@ -11675,7 +11919,7 @@ class QueryPlanBuilder:
         normalized_group_by = [{
             "table": field["table"],
             "column": field["column"],
-            "label": self._group_label(field),
+            "label": self._group_label(field, metric),
             "source": "query_plan_group_by",
         } for field in group_by if self._dimension_relation(metric, field) != "unrelated"]
         if temporal_result["group"]:

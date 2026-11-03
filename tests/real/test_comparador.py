@@ -69,6 +69,57 @@ class Numeros(unittest.TestCase):
         self.assertIs(ev["correcto"], True)
 
 
+class VerdadVacia(unittest.TestCase):
+    """Criterio único (r6): si la verdad no tiene datos (0 filas o valor en
+    blanco, también en las alternativas), el acierto es que el bot diga
+    CLARAMENTE que no hay datos, sin tabla con filas ni cifras; una tabla
+    vacía o «no devolvió filas» es una falla de redacción (causa 14)."""
+
+    VACIA = {"filas": 0, "valor": None}
+    CLARO = ("No hay datos de **Total Egresos** en octubre de 2026 (mes pasado). "
+             "La fuente tiene datos hasta el 30/09/2026.\n\nFiltros: octubre 2026 (mes pasado).")
+
+    def test_dicho_claro_es_acierto_en_todos_los_tipos(self):
+        for tipo in ("numero", "agrupado", "comparacion", "lista"):
+            ev = run_banco.evaluate(case(tipo=tipo, modelo=ATEN), [turn(self.CLARO, status="empty_result", model=ATEN)],
+                                    self.VACIA)
+            self.assertIs(ev["correcto"], True, tipo)
+            self.assertEqual(ev["fallas"], [], tipo)
+            self.assertTrue(ev["detalle"]["verdad_vacia"])
+
+    def test_tabla_vacia_sin_explicacion_es_redaccion(self):
+        """AI08: encabezado + «no devolvió filas» con la verdad vacía."""
+        t = turn("En octubre de 2026 (mes pasado), **Total Egresos** por SERVICIO_HOMOLOGADO:\n\n"
+                 "La consulta se ejecutó correctamente, pero no devolvió filas.", model=ATEN,
+                 dax=["EVALUATE SUMMARIZECOLUMNS('FACT_EGRESOS'[SERVICIO_HOMOLOGADO], \"__value\", [Total Egresos])"])
+        c = case(tipo="agrupado", modelo=ATEN, dax="EVALUATE SUMMARIZECOLUMNS(F[S], \"v\", [Total Egresos])")
+        ev = run_banco.evaluate(c, [t], self.VACIA)
+        self.assertIs(ev["correcto"], False)
+        self.assertEqual(ev["fallas"], ["redaccion"])
+        self.assertEqual(auditoria.causa_raiz(c, {"turnos": [t], "eval": ev}), ["14"])
+
+    def test_cifras_con_verdad_vacia_no_son_redaccion(self):
+        t = turn("En octubre de 2026, hubo **72** egresos.", model=ATEN, dax=["ROW([Total Egresos])"])
+        ev = run_banco.evaluate(case(modelo=ATEN, dax='EVALUATE ROW("v", [Total Egresos])'), [t], self.VACIA)
+        self.assertIs(ev["correcto"], False)
+        self.assertNotIn("redaccion", ev["fallas"])
+
+    def test_tabla_con_filas_y_aviso_no_es_acierto(self):
+        t = turn("Sin datos para algunos servicios.\n\n| S | v |\n| --- | --- |\n| A | 3 |", model=ATEN)
+        ev = run_banco.evaluate(case(tipo="agrupado", modelo=ATEN), [t], self.VACIA)
+        self.assertIs(ev["correcto"], False)
+
+    def test_alternativa_con_datos_no_es_verdad_vacia(self):
+        truth = {"filas": 1, "valor": None, "alternativas": [{"filas": 1, "valor": 290}]}
+        self.assertFalse(run_banco.truth_is_empty(truth))
+        ev = run_banco.evaluate(case(), [turn("No hay datos para esos filtros.")], truth)
+        self.assertIs(ev["correcto"], False)
+
+    def test_verdad_con_error_no_es_vacia(self):
+        self.assertFalse(run_banco.truth_is_empty({"error": "x"}))
+        self.assertTrue(run_banco.truth_is_empty({"filas": 1, "valores": {"agosto": None, "septiembre": None}}))
+
+
 class Clasificacion(unittest.TestCase):
     def test_indicador_sin_calculate(self):
         """BH08: la verdad no tiene CALCULATE; el bot usó otra columna → indicador (antes salía «filtro»)."""

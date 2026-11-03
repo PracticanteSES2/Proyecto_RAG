@@ -260,10 +260,11 @@ def test_sim_owner_case_text_button_then_previous_month():
     )
     assert first["status"] == "needs_clarification", first.get("status")
     second, _ = choose(clarification_buttons(first)[0]["id"])
-    assert second["status"] == "success" and ctx.groups(second) == ["ESPECIALIDAD"], second.get("status")
+    # «Este mes» puede no tener datos aún: un vacío explicado también vale (r6).
+    assert second["status"] in ("success", "empty_result") and ctx.groups(second) == ["ESPECIALIDAD"], second.get("status")
     assert this_month in period(second), period(second)
     third, ui = ask("Y en el mes pasado?")
-    assert third["status"] == "success" and third["route"] == "powerbi", (third.get("status"), ui)
+    assert third["status"] in ("success", "empty_result") and third["route"] == "powerbi", (third.get("status"), ui)
     assert third["metric"] == second["metric"] and ctx.groups(third) == ["ESPECIALIDAD"], third["metric"]
     assert last_month in period(third) and this_month.split()[0] not in period(third), period(third)
     assert "Interpreté tu mensaje como" in (interpretation(third) or ""), ctx.steps(third)

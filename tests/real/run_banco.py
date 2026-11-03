@@ -44,7 +44,14 @@ FALLAS = {
     "inventada": "respuesta inventada",
     "lenta": "lenta (>30 s)",
     "alcance": "fuera de alcance no rechazado",
+    "redaccion": "sin datos mal explicado",
 }
+
+# Frases con que el bot dice CLARAMENTE que no hay datos (texto plegado). «La
+# consulta no devolvió filas» o una tabla vacía no lo son: son una falla de
+# redacción aunque la verdad también esté vacía (AI08, mes pasado sin datos).
+SIN_DATOS = ("no hay datos", "sin datos", "no hay registros", "no tiene datos", "no registra datos",
+             "no se encontraron datos", "no encontre datos", "no existen datos", "no hay informacion")
 
 # Señales de que el bot rechazó una pregunta fuera de alcance (texto plegado).
 RECHAZO = ("no puedo", "solo puedo", "solo respondo", "unicamente", "fuera de", "alcance", "no tengo informacion",
@@ -209,6 +216,32 @@ def number_matches(answer_numbers, value, verdad):
 
 
 # ---------------------------------------------------------------- evaluación
+def says_no_data(answer):
+    """¿La respuesta dice claramente que no hay datos?"""
+    text = fold(answer)
+    return any(w in text for w in SIN_DATOS)
+
+
+def _table_rows(answer):
+    """Filas de datos de una tabla markdown de la respuesta (sin cabecera ni separador)."""
+    lines = [ln.strip() for ln in str(answer or "").splitlines() if ln.strip().startswith("|")]
+    return [ln for ln in lines[2:] if not re.fullmatch(r"\|[\s|:-]*", ln)]
+
+
+def truth_is_empty(truth):
+    """La verdad (y cada alternativa) no tiene datos: 0 filas o un valor en
+    blanco sin valores, grupos ni lista."""
+    def empty(one):
+        if not isinstance(one, dict) or one.get("error"):
+            return False
+        if one.get("filas") == 0:
+            return True
+        if one.get("valores"):
+            return all(v is None for v in one["valores"].values())
+        return one.get("valor") is None and not one.get("grupos") and not one.get("lista")
+    return empty(truth) and all(empty(a) for a in (truth or {}).get("alternativas") or [])
+
+
 def evaluate(case, turns, truth):
     """Devuelve dict con correcto (bool|None), detalle y fallas."""
     last = turns[-1] if turns else {}
@@ -237,14 +270,22 @@ def evaluate(case, turns, truth):
     elif truth is None or truth.get("error"):
         correct = None
         detail = {"verdad_error": (truth or {}).get("error")}
+    elif tipo in DATA_TIPOS and truth_is_empty(truth):
+        # Verdad SIN DATOS (p. ej. «mes pasado» antes de cargarse el mes): el
+        # acierto es decir claramente que no hay datos, sin una tabla con
+        # filas ni cifras inventadas. Una tabla vacía o «la consulta no
+        # devolvió filas» es una falla de redacción.
+        clear = says_no_data(answer)
+        rows = _table_rows(answer)
+        correct = bool(clear and not rows)
+        detail = {"verdad_vacia": True, "sin_datos_claro": clear, "filas_bot": len(rows),
+                  "cifras_bot": sorted(nums)[:20]}
     elif tipo == "numero":
         values = [truth.get("valor")]
         correct = number_matches(nums, truth.get("valor"), case["verdad"])
         for alt in truth.get("alternativas") or []:
             values.append(alt.get("valor"))
             correct = correct or number_matches(nums, alt.get("valor"), case["verdad"])
-        if truth.get("valor") is None:
-            correct = "no hay datos" in fold(answer) or "sin datos" in fold(answer)
         detail = {"verdad": values, "cifras_bot": sorted(nums)[:20]}
     elif tipo == "comparacion":
         vals = truth.get("valores") or {}
@@ -261,7 +302,7 @@ def evaluate(case, turns, truth):
             val_ok = number_matches(nums, g["valor"], case["verdad"])
             checks.append({"clave": str(g["clave"]).strip(), "valor": g["valor"], "clave_ok": key_ok, "valor_ok": val_ok})
         if not groups:
-            correct = "no hay datos" in text
+            correct = says_no_data(answer)
         else:
             score = sum(c["clave_ok"] and c["valor_ok"] for c in checks) / max(1, len(checks))
             correct = score >= 0.8
@@ -408,6 +449,13 @@ def classify(case, turns, correct, detail):
     if tipo == "definicion":
         fallas.append("rag")
         return fallas
+    if detail.get("verdad_vacia") and not detail.get("filas_bot") and last.get("route") == "powerbi" and (
+            status in ("success", "empty_result")):
+        # La verdad no tiene datos y el bot tampoco mostró filas: falló cómo lo
+        # dijo (tabla vacía, «no devolvió filas»), no la cifra.
+        if not any(c for c in detail.get("cifras_bot") or [] if not 1990 <= c <= 2100):
+            fallas.append("redaccion")
+            return fallas
     bot_dax = " ".join(d.get("dax") or "" for d in last.get("dax") or [])
     if status in ("metric_not_resolved", "not_found", "needs_clarification"):
         fallas.append("indicador")

@@ -32,6 +32,7 @@ CAUSAS = {
     "7": "Opciones mal rotuladas",
     "8": "Agrupación ignorada",
     "9": "Otra (error de DAX, cifra inventada, lentitud)",
+    "14": "Sin datos mal explicado (tabla vacía o mensaje técnico cuando la verdad no tiene datos)",
 }
 
 VEREDICTOS = ("acierto", "falla", "inconcluso", "no_evaluado")
@@ -175,6 +176,8 @@ def causa_raiz(case, result):
         out.append("8")
     elif "filtro" in fallas:
         out.append(_filter_cause(case, last))
+    elif "redaccion" in fallas:
+        out.append("14")
     elif any(f in fallas for f in ("dax", "inventada", "rag")):
         out.append("9")
     if not out:

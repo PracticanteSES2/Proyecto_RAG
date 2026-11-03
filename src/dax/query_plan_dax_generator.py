@@ -178,6 +178,24 @@ class QueryPlanDAXGenerator:
         )
         return {"status": "generated", "mode": "scalar", "dax": dax}
 
+    def generate_data_until(self, plan):
+        """Última fecha con datos del indicador (con los demás filtros del
+        plan, sin el periodo): explica un resultado vacío («la fuente tiene
+        datos hasta el 30/09/2026»). Usa la columna de fecha del periodo."""
+        metric = (plan or {}).get("metric") or {}
+        expression = metric.get("dax_expression")
+        dates = [item for item in plan.get("filters") or [] if item.get("type") == "date_range"]
+        if not expression or not dates or not dates[0].get("table") or not dates[0].get("column"):
+            return {"status": "rejected", "reason": "no_period"}
+        column = self._column_expression(dates[0]["table"], dates[0]["column"])
+        categorical = [item for item in plan.get("filters") or [] if item.get("type") == "categorical"]
+        others = self._filter_expressions({**plan, "filters": categorical})
+        value = f"MAXX(FILTER(ALL({column}), NOT ISBLANK(CALCULATE({expression}))), {column})"
+        if others:
+            value = "CALCULATE(" + ", ".join([value, *others]) + ")"
+        dax = f'EVALUATE\nROW("__hasta", {value})'
+        return {"status": "generated", "mode": "scalar", "dax": dax}
+
     # ---------------- listado de detalle («total + listado») ----------------
     def generate_detail(self, plan, columns, limit):
         """Filas de detalle coherentes con el total del plan escalar.
