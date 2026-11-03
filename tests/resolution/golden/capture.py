@@ -47,7 +47,11 @@ NONE_ID = "__none__"
 # Campos comparados (la latencia y el resultado del evaluador se guardan aparte).
 TURN_FIELDS = ("input", "status", "route", "stage", "clarification_type", "metric", "metric_id",
                "semantic_model", "report", "dashboard", "result_type", "filters", "unapplied_terms",
-               "group_by", "dax", "dax_log", "options", "prompt", "answer", "exception")
+               "group_by", "dax", "options", "prompt", "answer", "exception")
+# dax_log (todas las consultas del turno, también las de exploración de dominios) depende del
+# presupuesto de tiempo del plan (PLAN_TIME_BUDGET_S) y de la caché de dominios: entre dos corridas
+# del MISMO código cambia en ~1 % de los turnos. Se guarda y se informa aparte, sin fallar.
+SOFT_FIELDS = ("dax_log",)
 
 
 # ----------------------------------------------------------------------------
@@ -335,8 +339,11 @@ def save_foto(data, folder):
         (folder / f"{name}.json").write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
-def compare(expected, actual, bancos=None):
-    """Lista de diferencias legibles (vacía = idéntico)."""
+def compare(expected, actual, bancos=None, fields=None):
+    """Lista de diferencias legibles (vacía = idéntico). fields: campos por turno (por defecto
+    TURN_FIELDS; SOFT_FIELDS para las diferencias informativas)."""
+    fields = fields or (*TURN_FIELDS, "skipped", "passed")
+    soft = fields == SOFT_FIELDS
     diffs = []
     for name in bancos or expected:
         if name not in actual:
@@ -348,15 +355,15 @@ def compare(expected, actual, bancos=None):
                 diffs.append(f"{name}/{case_id}: caso nuevo (no está en la foto)")
                 continue
             e, a = exp[case_id], act[case_id]
-            if e.get("outcome") != a.get("outcome"):
+            if not soft and e.get("outcome") != a.get("outcome"):
                 diffs.append(f"{name}/{case_id}: resultado {e.get('outcome')} -> {a.get('outcome')}")
-            if bool(e.get("error")) != bool(a.get("error")):
+            if not soft and bool(e.get("error")) != bool(a.get("error")):
                 diffs.append(f"{name}/{case_id}: error del runner {e.get('error')!r} -> {a.get('error')!r}")
             et, at = e.get("turns") or [], a.get("turns") or []
-            if len(et) != len(at):
+            if not soft and len(et) != len(at):
                 diffs.append(f"{name}/{case_id}: {len(et)} turnos -> {len(at)}")
             for i, (te, ta) in enumerate(zip(et, at), 1):
-                for field in (*TURN_FIELDS, "skipped", "passed"):
+                for field in fields:
                     if te.get(field) != ta.get(field):
                         diffs.append(f"{name}/{case_id} t{i} {field}: {_short(te.get(field))} -> "
                                      f"{_short(ta.get(field))}")
@@ -404,6 +411,8 @@ def main(argv=None):
         expected = load_foto(args.compare)
         diffs = compare(expected, data, bancos)
         print(f"Latencia de la foto: {latency_summary(expected)}")
+        for d in compare(expected, data, bancos, SOFT_FIELDS):
+            print("aviso", d[:300])
         for d in diffs:
             print("DIF", d)
         print(f"{len(diffs)} diferencia(s)")
