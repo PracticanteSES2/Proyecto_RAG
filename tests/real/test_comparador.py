@@ -119,6 +119,21 @@ class Clasificacion(unittest.TestCase):
         self.assertEqual(ev["detalle"]["enrutamiento"], "rag")
         self.assertEqual(auditoria.causa_raiz(case(), {"turnos": [t], "eval": ev}), ["6"])
 
+    def test_rag_con_sondas_del_catalogo_es_enrutamiento(self):
+        """Holdout H02/H34: ruta RAG con DAX exitosos que solo son sondas de valores (VALUES de columnas)
+        → enrutamiento a RAG (causa 6), no «indicador equivocado» por el modelo de las sondas."""
+        sonda = ("EVALUATE TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CAMAS DISPONIBLES'[ESTADOS_CAM]), "
+                 "\"Value\", 'CAMAS DISPONIBLES'[ESTADOS_CAM]), NOT ISBLANK([Value])), [Value], ASC)")
+        c = case(tipo="agrupado", dax="EVALUATE SUMMARIZECOLUMNS('CAMAS DISPONIBLES'[ESTADOS_CAM], \"v\", "
+                                      "DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]))", top_keys=2)
+        t = turn("El tablero GESTIÓN DE CAMAS muestra los estados OCUPADA y DISPONIBLE.", route="rag", model=None,
+                 dax=[{"semantic_model": BRIEF, "status": "success", "row_count": 97, "dax": sonda}])
+        truth = {"grupos": [{"clave": "OCUPADA", "valor": 227}, {"clave": "DISPONIBLE", "valor": 24}]}
+        ev = run_banco.evaluate(c, [t], truth)
+        self.assertEqual(ev["fallas"], ["indicador"])
+        self.assertEqual(ev["detalle"]["enrutamiento"], "rag")
+        self.assertEqual(auditoria.causa_raiz(c, {"turnos": [t], "eval": ev}), ["6"])
+
     def test_cifra_sin_fuente_es_inventada(self):
         t = turn("Hay 120 pacientes.", route="llm", model=None)
         ev = run_banco.evaluate(case(), [t], {"valor": 69})
@@ -374,6 +389,42 @@ class Holdout(unittest.TestCase):
         self.assertTrue(audit.endswith("auditoria_holdout.json"))
         self.assertEqual(correr_todo.banco_dirs(None), (correr_todo.OUT, None))
         self.assertIn("INI_SEMANA", run_banco.period_values())
+        self.assertEqual(auditoria.default_path(str(path)).name, "auditoria_holdout.json")
+        self.assertEqual(auditoria.default_path(None), auditoria.AUDITORIA)
+        self.assertEqual(auditoria.default_path("tests/real/banco_real.json"), auditoria.AUDITORIA)
+
+    def test_auditoria_holdout_es_coherente(self):
+        """auditoria_holdout.json: veredictos de las 31 fallas de v1, sin mezclarse con los del banco real."""
+        here = Path(__file__).resolve().parent
+        data = auditoria.load(here / "auditoria_holdout.json")
+        self.assertEqual(data["_archivo"], "tests/real/auditoria_holdout.json")
+        casos = data["casos"]
+        self.assertEqual(len(casos), 31)
+        holdout = {c["id"] for c in json.loads((here / "banco_holdout.json").read_text(encoding="utf-8"))["casos"]}
+        self.assertTrue(set(casos) <= holdout)
+        self.assertFalse(set(casos) & set(auditoria.load()["casos"]))
+        labels = auditoria.causas_de(data)
+        for cid, c in casos.items():
+            self.assertIn(c["veredicto"], auditoria.VEREDICTOS, cid)
+            self.assertIn(c["clase"], ("a", "b", "c", "d"), cid)
+            if c["veredicto"] == "falla":
+                self.assertTrue(c["causas"], cid)
+                self.assertTrue(set(c["causas"]) <= set(labels), cid)
+        s = auditoria.summarize([], data)
+        self.assertEqual(s["archivo"], "tests/real/auditoria_holdout.json")
+        self.assertIn("10", s["causas_def"])
+        self.assertIn("auditoria_holdout.json", "\n".join(auditoria.section_tasas(s, s)))
+
+    def test_reevaluar_holdout_v1(self):
+        """Si están las salidas de la corrida v1 del holdout, la tasa auditada es 19/48 (H40 y H41 no evaluables)."""
+        base = Path(r"C:\Users\ad6708\Documents\banco_holdout_out_v1_adf0fb0\resultado.json")
+        if not base.exists():
+            self.skipTest("no están las salidas de la corrida v1 del holdout")
+        here = Path(__file__).resolve().parent
+        cases = {c["id"]: c for c in json.loads((here / "banco_holdout.json").read_text(encoding="utf-8"))["casos"]}
+        _, _, results = auditoria.load_previous(base, cases)
+        s = auditoria.summarize(results, auditoria.load(here / "auditoria_holdout.json"), cases)
+        self.assertEqual((s["aciertos"], s["evaluados"], s["auditados"]), (19, 48, 31))
 
 
 if __name__ == "__main__":
