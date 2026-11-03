@@ -278,6 +278,23 @@ def test_e2e_options_that_cannot_apply_the_filter_are_dropped():
     assert "BLOQUEADA" in values, values
 
 
+def test_e2e_which_one_had_less_ranks_previous_group_without_blank():
+    results = _conversation("kilos de ropa lavada en julio de 2025", "por turno?", "y cual tuvo menos?")
+    if results is None:
+        return
+    plan = results[2].get("query_plan") or {}
+    assert (plan.get("ranking") or {}).get("direction") == "asc" and plan.get("group_by"), plan.get("ranking")
+    assert "NOT ISBLANK" in str(results[2].get("dax") or ""), results[2].get("dax")
+
+
+def test_ranked_dax_excludes_blank_group():
+    plan = {"status": "ready", "mode": "grouped", "filters": [],
+            "metric": {"dax_expression": "SUM('T'[KG])", "validation_status": "approved"},
+            "group_by": [{"table": "T", "column": "SEDE"}], "ranking": {"direction": "desc", "limit": 2}}
+    dax = QueryPlanDAXGenerator().generate_ranked(plan)["dax"]
+    assert "NOT ISBLANK('T'[SEDE])" in dax and "TOPN" in dax, dax
+
+
 TESTS = [value for name, value in sorted(globals().items()) if name.startswith("test_") and callable(value)]
 
 

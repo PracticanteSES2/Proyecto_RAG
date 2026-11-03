@@ -5267,6 +5267,47 @@ class QueryEngine:
                             "anaphora": False},
         }
 
+    # «¿cuál está más lleno?», «¿y cuál tiene menos?» tras una tabla agrupada: el primero de esa
+    # misma agrupación (r9, causa 5).
+    _TOP_OF_GROUP_RE = re.compile(
+        r"^(?:y\s+)?(?:cual|cuales|que|quien|donde)(?:\s+[a-z]+){0,4}?\s+(?P<dir>mas|menos|mayor|menor)"
+        r"(?:\s+[a-z]+){0,2}$"
+    )
+
+    def _top_of_previous_group(self, message):
+        last = self._last_success
+        builder = self.query_plan_builder
+        if not last or not last.get("group_by") or builder is None or self._has_pending_clarification():
+            return None
+        normalized = self._normalize_text(message)
+        match = self._TOP_OF_GROUP_RE.match(normalized)
+        if not match or len(normalized.split()) > 8 or self._named_metric_words(normalized, last.get("metric_label")):
+            return None
+        plan = builder.build(last["question"], selected_metric_id=last["metric_id"])
+        if plan.get("status") != "ready":
+            return None
+        direction = "asc" if match.group("dir") in ("menos", "menor") else "desc"
+        group_by = [dict(item) for item in last["group_by"]]
+        self._think(
+            "Seguimiento: el primero de la agrupación anterior",
+            f"«{message.strip()}» pregunta por el elemento con {'menos' if direction == 'asc' else 'más'} "
+            f"{last['metric_label']} en la tabla anterior (por "
+            f"{', '.join(str(item.get('label') or item.get('column')) for item in group_by)})",
+        )
+        return {
+            **plan,
+            "filters": [dict(item) for item in last["filters"]],
+            "group_by": group_by,
+            "mode": "grouped",
+            "ranking": {"direction": direction, "limit": 1, "phrase": match.group(0)},
+            "question": f"{last['question']} ({message.strip()})",
+            "followup_base_question": last["question"],
+            "followup_of": {"question": last["question"], "metric": last["metric_label"],
+                            "value": last.get("value"), "metric_format": last.get("metric_format"),
+                            "anaphora": False},
+            "unapplied_terms": [],
+        }
+
     def _followup_plan(self, message, original=None, complement=None, why=None, base=None, lenient=False):
         """Plan de seguimiento o None si el mensaje no es claramente un
         complemento de la última respuesta numérica.
@@ -6439,6 +6480,8 @@ class QueryEngine:
             if contextual is not None:
                 return self._with_interpretation(contextual)
         followup = self._followup_plan(rewritten, original=message)
+        if followup is None:
+            followup = self._top_of_previous_group(rewritten)
         if followup is not None:
             return self._with_interpretation(self._run_followup(followup, message))
         if analysis is not None:

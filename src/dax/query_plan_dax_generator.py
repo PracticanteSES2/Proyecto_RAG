@@ -264,6 +264,14 @@ class QueryPlanDAXGenerator:
         direction = "ASC" if ranking.get("direction") == "asc" else "DESC"
         limit = ranking.get("limit")
         if limit:
+            # «el que más/menos»: la porción en blanco no es un elemento (r9).
+            keys = [
+                self._column_expression(item["table"], item["column"])
+                for item in plan.get("group_by") or [] if item.get("table") and item.get("column")
+            ]
+            if keys:
+                condition = " && ".join(f"NOT ISBLANK({key})" for key in keys)
+                table = f"FILTER(\n    {table.strip()},\n    {condition}\n)"
             table = (
                 "TOPN(\n    "
                 f"{int(limit)},\n    "
