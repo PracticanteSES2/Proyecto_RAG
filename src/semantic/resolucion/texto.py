@@ -101,6 +101,8 @@ QUESTION_FORM_WORDS = {
     "usan", "usando", "pudimos", "pudieron", "pudo", "tenemos", "tienen",
     "reportado", "reportados", "reportada", "reportadas", "registrado", "registrados",
     "registrada", "registradas", "muestran",
+    # Marcadores de exclusión («sin contar X», «excepto X»): el valor se excluye (r9).
+    "contar", "incluir", "excepto", "exceptuando", "salvo", "excluyendo", "descontando", "excepcion",
 }
 _QUESTION_FORM_TOKENS = set(QUESTION_FORM_WORDS)   # ya sin tildes ni mayúsculas
 # Cola de «por <dimensión> ...» que no nombra un valor («en total», «en general»).
@@ -144,6 +146,12 @@ BUSINESS_TOKEN_SYNONYMS = {
     "tarda": "tiempo", "tardan": "tiempo", "tardo": "tiempo", "tardaron": "tiempo",
     "duran": "tiempo", "duraron": "tiempo", "duracion": "tiempo",
 }
+
+# Cualquier forma de «tardar», «demorar» o «durar» (con o sin «se») pregunta por un TIEMPO:
+# «se tardaban», «demorarse», «nos demoramos» (r9, causa 2).
+_TIME_VERB_RE = re.compile(
+    r"^(?:tard|demor|dur)(?:a|an|o|ar|aron|aba|aban|amos|ando|aria|arian|ara|aran)(?:se|nos|le|les)?$"
+)
 
 GENERIC_PAGE_WORDS = {"general", "inicio", "resumen", "principal", "home", "detalle", "portada", "indicadores"}
 
@@ -253,6 +261,8 @@ def _canonical_str(token):
     if not token:
         return ""
     token = BUSINESS_TOKEN_SYNONYMS.get(token, token)
+    if _TIME_VERB_RE.match(token):
+        return "tiempo"
     if token.endswith("iones") and len(token) > 6:
         return token[:-5] + "ion"
     if token.endswith("ales") and len(token) > 5:
@@ -331,6 +341,46 @@ def _verb_participle_match(left, right):
     return False
 
 
+# Verbo (con o sin pronombre enclítico) frente al sustantivo de acción en -ción/-sión del
+# catálogo: «asignarle» / ASIGNACIÓN, «dispensarse» / DISPENSACIÓN, «admitieron» / ADMISIÓN,
+# «facturaron» / FACTURACIÓN (r9, causa 2: verbos sin lematizar).
+_CLITIC_RE = re.compile(r"(?<=[aei]r)(?:se|le|les|lo|la|los|las|me|nos|te)$|(?<=ndo)(?:se|le|les|lo|la|los|las)$")
+_AR_ENDINGS = {
+    "a", "an", "ar", "o", "e", "en", "aron", "aba", "aban", "ado", "ada", "ados", "adas", "ando",
+    "amos", "aria", "arian", "ara", "aran", "ase", "asen", "emos",
+}
+_ER_IR_ENDINGS = {
+    "e", "en", "er", "ir", "io", "ieron", "ia", "ian", "ido", "ida", "idos", "idas", "iendo", "imos",
+    "a", "an", "iera", "ieran", "iria", "irian",
+}
+
+
+def _strip_clitic(word):
+    stripped = _CLITIC_RE.sub("", word)
+    return stripped if len(stripped) >= 5 else word
+
+
+def _action_noun_match(left, right):
+    for noun, verb in ((left, right), (right, left)):
+        if not noun.endswith(("cion", "sion")) or len(noun) < 8:
+            continue
+        verb = _strip_clitic(verb)
+        if verb.endswith(("cion", "sion")):
+            continue
+        if noun.endswith("acion"):
+            stem, endings = noun[:-5], _AR_ENDINGS
+        elif noun.endswith(("icion", "ision")):
+            stem, endings = noun[:-5], _ER_IR_ENDINGS
+            # admitir -> admisión, remitir -> remisión: la «t» del verbo se vuelve «s».
+            if noun.endswith("ision") and verb.startswith(stem + "it") and verb[len(stem) + 2:] in endings:
+                return len(stem) >= 3
+        else:
+            continue
+        if len(stem) >= 4 and verb.startswith(stem) and verb[len(stem):] in endings:
+            return True
+    return False
+
+
 def _token_similarity(left, right):
     if left == right:
         return 1.0
@@ -353,6 +403,8 @@ def _token_similarity_raw(left, right):
     if _derived_noun_match(left, right):
         return 0.90
     if _verb_participle_match(left, right):
+        return 0.88
+    if _action_noun_match(left, right):
         return 0.88
     shortest = min(len(left), len(right))
     # Palabras cortas solo coinciden si son idénticas: «mayo» != «mayor».
@@ -500,6 +552,15 @@ DISTRIBUTION_VERB_RE = re.compile(
 )
 
 
+# Complemento agente de una pasiva: «confirmadas POR EL PACIENTE», «facturados POR LOS
+# FACTURADORES», «canceladas por la institución». Nombra quién hizo la acción (a lo sumo un valor
+# de filtro), nunca un desglose: se quita «por» y queda el sustantivo (r9, causa 4).
+AGENT_COMPLEMENT_RE = re.compile(
+    r"(?<![a-z0-9])((?:(?!(?:agrup|separ|desglos|discrimin|distribu|repart|divid|clasific|orden|filtr|organiz|segment)[a-z]*(?:ad|id)[oa]s?(?![a-z]))[a-z]{3,}(?:ad|id)[oa]s?|hech[oa]s?|puest[oa]s?|vist[oa]s?|abiert[oa]s?|escrit[oa]s?)"
+    r"(?:\s+(?:ya|solo|directamente|personalmente))?)\s+por\s+(?=(?:el|la|los|las|un|una|nuestr[oa]s?|su|sus)\s+[a-z])"
+)
+
+
 def canonical_phrases(text):
     """(texto, [(frase original, reemplazo)]) con las frases equivalentes unificadas."""
     original = str(text or "")
@@ -508,6 +569,9 @@ def canonical_phrases(text):
     for match in PROGRESSIVE_VERB_RE.finditer(normalized):
         changes.append((match.group(0), ""))
     normalized = re.sub(r"\s{2,}", " ", PROGRESSIVE_VERB_RE.sub(" ", normalized)).strip()
+    for match in AGENT_COMPLEMENT_RE.finditer(normalized):
+        changes.append((match.group(0).strip(), match.group(1)))
+    normalized = AGENT_COMPLEMENT_RE.sub(lambda match: match.group(1) + " ", normalized)
     distribution = DISTRIBUTION_VERB_RE.search(normalized)
     if distribution and re.search(r"(?<![a-z0-9])(?:por|segun|x)(?![a-z0-9])", normalized[distribution.end():]):
         changes.append((distribution.group(0), ""))

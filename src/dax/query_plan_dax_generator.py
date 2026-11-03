@@ -46,6 +46,11 @@ class QueryPlanDAXGenerator:
         column = self._column_expression(item["table"], item["column"])
         # Varios valores (AÑO IN {2024, 2025}, MES IN {1, 2, 3}).
         values = item.get("values") if item.get("value") is None else None
+        if item.get("negated"):
+            # «sin contar X»: se excluye el valor (r9).
+            shown = values or [item.get("value")]
+            literals = ", ".join(self._value_literal(value, item.get("data_type")) for value in shown)
+            return f"KEEPFILTERS(FILTER(ALL({column}), NOT ({column} IN {{{literals}}})))"
         if values:
             literals = ", ".join(self._value_literal(value, item.get("data_type")) for value in values)
             return f"TREATAS({{{literals}}}, {column})"

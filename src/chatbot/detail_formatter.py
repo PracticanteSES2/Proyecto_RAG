@@ -124,7 +124,7 @@ def detail_lead(result, value_text, scope_period=""):
             rest.append(f"en {joined}")
         else:
             concept = str(item.get("concept") or item.get("column") or "").lower()
-            rest.append(f"con {concept} {joined}".replace("  ", " "))
+            rest.append(f"{'sin contar' if item.get('negated') else 'con'} {concept} {joined}".replace("  ", " "))
     if scope_period:
         rest.append(scope_period)
     label = result.get("metric") or ((result.get("query_plan") or {}).get("metric") or {}).get("label")

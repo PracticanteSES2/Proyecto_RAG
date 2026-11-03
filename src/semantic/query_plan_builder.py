@@ -246,9 +246,50 @@ class QueryPlanBuilder(
         # Filtros del tablero (visual + página) del indicador: la pregunta
         # manda sobre la misma columna y la respuesta dice cuáles se aplicaron.
         plan = self._apply_board_filter_context(plan)
+        self._apply_negations(original_question, plan, notes)
         if notes and isinstance(plan, dict):
             plan["resolution_notes"] = list(dict.fromkeys([*(plan.get("resolution_notes") or []), *notes]))
         return plan
+
+    # «sin contar las de NUEVA EPS», «excepto urgencias», «todas menos las de SURA»: el valor que
+    # sigue se EXCLUYE (NOT IN), no se filtra por él (r9, causa 4).
+    _NEGATION_RE = re.compile(
+        r"(?<![a-z0-9])(?:sin\s+(?:contar|incluir|tener\s+en\s+cuenta)|excepto|exceptuando|salvo|"
+        r"a\s+excepcion\s+de|excluyendo|descontando|quitando|que\s+no\s+sean?|"
+        r"(?<!con\s)(?<!que\s)(?<!lo\s)(?<!mas\so\s)(?<!poco\s)menos)\s+"
+        r"(?:(?:a|al|el|la|los|las|lo|de|del)\s+)*(?P<span>[a-z0-9]+(?:\s+[a-z0-9]+){0,3})"
+    )
+    _NEGATION_SPAN_STOP = {"en", "durante", "por", "del", "de", "y", "este", "esta", "el", "la", "hoy"}
+
+    def _apply_negations(self, question, plan, notes):
+        """Marca como excluidos (negated) los filtros categóricos cuyo valor sigue a una negación."""
+        if not isinstance(plan, dict) or plan.get("status") != "ready":
+            return
+        filters = [item for item in plan.get("filters") or [] if item.get("type") == "categorical"
+                   and item.get("source") != "query_plan_temporal" and not item.get("negated")]
+        if not filters:
+            return
+        spans = []
+        for match in self._NEGATION_RE.finditer(normalize_text(question)):
+            words = []
+            for word in match.group("span").split():
+                if words and word in self._NEGATION_SPAN_STOP:
+                    break
+                words.append(word)
+            spans.append(({canonical_token(word) for word in words if len(word) >= 3}, " ".join(words)))
+        for tokens, text in spans:
+            for item in filters:
+                values = ([item.get("value")] if item.get("value") not in (None, "")
+                          else list(item.get("values") or []))
+                value_tokens = {token for value in values for token in canonical_tokens(value)}
+                if tokens and tokens & value_tokens:
+                    item["negated"] = True
+                    item["operator"] = "not in"
+                    notes.append(
+                        f"«{text}» va después de una negación («sin contar», «excepto»...): se excluye "
+                        f"{item.get('column')} = {', '.join(str(v) for v in values)} (NOT IN), no se "
+                        "filtra por ese valor"
+                    )
 
     def _build_plan(self, question, intent_result=None, selected_metric_id=None,
                     forced_resolution=None):

@@ -526,13 +526,13 @@ def format_filters_line(filters):
                 parts.append(period)
         elif item.get("values") and item.get("value") in (None, ""):
             name = item.get("concept") or item.get("column") or "Filtro"
-            text = f"{str(name).upper()} = {', '.join(str(v) for v in item['values'])}"
+            text = f"{str(name).upper()} {'≠' if item.get('negated') else '='} {', '.join(str(v) for v in item['values'])}"
             if text not in seen:
                 seen.add(text)
                 parts.append(text)
         elif item.get("value") not in (None, ""):
             name = item.get("concept") or item.get("column") or "Filtro"
-            text = f"{str(name).upper()} = {item.get('value')}"
+            text = f"{str(name).upper()} {'≠' if item.get('negated') else '='} {item.get('value')}"
             if text not in seen:
                 seen.add(text)
                 parts.append(text)
@@ -650,7 +650,8 @@ def _categorical_phrases(filters):
             continue
         joined = values[0] if len(values) == 1 else ", ".join(values[:-1]) + " o " + values[-1]
         concept = _plain(item.get("concept"))
-        phrases.append(f"{concept.lower()} {joined}" if concept else joined)
+        phrase = f"{concept.lower()} {joined}" if concept else joined
+        phrases.append(f"sin contar {phrase}" if item.get("negated") else phrase)
     return list(dict.fromkeys(phrases))
 
 
@@ -659,8 +660,10 @@ def _scope_text(period, categories):
     parts = []
     if period:
         parts.append(period_phrase_es(period))
-    if categories:
-        parts.append("con " + " y ".join(categories))
+    positive = [item for item in categories or [] if not item.startswith("sin contar ")]
+    if positive:
+        parts.append("con " + " y ".join(positive))
+    parts.extend(item for item in categories or [] if item.startswith("sin contar "))
     return ", ".join(parts)
 
 
