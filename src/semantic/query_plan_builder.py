@@ -6409,6 +6409,10 @@ class QueryPlanBuilder:
         normalized = normalize_text(question)
         if not normalized or self._is_descriptive(normalized):
             return False
+        # «qué antibióticos se están usando»: valores de una entidad con
+        # actividad en un gráfico del tablero (datos, no documentación).
+        if self.active_entity_question(question):
+            return True
         question = canonical_phrases(question)[0]
         normalized = normalize_text(question)
 
@@ -6481,11 +6485,54 @@ class QueryPlanBuilder:
         (agrupado y ordenado); si no hay uno solo, None."""
         normalized = normalize_text(question)
         match = self._RANKED_ENTITY_RE.search(normalized)
+        active = None
         if not match or not self._informal_ranking(normalized):
-            return None
+            # «qué antibióticos se están usando (ahorita)»: qué valores de la
+            # entidad tienen actividad = el indicador del gráfico por esa
+            # entidad, agrupado (holdout H29).
+            active = self._ACTIVE_ENTITY_RE.search(normalized)
+            if not active:
+                return None
+            match = active
         entity = canonical_token(match.group("entity"))
         if entity in {canonical_token(word) for word in STOPWORDS | GENERIC_QUERY_WORDS}:
             return None
+        found = self._entity_chart_metrics(entity)
+        if len(found) != 1:
+            return None
+        metric, appearance = next(iter(found.values()))
+        label = appearance.get("visual_title") or metric.get("label")
+        if active is not None:
+            self._note(
+                f"«{match.group(0).strip()}» pide qué {match.group('entity')} tienen actividad: se usa el "
+                f"indicador que el tablero muestra por {match.group('entity')} ({label}), agrupado"
+            )
+            consumed = {canonical_token(word) for word in (match.group("verb"), "se", "esta", "estan")}
+            forced = {
+                "status": "resolved", "metric": metric, "matched_name": metric.get("label"),
+                "score": self.min_metric_score, "final": True, "consumed_tokens": consumed,
+                "candidates": [{"metric": metric, "score": self.min_metric_score,
+                                "business_score": self.min_metric_score, "matched_name": metric.get("label")}],
+            }
+            plan = self._build_plan(f"{question} por {match.group('entity')}", intent_result,
+                                    forced_resolution=forced)
+            if isinstance(plan, dict) and plan.get("status") == "ready" and plan.get("group_by"):
+                return plan
+            return None
+        return self._ranked_entity_plan(question, intent_result, match, normalized, metric, label)
+
+    # «qué antibióticos se están usando», «qué medicamentos se están dispensando».
+    _ACTIVE_ENTITY_RE = re.compile(
+        r"(?<![a-z0-9])(?:que|cuales)\s+(?P<entity>[a-z]{4,}s)\s+se\s+(?:esta|estan)\s+(?P<verb>[a-z]{3,}ndo)(?![a-z0-9])"
+    )
+
+    def active_entity_question(self, question):
+        """¿«qué <entidades> se están <verbo>» con un único gráfico por esa entidad?"""
+        match = self._ACTIVE_ENTITY_RE.search(normalize_text(question))
+        return bool(match) and len(self._entity_chart_metrics(canonical_token(match.group("entity")))) == 1
+
+    def _entity_chart_metrics(self, entity):
+        """{clave lógica: (indicador, aparición)} de los gráficos que agregan por la entidad."""
         index = self._visual_index()
         found = {}
         for metric in self._dedupe_metrics(self.metrics):
@@ -6510,10 +6557,9 @@ class QueryPlanBuilder:
                     ):
                         found.setdefault(self._logical_key(metric), (metric, appearance))
                         break
-        if len(found) != 1:
-            return None
-        metric, appearance = next(iter(found.values()))
-        label = appearance.get("visual_title") or metric.get("label")
+        return found
+
+    def _ranked_entity_plan(self, question, intent_result, match, normalized, metric, label):
         self._note(
             f"«{match.group(0)}» es un ranking de {match.group('entity')} sin indicador nombrado: "
             f"se usa el que el tablero muestra por {match.group('entity')} ({label})"
@@ -11328,7 +11374,15 @@ class QueryPlanBuilder:
                 else f"«{phrase}» es el verbo de la pregunta (no es un indicador ni un filtro): se ignora"
             )
         try:
-            plan = self._build_plan(question, intent_result, selected_metric_id)
+            # «qué antibióticos se están aplicando»: antes de que el verbo se
+            # quite como relleno (canonical_phrases), se mira la forma de la
+            # pregunta (valores de una entidad con actividad).
+            active = None
+            if selected_metric_id is None and self.active_entity_question(original_question):
+                active = self._ranked_entity_metric(original_question, intent_result)
+                if not (isinstance(active, dict) and active.get("status") == "ready"):
+                    active = None
+            plan = active or self._build_plan(question, intent_result, selected_metric_id)
             if rewrites and isinstance(plan, dict) and plan.get("question") == question:
                 plan["question"] = original_question
             # Si el indicador elegido no admite el filtro/periodo/agrupación
@@ -11345,7 +11399,7 @@ class QueryPlanBuilder:
                 )
                 if same_name is not None:
                     plan = same_name
-            if selected_metric_id is None:
+            if selected_metric_id is None and active is None:
                 plan = self._refine_options(question, intent_result, plan)
         finally:
             self._resolution_notes = previous
@@ -11398,7 +11452,11 @@ class QueryPlanBuilder:
                 question, source_context, metric_result, metric_result["page_hint_ignored"],
             )
 
-        if exploring and metric_result.get("status") == "not_found":
+        if exploring and (
+            metric_result.get("status") == "not_found"
+            or (metric_result.get("status") == "ambiguous"
+                and self._ACTIVE_ENTITY_RE.search(normalize_text(question)))
+        ):
             ranked = self._ranked_entity_metric(question, intent_result)
             if ranked is not None:
                 return ranked

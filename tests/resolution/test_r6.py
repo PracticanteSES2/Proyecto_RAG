@@ -346,6 +346,27 @@ def test_dimension_alias_that_names_the_metric_is_not_the_header():
             qpb._column_business_names = saved
 
 
+# ------------------------------------------------------------ 6. «qué <entidades> se están <verbo>»
+def test_active_entity_question_uses_the_chart_by_that_entity():
+    # H29 «q antibióticos se están usando ahorita». Nuevas: «qué prendas se están
+    # lavando», «cuáles prendas se están lavando ahorita».
+    qpb = builder()
+    metric = {**_card_metric("prendas", "KILOS POR PRENDA", "v_pr", "Página 1"), "semantic_model": GES}
+    metric["appearances"][0]["visual_type"] = "clusteredBarChart"
+    visual = {"visual_id": "v_pr", "visual_type": "clusteredBarChart",
+              "fields": [{"kind": "column", "table": "LAVANDERIA", "column": "PRENDA", "display_name": "PRENDA"}],
+              "filters": {"visual": [], "inherited": {"page": [], "report": []}}}
+    saved = _with_visuals(qpb, [visual], [metric])
+    try:
+        for question in ("que prendas se estan lavando", "cuales prendas se estan lavando ahorita"):
+            assert qpb.active_entity_question(question), question
+        # Sin gráfico por la entidad, o sin la forma «se están …ndo», no aplica.
+        assert not qpb.active_entity_question("que servicios se estan lavando")
+        assert not qpb.active_entity_question("que prendas hay")
+    finally:
+        _restore_visuals(qpb, saved)
+
+
 TESTS = [value for name, value in sorted(globals().items()) if name.startswith("test_") and callable(value)]
 
 
