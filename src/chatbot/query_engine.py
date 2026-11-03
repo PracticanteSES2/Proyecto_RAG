@@ -4834,6 +4834,12 @@ class QueryEngine:
     # ========================================================
 
     _FOLLOWUP_MAX_WORDS = 10
+    # Mensajes cortos sin «y» que se intentan primero como seguimiento (r9).
+    _BARE_FOLLOWUP_STARTS = {
+        "por", "segun", "en", "de", "del", "para", "solo", "solamente", "cual", "cuales", "que",
+        "como", "donde", "con", "sin", "separado", "separados", "agrupado", "agrupados",
+    }
+    _BARE_FOLLOWUP_MAX_WORDS = 7
 
     @staticmethod
     def _is_temporal_filter(item):
@@ -4939,6 +4945,10 @@ class QueryEngine:
             }
             return
         if status in ("needs_clarification", "empty_result", "error") or followup:
+            return
+        # r9 (causa 5): una respuesta de la documentación en medio no borra el
+        # último turno de DATOS («¿qué mide?» y luego «¿y por aseguradora?»).
+        if result.get("route") == "rag":
             return
         self._last_success = None
 
@@ -5147,6 +5157,116 @@ class QueryEngine:
             return complement, None
         return f"{str(complement).rstrip(' ?¿!.')} de {year}", year
 
+    # «el mes anterior (a ese)», «el año anterior», «un mes antes»: en un
+    # seguimiento se cuenta desde el periodo de la consulta anterior, no desde hoy (r9).
+    _PREVIOUS_PERIOD_RE = re.compile(
+        r"(?<![a-z0-9])(?:(?:el|la|un|una)\s+)?(?P<unit>mes|ano|anio)\s+(?:anterior|previo|antes)"
+        r"(?:\s+(?:a|de|que)\s+(?:ese|esa|eso|este|esta|aquel|el\s+anterior))?(?![a-z0-9])"
+    )
+    _MONTH_NAMES_ES = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+                       "septiembre", "octubre", "noviembre", "diciembre")
+
+    def _previous_period_start(self, last):
+        """(año, mes) del comienzo del periodo de la consulta anterior, o None."""
+        for item in last.get("filters") or []:
+            if not self._is_temporal_filter(item):
+                continue
+            start = str(item.get("start") or "")
+            if re.match(r"^\d{4}-\d{2}", start):
+                return int(start[:4]), int(start[5:7])
+            if item.get("year") and item.get("month"):
+                try:
+                    return int(item["year"]), int(item["month"])
+                except (TypeError, ValueError):
+                    pass
+            if item.get("year"):
+                try:
+                    return int(item["year"]), None
+                except (TypeError, ValueError):
+                    pass
+        return None
+
+    def _shift_from_previous_period(self, complement, last):
+        """(complemento, explicación o None): reemplaza «el mes anterior (a ese)» por el mes anterior
+        al de la consulta previa («septiembre de 2026» tras octubre de 2026)."""
+        norm = self._normalize_text(complement)
+        match = self._PREVIOUS_PERIOD_RE.search(norm)
+        start = self._previous_period_start(last) if match else None
+        if not match or not start:
+            return complement, None
+        year, month = start
+        if match.group("unit") == "mes":
+            if month is None:
+                return complement, None
+            month, year = (12, year - 1) if month == 1 else (month - 1, year)
+            target = f"{self._MONTH_NAMES_ES[month - 1]} de {year}"
+        else:
+            target = str(year - 1)
+        replaced = (norm[:match.start()] + f" de {target} " + norm[match.end():]).strip()
+        replaced = re.sub(r"\s+", " ", replaced)
+        return replaced, (f"«{match.group(0)}» se cuenta desde el periodo de la consulta anterior: {target} "
+                          "(no desde hoy)")
+
+    # «¿y el de consulta?», «¿y la de triage?»: el mismo indicador con otro calificativo (r9).
+    _QUALIFIER_SWAP_RE = re.compile(r"^(?:y\s+)?(?:el|la|los|las)\s+(?:de|del|para|por)\s+(?P<qualifier>[a-z0-9 ]{3,40})$")
+
+    def _qualifier_swap_plan(self, message, last):
+        """Plan del indicador hermano del anterior (mismo modelo, mismo nombre salvo el calificativo
+        que pide el mensaje), con la pregunta anterior; o None."""
+        match = self._QUALIFIER_SWAP_RE.match(self._normalize_text(message))
+        builder = self.query_plan_builder
+        if not match or not last or builder is None or len(match.group("qualifier").split()) > 4:
+            return None
+        from src.semantic.query_plan_builder import canonical_tokens
+        def content(text):
+            return {t for t in canonical_tokens(text) if len(t) >= 4 and t not in ("para", "desde", "hasta")}
+
+        qualifier = sorted(content(match.group("qualifier")))
+        old_label = str(last.get("metric_label") or "")
+        old_tokens = content(old_label)
+        if not qualifier or set(qualifier) <= old_tokens:
+            return None
+        best, best_score, tie = None, 0, False
+        for metric in getattr(builder, "metrics", None) or []:
+            if metric.get("semantic_model") != last.get("semantic_model") or metric.get("metric_id") == last.get("metric_id"):
+                continue
+            tokens = content(metric.get("label"))
+            if not set(qualifier) <= tokens:
+                continue
+            shared = len((tokens & old_tokens) - set(qualifier))
+            extra = len(tokens - old_tokens - set(qualifier))
+            score = shared * 2 - extra * 0.5
+            if shared == 0:
+                continue
+            if score > best_score:
+                best, best_score, tie = metric, score, False
+            elif score == best_score and best is not None and metric.get("label") != best.get("label"):
+                tie = True
+        if best is None or tie or best_score < 1:
+            return None
+        new_tokens = content(best.get("label"))
+        removed = [word for word in self._normalize_text(old_label).split()
+                   if canonical_tokens(word) and canonical_tokens(word)[0] in old_tokens - new_tokens]
+        question = self._normalize_text(last.get("question"))
+        for word in removed:
+            question = re.sub(r"(?<![a-z0-9])" + re.escape(word) + r"(?![a-z0-9])", " ", question)
+        question = re.sub(r"\s+", " ", f"{question} {match.group('qualifier')}").strip()
+        plan = builder.build(question, selected_metric_id=best.get("metric_id"))
+        if plan.get("status") != "ready":
+            return None
+        self._think(
+            "Seguimiento: mismo indicador con otro calificativo",
+            f"«{message.strip()}» cambia el calificativo de {old_label}: se usa {best.get('label')} "
+            f"(mismo tablero) con la pregunta anterior («{question}»)",
+        )
+        return {
+            **plan,
+            "followup_base_question": question,
+            "followup_of": {"question": last.get("question"), "metric": old_label,
+                            "value": last.get("value"), "metric_format": last.get("metric_format"),
+                            "anaphora": False},
+        }
+
     def _followup_plan(self, message, original=None, complement=None, why=None, base=None, lenient=False):
         """Plan de seguimiento o None si el mensaje no es claramente un
         complemento de la última respuesta numérica.
@@ -5174,6 +5294,9 @@ class QueryEngine:
             return None
         if self._has_pending_clarification():
             return None
+        swapped = self._qualifier_swap_plan(original or message, last)
+        if swapped is not None:
+            return swapped
         phrases, cited = [], None
         pending_named = []
         from_context = complement is not None
@@ -5238,6 +5361,17 @@ class QueryEngine:
                 why = f"se refiere a la respuesta anterior: {reference}"
             else:
                 phrases = []
+                # r9 (causa 5): tras una respuesta de datos, un mensaje corto que
+                # abre con un complemento («¿por turno?», «¿cuál servicio tuvo
+                # más?», «¿en qué servicios están?») se intenta PRIMERO como
+                # seguimiento (si el plan no lo explica, es pregunta nueva).
+                bare = (
+                    len(words) >= 1 and words[0] in self._BARE_FOLLOWUP_STARTS
+                    and len(words) <= self._BARE_FOLLOWUP_MAX_WORDS
+                    and not self._descriptive_reason(message)
+                )
+                if bare:
+                    words = ["y", *words]
                 if len(words) < 2 or words[0] != "y" or len(words) > self._FOLLOWUP_MAX_WORDS:
                     return None
                 complement = " ".join(words[1:])
@@ -5263,10 +5397,14 @@ class QueryEngine:
                         )
                         return None
                     pending_named = named
-                why = "empieza con «y» y solo agrega un complemento"
+                why = ("es un mensaje corto tras una respuesta de datos y solo agrega un complemento" if bare
+                       else "empieza con «y» y solo agrega un complemento")
 
+        complement, shifted = self._shift_from_previous_period(complement, last)
         complement, inherited_year = self._with_previous_year(complement, last)
         plan = builder.build(complement, selected_metric_id=last["metric_id"])
+        if shifted:
+            self._think("Periodo relativo al turno anterior", shifted)
         if pending_named:
             unexplained = [w for w in pending_named if w not in self._explained_by_plan(pending_named, plan)]
             if unexplained and lenient:
