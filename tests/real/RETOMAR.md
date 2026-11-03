@@ -144,3 +144,55 @@ Pendientes del holdout v2 (no forzados):
 - H18 (RAG trae RELACIÓN ACEPTADOS para «% pendiente de citas»): ranking del RAG, sin tocar.
 - H27b («cirujias canceladas agosto vs septiembre»): elige TOTAL_CIRUGIAS/CANCELADAS de citas; la verdad es
   CIRUGÍAS de Demanda Insatisfecha con TIEMPO_CIRUGÍA > 45; sin tocar.
+
+## 7. Ronda r7 (rama `agente/r7`, sin corrida real)
+
+Reglas generales (pruebas en `tests/resolution/test_r7.py`, preguntas nuevas):
+- **TU04 (causa en real)**: «cuántos triages» nunca coincidía con CANTIDAD DE TRIAGES (`_core_name_score` exigía
+  dos palabras tras «cantidad de»), así que en el catálogo real solo competían TRIAGES (Demanda) y el «Recuento de
+  PACNUMDOC» de TRIAGES ATENDIDOS (EPS), que explicaba «urgencias» por su filtro GASNOMBRE y su página. Ahora:
+  (1) «cuántos/número de X» nombra «CANTIDAD/NÚMERO DE X» completo (no «TOTAL X»); (2) el tablero del indicador
+  explica un calificativo también en `_promote_qualifier_metrics` («urgencias» → TABLERO TIEMPOS URGENCIAS), como ya
+  lo hacía el puntaje; (3) un conteo implícito de identificador («Recuento de <col. de documento/OID/ingreso>»,
+  `_implicit_identifier_count`) va detrás de un indicador con nombre de negocio que explica lo mismo
+  (`_qualifier_candidates` y `QueryEngine._drop_dominated_options`).
+- **H05**: en la coincidencia aproximada (`_fuzzy_qualifier_filters`) una palabra común a varios valores
+  («obstétricos»: URGENCIA OBSTETRICA y los demás …OBSTETRICA) filtra por todos (IN), como la verdad (CONTAINS).
+  La regla de r6 (`_context_word_family`) no se aplicaba porque en real «urgencias» ya la consumía la página.
+- **H09**: «por día de la semana» no es granularidad diaria (`period_parser._GRANULARITY_RES`); se agrupa por
+  DIA_SEMANA. Encabezado sin la referencia nativa «Primera fecha: DIA_SEMANA».
+- **H02**: el verbo de reparto («cómo están repartidas/distribuidas X por Y», «cómo se reparten») se quita en
+  `canonical_phrases`: ya no es el «sustantivo principal» que descartaba CAMAS.
+
+Pendientes del holdout v3 (no forzados):
+- PBIP incompleto: H13, H14, H15 (ATENCIONES: PARTOS_DRIVE / CONSULTAS_AMBULATORIAS sin visuales ni fecha local),
+  H26, H39, H40, H41 (REFERENCIA: PBIR vacío; H26 = REFERENCIA con CAUSA de no aceptación), H43 (CVC sin fecha).
+  Igual que AI05/AI06 del banco de desarrollo.
+- H18 (ranking del RAG trae RELACIÓN ACEPTADOS para «% pendiente de citas»); H27b («canceladas» = TIEMPO_CIRUGÍA > 45
+  en Demanda Insatisfecha: definición del tablero que ningún nombre dice).
+- H09: elige PROMEDIO_TRIAGE_2026 (ATENCIONES, AVERAGE de OPORTUNIDAD_TRIAGE[MIN] del año) en vez de TIEMPO PARA
+  TRIAGE (TIEMPOS URGENCIAS); misma cifra si las dos tablas son la misma fuente. Validar en real (claves «lunes»
+  frente a «1. LUNES»).
+
+### Simulador frente a la data real (falsos positivos)
+1. **Prueba de regla ≠ prueba del catálogo.** r6 validó TU04 con `_page_refinement_fixture`, que parchea
+   `_page_choices`/`_metric_misses_period`; con el catálogo real CANTIDAD DE TRIAGES ni siquiera era candidato. El
+   chat del simulador (`python -m tests.realistic.chat "..."`) sí reproducía la falla: validar cada caso del banco
+   también por el chat, no solo por la prueba unitaria.
+2. **Cobertura de fechas**: en el simulador `Calendario[FECHA]` de TIEMPOS URGENCIAS y `Calendario[Fecha]` del EPS
+   van de 2024-01-03 a 2026-06-20 (la expresión `CALENDAR("2023-01-01", TODAY())` no llega a hoy), mientras que
+   `TRIAGES[FECHA]` del Briefing llega a mañana. «Este mes»/«mes pasado» dan «no hay datos» en esos modelos aunque
+   el indicador sea el equivocado (TU04 decía «No hay datos de Recuento de PACNUMDOC»): un caso que solo verifica
+   estado/ruta pasa. Revisar `datagen._from_expression` (mapeo de columnas de CALENDAR).
+3. **Dominios de valores**: el simulador genera valores sintéticos (TRIAGES[DESCRI_TRIGE] = TRIAGE I…V); en real
+   son clasificaciones (URGENCIA OBSTETRICA, …). Las reglas de familias/valores (H05) no se pueden ejercer de punta a
+   punta en el simulador: probarlas con dominios parcheados (test_r7) y en real.
+4. **Catálogo distinto**: `catalog_patches.py` y los modelos sintéticos (`tests/realistic/synthetic_models`)
+   agregan medidas (CAMAS sobre SERVICIOS × ESTADOS_CAM, «supuesto») y homónimos; cambian las ambigüedades (H02:
+   en el simulador CAMAS frente a CamasFiltradas; en real «CAMAS en varios tableros»). Para comparar con real usar
+   `SIM_PATCHES=0` / `SIM_SYNTHETIC=0`.
+5. **Tablas «del día anterior»**: en el simulador tienen historia completa; la cobertura solo sale de la
+   documentación (`table_coverage`), así que una regla de cobertura mal escrita no se nota en las cifras.
+
+IDs a validar en real: `correr_todo --solo TU04,TU03,TU05,BH03,EP01,EP02` y holdout
+`--banco tests/real/banco_holdout.json --solo H02,H05,H09,H20,H24,H29`.
