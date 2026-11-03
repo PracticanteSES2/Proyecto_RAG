@@ -1,0 +1,2149 @@
+[
+ {
+  "id": "H01",
+  "turns": [
+   {
+    "input": "cuantas camas hay en transicion ahorita?",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "EN TRANSICION",
+    "metric_id": "29a0f2530d6a5efe",
+    "semantic_model": "BRIEFING HOSPITALARIO",
+    "report": "BRIEFING HOSPITALARIO",
+    "dashboard": "GESTIÓN CAMAS",
+    "result_type": "scalar",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[ESTADOS_CAM]), 'CAMAS DISPONIBLES'[ESTADOS_CAM] IN {\"EN TRANSICIÓN\"})), KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL \", \"BLOQUEAR - CUIDADO BASICO NEONATAL \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS \", \"BLOQUEAR - URGENCIAS OBS SALA 2 \", \"BLOQUEAR - URGENCIAS OBS SALA 3 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"})))) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[ESTADOS_CAM]), 'CAMAS DISPONIBLES'[ESTADOS_CAM] IN {\"EN TRANSICIÓN\"})), KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL \", \"BLOQUEAR - CUIDADO BASICO NEONATAL \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS \", \"BLOQUEAR - URGENCIAS OBS SALA 2 \", \"BLOQUEAR - URGENCIAS OBS SALA 3 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"})))) )",
+     "EVALUATE TOPN( 51, SUMMARIZECOLUMNS( 'SERVICIOS'[NOM_SERV], 'CAMAS DISPONIBLES'[HCACODIGO], \"__value\", CALCULATE(DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[ESTADOS_CAM]), 'CAMAS DISPONIBLES'[ESTADOS_CAM] IN {\"EN TRANSICIÓN\"})), KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL \", \"BLOQUEAR - CUIDADO BASICO NEONATAL \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS \", \"BLOQUEAR - URGENCIAS OBS SALA 2 \", \"BLOQUEAR - URGENCIAS OBS SALA 3 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"})))) ), 'SERVICIOS'[NOM_SERV], ASC, 'CAMAS DISPONIBLES'[HCACODIGO], ASC ) ORDER BY 'SERVICIOS'[NOM_SERV] ASC, 'CAMAS DISPONIBLES'[HCACODIGO] ASC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**2 camas** (indicador EN TRANSICION):\n\n| SERVICIO | CAMA |\n| --- | --- |\n| HOSPITALIZACIÓN GENERAL | 416 |\n| HOSPITALIZACIÓN INTERMEDIOS | 511 |\n\nCifra tal como la muestra la tarjeta de la página GESTIÓN CAMAS del tablero BRIEFING HOSPITALARIO (con sus 6 filtros; p. ej., solo estado de la cama EN TRANSICIÓN).",
+    "exception": null,
+    "latency_s": 4.213
+   }
+  ]
+ },
+ {
+  "id": "H02",
+  "turns": [
+   {
+    "input": "como estan repartidas las camas x estado",
+    "status": "needs_clarification",
+    "route": "clarification",
+    "stage": null,
+    "clarification_type": "query_plan_metric",
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [
+     {
+      "id": "d61113156031eae1",
+      "label": "CAMAS",
+      "caption": "[FakeLLM] Obtiene el valor de camas (tabla SERVICIOS) · BRIEFING HOSPITALARIO › página GESTIÓN CAMAS"
+     },
+     {
+      "id": "9cdf357f18a1f749",
+      "label": "CamasFiltradas",
+      "caption": "[FakeLLM] Obtiene el valor de camasfiltradas (tabla SERVICIOS) · BRIEFING HOSPITALARIO › página INICIO"
+     },
+     {
+      "id": "__none__",
+      "label": "Ninguna de las anteriores",
+      "caption": "Buscar otros indicadores parecidos a la pregunta"
+     }
+    ],
+    "prompt": null,
+    "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
+    "exception": null,
+    "latency_s": 1.703
+   },
+   {
+    "input": "[botón] CAMAS",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "CAMAS",
+    "metric_id": "d61113156031eae1",
+    "semantic_model": "BRIEFING HOSPITALARIO",
+    "report": "BRIEFING HOSPITALARIO",
+    "dashboard": "GESTIÓN CAMAS",
+    "result_type": "table",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [
+     "ESTADOS_CAM",
+     "ESTADO",
+     "CAMAS DISPONIBLES",
+     "ESTADOS_CAM",
+     "ESTADO",
+     "CAMAS DISPONIBLES"
+    ],
+    "dax": [
+     "EVALUATE SUMMARIZECOLUMNS( 'CAMAS DISPONIBLES'[ESTADOS_CAM], \"__value\", CALCULATE([CAMAS], KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL \", \"BLOQUEAR - CUIDADO BASICO NEONATAL \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS \", \"BLOQUEAR - URGENCIAS OBS SALA 2 \", \"BLOQUEAR - URGENCIAS OBS SALA 3 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"})))) ) ORDER BY [__value] DESC"
+    ],
+    "dax_log": [
+     "EVALUATE SUMMARIZECOLUMNS( 'CAMAS DISPONIBLES'[ESTADOS_CAM], \"__value\", CALCULATE([CAMAS], KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL \", \"BLOQUEAR - CUIDADO BASICO NEONATAL \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS \", \"BLOQUEAR - URGENCIAS OBS SALA 2 \", \"BLOQUEAR - URGENCIAS OBS SALA 3 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"})))) ) ORDER BY [__value] DESC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**CAMAS** por estado:\n\n| ESTADO | CAMAS |\n| --- | --- |\n| OCUPADA | 43 |\n| DISPONIBLE | 16 |\n| BLOQUEADA | 3 |\n| EN TRANSICIÓN | 2 |\n| CAMA SOLICITADA | 2 |\n\nCifra tal como la muestra la tabla de la página GESTIÓN CAMAS del tablero BRIEFING HOSPITALARIO (con sus 5 filtros; p. ej., excluye servicio ATENCION DOMICILIARIA, BLOQUEAR y 18 más).",
+    "exception": null,
+    "latency_s": 0.095
+   }
+  ]
+ },
+ {
+  "id": "H03",
+  "turns": [
+   {
+    "input": "cuantos medicamentos desabastesidos hay reportados",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "CASOS TOTALES",
+    "metric_id": "0a37b4be91b0f2b4",
+    "semantic_model": "BRIEFING HOSPITALARIO",
+    "report": "BRIEFING HOSPITALARIO",
+    "dashboard": "DETALLE MEDICAMENTOS DESABASTECIDOS",
+    "result_type": "scalar",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", DISTINCTCOUNT('MEDICAMENTOS DESABASTECIDOS'[OID_SOLICITUD]) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__value\", DISTINCTCOUNT('MEDICAMENTOS DESABASTECIDOS'[OID_SOLICITUD]) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**2.997 medicamentos** (indicador CASOS TOTALES).\n\nLa lista de 2.997 medicamentos es demasiado larga para mostrarla aquí (más de 50). Indica un filtro (servicio, estado...) y te muestro el detalle.",
+    "exception": null,
+    "latency_s": 3.48
+   }
+  ]
+ },
+ {
+  "id": "H04",
+  "turns": [
+   {
+    "input": "cuantas consultas ambulatorias hay agendadas pa la proxima semana",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "CONSULTAS AMBULATORIAS",
+    "metric_id": "a2695b45f49dbf85",
+    "semantic_model": "BRIEFING HOSPITALARIO",
+    "report": "BRIEFING HOSPITALARIO",
+    "dashboard": "CONSULTAS PROXIMA SEMANA",
+    "result_type": "scalar",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('AMBULATORIO_SS'[CITA]), KEEPFILTERS(FILTER(ALL('AMBULATORIO_SS'[TIPO_CONSULTA]), 'AMBULATORIO_SS'[TIPO_CONSULTA] IN {\"CONSULTA AMBULATORIA\"}))) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('AMBULATORIO_SS'[TIPO_CONSULTA])), \"__card1\", COUNTROWS(VALUES('AMBULATORIO_SS'[ESPECIALIDAD])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('AMBULATORIO_SS'[TIPO_CONSULTA]), \"Value\", 'AMBULATORIO_SS'[TIPO_CONSULTA]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('AMBULATORIO_SS'[ESPECIALIDAD]), \"Value\", 'AMBULATORIO_SS'[ESPECIALIDAD]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('AMBULATORIO_SS'[CITA]), KEEPFILTERS(FILTER(ALL('AMBULATORIO_SS'[TIPO_CONSULTA]), 'AMBULATORIO_SS'[TIPO_CONSULTA] IN {\"CONSULTA AMBULATORIA\"}))) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**CONSULTAS AMBULATORIAS**: **101**\n\nCifra tal como la muestra la tarjeta de la página CONSULTAS PROXIMA SEMANA del tablero BRIEFING HOSPITALARIO (con su filtro).",
+    "exception": null,
+    "latency_s": 1.89
+   }
+  ]
+ },
+ {
+  "id": "H05",
+  "turns": [
+   {
+    "input": "triages obstetricos q van hoy en urgencias",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "TRIAGES",
+    "metric_id": "e4ff196c76092fdf",
+    "semantic_model": "BRIEFING HOSPITALARIO",
+    "report": "BRIEFING HOSPITALARIO",
+    "dashboard": "INICIO",
+    "result_type": "scalar",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('TRIAGES'[OID_TRIAGE]), KEEPFILTERS(FILTER(ALL('TRIAGES'[DESCRI_TRIGE]), (NOT (CONTAINSSTRING('TRIAGES'[DESCRI_TRIGE], \"MUERTO\")) && NOT (CONTAINSSTRING('TRIAGES'[DESCRI_TRIGE], \"OBSTETRICA\")))))) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('TRIAGES'[DESCRI_TRIGE])), \"__card1\", COUNTROWS(VALUES('TRIAGES'[MENORES])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('TRIAGES'[DESCRI_TRIGE]), \"Value\", 'TRIAGES'[DESCRI_TRIGE]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('TRIAGES'[MENORES]), \"Value\", 'TRIAGES'[MENORES]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('TRIAGES'[OID_TRIAGE]), KEEPFILTERS(FILTER(ALL('TRIAGES'[DESCRI_TRIGE]), (NOT (CONTAINSSTRING('TRIAGES'[DESCRI_TRIGE], \"MUERTO\")) && NOT (CONTAINSSTRING('TRIAGES'[DESCRI_TRIGE], \"OBSTETRICA\")))))) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**TRIAGES**: **12**\n\n«hoy»: la tabla TRIAGES trae solo el corte del día anterior según su documentación; se muestra ese corte (la cifra del tablero), no la de hoy. Cifra tal como la muestra la tabla de la página URGENCIAS del tablero BRIEFING HOSPITALARIO (con su filtro).",
+    "exception": null,
+    "latency_s": 1.396
+   }
+  ]
+ },
+ {
+  "id": "H06",
+  "turns": [
+   {
+    "input": "dame el top 3 de servicios con mas egresos probables",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "EGRESOS PROBABLES",
+    "metric_id": "f520d988801b635f",
+    "semantic_model": "BRIEFING HOSPITALARIO",
+    "report": "BRIEFING HOSPITALARIO",
+    "dashboard": "INICIO",
+    "result_type": "table",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [
+     "HSUNOMBRE",
+     "SERVICIO",
+     "EGRESOS PROBABLES",
+     "HSUNOMBRE",
+     "SERVICIO",
+     "EGRESOS PROBABLES"
+    ],
+    "dax": [
+     "EVALUATE SUMMARIZECOLUMNS( 'EGRESOS PROBABLES'[HSUNOMBRE], \"__value\", DISTINCTCOUNT('EGRESOS PROBABLES'[AINCONSEC]) ) ORDER BY [__value] DESC"
+    ],
+    "dax_log": [
+     "EVALUATE SUMMARIZECOLUMNS( 'EGRESOS PROBABLES'[HSUNOMBRE], \"__value\", DISTINCTCOUNT('EGRESOS PROBABLES'[AINCONSEC]) ) ORDER BY [__value] DESC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**EGRESOS PROBABLES** por servicio (de mayor a menor):\n\n| SERVICIO | EGRESOS PROBABLES |\n| --- | --- |\n| PROFESIONAL 01 | 101 |\n| PROFESIONAL 12 | 101 |\n| PROFESIONAL 05 | 99 |\n| PROFESIONAL 13 | 91 |\n| PROFESIONAL 04 | 86 |\n| PROFESIONAL 11 | 85 |\n| PROFESIONAL 09 | 74 |\n| PROFESIONAL 02 | 71 |\n| PROFESIONAL 10 | 69 |\n| PROFESIONAL 14 | 69 |\n| PROFESIONAL 08 | 68 |\n| PROFESIONAL 07 | 68 |\n| PROFESIONAL 06 | 65 |\n| PROFESIONAL 03 | 59 |\n\nOrdenado de mayor a menor (SERVICIO). Las filas suman 1.106; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
+    "exception": null,
+    "latency_s": 0.725
+   }
+  ]
+ },
+ {
+  "id": "H07",
+  "turns": [
+   {
+    "input": "cuanto se demora la admision en urgencias este mes en promedio?",
+    "status": "empty_result",
+    "route": "powerbi",
+    "stage": "query_plan_result",
+    "clarification_type": null,
+    "metric": "TIEMPO PROMEDIO PARA ADMISION",
+    "metric_id": "06af9611b81c78f4",
+    "semantic_model": "TABLERO TIEMPOS URGENCIAS",
+    "report": "TABLERO TIEMPOS URGENCIAS",
+    "dashboard": "TIEMPO TRIAGE-ADMISION",
+    "result_type": null,
+    "filters": [
+     {
+      "column": "Date",
+      "end": "2026-11-04",
+      "label": "noviembre 2026 hasta hoy",
+      "month": 11,
+      "start": "2026-11-01",
+      "table": "Calendario",
+      "type": "date_range",
+      "year": 2026
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(AVERAGE('CONSULTA_URGENCIAS'[MINUTOS_ADMISION]), KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[TIPO_TRIAGE]), NOT ('CONSULTA_URGENCIAS'[TIPO_TRIAGE] IN {\"EMERGENCIA OBSTETRICA - I-G\", \"MUERTO\", \"NO URGENTE OBSTETRICA - IV-G\", \"URGENCIA MEDICA OBSTETRICA - II-G\", \"URGENCIA OBSTETRICA - III-G\"})))), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 1) && 'Calendario'[FECHA] < DATE(2026, 11, 4)) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(AVERAGE('CONSULTA_URGENCIAS'[MINUTOS_ADMISION]), KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[TIPO_TRIAGE]), NOT ('CONSULTA_URGENCIAS'[TIPO_TRIAGE] IN {\"EMERGENCIA OBSTETRICA - I-G\", \"MUERTO\", \"NO URGENTE OBSTETRICA - IV-G\", \"URGENCIA MEDICA OBSTETRICA - II-G\", \"URGENCIA OBSTETRICA - III-G\"})))), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 1) && 'Calendario'[FECHA] < DATE(2026, 11, 4)) ) )",
+     "EVALUATE ROW(\"__hasta\", MAXX(FILTER(ALL('Calendario'[FECHA]), NOT ISBLANK(CALCULATE(CALCULATE(AVERAGE('CONSULTA_URGENCIAS'[MINUTOS_ADMISION]), KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[TIPO_TRIAGE]), NOT ('CONSULTA_URGENCIAS'[TIPO_TRIAGE] IN {\"EMERGENCIA OBSTETRICA - I-G\", \"MUERTO\", \"NO URGENTE OBSTETRICA - IV-G\", \"URGENCIA MEDICA OBSTETRICA - II-G\", \"URGENCIA OBSTETRICA - III-G\"}))))))), 'Calendario'[FECHA]))"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "No hay datos de **TIEMPO PROMEDIO PARA ADMISION** en lo que va de noviembre de 2026. La fuente tiene datos hasta el 19/06/2026.\n\nFiltros: noviembre 2026 hasta hoy.",
+    "exception": null,
+    "latency_s": 15.847
+   }
+  ]
+ },
+ {
+  "id": "H08",
+  "turns": [
+   {
+    "input": "tiempo de respuesta de imagenes en urgencias en septiembre",
+    "status": "empty_result",
+    "route": "powerbi",
+    "stage": "query_plan_result",
+    "clarification_type": null,
+    "metric": "TIEMPO PROMEDIO DE RESPUESTA",
+    "metric_id": "adfa325cbe3967b2",
+    "semantic_model": "TABLERO TIEMPOS URGENCIAS",
+    "report": "TABLERO TIEMPOS URGENCIAS",
+    "dashboard": "IMAGENES",
+    "result_type": null,
+    "filters": [
+     {
+      "column": "Date",
+      "end": "2026-10-01",
+      "label": "septiembre 2026",
+      "month": 9,
+      "start": "2026-09-01",
+      "table": "Calendario",
+      "type": "date_range",
+      "year": 2026
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( AVERAGE('IMAGENES'[tiempo_respuesta]), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 9, 1) && 'Calendario'[FECHA] < DATE(2026, 10, 1)) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__value\", CALCULATE( AVERAGE('IMAGENES'[tiempo_respuesta]), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 9, 1) && 'Calendario'[FECHA] < DATE(2026, 10, 1)) ) )",
+     "EVALUATE ROW(\"__hasta\", MAXX(FILTER(ALL('Calendario'[FECHA]), NOT ISBLANK(CALCULATE(AVERAGE('IMAGENES'[tiempo_respuesta])))), 'Calendario'[FECHA]))"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "No hay datos de **TIEMPO PROMEDIO DE RESPUESTA** en septiembre de 2026. La fuente tiene datos hasta el 20/06/2026.\n\nFiltros: septiembre 2026.",
+    "exception": null,
+    "latency_s": 3.177
+   }
+  ]
+ },
+ {
+  "id": "H09",
+  "turns": [
+   {
+    "input": "promedio de triage por dia de la semana del mes pasado",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "PROMEDIO_TRIAGE_2026",
+    "metric_id": "4e1c865405f67e41",
+    "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "report": null,
+    "dashboard": null,
+    "result_type": "table",
+    "filters": [
+     {
+      "column": "Date",
+      "end": "2026-11-01",
+      "label": "octubre 2026 (mes pasado)",
+      "month": 10,
+      "start": "2026-10-01",
+      "table": "Calendario",
+      "type": "date_range",
+      "year": 2026
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [
+     "DIA_SEMANA",
+     "DIA SEMANA",
+     "OPORTUNIDAD_TRIAGE",
+     "DIA_SEMANA",
+     "DIA SEMANA",
+     "OPORTUNIDAD_TRIAGE"
+    ],
+    "dax": [
+     "EVALUATE SUMMARIZECOLUMNS( 'OPORTUNIDAD_TRIAGE'[DIA_SEMANA], FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 10, 1) && 'Calendario'[Date] < DATE(2026, 11, 1)), \"__value\", [PROMEDIO_TRIAGE_2026] ) ORDER BY [__value] DESC"
+    ],
+    "dax_log": [
+     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('TRIAGE'[TERNOMCOM]), \"Value\", 'TRIAGE'[TERNOMCOM] ), NOT ISBLANK([Value]) ), [Value], ASC )",
+     "EVALUATE SUMMARIZECOLUMNS( 'OPORTUNIDAD_TRIAGE'[DIA_SEMANA], FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 10, 1) && 'Calendario'[Date] < DATE(2026, 11, 1)), \"__value\", [PROMEDIO_TRIAGE_2026] ) ORDER BY [__value] DESC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "En octubre de 2026 (mes pasado), **PROMEDIO_TRIAGE_2026** por dia semana:\n\n| DIA SEMANA | PROMEDIO_TRIAGE_2026 |\n| --- | --- |\n| sábado | 159,6 |\n| viernes | 138,62 |\n| miércoles | 132,2 |\n| lunes | 116,2 |\n| martes | 114,33 |\n| jueves | 110,67 |\n| (sin dia semana) | 107,67 |\n| domingo | 98 |\n\nFiltros: octubre 2026 (mes pasado).",
+    "exception": null,
+    "latency_s": 3.527
+   }
+  ]
+ },
+ {
+  "id": "H10",
+  "turns": [
+   {
+    "input": "en lo q va del año cuanto tiempo pasa un paciente en urgencias hasta que lo suben a hospitalizacion",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "TIEMPO PROMEDIO EN URGENCIAS (HOSPITALIZACIÓN)",
+    "metric_id": "663ee9bf89e78390",
+    "semantic_model": "TABLERO TIEMPOS URGENCIAS",
+    "report": "TABLERO TIEMPOS URGENCIAS",
+    "dashboard": "RESUMEN",
+    "result_type": "scalar",
+    "filters": [
+     {
+      "column": "Date",
+      "end": "2026-11-04",
+      "label": "2026 hasta hoy",
+      "start": "2026-01-01",
+      "table": "Calendario",
+      "type": "date_range",
+      "year": 2026
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( AVERAGE('TIEMPO_HOSPI'[TIEMPO_HOSPI]), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 1, 1) && 'Calendario'[FECHA] < DATE(2026, 11, 4)) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('SOLICITUD DE CAMAS'[aseguradora])), \"__card1\", COUNTROWS(VALUES('SOLICITUD DE CAMAS'[GDPNOMBRE])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('SOLICITUD DE CAMAS'[aseguradora]), \"Value\", 'SOLICITUD DE CAMAS'[aseguradora]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('SOLICITUD DE CAMAS'[GDPNOMBRE]), \"Value\", 'SOLICITUD DE CAMAS'[GDPNOMBRE]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__value\", CALCULATE( AVERAGE('TIEMPO_HOSPI'[TIEMPO_HOSPI]), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 1, 1) && 'Calendario'[FECHA] < DATE(2026, 11, 4)) ) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**TIEMPO PROMEDIO EN URGENCIAS (HOSPITALIZACIÓN)** en lo que va de 2026: **122,8 horas**\n\nFiltros: 2026 hasta hoy.",
+    "exception": null,
+    "latency_s": 3.188
+   }
+  ]
+ },
+ {
+  "id": "H11",
+  "turns": [
+   {
+    "input": "como estuvo el tiempo pa egreso de urgencias en agosto comparado con septiembre",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "TIEMPO PROMEDIO PARA EL EGRESO",
+    "metric_id": "d7c6b167aee9b5cd",
+    "semantic_model": "TABLERO TIEMPOS URGENCIAS",
+    "report": "TABLERO TIEMPOS URGENCIAS",
+    "dashboard": "RESUMEN",
+    "result_type": "table",
+    "filters": [
+     {
+      "column": "Date",
+      "end": "2026-10-01",
+      "label": "agosto–septiembre 2026",
+      "start": "2026-08-01",
+      "table": "Calendario",
+      "type": "date_range",
+      "year": 2026
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [
+     "Mes",
+     "Mes",
+     "Calendario",
+     "Mes",
+     "Mes",
+     "Calendario"
+    ],
+    "dax": [
+     "EVALUATE UNION( ROW(\"__orden\", 1, \"Mes\", \"agosto 2026\", \"__value\", CALCULATE(CALCULATE(AVERAGE('TIEMPO_PARA_EGRESO'[TIEMPO_EGRESO_OK]), KEEPFILTERS(FILTER(ALL('TIEMPO_PARA_EGRESO'[SUBGRUPO]), 'TIEMPO_PARA_EGRESO'[SUBGRUPO] IN {\"URGENCIAS\"})), KEEPFILTERS(FILTER(ALL('TIEMPO_PARA_EGRESO'[VALIDADOR]), NOT ('TIEMPO_PARA_EGRESO'[VALIDADOR] IN {-1})))), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 8, 1) && 'Calendario'[FECHA] < DATE(2026, 9, 1)))), ROW(\"__orden\", 2, \"Mes\", \"septiembre 2026\", \"__value\", CALCULATE(CALCULATE(AVERAGE('TIEMPO_PARA_EGRESO'[TIEMPO_EGRESO_OK]), KEEPFILTERS(FILTER(ALL('TIEMPO_PARA_EGRESO'[SUBGRUPO]), 'TIEMPO_PARA_EGRESO'[SUBGRUPO] IN {\"URGENCIAS\"})), KEEPFILTERS(FILTER(ALL('TIEMPO_PARA_EGRESO'[VALIDADOR]), NOT ('TIEMPO_PARA_EGRESO'[VALIDADOR] IN {-1})))), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 9, 1) && 'Calendario'[FECHA] < DATE(2026, 10, 1)))) ) ORDER BY [__orden] ASC"
+    ],
+    "dax_log": [
+     "EVALUATE UNION( ROW(\"__orden\", 1, \"Mes\", \"agosto 2026\", \"__value\", CALCULATE(CALCULATE(AVERAGE('TIEMPO_PARA_EGRESO'[TIEMPO_EGRESO_OK]), KEEPFILTERS(FILTER(ALL('TIEMPO_PARA_EGRESO'[SUBGRUPO]), 'TIEMPO_PARA_EGRESO'[SUBGRUPO] IN {\"URGENCIAS\"})), KEEPFILTERS(FILTER(ALL('TIEMPO_PARA_EGRESO'[VALIDADOR]), NOT ('TIEMPO_PARA_EGRESO'[VALIDADOR] IN {-1})))), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 8, 1) && 'Calendario'[FECHA] < DATE(2026, 9, 1)))), ROW(\"__orden\", 2, \"Mes\", \"septiembre 2026\", \"__value\", CALCULATE(CALCULATE(AVERAGE('TIEMPO_PARA_EGRESO'[TIEMPO_EGRESO_OK]), KEEPFILTERS(FILTER(ALL('TIEMPO_PARA_EGRESO'[SUBGRUPO]), 'TIEMPO_PARA_EGRESO'[SUBGRUPO] IN {\"URGENCIAS\"})), KEEPFILTERS(FILTER(ALL('TIEMPO_PARA_EGRESO'[VALIDADOR]), NOT ('TIEMPO_PARA_EGRESO'[VALIDADOR] IN {-1})))), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 9, 1) && 'Calendario'[FECHA] < DATE(2026, 10, 1)))) ) ORDER BY [__orden] ASC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "De agosto a septiembre de 2026, **TIEMPO PROMEDIO PARA EL EGRESO** por mes:\n\n| Mes | TIEMPO PROMEDIO PARA EL EGRESO |\n| --- | --- |\n| agosto 2026 |  |\n| septiembre 2026 |  |\n\nFiltros: agosto–septiembre 2026.\n\nCifra tal como la muestra la tarjeta de la página RESUMEN del TABLERO TIEMPOS URGENCIAS (con sus 2 filtros; p. ej., solo unidad URGENCIAS).",
+    "exception": null,
+    "latency_s": 1.903
+   }
+  ]
+ },
+ {
+  "id": "H12",
+  "turns": [
+   {
+    "input": "cuantas atenciones de hospitalizacion parcial hubo en 2025",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "ATEHP2025",
+    "metric_id": "d512075c2fbdba1f",
+    "semantic_model": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "report": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "dashboard": null,
+    "result_type": "scalar",
+    "filters": [
+     {
+      "column": "servicio",
+      "operator": "=",
+      "table": "HOSPITALIZACION_PARCIAL",
+      "type": "categorical",
+      "value": "HOSPITALIZACION PARCIAL"
+     },
+     {
+      "column": "Date",
+      "end": "2026-01-01",
+      "label": "2025",
+      "start": "2025-01-01",
+      "table": "Calendario",
+      "type": "date_range",
+      "year": 2025
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( [ATEHP2025], TREATAS({\"HOSPITALIZACION PARCIAL\"}, 'HOSPITALIZACION_PARCIAL'[servicio]), FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2025, 1, 1) && 'Calendario'[Date] < DATE(2026, 1, 1)) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('HOSPITALIZACION_PARCIAL'[CAMA])), \"__card1\", COUNTROWS(VALUES('HOSPITALIZACION_PARCIAL'[servicio])), \"__card2\", COUNTROWS(VALUES('HOSPITALIZACION_PARCIAL'[Sexo])), \"__card3\", COUNTROWS(VALUES('HOSPITALIZACION_PARCIAL'[PLAN_BENEFICIOS])), \"__card4\", COUNTROWS(VALUES('HOSPITALIZACION_PARCIAL'[CIE10])), \"__card5\", COUNTROWS(VALUES('TERCERO'[TERNOMCOM])), \"__card6\", COUNTROWS(VALUES('DIM_SERVICIO'[SERVICIO_HOMOLOGADO])), \"__card7\", COUNTROWS(VALUES('EGRESOS_POR_SERVICIO'[TERNOMCOM])), \"__card8\", COUNTROWS(VALUES('LABORATORIOS_PATOLOGICOS'[Aseguradora])), \"__card9\", COUNTROWS(VALUES('LABORATORIOS_PATOLOGICOS'[TipoLaboratorio])), \"__card10\", COUNTROWS(VALUES('CONSULTAS_AMBULATORIAS'[ASEGURADOR])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('HOSPITALIZACION_PARCIAL'[CAMA]), \"Value\", 'HOSPITALIZACION_PARCIAL'[CAMA]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('HOSPITALIZACION_PARCIAL'[servicio]), \"Value\", 'HOSPITALIZACION_PARCIAL'[servicio]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('HOSPITALIZACION_PARCIAL'[Sexo]), \"Value\", 'HOSPITALIZACION_PARCIAL'[Sexo]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('HOSPITALIZACION_PARCIAL'[PLAN_BENEFICIOS]), \"Value\", 'HOSPITALIZACION_PARCIAL'[PLAN_BENEFICIOS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__value\", CALCULATE( [ATEHP2025], TREATAS({\"HOSPITALIZACION PARCIAL\"}, 'HOSPITALIZACION_PARCIAL'[servicio]), FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2025, 1, 1) && 'Calendario'[Date] < DATE(2026, 1, 1)) ) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**ATEHP2025** en 2025, con servicio HOSPITALIZACION PARCIAL: **49 atenciones**\n\nFiltros: SERVICIO = HOSPITALIZACION PARCIAL · 2025.",
+    "exception": null,
+    "latency_s": 3.469
+   }
+  ]
+ },
+ {
+  "id": "H13",
+  "turns": [
+   {
+    "input": "cuantos abortos van este año",
+    "status": "not_found",
+    "route": "out_of_scope",
+    "stage": "query_plan_metric",
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [],
+    "prompt": null,
+    "answer": "Esa pregunta está fuera del alcance de los tableros disponibles: no corresponde a ninguno de sus indicadores ni a su documentación. Puedo ayudarte con indicadores de los tableros institucionales. Por ejemplo: «AGENDA» (ASIGNACION DE CITAS) o «REPS» (BRIEFING HOSPITALARIO).",
+    "exception": null,
+    "latency_s": 3.591
+   }
+  ]
+ },
+ {
+  "id": "H14",
+  "turns": [
+   {
+    "input": "las consultas ambulatorias del mes pasado cuantas fueron?",
+    "status": "needs_clarification",
+    "route": "clarification",
+    "stage": null,
+    "clarification_type": "query_plan_metric",
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [
+     {
+      "id": "29a01390164745ee",
+      "label": "Promedio Consulta AMB",
+      "caption": "[FakeLLM] Obtiene el valor de promedioconsultaamb · CONSOLIDADO DE ATENCIONES INSTITUCIONALES"
+     },
+     {
+      "id": "__none__",
+      "label": "Ninguna de las anteriores",
+      "caption": "Buscar otros indicadores parecidos a la pregunta"
+     }
+    ],
+    "prompt": null,
+    "answer": "¿Te refieres a Promedio Consulta AMB?",
+    "exception": null,
+    "latency_s": 2.296
+   },
+   {
+    "input": "[botón] Promedio Consulta AMB",
+    "status": "unsupported_filter",
+    "route": "powerbi",
+    "stage": "temporal_filters",
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [
+     "año 2026",
+     "meses de octubre 2026 (mes pasado)"
+    ],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [],
+    "prompt": null,
+    "answer": "Identifiqué la métrica, pero este tablero no tiene una fecha que permita aplicar el período «octubre 2026 (mes pasado)». Prueba con un año o un mes.",
+    "exception": null,
+    "latency_s": 0.05
+   }
+  ]
+ },
+ {
+  "id": "H15",
+  "turns": [
+   {
+    "input": "las 5 especialidades con mas consultas ambulatorias este año",
+    "status": "needs_clarification",
+    "route": "clarification",
+    "stage": null,
+    "clarification_type": "query_plan_metric",
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [
+     {
+      "id": "29a01390164745ee",
+      "label": "Promedio Consulta AMB",
+      "caption": "[FakeLLM] Obtiene el valor de promedioconsultaamb · CONSOLIDADO DE ATENCIONES INSTITUCIONALES"
+     },
+     {
+      "id": "__none__",
+      "label": "Ninguna de las anteriores",
+      "caption": "Buscar otros indicadores parecidos a la pregunta"
+     }
+    ],
+    "prompt": null,
+    "answer": "¿Te refieres a Promedio Consulta AMB?",
+    "exception": null,
+    "latency_s": 2.248
+   },
+   {
+    "input": "[botón] Promedio Consulta AMB",
+    "status": "unsupported_filter",
+    "route": "powerbi",
+    "stage": "temporal_filters",
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [
+     "año 2026",
+     "meses de 2026 hasta hoy"
+    ],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [],
+    "prompt": null,
+    "answer": "Identifiqué la métrica, pero este tablero no tiene una fecha que permita aplicar el período «2026 hasta hoy». Prueba con un año o un mes.",
+    "exception": null,
+    "latency_s": 0.061
+   }
+  ]
+ },
+ {
+  "id": "H16",
+  "turns": [
+   {
+    "input": "que porcentaje de citas estan pendientes",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "%PENDIENTE",
+    "metric_id": "8b0d59752217392b",
+    "semantic_model": "ASIGNACION DE CITAS",
+    "report": "ASIGNACION DE CITAS",
+    "dashboard": "OFERTA ESPECIALIDADES",
+    "result_type": "scalar",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE([%PENDIENTE], KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), NOT (('EN_ESPERA'[CCEESTADO] IN {2} || ISBLANK('EN_ESPERA'[CCEESTADO])))))) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__value\", CALCULATE([%PENDIENTE], KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), NOT (('EN_ESPERA'[CCEESTADO] IN {2} || ISBLANK('EN_ESPERA'[CCEESTADO])))))) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**%PENDIENTE**: **0,76 %**\n\nCifra tal como la muestra la tarjeta de la página OFERTA ESPECIALIDADES del tablero ASIGNACION DE CITAS (con su filtro).",
+    "exception": null,
+    "latency_s": 2.095
+   }
+  ]
+ },
+ {
+  "id": "H17",
+  "turns": [
+   {
+    "input": "top 5 aseguradoras con mas citas en espera",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "CITAS EN ESPERA",
+    "metric_id": "438dcd7cc96c3f23",
+    "semantic_model": "ASIGNACION DE CITAS",
+    "report": "ASIGNACION DE CITAS",
+    "dashboard": "DISPO X ESPECIALIDAD",
+    "result_type": "table",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [
+     "ASEGURADORA_HM",
+     "ASEGURADORA",
+     "ASEGURADORA",
+     "ASEGURADORA_HM",
+     "ASEGURADORA",
+     "ASEGURADORA"
+    ],
+    "dax": [
+     "EVALUATE TOPN( 5, SUMMARIZECOLUMNS( 'ASEGURADORA'[ASEGURADORA_HM], \"__value\", SUM('EN_ESPERA'[PENDIENTES]) ), [__value], DESC ) ORDER BY [__value] DESC"
+    ],
+    "dax_log": [
+     "EVALUATE TOPN( 5, SUMMARIZECOLUMNS( 'ASEGURADORA'[ASEGURADORA_HM], \"__value\", SUM('EN_ESPERA'[PENDIENTES]) ), [__value], DESC ) ORDER BY [__value] DESC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**CITAS EN ESPERA** por aseguradora (los primeros 5, de mayor a menor):\n\n| ASEGURADORA | CITAS EN ESPERA |\n| --- | --- |\n| FUERZAS MILITARES | 371 |\n| MEDICINA PREPAGADA COLSANITAS | 204 |\n| PARTICULAR | 147 |\n| ASMET SALUD EPS | 104 |\n| SURA EPS | 90 |\n\nOrdenado de mayor a menor; se muestran los 5 primeros (ASEGURADORA).",
+    "exception": null,
+    "latency_s": 2.906
+   }
+  ]
+ },
+ {
+  "id": "H18",
+  "turns": [
+   {
+    "input": "el % pendiente de citas como lo calculan? puede dar mas de 100?",
+    "status": "success",
+    "route": "rag",
+    "stage": null,
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": "CITAS",
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [],
+    "prompt": null,
+    "answer": "[FakeLLM] Diccionario de variables del tablero: DEMANDA INSATISFECHA Sección del diccionario: Medidas Medida: RELACIÓN ACEPTADOS Diccionario de variables del tablero: DEMANDA INSATISFECHA Medida Power BI: RELACIÓN ACEPTADOS Tabla: CALENDARIO Descripción: Pacientes no aceptados por cada 100 solicitudes aceptadas: cuántos remitidos rechazó el hospital frente a los que aceptó (aceptados = solicitudes sin causa de no aceptación). Entre más alto, más rechazos relativos. Unidad: no aceptados por cada 100 aceptados. Se usa en: CONSOLIDADO › Tarjeta «NO ACEPTADOS / 100 ACEPTADOS». Tipo de dato: Number Formato:",
+    "exception": null,
+    "latency_s": 3.909
+   }
+  ]
+ },
+ {
+  "id": "H19",
+  "turns": [
+   {
+    "input": "consultas prioritarias por estado en el tablero eps",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "CONSULTAS",
+    "metric_id": "a9b92da6f6c8add5",
+    "semantic_model": "TABLERO EPS",
+    "report": "TABLERO EPS",
+    "dashboard": "CONSULTAS PRIORITARIAS",
+    "result_type": "table",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [
+     "ESTADO_NOMBRE",
+     "ESTADO",
+     "CONSULTAS_PRIORITARIAS",
+     "ESTADO_NOMBRE",
+     "ESTADO",
+     "CONSULTAS_PRIORITARIAS"
+    ],
+    "dax": [
+     "EVALUATE SUMMARIZECOLUMNS( 'CONSULTAS_PRIORITARIAS'[ESTADO_NOMBRE], \"__value\", COUNT('CONSULTAS_PRIORITARIAS'[ESTADO_NOMBRE]) ) ORDER BY [__value] DESC"
+    ],
+    "dax_log": [
+     "EVALUATE SUMMARIZECOLUMNS( 'CONSULTAS_PRIORITARIAS'[ESTADO_NOMBRE], \"__value\", COUNT('CONSULTAS_PRIORITARIAS'[ESTADO_NOMBRE]) ) ORDER BY [__value] DESC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**CONSULTAS** por estado:\n\n| ESTADO | CONSULTAS |\n| --- | --- |\n| PROFESIONAL 03 | 118 |\n| PROFESIONAL 02 | 115 |\n| PROFESIONAL 04 | 115 |\n| PROFESIONAL 05 | 112 |\n| PROFESIONAL 06 | 112 |\n| PROFESIONAL 07 | 108 |\n| PROFESIONAL 09 | 108 |\n| PROFESIONAL 08 | 106 |\n| PROFESIONAL 10 | 105 |\n| PROFESIONAL 11 | 103 |\n| PROFESIONAL 12 | 101 |\n| PROFESIONAL 13 | 100 |\n| PROFESIONAL 14 | 98 |\n| PROFESIONAL 15 | 98 |\n| PROFESIONAL 16 | 97 |\n| PROFESIONAL 17 | 96 |\n| PROFESIONAL 18 | 95 |\n| PROFESIONAL 19 | 95 |\n| PROFESIONAL 20 | 95 |\n| PROFESIONAL 24 | 93 |\n| PROFESIONAL 22 | 92 |\n| PROFESIONAL 23 | 92 |\n| PROFESIONAL 25 | 92 |\n| PROFESIONAL 21 | 91 |\n| PROFESIONAL 26 | 91 |\n| PROFESIONAL 27 | 90 |\n| PROFESIONAL 31 | 90 |\n| PROFESIONAL 30 | 89 |\n| PROFESIONAL 28 | 88 |\n| PROFESIONAL 29 | 88 |\n| PROFESIONAL 32 | 85 |\n| PROFESIONAL 33 | 83 |\n| PROFESIONAL 34 | 83 |\n| PROFESIONAL 35 | 81 |\n| PROFESIONAL 36 | 80 |\n| PROFESIONAL 37 | 80 |\n| PROFESIONAL 38 | 77 |\n| PROFESIONAL 39 | 76 |\n| PROFESIONAL 40 | 73 |\n| PROFESIONAL 01 | 72 |\n| **Total** | **3.763** |",
+    "exception": null,
+    "latency_s": 1.541
+   }
+  ]
+ },
+ {
+  "id": "H20",
+  "turns": [
+   {
+    "input": "cuantos triages obstetricos atendidos muestra eps",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "Triages Gineco",
+    "metric_id": "6ce533046b3763da",
+    "semantic_model": "TABLERO EPS",
+    "report": "TABLERO EPS",
+    "dashboard": "TRIAGES ATENDIDOS",
+    "result_type": "scalar",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE(COUNT('OPORTUNIDAD_TRIAGE'[OID_TRIAGE]), KEEPFILTERS(FILTER(ALL('OPORTUNIDAD_TRIAGE'[DESCRI_TRIGE]), 'OPORTUNIDAD_TRIAGE'[DESCRI_TRIGE] IN {\"CONSULTA EXTERNA OBSTETRICA\", \"EMERGENCIA OBSTETRICA\", \"URGENCIA MEDICA OBSTETRICA\", \"URGENCIA OBSTETRICA\", \"NO URGENTE OBSTETRICA\"}))) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('OPORTUNIDAD_TRIAGE'[ASEGURADORA])), \"__card1\", COUNTROWS(VALUES('OPORTUNIDAD_TRIAGE'[MENORES])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('OPORTUNIDAD_TRIAGE'[ASEGURADORA]), \"Value\", 'OPORTUNIDAD_TRIAGE'[ASEGURADORA]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('OPORTUNIDAD_TRIAGE'[MENORES]), \"Value\", 'OPORTUNIDAD_TRIAGE'[MENORES]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__value\", CALCULATE(COUNT('OPORTUNIDAD_TRIAGE'[OID_TRIAGE]), KEEPFILTERS(FILTER(ALL('OPORTUNIDAD_TRIAGE'[DESCRI_TRIGE]), 'OPORTUNIDAD_TRIAGE'[DESCRI_TRIGE] IN {\"CONSULTA EXTERNA OBSTETRICA\", \"EMERGENCIA OBSTETRICA\", \"URGENCIA MEDICA OBSTETRICA\", \"URGENCIA OBSTETRICA\", \"NO URGENTE OBSTETRICA\"}))) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**Triages Gineco**: **1.841**\n\nCifra tal como la muestra la tarjeta de la página TRIAGES ATENDIDOS del TABLERO EPS (con su filtro).",
+    "exception": null,
+    "latency_s": 0.982
+   }
+  ]
+ },
+ {
+  "id": "H21",
+  "turns": [
+   {
+    "input": "cuantos productos se vencen entre 2 y 4 meses",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "MEDICAMENTOS EN VENCIMIENTO 30-120 DÍAS",
+    "metric_id": "811083bca90c0e9d",
+    "semantic_model": "TABLERO_FARMACIA",
+    "report": "TABLERO FARMACIA",
+    "dashboard": "MEDICAMENTOS VENCIDOS",
+    "result_type": "scalar",
+    "filters": [],
+    "unapplied_terms": [
+     "entre meses"
+    ],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('VENCIMIENTO_PRODUCTOS'[IPRCODIGO]), KEEPFILTERS(FILTER(ALL('VENCIMIENTO_PRODUCTOS'[mes]), 'VENCIMIENTO_PRODUCTOS'[mes] IN {2, 3, 4}))) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('VENCIMIENTO_PRODUCTOS'[IPRCODIGO]), KEEPFILTERS(FILTER(ALL('VENCIMIENTO_PRODUCTOS'[mes]), 'VENCIMIENTO_PRODUCTOS'[mes] IN {2, 3, 4}))) )",
+     "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('VENCIMIENTO_PRODUCTOS'[IPRCODIGO]), KEEPFILTERS(FILTER(ALL('VENCIMIENTO_PRODUCTOS'[mes]), 'VENCIMIENTO_PRODUCTOS'[mes] IN {2, 3, 4}))) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**MEDICAMENTOS EN VENCIMIENTO 30-120 DÍAS**: **3**\n\nNo pude aplicar: entre meses.\n\nCifra tal como la muestra la tarjeta de la página MEDICAMENTOS VENCIDOS del TABLERO FARMACIA (con su filtro).",
+    "exception": null,
+    "latency_s": 9.094
+   }
+  ]
+ },
+ {
+  "id": "H22",
+  "turns": [
+   {
+    "input": "pendientes de farmacia por rango de horas",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "PENDIENTES1",
+    "metric_id": "159291d086163de1",
+    "semantic_model": "TABLERO_FARMACIA",
+    "report": "TABLERO FARMACIA",
+    "dashboard": "INICIO",
+    "result_type": "table",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [
+     "HORAS_SUMINISTRO",
+     "TIEMPO (HORAS)",
+     "PENDIENTES_FARMACIA",
+     "HORAS_SUMINISTRO",
+     "TIEMPO (HORAS)",
+     "PENDIENTES_FARMACIA"
+    ],
+    "dax": [
+     "EVALUATE SUMMARIZECOLUMNS( 'PENDIENTES_FARMACIA'[HORAS_SUMINISTRO], \"__value\", CALCULATE(DISTINCTCOUNT('PENDIENTES_FARMACIA'[HCNFOLIO]), KEEPFILTERS(FILTER(ALL('PENDIENTES_FARMACIA'[FECHA_CIERRE]), ISBLANK('PENDIENTES_FARMACIA'[FECHA_CIERRE])))) ) ORDER BY [__value] DESC"
+    ],
+    "dax_log": [
+     "EVALUATE SUMMARIZECOLUMNS( 'PENDIENTES_FARMACIA'[HORAS_SUMINISTRO], \"__value\", CALCULATE(DISTINCTCOUNT('PENDIENTES_FARMACIA'[HCNFOLIO]), KEEPFILTERS(FILTER(ALL('PENDIENTES_FARMACIA'[FECHA_CIERRE]), ISBLANK('PENDIENTES_FARMACIA'[FECHA_CIERRE])))) ) ORDER BY [__value] DESC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**PENDIENTES1** por TIEMPO (HORAS):\n\n| TIEMPO (HORAS) | PENDIENTES1 |\n| --- | --- |\n| HORAS_SUMINISTRO 4 | 81 |\n| HORAS_SUMINISTRO 2 | 61 |\n| HORAS_SUMINISTRO 6 | 51 |\n| HORAS_SUMINISTRO 3 | 42 |\n| HORAS_SUMINISTRO 1 | 41 |\n| HORAS_SUMINISTRO 5 | 41 |\n| (sin dato) | 7 |\n\nCifra tal como la muestra el gráfico de la página INICIO del TABLERO FARMACIA (con su filtro). Las filas suman 324; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
+    "exception": null,
+    "latency_s": 0.575
+   }
+  ]
+ },
+ {
+  "id": "H23",
+  "turns": [
+   {
+    "input": "cuanto se demoran en radicacion de cuentas en promedio",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "TIEMPO GESTION FACTURACION",
+    "metric_id": "b472799abc8abc4c",
+    "semantic_model": "Tablero Control Facturacion",
+    "report": "TABLERO CONTROL FACTURACION",
+    "dashboard": "FACTURACION",
+    "result_type": "scalar",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE(AVERAGE('FACTURACION PERFILES'[TIEMPO]), KEEPFILTERS(FILTER(ALL('FACTURACION PERFILES'[ESTADO_FACTURA]), 'FACTURACION PERFILES'[ESTADO_FACTURA] IN {\"FACTURADA\"})), KEEPFILTERS(FILTER(ALL('FACTURACION PERFILES'[PERFIL]), 'FACTURACION PERFILES'[PERFIL] IN {\"RADICACION DE CUENTAS\"}))) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__value\", CALCULATE(AVERAGE('FACTURACION PERFILES'[TIEMPO]), KEEPFILTERS(FILTER(ALL('FACTURACION PERFILES'[ESTADO_FACTURA]), 'FACTURACION PERFILES'[ESTADO_FACTURA] IN {\"FACTURADA\"})), KEEPFILTERS(FILTER(ALL('FACTURACION PERFILES'[PERFIL]), 'FACTURACION PERFILES'[PERFIL] IN {\"RADICACION DE CUENTAS\"}))) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**TIEMPO GESTION FACTURACION**: **111,6 horas**\n\nCifra tal como la muestra el gráfico de la página RADICACION DE CUENTAS del TABLERO CONTROL FACTURACION (con sus 2 filtros).",
+    "exception": null,
+    "latency_s": 1.171
+   }
+  ]
+ },
+ {
+  "id": "H24",
+  "turns": [
+   {
+    "input": "valor estimado x area de servicio",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "VALOR ESTIMADO POR SERVICIO",
+    "metric_id": "81c279ce77bc44ae",
+    "semantic_model": "Tablero Control Facturacion",
+    "report": "TABLERO CONTROL FACTURACION",
+    "dashboard": "INICIO",
+    "result_type": "table",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [
+     "AREA_SERVICIO",
+     "AREA SERVICIO",
+     "ULT_GESTION",
+     "AREA_SERVICIO",
+     "AREA SERVICIO",
+     "ULT_GESTION"
+    ],
+    "dax": [
+     "EVALUATE SUMMARIZECOLUMNS( 'ULT_GESTION'[AREA_SERVICIO], \"__value\", SUM('ULT_GESTION'[FACTURADO]) ) ORDER BY [__value] DESC"
+    ],
+    "dax_log": [
+     "EVALUATE SUMMARIZECOLUMNS( 'ULT_GESTION'[AREA_SERVICIO], \"__value\", SUM('ULT_GESTION'[FACTURADO]) ) ORDER BY [__value] DESC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**VALOR ESTIMADO POR SERVICIO** por area servicio:\n\n| AREA SERVICIO | VALOR ESTIMADO POR SERVICIO |\n| --- | --- |\n| URGENCIAS | $ 1.367.027.101 |\n| IMAGENES | $ 858.472.333 |\n| UCI NEONATAL | $ 498.493.067 |\n| HOSPITALIZACION PARCIAL | $ 454.594.923 |\n| PEDIATRIA | $ 419.149.721 |\n| CIRUGIA | $ 294.892.631 |\n| OBSTETRICIA | $ 287.875.675 |\n| CONSULTA EXTERNA | $ 275.971.322 |\n| CUIDADO INTERMEDIO ADULTO | $ 193.903.342 |\n| UCI ADULTOS | $ 185.077.145 |\n| LABORATORIO CLINICO | $ 158.536.494 |\n| UNIDAD CARDIONEUROVASCULAR | $ 144.770.533 |\n| ATENCION DOMICILIARIA | $ 137.438.934 |\n| HOSPITALIZACION | $ 132.702.954 |\n| (sin area servicio) | $ 64.490.862 |\n| **Total** | **$ 5.473.397.037** |\n\nPara area_servicio se usa lo que pediste en lugar del filtro que trae la página.",
+    "exception": null,
+    "latency_s": 1.217
+   }
+  ]
+ },
+ {
+  "id": "H25",
+  "turns": [
+   {
+    "input": "cuantos ingresos hospitalarios estan pendientes por facturar",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "PENDIENTES",
+    "metric_id": "cb92d27b51e060a3",
+    "semantic_model": "Tablero Control Facturacion",
+    "report": "TABLERO CONTROL FACTURACION",
+    "dashboard": "FACTURACION PENDIENTE",
+    "result_type": "scalar",
+    "filters": [
+     {
+      "column": "TIPO_INGRESO",
+      "operator": "=",
+      "table": "DIM_TIPO_INGRESO",
+      "type": "categorical",
+      "value": "HOSPITALARIO"
+     }
+    ],
+    "unapplied_terms": [
+     "facturar"
+    ],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(DISTINCTCOUNT('PENDIENTES_FACTURACION'[INGRESO]), KEEPFILTERS(FILTER(ALL('PENDIENTES_FACTURACION'[TIPO_INGRESO]), 'PENDIENTES_FACTURACION'[TIPO_INGRESO] IN {\"HOSPITALARIO\"}))), TREATAS({\"HOSPITALARIO\"}, 'DIM_TIPO_INGRESO'[TIPO_INGRESO]) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('INGRESOS'[SERVICIO])), \"__card1\", COUNTROWS(VALUES('SERV'[HSUNOMBRE])), \"__card2\", COUNTROWS(VALUES('INGRESOS'[PACIENTE])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('INGRESOS'[SERVICIO]), \"Value\", 'INGRESOS'[SERVICIO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('SERV'[HSUNOMBRE]), \"Value\", 'SERV'[HSUNOMBRE]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )",
+     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('INGRESOS'[PACIENTE]), \"Value\", 'INGRESOS'[PACIENTE] ), NOT ISBLANK([Value]) ), [Value], ASC )",
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('PENDIENTES_FACTURACION'[SERVICIO])), \"__card1\", COUNTROWS(VALUES('PENDIENTES_FACTURACION'[INGRESO])), \"__card2\", COUNTROWS(VALUES('PENDIENTES_FACTURACION'[CAMA])), \"__card3\", COUNTROWS(VALUES('PENDIENTES_FACTURACION'[PACIENTE])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PENDIENTES_FACTURACION'[SERVICIO]), \"Value\", 'PENDIENTES_FACTURACION'[SERVICIO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PENDIENTES_FACTURACION'[INGRESO]), \"Value\", 'PENDIENTES_FACTURACION'[INGRESO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PENDIENTES_FACTURACION'[CAMA]), \"Value\", 'PENDIENTES_FACTURACION'[CAMA]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ) )",
+     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('PENDIENTES_FACTURACION'[PACIENTE]), \"Value\", 'PENDIENTES_FACTURACION'[PACIENTE] ), NOT ISBLANK([Value]) ), [Value], ASC )",
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(DISTINCTCOUNT('PENDIENTES_FACTURACION'[INGRESO]), KEEPFILTERS(FILTER(ALL('PENDIENTES_FACTURACION'[TIPO_INGRESO]), 'PENDIENTES_FACTURACION'[TIPO_INGRESO] IN {\"HOSPITALARIO\"}))), TREATAS({\"HOSPITALARIO\"}, 'DIM_TIPO_INGRESO'[TIPO_INGRESO]) ) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**PENDIENTES** con tipo_ingreso HOSPITALARIO: **7**\n\nFiltros: TIPO_INGRESO = HOSPITALARIO. No pude aplicar: facturar.\n\nCifra tal como la muestra la tarjeta de la página FACTURACION PENDIENTE del TABLERO CONTROL FACTURACION (con su filtro).",
+    "exception": null,
+    "latency_s": 3.201
+   }
+  ]
+ },
+ {
+  "id": "H26",
+  "turns": [
+   {
+    "input": "cuantas remisiones no pudimos recibir este año",
+    "status": "needs_clarification",
+    "route": "clarification",
+    "stage": null,
+    "clarification_type": "query_plan_metric",
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('SEGUIMIENTO REMISIONES'[SERVICIO])), \"__card1\", COUNTROWS(VALUES('SEGUIMIENTO REMISIONES'[EPS])), \"__card2\", COUNTROWS(VALUES('SEGUIMIENTO REMISIONES'[GEEDESCRI])), \"__card3\", COUNTROWS(VALUES('SEGUIMIENTO REMISIONES'[MotivoRemision])), \"__card4\", COUNTROWS(VALUES('SEGUIMIENTO REMISIONES'[ESTADO_TRAMITE])), \"__card5\", COUNTROWS(VALUES('SEGUIMIENTO REMISIONES'[Paciente])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('SEGUIMIENTO REMISIONES'[SERVICIO]), \"Value\", 'SEGUIMIENTO REMISIONES'[SERVICIO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('SEGUIMIENTO REMISIONES'[EPS]), \"Value\", 'SEGUIMIENTO REMISIONES'[EPS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('SEGUIMIENTO REMISIONES'[GEEDESCRI]), \"Value\", 'SEGUIMIENTO REMISIONES'[GEEDESCRI]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('SEGUIMIENTO REMISIONES'[MotivoRemision]), \"Value\", 'SEGUIMIENTO REMISIONES'[MotivoRemision]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('SEGUIMIENTO REMISIONES'[ESTADO_TRAMITE]), \"Value\", 'SEGUIMIENTO REMISIONES'[ESTADO_TRAMITE] ), NOT ISBLANK([Value]) ), [Value], ASC )",
+     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('SEGUIMIENTO REMISIONES'[Paciente]), \"Value\", 'SEGUIMIENTO REMISIONES'[Paciente] ), NOT ISBLANK([Value]) ), [Value], ASC )"
+    ],
+    "options": [
+     {
+      "id": "90d9785e0c222911",
+      "label": "Consultar Remisiones sin «no recibir»",
+      "caption": "[FakeLLM] Obtiene el valor de remisiones · BRIEFING HOSPITALARIO › página SEGUIMIENTO REMISIONES"
+     },
+     {
+      "id": "__none__",
+      "label": "No, buscar otro indicador",
+      "caption": "Buscar otros indicadores parecidos a la pregunta"
+     }
+    ],
+    "prompt": null,
+    "answer": "Identifiqué el indicador Remisiones, pero no entendí «no recibir» como un filtro de ese tablero. ¿Lo consulto sin ese filtro? También puedes reescribir la pregunta indicando el servicio, la especialidad u otro filtro.",
+    "exception": null,
+    "latency_s": 3.619
+   },
+   {
+    "input": "[botón] Consultar Remisiones sin «no recibir»",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "REMISIONES",
+    "metric_id": "90d9785e0c222911",
+    "semantic_model": "BRIEFING HOSPITALARIO",
+    "report": "BRIEFING HOSPITALARIO",
+    "dashboard": "SEGUIMIENTO REMISIONES",
+    "result_type": "scalar",
+    "filters": [
+     {
+      "column": "FECHA_REMISION",
+      "end": "2026-11-04",
+      "label": "2026 hasta hoy",
+      "start": "2026-01-01",
+      "table": "SEGUIMIENTO REMISIONES",
+      "type": "date_range",
+      "year": 2026
+     }
+    ],
+    "unapplied_terms": [
+     "recibir"
+    ],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( DISTINCTCOUNT('SEGUIMIENTO REMISIONES'[Ingreso]), FILTER(ALL('SEGUIMIENTO REMISIONES'[FECHA_REMISION]), 'SEGUIMIENTO REMISIONES'[FECHA_REMISION] >= DATE(2026, 1, 1) && 'SEGUIMIENTO REMISIONES'[FECHA_REMISION] < DATE(2026, 11, 4)) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__value\", CALCULATE( DISTINCTCOUNT('SEGUIMIENTO REMISIONES'[Ingreso]), FILTER(ALL('SEGUIMIENTO REMISIONES'[FECHA_REMISION]), 'SEGUIMIENTO REMISIONES'[FECHA_REMISION] >= DATE(2026, 1, 1) && 'SEGUIMIENTO REMISIONES'[FECHA_REMISION] < DATE(2026, 11, 4)) ) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**REMISIONES** en lo que va de 2026: **340**\n\nFiltros: 2026 hasta hoy. No pude aplicar: recibir.",
+    "exception": null,
+    "latency_s": 0.664
+   }
+  ]
+ },
+ {
+  "id": "H27",
+  "turns": [
+   {
+    "input": "cirugias canceladas el mes pasado x demanda insatisfecha",
+    "status": "empty_result",
+    "route": "powerbi",
+    "stage": "query_plan_result",
+    "clarification_type": null,
+    "metric": "CIRUGÍAS",
+    "metric_id": "c0b35f5ddb313c25",
+    "semantic_model": "Demanda Insatisfecha",
+    "report": "DEMANDA INSATISFECHA",
+    "dashboard": "CONSOLIDADO",
+    "result_type": null,
+    "filters": [
+     {
+      "column": "Date",
+      "end": "2026-11-01",
+      "label": "octubre 2026 (mes pasado)",
+      "month": 10,
+      "start": "2026-10-01",
+      "table": "CALENDARIO",
+      "type": "date_range",
+      "year": 2026
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45)), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[ESPECIALIDAD]), NOT ('CIRUGÍAS'[ESPECIALIDAD] IN {\"ANESTESIOLOGIA\", \"JUNTA MEDICA\"})))), FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 10, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 1)) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('CIRUGÍAS'[TERNOMCOM]), \"Value\", 'CIRUGÍAS'[TERNOMCOM] ), NOT ISBLANK([Value]) ), [Value], ASC )",
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45)), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[ESPECIALIDAD]), NOT ('CIRUGÍAS'[ESPECIALIDAD] IN {\"ANESTESIOLOGIA\", \"JUNTA MEDICA\"})))), FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 10, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 1)) ) )",
+     "EVALUATE ROW(\"__hasta\", MAXX(FILTER(ALL('CALENDARIO'[Date]), NOT ISBLANK(CALCULATE(CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45)), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[ESPECIALIDAD]), NOT ('CIRUGÍAS'[ESPECIALIDAD] IN {\"ANESTESIOLOGIA\", \"JUNTA MEDICA\"}))))))), 'CALENDARIO'[Date]))"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "No hay datos de **CIRUGÍAS** en octubre de 2026 (mes pasado). La fuente no tiene datos para ningún periodo con esos filtros.\n\nFiltros: octubre 2026 (mes pasado).",
+    "exception": null,
+    "latency_s": 11.757
+   }
+  ]
+ },
+ {
+  "id": "H27b",
+  "turns": [
+   {
+    "input": "cirujias canceladas en agosto vs septiembre, cual mes tuvo mas?",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "CANCELADAS",
+    "metric_id": "5f28cb46f3192461",
+    "semantic_model": "ASIGNACION DE CITAS",
+    "report": "ASIGNACION DE CITAS",
+    "dashboard": "ASIGNADAS X ASESOR",
+    "result_type": "table",
+    "filters": [
+     {
+      "column": "GEEDESCRI",
+      "operator": "in",
+      "table": "ESPECIALIDADES",
+      "type": "categorical",
+      "values": [
+       "CIRUGIA GENERAL",
+       "CIRUGIA PLASTICA",
+       "CIRUGIA VASCULAR"
+      ]
+     },
+     {
+      "column": "Date",
+      "end": "2026-10-01",
+      "label": "agosto–septiembre 2026",
+      "start": "2026-08-01",
+      "table": "Calendario",
+      "type": "date_range",
+      "year": 2026
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [
+     "Mes",
+     "Mes",
+     "Calendario",
+     "Mes",
+     "Mes",
+     "Calendario"
+    ],
+    "dax": [
+     "EVALUATE UNION( ROW(\"__orden\", 1, \"Mes\", \"agosto 2026\", \"__value\", CALCULATE(CALCULATE(SUM('CITAS_ASIGNADAS'[CANCELADO]), KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), 'EN_ESPERA'[CCEESTADO] IN {1}))), TREATAS({\"CIRUGIA GENERAL\", \"CIRUGIA PLASTICA\", \"CIRUGIA VASCULAR\"}, 'ESPECIALIDADES'[GEEDESCRI]), FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 8, 1) && 'Calendario'[Date] < DATE(2026, 9, 1)))), ROW(\"__orden\", 2, \"Mes\", \"septiembre 2026\", \"__value\", CALCULATE(CALCULATE(SUM('CITAS_ASIGNADAS'[CANCELADO]), KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), 'EN_ESPERA'[CCEESTADO] IN {1}))), TREATAS({\"CIRUGIA GENERAL\", \"CIRUGIA PLASTICA\", \"CIRUGIA VASCULAR\"}, 'ESPECIALIDADES'[GEEDESCRI]), FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 9, 1) && 'Calendario'[Date] < DATE(2026, 10, 1)))) ) ORDER BY [__orden] ASC"
+    ],
+    "dax_log": [
+     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('ESPECIALIDADES'[GEEDESCRI]), \"Value\", 'ESPECIALIDADES'[GEEDESCRI] ), NOT ISBLANK([Value]) ), [Value], ASC )",
+     "EVALUATE UNION( ROW(\"__orden\", 1, \"Mes\", \"agosto 2026\", \"__value\", CALCULATE(CALCULATE(SUM('CITAS_ASIGNADAS'[CANCELADO]), KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), 'EN_ESPERA'[CCEESTADO] IN {1}))), TREATAS({\"CIRUGIA GENERAL\", \"CIRUGIA PLASTICA\", \"CIRUGIA VASCULAR\"}, 'ESPECIALIDADES'[GEEDESCRI]), FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 8, 1) && 'Calendario'[Date] < DATE(2026, 9, 1)))), ROW(\"__orden\", 2, \"Mes\", \"septiembre 2026\", \"__value\", CALCULATE(CALCULATE(SUM('CITAS_ASIGNADAS'[CANCELADO]), KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), 'EN_ESPERA'[CCEESTADO] IN {1}))), TREATAS({\"CIRUGIA GENERAL\", \"CIRUGIA PLASTICA\", \"CIRUGIA VASCULAR\"}, 'ESPECIALIDADES'[GEEDESCRI]), FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 9, 1) && 'Calendario'[Date] < DATE(2026, 10, 1)))) ) ORDER BY [__orden] ASC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "De agosto a septiembre de 2026, con especialidad CIRUGIA GENERAL, CIRUGIA PLASTICA o CIRUGIA VASCULAR, **CANCELADAS** por mes:\n\n| Mes | CANCELADAS |\n| --- | --- |\n| agosto 2026 |  |\n| septiembre 2026 |  |\n\nFiltros: ESPECIALIDAD = CIRUGIA GENERAL, CIRUGIA PLASTICA, CIRUGIA VASCULAR · agosto–septiembre 2026.\n\nCifra tal como la muestra la tabla de la página ASIGNADAS X ASESOR del tablero ASIGNACION DE CITAS (con su filtro).",
+    "exception": null,
+    "latency_s": 2.192
+   }
+  ]
+ },
+ {
+  "id": "H28",
+  "turns": [
+   {
+    "input": "por que motivos cancelo citas la institucion este año?",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "CITAS CANCELADAS",
+    "metric_id": "eae64dada3b5ca0b",
+    "semantic_model": "Demanda Insatisfecha",
+    "report": "DEMANDA INSATISFECHA",
+    "dashboard": "CONSOLIDADO",
+    "result_type": "table",
+    "filters": [
+     {
+      "column": "Date",
+      "end": "2026-11-04",
+      "label": "2026 hasta hoy",
+      "start": "2026-01-01",
+      "table": "CALENDARIO",
+      "type": "date_range",
+      "year": 2026
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [
+     "CCCDESCRI",
+     "CAUSA",
+     "CITAS MEDICAS",
+     "CCCDESCRI",
+     "CAUSA",
+     "CITAS MEDICAS"
+    ],
+    "dax": [
+     "EVALUATE SUMMARIZECOLUMNS( 'CITAS MEDICAS'[CCCDESCRI], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 1, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 4)), \"__value\", DISTINCTCOUNT('CITAS MEDICAS'[OID]) ) ORDER BY [__value] DESC"
+    ],
+    "dax_log": [
+     "EVALUATE SUMMARIZECOLUMNS( 'CITAS MEDICAS'[CCCDESCRI], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 1, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 4)), \"__value\", DISTINCTCOUNT('CITAS MEDICAS'[OID]) ) ORDER BY [__value] DESC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "En lo que va de 2026, **CITAS CANCELADAS** por causa:\n\n| CAUSA | CITAS CANCELADAS |\n| --- | --- |\n| FALTA DE INSUMOS | 293 |\n| MANTENIMIENTO DE EQUIPO | 171 |\n| CALAMIDAD DEL ESPECIALISTA | 104 |\n| ERROR EN HABILITACION DE AGENDA | 87 |\n| DAÑO DE EQUIPO | 59 |\n| (sin causa) | 16 |\n\nFiltros: 2026 hasta hoy.\n\nPara cccdescri se usa lo que pediste en lugar del filtro que trae la página. Las filas suman 730; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
+    "exception": null,
+    "latency_s": 2.49
+   }
+  ]
+ },
+ {
+  "id": "H29",
+  "turns": [
+   {
+    "input": "q antibioticos se estan usando ahorita",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "PAC_ACT",
+    "metric_id": "565e6b5b27e79ed7",
+    "semantic_model": "TABLERO_ANTIBIOTICOS",
+    "report": "TABLERO ANTIBIOTICOS",
+    "dashboard": "ANTIBIOTICOS",
+    "result_type": "table",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [
+     "ANTIBIOTICO",
+     "ANTIBIOTICO",
+     "ANTIBIOTICOS",
+     "ANTIBIOTICO",
+     "ANTIBIOTICO",
+     "ANTIBIOTICOS"
+    ],
+    "dax": [
+     "EVALUATE SUMMARIZECOLUMNS( 'ANTIBIOTICOS'[ANTIBIOTICO], \"__value\", [PAC_ACT] ) ORDER BY [__value] DESC"
+    ],
+    "dax_log": [
+     "EVALUATE SUMMARIZECOLUMNS( 'ANTIBIOTICOS'[ANTIBIOTICO], \"__value\", [PAC_ACT] ) ORDER BY [__value] DESC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**PAC_ACT** por antibiotico:\n\n| ANTIBIOTICO | PAC_ACT |\n| --- | --- |\n| ANTIBIOTICO 2 | 501 |\n| ANTIBIOTICO 4 | 314 |\n| ANTIBIOTICO 1 | 231 |\n| ANTIBIOTICO 3 | 177 |\n| ANTIBIOTICO 5 | 153 |\n| ANTIBIOTICO 6 | 138 |\n| (sin antibiotico) | 21 |",
+    "exception": null,
+    "latency_s": 0.187
+   }
+  ]
+ },
+ {
+  "id": "H30",
+  "turns": [
+   {
+    "input": "como cuentan los pacientes activos con antibiotico?",
+    "status": "success",
+    "route": "rag",
+    "stage": null,
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('ANTIBIOTICOS'[ANTIBIOTICO])), \"__card1\", COUNTROWS(VALUES('ANTIBIOTICOS'[SERVICIO])), \"__card2\", COUNTROWS(VALUES('ANTIBIOTICOS'[Suspension])), \"__card3\", COUNTROWS(VALUES('ANTIBIOTICOS'[MEDICO])), \"__card4\", COUNTROWS(VALUES('ANTIBIOTICOS'[PACIENTE])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('ANTIBIOTICOS'[ANTIBIOTICO]), \"Value\", 'ANTIBIOTICOS'[ANTIBIOTICO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('ANTIBIOTICOS'[SERVICIO]), \"Value\", 'ANTIBIOTICOS'[SERVICIO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('ANTIBIOTICOS'[Suspension]), \"Value\", 'ANTIBIOTICOS'[Suspension]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('ANTIBIOTICOS'[MEDICO]), \"Value\", 'ANTIBIOTICOS'[MEDICO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('ANTIBIOTICOS'[PACIENTE]), \"Value\", 'ANTIBIOTICOS'[PACIENTE] ), NOT ISBLANK([Value]) ), [Value], ASC )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "[FakeLLM] Tablero: ANTIBIOTICOS Indicador documentado: Pacientes activos: Pacientes distintos (por documento) con algún antibiótico en estado ACTIVO; la tarjeta se rotula PACIENTE ACTIVOS. Medida PAC_ACT = CALCULATE(DISTINCTCOUNT(ANTIBIOTICOS[DOCUMENTO]), ANTIBIOTICOS[Suspension] = \"ACTIVO\"). Tablero: MONITOREO_ANTIBIOTICO Indicador documentado: Pacientes activos: Pacientes distintos (por documento) con algún antibiótico en estado ACTIVO. Medida PAC_ACT. Tablero: TABLERO ANTIBIOTICOS Definición: Paciente activo: Paciente con al menos un antibiótico en estado ACTIVO. Tablero: ANTIBIOTICOS Alias: Descripc",
+    "exception": null,
+    "latency_s": 2.297
+   }
+  ]
+ },
+ {
+  "id": "H31",
+  "turns": [
+   {
+    "input": "kilos d ropa lavados en septiembre",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "PESO TOTAL por Mes",
+    "metric_id": "a2a69e318830d417",
+    "semantic_model": "Tablero_lavanderia",
+    "report": "TABLERO LAVANDERIA",
+    "dashboard": "Página 1",
+    "result_type": "scalar",
+    "filters": [
+     {
+      "column": "Fecha",
+      "end": "2026-10-01",
+      "label": "septiembre 2026",
+      "month": 9,
+      "start": "2026-09-01",
+      "table": "LAVANDERIA",
+      "type": "date_range",
+      "year": 2026
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( SUM('LAVANDERIA'[Peso]), FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 9, 1) && 'LAVANDERIA'[Fecha] < DATE(2026, 10, 1)) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__value\", CALCULATE( SUM('LAVANDERIA'[Peso]), FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 9, 1) && 'LAVANDERIA'[Fecha] < DATE(2026, 10, 1)) ) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**PESO TOTAL por Mes** en septiembre de 2026: **1.609,7**\n\nFiltros: septiembre 2026.",
+    "exception": null,
+    "latency_s": 1.106
+   }
+  ]
+ },
+ {
+  "id": "H32",
+  "turns": [
+   {
+    "input": "cuanta ropa se ha lavado esta semana",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "PESO TOTAL por Mes",
+    "metric_id": "a2a69e318830d417",
+    "semantic_model": "Tablero_lavanderia",
+    "report": "TABLERO LAVANDERIA",
+    "dashboard": "Página 1",
+    "result_type": "scalar",
+    "filters": [
+     {
+      "column": "Fecha",
+      "end": "2026-11-04",
+      "label": "desde el 02/11/2026 hasta hoy (esta semana)",
+      "month": 11,
+      "start": "2026-11-02",
+      "table": "LAVANDERIA",
+      "type": "date_range",
+      "year": 2026
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( SUM('LAVANDERIA'[Peso]), FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 11, 2) && 'LAVANDERIA'[Fecha] < DATE(2026, 11, 4)) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__value\", CALCULATE( SUM('LAVANDERIA'[Peso]), FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 11, 2) && 'LAVANDERIA'[Fecha] < DATE(2026, 11, 4)) ) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**PESO TOTAL por Mes** desde el 02/11/2026 hasta hoy (esta semana): **110,1**\n\nFiltros: desde el 02/11/2026 hasta hoy (esta semana).",
+    "exception": null,
+    "latency_s": 1.109
+   }
+  ]
+ },
+ {
+  "id": "H33",
+  "turns": [
+   {
+    "input": "cuantos pacientes naos tenemos con pendientes?",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "PACIENTES",
+    "metric_id": "2f02ce4452a80e0e",
+    "semantic_model": "TABLERO NAOS",
+    "report": "TABLERO NAOS",
+    "dashboard": "LISTADO",
+    "result_type": "scalar",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('PACIENTES'[AINCONSEC]), KEEPFILTERS(FILTER(ALL('PACIENTES'[HSUNOMBRE]), NOT ('PACIENTES'[HSUNOMBRE] IN {\"HOSPITALIZACION PARCIAL\"})))) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('GESTION_CLINICA'[GPANOMCOM])), \"__card1\", COUNTROWS(VALUES('GESTION_CLINICA'[ULT_SEG])), \"__card2\", COUNTROWS(VALUES('ResumenExamenes'[GPANOMCOM])), \"__card3\", COUNTROWS(VALUES('ResumenExamenes'[ExamenesPendientes])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('GESTION_CLINICA'[GPANOMCOM]), \"Value\", 'GESTION_CLINICA'[GPANOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('GESTION_CLINICA'[ULT_SEG]), \"Value\", 'GESTION_CLINICA'[ULT_SEG]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('ResumenExamenes'[GPANOMCOM]), \"Value\", 'ResumenExamenes'[GPANOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('ResumenExamenes'[ExamenesPendientes]), \"Value\", 'ResumenExamenes'[ExamenesPendientes]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('PACIENTES'[AINCONSEC]), KEEPFILTERS(FILTER(ALL('PACIENTES'[HSUNOMBRE]), NOT ('PACIENTES'[HSUNOMBRE] IN {\"HOSPITALIZACION PARCIAL\"})))) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**91 pacientes** (indicador PACIENTES).\n\nCifra tal como la muestra la tarjeta de la página LISTADO del TABLERO NAOS (con su filtro: excluye servicio del paciente HOSPITALIZACION PARCIAL). La lista de 91 pacientes es demasiado larga para mostrarla aquí (más de 50). Indica un filtro (servicio, estado...) y te muestro el detalle.",
+    "exception": null,
+    "latency_s": 0.583
+   }
+  ]
+ },
+ {
+  "id": "H34",
+  "turns": [
+   {
+    "input": "cirugias pendientes de los pacientes de naos",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "CIRUGÍAS PENDIENTES",
+    "metric_id": "e36877fd0db70291",
+    "semantic_model": "TABLERO NAOS",
+    "report": "TABLERO NAOS",
+    "dashboard": "CIRUGÍAS PENDIENTES",
+    "result_type": "scalar",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", DISTINCTCOUNT('CIRUGÍAS PENDIENTES'[Oid]) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('CIRUGÍAS PENDIENTES'[ESPECIALIDAD])), \"__card1\", COUNTROWS(VALUES('CIRUGÍAS PENDIENTES'[EPS])), \"__card2\", COUNTROWS(VALUES('CIRUGÍAS PENDIENTES'[PROCEDIMIENTO])), \"__card3\", COUNTROWS(VALUES('CIRUGÍAS PENDIENTES'[TIPO_PACIENTE])), \"__card4\", COUNTROWS(VALUES('CIRUGÍAS PENDIENTES'[NOMBRE])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGÍAS PENDIENTES'[ESPECIALIDAD]), \"Value\", 'CIRUGÍAS PENDIENTES'[ESPECIALIDAD]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGÍAS PENDIENTES'[EPS]), \"Value\", 'CIRUGÍAS PENDIENTES'[EPS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGÍAS PENDIENTES'[PROCEDIMIENTO]), \"Value\", 'CIRUGÍAS PENDIENTES'[PROCEDIMIENTO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ) )",
+     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('CIRUGÍAS PENDIENTES'[TIPO_PACIENTE]), \"Value\", 'CIRUGÍAS PENDIENTES'[TIPO_PACIENTE] ), NOT ISBLANK([Value]) ), [Value], ASC )",
+     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('CIRUGÍAS PENDIENTES'[NOMBRE]), \"Value\", 'CIRUGÍAS PENDIENTES'[NOMBRE] ), NOT ISBLANK([Value]) ), [Value], ASC )",
+     "EVALUATE ROW( \"__value\", DISTINCTCOUNT('CIRUGÍAS PENDIENTES'[Oid]) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**CIRUGÍAS PENDIENTES**: **3.740**",
+    "exception": null,
+    "latency_s": 2.973
+   }
+  ]
+ },
+ {
+  "id": "H35",
+  "turns": [
+   {
+    "input": "pacientes naos x tipo de paciente",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "PACIENTES",
+    "metric_id": "65f13ae0d4c571b8",
+    "semantic_model": "TABLERO NAOS",
+    "report": "TABLERO NAOS",
+    "dashboard": "LISTADO",
+    "result_type": "table",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [
+     "TIPO_PACIENTE",
+     "CLASIFICACIÓN",
+     "PACIENTES",
+     "TIPO_PACIENTE",
+     "CLASIFICACIÓN",
+     "PACIENTES"
+    ],
+    "dax": [
+     "EVALUATE SUMMARIZECOLUMNS( 'PACIENTES'[TIPO_PACIENTE], \"__value\", CALCULATE(DISTINCTCOUNT('PACIENTES'[ADNINGRESO]), KEEPFILTERS(FILTER(ALL('PACIENTES'[HSUNOMBRE]), NOT ('PACIENTES'[HSUNOMBRE] IN {\"HOSPITALIZACION PARCIAL\"})))) ) ORDER BY [__value] DESC"
+    ],
+    "dax_log": [
+     "EVALUATE SUMMARIZECOLUMNS( 'PACIENTES'[TIPO_PACIENTE], \"__value\", CALCULATE(DISTINCTCOUNT('PACIENTES'[ADNINGRESO]), KEEPFILTERS(FILTER(ALL('PACIENTES'[HSUNOMBRE]), NOT ('PACIENTES'[HSUNOMBRE] IN {\"HOSPITALIZACION PARCIAL\"})))) ) ORDER BY [__value] DESC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**PACIENTES** por clasificación:\n\n| CLASIFICACIÓN | PACIENTES |\n| --- | --- |\n| (sin clasificación) | 57 |\n| PACIENTE SIMULADO 00243 | 8 |\n| PACIENTE SIMULADO 00244 | 8 |\n| PACIENTE SIMULADO 00245 | 8 |\n| PACIENTE SIMULADO 00246 | 8 |\n| PACIENTE SIMULADO 00247 | 8 |\n| PACIENTE SIMULADO 00248 | 8 |\n| PACIENTE SIMULADO 00249 | 8 |\n| PACIENTE SIMULADO 00250 | 8 |\n| PACIENTE SIMULADO 00251 | 8 |\n| PACIENTE SIMULADO 00302 | 8 |\n| PACIENTE SIMULADO 00303 | 8 |\n| PACIENTE SIMULADO 00304 | 8 |\n| PACIENTE SIMULADO 00398 | 8 |\n| PACIENTE SIMULADO 00085 | 7 |\n| PACIENTE SIMULADO 00086 | 7 |\n| PACIENTE SIMULADO 00087 | 7 |\n| PACIENTE SIMULADO 00088 | 7 |\n| PACIENTE SIMULADO 00089 | 7 |\n| PACIENTE SIMULADO 00090 | 7 |\n| PACIENTE SIMULADO 00092 | 7 |\n| PACIENTE SIMULADO 00093 | 7 |\n| PACIENTE SIMULADO 00094 | 7 |\n| PACIENTE SIMULADO 00095 | 7 |\n| PACIENTE SIMULADO 00097 | 7 |\n| PACIENTE SIMULADO 00098 | 7 |\n| PACIENTE SIMULADO 00099 | 7 |\n| PACIENTE SIMULADO 00100 | 7 |\n| PACIENTE SIMULADO 00101 | 7 |\n| PACIENTE SIMULADO 00122 | 7 |\n| PACIENTE SIMULADO 00123 | 7 |\n| PACIENTE SIMULADO 00124 | 7 |\n| PACIENTE SIMULADO 00125 | 7 |\n| PACIENTE SIMULADO 00126 | 7 |\n| PACIENTE SIMULADO 00127 | 7 |\n| PACIENTE SIMULADO 00129 | 7 |\n| PACIENTE SIMULADO 00130 | 7 |\n| PACIENTE SIMULADO 00131 | 7 |\n| PACIENTE SIMULADO 00132 | 7 |\n| PACIENTE SIMULADO 00133 | 7 |\n| PACIENTE SIMULADO 00134 | 7 |\n| PACIENTE SIMULADO 00152 | 7 |\n| PACIENTE SIMULADO 00153 | 7 |\n| PACIENTE SIMULADO 00154 | 7 |\n| PACIENTE SIMULADO 00155 | 7 |\n| PACIENTE SIMULADO 00182 | 7 |\n| PACIENTE SIMULADO 00183 | 7 |\n| PACIENTE SIMULADO 00184 | 7 |\n| PACIENTE SIMULADO 00185 | 7 |\n| PACIENTE SIMULADO 00186 | 7 |\n\nMostrando 50 de 998 filas.\n\nCifra tal como la muestra el gráfico de la página LISTADO del TABLERO NAOS (con su filtro: excluye servicio del paciente HOSPITALIZACION PARCIAL). Las filas suman 4.316; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
+    "exception": null,
+    "latency_s": 14.687
+   }
+  ]
+ },
+ {
+  "id": "H36",
+  "turns": [
+   {
+    "input": "cuantos pedidos estan en gestion hoy en recepcion tecnica",
+    "status": "empty_result",
+    "route": "powerbi",
+    "stage": "query_plan_result",
+    "clarification_type": null,
+    "metric": "PEDIDOS EN GESTIÓN",
+    "metric_id": "79d7dcee8c605c42",
+    "semantic_model": "TABLERO RECEPCION TECNICA",
+    "report": "TABLERO RECEPCION TECNICA",
+    "dashboard": "INGRESOS DÍA",
+    "result_type": null,
+    "filters": [
+     {
+      "column": "FechaRegistro",
+      "end": "2026-11-04",
+      "label": "3 de noviembre de 2026 (hoy)",
+      "month": 11,
+      "start": "2026-11-03",
+      "table": "TablaPedidosActuales",
+      "type": "date_range",
+      "year": 2026
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(DISTINCTCOUNT('TablaPedidosActuales'[OidRTPedido]), KEEPFILTERS(FILTER(ALL('TablaPedidosActuales'[NomEstado]), NOT ('TablaPedidosActuales'[NomEstado] IN {\"Mercancia Almacenada\"})))), FILTER(ALL('TablaPedidosActuales'[FechaRegistro]), 'TablaPedidosActuales'[FechaRegistro] >= DATE(2026, 11, 3) && 'TablaPedidosActuales'[FechaRegistro] < DATE(2026, 11, 4)) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(DISTINCTCOUNT('TablaPedidosActuales'[OidRTPedido]), KEEPFILTERS(FILTER(ALL('TablaPedidosActuales'[NomEstado]), NOT ('TablaPedidosActuales'[NomEstado] IN {\"Mercancia Almacenada\"})))), FILTER(ALL('TablaPedidosActuales'[FechaRegistro]), 'TablaPedidosActuales'[FechaRegistro] >= DATE(2026, 11, 3) && 'TablaPedidosActuales'[FechaRegistro] < DATE(2026, 11, 4)) ) )",
+     "EVALUATE ROW(\"__hasta\", MAXX(FILTER(ALL('TablaPedidosActuales'[FechaRegistro]), NOT ISBLANK(CALCULATE(CALCULATE(DISTINCTCOUNT('TablaPedidosActuales'[OidRTPedido]), KEEPFILTERS(FILTER(ALL('TablaPedidosActuales'[NomEstado]), NOT ('TablaPedidosActuales'[NomEstado] IN {\"Mercancia Almacenada\"}))))))), 'TablaPedidosActuales'[FechaRegistro]))"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "No hay datos de **PEDIDOS EN GESTIÓN** el 3 de noviembre de 2026 (hoy). La fuente tiene datos hasta el 02/11/2026.\n\nFiltros: 3 de noviembre de 2026 (hoy).",
+    "exception": null,
+    "latency_s": 33.174
+   }
+  ]
+ },
+ {
+  "id": "H37",
+  "turns": [
+   {
+    "input": "solicitudes pendientes de recepcion tecnica por area de servicio",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "SOLICITUDES PENDIENTES",
+    "metric_id": "1537aad066a28c56",
+    "semantic_model": "TABLERO RECEPCION TECNICA",
+    "report": "TABLERO RECEPCION TECNICA",
+    "dashboard": "CANTIDADES",
+    "result_type": "table",
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [
+     "GASNOMBRE",
+     "AREA SERVICIO",
+     "PENDIENTES_RT",
+     "GASNOMBRE",
+     "AREA SERVICIO",
+     "PENDIENTES_RT"
+    ],
+    "dax": [
+     "EVALUATE SUMMARIZECOLUMNS( 'PENDIENTES_RT'[GASNOMBRE], \"__value\", DISTINCTCOUNT('PENDIENTES_RT'[OID]) ) ORDER BY [__value] DESC"
+    ],
+    "dax_log": [
+     "EVALUATE SUMMARIZECOLUMNS( 'PENDIENTES_RT'[GASNOMBRE], \"__value\", DISTINCTCOUNT('PENDIENTES_RT'[OID]) ) ORDER BY [__value] DESC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "**SOLICITUDES PENDIENTES** por area servicio:\n\n| AREA SERVICIO | SOLICITUDES PENDIENTES |\n| --- | --- |\n| PROFESIONAL 02 | 106 |\n| PROFESIONAL 03 | 105 |\n| PROFESIONAL 04 | 102 |\n| PROFESIONAL 05 | 102 |\n| PROFESIONAL 06 | 100 |\n| PROFESIONAL 09 | 98 |\n| PROFESIONAL 07 | 97 |\n| PROFESIONAL 08 | 96 |\n| PROFESIONAL 11 | 95 |\n| PROFESIONAL 10 | 94 |\n| PROFESIONAL 13 | 93 |\n| PROFESIONAL 15 | 93 |\n| PROFESIONAL 14 | 92 |\n| PROFESIONAL 17 | 91 |\n| PROFESIONAL 18 | 91 |\n| PROFESIONAL 19 | 91 |\n| PROFESIONAL 16 | 90 |\n| PROFESIONAL 20 | 89 |\n| PROFESIONAL 21 | 89 |\n| PROFESIONAL 12 | 88 |\n| PROFESIONAL 23 | 88 |\n| PROFESIONAL 24 | 88 |\n| PROFESIONAL 22 | 87 |\n| PROFESIONAL 25 | 85 |\n| PROFESIONAL 26 | 84 |\n| PROFESIONAL 27 | 83 |\n| PROFESIONAL 28 | 80 |\n| PROFESIONAL 29 | 80 |\n| PROFESIONAL 30 | 80 |\n| PROFESIONAL 31 | 76 |\n| PROFESIONAL 32 | 75 |\n| PROFESIONAL 33 | 74 |\n| PROFESIONAL 36 | 73 |\n| PROFESIONAL 34 | 72 |\n| PROFESIONAL 35 | 71 |\n| PROFESIONAL 37 | 71 |\n| PROFESIONAL 38 | 66 |\n| PROFESIONAL 39 | 65 |\n| PROFESIONAL 40 | 64 |\n| PROFESIONAL 01 | 62 |\n| (sin area servicio) | 59 |\n\nLas filas suman 3.485; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
+    "exception": null,
+    "latency_s": 0.829
+   }
+  ]
+ },
+ {
+  "id": "H38",
+  "turns": [
+   {
+    "input": "por q estados pasa un pedido en recepcion tecnica?",
+    "status": "success",
+    "route": "rag",
+    "stage": null,
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": "TABLERO RECEPCION TECNICA",
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [],
+    "prompt": null,
+    "answer": "[FakeLLM] Tablero: TABLERO RECEPCION TECNICA Definición: Pedido: Pedido de mercancía en el proceso de recepción técnica (OidRTPedido); pasa por estados como Ingreso de Transportadora, Recepción Física, Verificación Registro Sanitario, Recepción Técnica, Mercancía Almacenada, Novedad, Novedad en Trámite, Respuesta Novedad, Devuelto a Proveedor y Factura devuelta a Recepción Técnica. Diccionario de variables del tablero: TABLERO RECEPCION TECNICA Sección del diccionario: Tablas Diccionario de variables del tablero: TABLERO RECEPCION TECNICA Fuente de datos: INGRESOS_DIA: Registros de cambio de estado de l",
+    "exception": null,
+    "latency_s": 0.201
+   }
+  ]
+ },
+ {
+  "id": "H39",
+  "turns": [
+   {
+    "input": "cuantas solicitudes de referencia nos llegaron en el ultimo mes",
+    "status": "success",
+    "route": "powerbi",
+    "stage": null,
+    "clarification_type": null,
+    "metric": "Cantidad de SOLICITUDES",
+    "metric_id": "20e6b142e2090efa",
+    "semantic_model": "TABLERO_REFERENCIA",
+    "report": "TABLERO REFERENCIA",
+    "dashboard": "DETALLE NO ACEPTADOS RECEPCION",
+    "result_type": "scalar",
+    "filters": [
+     {
+      "column": "FechaRegistro",
+      "end": "2026-11-01",
+      "label": "octubre 2026 (mes pasado)",
+      "month": 10,
+      "start": "2026-10-01",
+      "table": "DETALLE_RECEPCIONES",
+      "type": "date_range",
+      "year": 2026
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( DISTINCTCOUNT('DETALLE_RECEPCIONES'[Oid]), FILTER(ALL('DETALLE_RECEPCIONES'[FechaRegistro]), 'DETALLE_RECEPCIONES'[FechaRegistro] >= DATE(2026, 10, 1) && 'DETALLE_RECEPCIONES'[FechaRegistro] < DATE(2026, 11, 1)) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('REFERENCIA'[RANGO_EDAD])), \"__card1\", COUNTROWS(VALUES('REFERENCIA'[ESTADO])), \"__card2\", COUNTROWS(VALUES('REFERENCIA'[nombreps])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('REFERENCIA'[RANGO_EDAD]), \"Value\", 'REFERENCIA'[RANGO_EDAD]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('REFERENCIA'[ESTADO]), \"Value\", 'REFERENCIA'[ESTADO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('REFERENCIA'[nombreps]), \"Value\", 'REFERENCIA'[nombreps]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__value\", CALCULATE( DISTINCTCOUNT('DETALLE_RECEPCIONES'[Oid]), FILTER(ALL('DETALLE_RECEPCIONES'[FechaRegistro]), 'DETALLE_RECEPCIONES'[FechaRegistro] >= DATE(2026, 10, 1) && 'DETALLE_RECEPCIONES'[FechaRegistro] < DATE(2026, 11, 1)) ) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "En octubre de 2026 (mes pasado), hubo **61** solicitudes.\n\nFiltros: octubre 2026 (mes pasado).",
+    "exception": null,
+    "latency_s": 1.963
+   }
+  ]
+ },
+ {
+  "id": "H40",
+  "turns": [
+   {
+    "input": "y cuantas de esas referencias no aceptamos?",
+    "status": "needs_clarification",
+    "route": "clarification",
+    "stage": null,
+    "clarification_type": "query_plan_metric",
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('REFERENCIA'[CAUSA])), \"__card1\", COUNTROWS(VALUES('REFERENCIA'[nombreps])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('REFERENCIA'[CAUSA]), \"Value\", 'REFERENCIA'[CAUSA]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('REFERENCIA'[nombreps]), \"Value\", 'REFERENCIA'[nombreps]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('REFERENCIA'[SERVICIO])), \"__card1\", COUNTROWS(VALUES('REFERENCIA'[PRESTADOR])), \"__card2\", COUNTROWS(VALUES('REFERENCIA'[ESTADO])), \"__card3\", COUNTROWS(VALUES('REFERENCIA'[USUREGISTRA])), \"__card4\", COUNTROWS(VALUES('REFERENCIA'[Motivo])), \"__card5\", COUNTROWS(VALUES('REFERENCIA'[GEEDESCRI])), \"__card6\", COUNTROWS(VALUES('REFERENCIA'[USUACEPTA])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('REFERENCIA'[SERVICIO]), \"Value\", 'REFERENCIA'[SERVICIO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('REFERENCIA'[PRESTADOR]), \"Value\", 'REFERENCIA'[PRESTADOR]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('REFERENCIA'[ESTADO]), \"Value\", 'REFERENCIA'[ESTADO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('REFERENCIA'[USUREGISTRA]), \"Value\", 'REFERENCIA'[USUREGISTRA]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('REFERENCIA'[Motivo]), \"Value\", 'REFERENCIA'[Motivo]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('REFERENCIA'[GEEDESCRI]), \"Value\", 'REFERENCIA'[GEEDESCRI]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('REFERENCIA'[USUACEPTA]), \"Value\", 'REFERENCIA'[USUACEPTA]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ) )"
+    ],
+    "options": [
+     {
+      "id": "7bc7d94568c87a47",
+      "label": "Consultar Referencia sin «no aceptamos»",
+      "caption": "[FakeLLM] Obtiene el valor de referencia · DEMANDA INSATISFECHA › página CONSOLIDADO"
+     },
+     {
+      "id": "__none__",
+      "label": "No, buscar otro indicador",
+      "caption": "Buscar otros indicadores parecidos a la pregunta"
+     }
+    ],
+    "prompt": null,
+    "answer": "Identifiqué el indicador Referencia, pero no entendí «no aceptamos» como un filtro de ese tablero. ¿Lo consulto sin ese filtro? También puedes reescribir la pregunta indicando el servicio, la especialidad u otro filtro.",
+    "exception": null,
+    "latency_s": 1.36
+   },
+   {
+    "input": "[botón] Consultar Referencia sin «no aceptamos»",
+    "status": "empty_result",
+    "route": "powerbi",
+    "stage": "query_plan_result",
+    "clarification_type": null,
+    "metric": "REFERENCIA",
+    "metric_id": "7bc7d94568c87a47",
+    "semantic_model": "Demanda Insatisfecha",
+    "report": "DEMANDA INSATISFECHA",
+    "dashboard": "CONSOLIDADO",
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [
+     "aceptamos"
+    ],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('REFERENCIA'[OID]), KEEPFILTERS(FILTER(ALL('REFERENCIA'[CAUSA]), NOT (('REFERENCIA'[CAUSA] IN {\"Aceptado por otra institución\", \"Es de menor complejidad\", \"No contratación\", \"NO HABILITACIÓN\"} || ISBLANK('REFERENCIA'[CAUSA])))))) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('REFERENCIA'[OID]), KEEPFILTERS(FILTER(ALL('REFERENCIA'[CAUSA]), NOT (('REFERENCIA'[CAUSA] IN {\"Aceptado por otra institución\", \"Es de menor complejidad\", \"No contratación\", \"NO HABILITACIÓN\"} || ISBLANK('REFERENCIA'[CAUSA])))))) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "No hay datos de **REFERENCIA** para esos filtros.\n\nNo pude aplicar: aceptamos.",
+    "exception": null,
+    "latency_s": 0.087
+   }
+  ]
+ },
+ {
+  "id": "H41",
+  "turns": [
+   {
+    "input": "top 5 especialidades q mas piden referencia",
+    "status": "needs_clarification",
+    "route": "clarification",
+    "stage": null,
+    "clarification_type": "query_plan_metric",
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [
+     {
+      "id": "7bc7d94568c87a47",
+      "label": "REFERENCIA",
+      "caption": "[FakeLLM] Obtiene el valor de referencia · DEMANDA INSATISFECHA › página CONSOLIDADO"
+     },
+     {
+      "id": "__none__",
+      "label": "Ninguna de las anteriores",
+      "caption": "Buscar otros indicadores parecidos a la pregunta"
+     }
+    ],
+    "prompt": null,
+    "answer": "En el tablero TABLERO REFERENCIA no encontré ese indicador. Lo encontré en otro tablero. ¿Es este?",
+    "exception": null,
+    "latency_s": 0.358
+   },
+   {
+    "input": "[botón] REFERENCIA",
+    "status": "empty_result",
+    "route": "powerbi",
+    "stage": "query_plan_result",
+    "clarification_type": null,
+    "metric": "REFERENCIA",
+    "metric_id": "7bc7d94568c87a47",
+    "semantic_model": "Demanda Insatisfecha",
+    "report": "DEMANDA INSATISFECHA",
+    "dashboard": "CONSOLIDADO",
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [
+     "GEEDESCRI",
+     "ESPECIALIDAD",
+     "REFERENCIA",
+     "GEEDESCRI",
+     "ESPECIALIDAD",
+     "REFERENCIA"
+    ],
+    "dax": [
+     "EVALUATE TOPN( 5, SUMMARIZECOLUMNS( 'REFERENCIA'[GEEDESCRI], \"__value\", CALCULATE(DISTINCTCOUNT('REFERENCIA'[OID]), KEEPFILTERS(FILTER(ALL('REFERENCIA'[CAUSA]), NOT (('REFERENCIA'[CAUSA] IN {\"Aceptado por otra institución\", \"Es de menor complejidad\", \"No contratación\", \"NO HABILITACIÓN\"} || ISBLANK('REFERENCIA'[CAUSA])))))) ), [__value], DESC ) ORDER BY [__value] DESC"
+    ],
+    "dax_log": [
+     "EVALUATE TOPN( 5, SUMMARIZECOLUMNS( 'REFERENCIA'[GEEDESCRI], \"__value\", CALCULATE(DISTINCTCOUNT('REFERENCIA'[OID]), KEEPFILTERS(FILTER(ALL('REFERENCIA'[CAUSA]), NOT (('REFERENCIA'[CAUSA] IN {\"Aceptado por otra institución\", \"Es de menor complejidad\", \"No contratación\", \"NO HABILITACIÓN\"} || ISBLANK('REFERENCIA'[CAUSA])))))) ), [__value], DESC ) ORDER BY [__value] DESC"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "No hay datos de **REFERENCIA** para esos filtros.",
+    "exception": null,
+    "latency_s": 0.298
+   }
+  ]
+ },
+ {
+  "id": "H42",
+  "turns": [
+   {
+    "input": "como se calcula el tiempo de respuesta en referencia?",
+    "status": "success",
+    "route": "rag",
+    "stage": null,
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": "REFERENCIA",
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [],
+    "prompt": null,
+    "answer": "[FakeLLM] Diccionario de variables del tablero: TABLERO REFERENCIA Sección del diccionario: Columnas calculadas Diccionario de variables del tablero: TABLERO REFERENCIA Columna calculada: TIEMPO_RESPUESTA Tabla: CONTRARREFERENCIA Descripción: Horas entre la fecha de remisión (FechaRemision) y la fecha de aceptación (FECHACEPTACION); si no hay aceptación posterior a la remisión, se cuenta hasta hoy. Tipo: entero. Se usa en: no aparece en visuales ni filtros del informe. Expresión DAX: DATEDIFF(CONTRARREFERENCIA[FechaRemision],IF(CONTRARREFERENCIA[FECHACEPTACION]>CONTRARREFERENCIA[FechaRemision],CONTRARRE",
+    "exception": null,
+    "latency_s": 0.268
+   }
+  ]
+ },
+ {
+  "id": "H43",
+  "turns": [
+   {
+    "input": "cuantas compras subieron, bajaron o se quedaron igual de precio este año",
+    "status": "needs_clarification",
+    "route": "clarification",
+    "stage": null,
+    "clarification_type": "query_plan_metric",
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [
+     {
+      "id": "fe81f70adddf10dd",
+      "label": "PRECIO VENTA",
+      "caption": "[FakeLLM] Obtiene el valor de precioventa · TABLERO_FINANCIERA"
+     },
+     {
+      "id": "__none__",
+      "label": "Ninguna de las anteriores",
+      "caption": "Buscar otros indicadores parecidos a la pregunta"
+     }
+    ],
+    "prompt": null,
+    "answer": "No identifiqué con certeza el indicador. ¿Te refieres a PRECIO VENTA?",
+    "exception": null,
+    "latency_s": 8.434
+   },
+   {
+    "input": "[botón] PRECIO VENTA",
+    "status": "unsupported_filter",
+    "route": "powerbi",
+    "stage": "temporal_filters",
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [
+     "año 2026",
+     "meses de 2026 hasta hoy"
+    ],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [],
+    "prompt": null,
+    "answer": "Identifiqué la métrica, pero este tablero no tiene una fecha que permita aplicar el período «2026 hasta hoy». Prueba con un año o un mes.",
+    "exception": null,
+    "latency_s": 0.081
+   }
+  ]
+ },
+ {
+  "id": "H44",
+  "turns": [
+   {
+    "input": "en cvc cuando un producto sale como AUMENTÓ q significa",
+    "status": "success",
+    "route": "rag",
+    "stage": null,
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": "CVC",
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [],
+    "prompt": null,
+    "answer": "[FakeLLM] Tablero: CVC Visualización documentada: Tarjetas: TOTAL PRODUCTOS, TOTAL COMPRAS CON AUMENTO y TOTAL COMPRAS CON DISMINUCIÓN. Tablero: CVC Alias: Descripción: Aumentos y disminuciones de costo de compra por producto y mes. Única página del tablero. Muestra cuántos productos se compraron, el valor comprado con aumento y con disminución de costo, la tendencia mensual de la variación de costos, la proporción de… Tablero: CVC Nota u observación: Primera compra como aumento: Si un producto no tiene costo anterior, la resta usa 0 y el registro queda como AUMENTÓ. Por confirmar si debería quedar sin",
+    "exception": null,
+    "latency_s": 0.301
+   }
+  ]
+ },
+ {
+  "id": "H45",
+  "turns": [
+   {
+    "input": "cual fue el porcentaje de mortalidad en 2025 segun el perfil de morbilidad",
+    "status": "powerbi_error",
+    "route": "powerbi",
+    "stage": "query_plan_powerbi",
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [
+     {
+      "column": "fecha",
+      "end": "2026-01-01",
+      "label": "2025",
+      "start": "2025-01-01",
+      "table": "MATRIZ 2024",
+      "type": "date_range",
+      "year": 2025
+     }
+    ],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( [%DEFUNCIONES], FILTER(ALL('MATRIZ 2024'[fecha]), 'MATRIZ 2024'[fecha] >= DATE(2025, 1, 1) && 'MATRIZ 2024'[fecha] < DATE(2026, 1, 1)) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('MATRIZ 2024'[DI])), \"__card1\", COUNTROWS(VALUES('MATRIZ 2024'[rango_edad])), \"__card2\", COUNTROWS(VALUES('MATRIZ 2024'[Egreso_DesCMD])), \"__card3\", COUNTROWS(VALUES('MATRIZ 2024'[Egreso_DescGRD])), \"__card4\", COUNTROWS(VALUES('MATRIZ 2024'[CMD_OK])), \"__card5\", COUNTROWS(VALUES('MATRIZ 2024'[GRD_OK])), \"__card6\", COUNTROWS(VALUES('MATRIZ 2024'[CIE10_R])), \"__card7\", COUNTROWS(VALUES('MATRIZ 2024'[CMD_R])), \"__card8\", COUNTROWS(VALUES('MATRIZ 2024'[Tipo_de_parto])), \"__card9\", COUNTROWS(VALUES('MATRIZ 2024'[Servicio])), \"__card10\", COUNTROWS(VALUES('MATRIZ 2024'[Estado_del_egreso])), \"__card11\", COUNTROWS(VALUES('MATRIZ 2024'[Servicio_Agrupado])), \"__card12\", COUNTROWS(VALUES('MATRIZ 2024'[Tipo_Salida])), \"__card13\", COUNTROWS(VALUES('MATRIZ 2024'[Asegurador])), \"__card14\", COUNTROWS(VALUES('MATRIZ 2024'[Sexo])), \"__card15\", COUNTROWS(VALUES('MATRIZ 2024'[SERVICIOS])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[DI]), \"Value\", 'MATRIZ 2024'[DI]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[rango_edad]), \"Value\", 'MATRIZ 2024'[rango_edad]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Egreso_DesCMD]), \"Value\", 'MATRIZ 2024'[Egreso_DesCMD]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Egreso_DescGRD]), \"Value\", 'MATRIZ 2024'[Egreso_DescGRD]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[CMD_OK]), \"Value\", 'MATRIZ 2024'[CMD_OK]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[GRD_OK]), \"Value\", 'MATRIZ 2024'[GRD_OK]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[CIE10_R]), \"Value\", 'MATRIZ 2024'[CIE10_R]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[CMD_R]), \"Value\", 'MATRIZ 2024'[CMD_R]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Tipo_de_parto]), \"Value\", 'MATRIZ 2024'[Tipo_de_parto]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Servicio]), \"Value\", 'MATRIZ 2024'[Servicio]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Estado_del_egreso]), \"Value\", 'MATRIZ 2024'[Estado_del_egreso]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Servicio_Agrupado]), \"Value\", 'MATRIZ 2024'[Servicio_Agrupado]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Tipo_Salida]), \"Value\", 'MATRIZ 2024'[Tipo_Salida]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Asegurador]), \"Value\", 'MATRIZ 2024'[Asegurador]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Sexo]), \"Value\", 'MATRIZ 2024'[Sexo]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[SERVICIOS]), \"Value\", 'MATRIZ 2024'[SERVICIOS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('MATRIZ 2024'[Ingreso_CodCIE10_Urgencias_y_Gineco])), \"__card1\", COUNTROWS(VALUES('MATRIZ 2024'[Ingreso_DescCIE10_Urgencias_y_Gineco])), \"__card2\", COUNTROWS(VALUES('MATRIZ 2024'[Ingreso_Desc_CMD_Urgencias_y_Gineco])), \"__card3\", COUNTROWS(VALUES('MATRIZ 2024'[Ingres_Desc_GRD_Urgencias_y_Gineco])), \"__card4\", COUNTROWS(VALUES('MATRIZ 2024'[Egreso_Cod_CIE10])), \"__card5\", COUNTROWS(VALUES('MATRIZ 2024'[Egreso_Descripci_n_CIE10])), \"__card6\", COUNTROWS(VALUES('MATRIZ 2024'[V_a_de_parto])), \"__card7\", COUNTROWS(VALUES('MATRIZ 2024'[certificado_de_nacido_vivo])), \"__card8\", COUNTROWS(VALUES('MATRIZ 2024'[ONCOLOGICOM])), \"__card9\", COUNTROWS(VALUES('MATRIZ 2024'[NEOPLASIAS])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Ingreso_CodCIE10_Urgencias_y_Gineco]), \"Value\", 'MATRIZ 2024'[Ingreso_CodCIE10_Urgencias_y_Gineco]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Ingreso_DescCIE10_Urgencias_y_Gineco]), \"Value\", 'MATRIZ 2024'[Ingreso_DescCIE10_Urgencias_y_Gineco]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Ingreso_Desc_CMD_Urgencias_y_Gineco]), \"Value\", 'MATRIZ 2024'[Ingreso_Desc_CMD_Urgencias_y_Gineco]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Ingres_Desc_GRD_Urgencias_y_Gineco]), \"Value\", 'MATRIZ 2024'[Ingres_Desc_GRD_Urgencias_y_Gineco]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Egreso_Cod_CIE10]), \"Value\", 'MATRIZ 2024'[Egreso_Cod_CIE10]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[Egreso_Descripci_n_CIE10]), \"Value\", 'MATRIZ 2024'[Egreso_Descripci_n_CIE10]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[V_a_de_parto]), \"Value\", 'MATRIZ 2024'[V_a_de_parto]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[certificado_de_nacido_vivo]), \"Value\", 'MATRIZ 2024'[certificado_de_nacido_vivo]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[ONCOLOGICOM]), \"Value\", 'MATRIZ 2024'[ONCOLOGICOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('MATRIZ 2024'[NEOPLASIAS]), \"Value\", 'MATRIZ 2024'[NEOPLASIAS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__value\", CALCULATE( [%DEFUNCIONES], FILTER(ALL('MATRIZ 2024'[fecha]), 'MATRIZ 2024'[fecha] >= DATE(2025, 1, 1) && 'MATRIZ 2024'[fecha] < DATE(2026, 1, 1)) ) )"
+    ],
+    "options": [],
+    "prompt": null,
+    "answer": "La métrica se identificó, pero Power BI rechazó la consulta. Revisa Modo diagnóstico.",
+    "exception": null,
+    "latency_s": 1.994
+   }
+  ]
+ },
+ {
+  "id": "H46",
+  "turns": [
+   {
+    "input": "q es el % de defunciones del perfil de morbilidad y como lo sacan",
+    "status": "success",
+    "route": "rag",
+    "stage": null,
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": "PERFIL DE MORBILIDAD",
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [],
+    "prompt": null,
+    "answer": "[FakeLLM] Tablero: PERFIL DE MORBILIDAD Indicador documentado: % defunciones: Mortalidad del grupo. %DEFUNCIONES = SUM('MATRIZ 2024'[DEFUNCIONES])/COUNT('MATRIZ 2024'[Egreso_Cod_CIE10]). Tablero: PERFIL DE MORBILIDAD Alias: Descripción: Atenciones y mortalidad por mes, edad, sexo, CMD y GRD. Detalla los egresos por mes, rango de edad y sexo, y por CMD y GRD con sus defunciones y porcentaje de mortalidad. Tablero: PERFIL DE MORBILIDAD Regla de negocio: Denominador de mortalidad: %DEFUNCIONES divide por los egresos que tienen código CIE10 de egreso, no por todas las atenciones. Tablero: TABLERO PERFIL DE",
+    "exception": null,
+    "latency_s": 0.389
+   }
+  ]
+ },
+ {
+  "id": "H47",
+  "turns": [
+   {
+    "input": "oye y cuanto esta el dolar hoy?",
+    "status": "metric_not_resolved",
+    "route": "powerbi",
+    "stage": "query_plan_metric",
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [],
+    "prompt": null,
+    "answer": "No identifiqué un indicador para «oye», «dolar», «hoy» en los tableros disponibles. Escribe el nombre del indicador o del tablero donde lo ves. Por ejemplo: «AGENDA» (ASIGNACION DE CITAS) o «REPS» (BRIEFING HOSPITALARIO).",
+    "exception": null,
+    "latency_s": 2.139
+   }
+  ]
+ },
+ {
+  "id": "H48",
+  "turns": [
+   {
+    "input": "me ayudas a escribir un mensaje de feliz cumpleaños pa mi jefa",
+    "status": "not_found",
+    "route": "out_of_scope",
+    "stage": null,
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [],
+    "prompt": null,
+    "answer": "No encontré información relacionada con esa pregunta en la documentación de los tableros disponibles.",
+    "exception": null,
+    "latency_s": 1.911
+   }
+  ]
+ },
+ {
+  "id": "H49",
+  "turns": [
+   {
+    "input": "cual es el mejor antibiotico pa una infeccion de garganta?",
+    "status": "success",
+    "route": "rag",
+    "stage": null,
+    "clarification_type": null,
+    "metric": null,
+    "metric_id": null,
+    "semantic_model": null,
+    "report": null,
+    "dashboard": null,
+    "result_type": null,
+    "filters": [],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [],
+    "dax_log": [],
+    "options": [],
+    "prompt": null,
+    "answer": "[FakeLLM] Tablero: ANTIBIOTICOS Indicador documentado: Fecha fin: Última fecha de aplicación del antibiótico en el contexto. Medida Fecha Fin = MAX(ANTIBIOTICOS[HORA_APLICACION]). Tablero: ANTIBIOTICOS Sección: Historial de cambios Contenido: 2026-10-28 · v2: Diccionario y revisión contra el modelo y el informe. Tablero: TABLERO ANTIBIOTICOS Definición: Aplicación: Registro de administración del antibiótico en la hoja de enfermería con HCRESPUES = 0. Tablero: ANTIBIOTICOS Visualización documentada: Tarjetas: TOTAL DOSIS SUMINISTRADAS (suma de HCCANTIDAD) y PACIENTE ACTIVOS (PAC_ACT). Tablero: TABLERO AN",
+    "exception": null,
+    "latency_s": 2.011
+   }
+  ]
+ }
+]
