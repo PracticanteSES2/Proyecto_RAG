@@ -342,5 +342,39 @@ class Informe(unittest.TestCase):
         self.assertEqual((s["aciertos"], s["evaluados"], s["auditados"]), (26, 67, 71))
 
 
+class Holdout(unittest.TestCase):
+    def fuera(self):
+        return {"id": "H47", "tablero": BRIEF, "tipo": "fuera_alcance", "pregunta": "¿dólar?",
+                "elegir": None, "contrapregunta_aceptable": False, "esperado": {"rechazo": True}}
+
+    def test_fuera_de_alcance_rechazado(self):
+        t = turn("Solo puedo responder sobre los tableros del hospital.", status="out_of_scope", route=None)
+        ev = run_banco.evaluate(self.fuera(), [t], None)
+        self.assertIs(ev["correcto"], True)
+        self.assertEqual(ev["fallas"], [])
+
+    def test_fuera_de_alcance_con_dax_falla(self):
+        t = turn("El valor es 4.123", dax=["ROW(SUM(T[X]))"])
+        ev = run_banco.evaluate(self.fuera(), [t], None)
+        self.assertIs(ev["correcto"], False)
+        self.assertEqual(ev["fallas"], ["alcance"])
+
+    def test_banco_holdout_y_carpetas(self):
+        path = Path(__file__).resolve().parent / "banco_holdout.json"
+        holdout = json.loads(path.read_text(encoding="utf-8"))["casos"]
+        real = json.loads((Path(__file__).resolve().parent / "banco_real.json").read_text(encoding="utf-8"))["casos"]
+        self.assertGreaterEqual(len(holdout), 40)
+        self.assertFalse({c["id"] for c in holdout} & {c["id"] for c in real})
+        self.assertFalse({run_banco.fold(c["pregunta"]) for c in holdout} & {run_banco.fold(c["pregunta"]) for c in real})
+        for c in holdout:
+            if c["tipo"] in run_banco.DATA_TIPOS:
+                self.assertTrue(c["verdad"]["dax"].startswith("EVALUATE"), c["id"])
+        out, audit = correr_todo.banco_dirs(str(path))
+        self.assertEqual(out.name, "out_holdout")
+        self.assertTrue(audit.endswith("auditoria_holdout.json"))
+        self.assertEqual(correr_todo.banco_dirs(None), (correr_todo.OUT, None))
+        self.assertIn("INI_SEMANA", run_banco.period_values())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

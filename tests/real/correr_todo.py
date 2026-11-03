@@ -10,6 +10,9 @@ Opciones: --solo BH01,TU12   --tablero "TABLERO EPS"   --sim (Power BI simulado,
           --auditoria <auditoria.json>   (por defecto tests/real/auditoria.json)
           --informe <resultado.json>     (no pregunta nada: re-evalúa esa corrida y rehace el informe)
           --out-informe <carpeta>        (dónde escribir resultado.json e INFORME.md; por defecto tests/real/out)
+          --banco tests/real/banco_holdout.json   (otro banco; salida por defecto en tests/real/out_<nombre>,
+                                                   p. ej. out_holdout, y auditoría tests/real/auditoria_<nombre>.json
+                                                   si existe: el holdout no hereda los veredictos del banco real)
 
 Hace, en orden y por caso: (1) calcula la VERDAD con el DAX del banco
 (tests/real/banco_real.json; solo agregados y dimensiones no personales),
@@ -34,6 +37,20 @@ if __package__ in (None, ""):
 from tests.real import auditoria, run_banco  # noqa: E402
 
 OUT = Path(__file__).resolve().parent / "out"
+
+
+def banco_dirs(banco):
+    """(carpeta de salida, auditoría por defecto) del banco: el real usa out/ y
+    auditoria.json; otro banco (banco_<nombre>.json) usa out_<nombre>/ y
+    auditoria_<nombre>.json (si no existe, sin veredictos auditados)."""
+    if not banco:
+        return OUT, None
+    path = Path(banco).resolve()
+    if path == (Path(__file__).resolve().parent / "banco_real.json"):
+        return OUT, None
+    name = path.stem[len("banco_"):] if path.stem.startswith("banco_") else path.stem
+    here = Path(__file__).resolve().parent
+    return here / f"out_{name}", str(here / f"auditoria_{name}.json")
 
 
 def _short_truth(truth):
@@ -154,11 +171,17 @@ def main(argv=None):
     parser.add_argument("--auditoria", help="auditoria.json (por defecto tests/real/auditoria.json)")
     parser.add_argument("--informe", help="resultado.json existente: re-evalúa y rehace el informe sin preguntar")
     parser.add_argument("--out-informe", help="carpeta para resultado.json e INFORME.md (por defecto tests/real/out)")
+    parser.add_argument("--banco", help="banco JSON (por defecto tests/real/banco_real.json)")
     args = parser.parse_args(argv)
     from datetime import datetime
 
+    if args.banco:
+        run_banco.set_banco(args.banco)
+    base_out, audit_default = banco_dirs(args.banco)
+    if args.auditoria is None:
+        args.auditoria = audit_default
     cases = {c["id"]: c for c in json.loads(run_banco.BANCO.read_text(encoding="utf-8"))["casos"]}
-    out_dir = Path(args.out_informe) if args.out_informe else OUT
+    out_dir = Path(args.out_informe) if args.out_informe else base_out
     if args.informe:
         prev_meta, _, results = auditoria.load_previous(args.informe, cases)
         meta = dict(prev_meta, reevaluado=datetime.now().isoformat(timespec="seconds"))
@@ -166,8 +189,10 @@ def main(argv=None):
         _print(summary, audited, out_dir)
         return 0
 
-    run_dir = OUT / ("banco_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
+    run_dir = base_out / ("banco_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
     forward = ["--out", str(run_dir)]
+    if args.banco:
+        forward += ["--banco", str(run_banco.BANCO)]
     if args.solo:
         forward += ["--solo", args.solo]
     if args.tablero:
@@ -176,7 +201,7 @@ def main(argv=None):
         forward += ["--sim"]
     run_banco.main(forward)
     data = json.loads((run_dir / "resultados.json").read_text(encoding="utf-8"))
-    meta = dict(data["meta"], modo="SIMULADO" if args.sim else "Power BI real")
+    meta = dict(data["meta"], modo="SIMULADO" if args.sim else "Power BI real", banco=run_banco.BANCO.name)
     summary, audited = build_report(meta, data["resultados"], cases, out_dir, args.auditoria, args.comparar)
     _print(summary, audited, out_dir)
     return 0
