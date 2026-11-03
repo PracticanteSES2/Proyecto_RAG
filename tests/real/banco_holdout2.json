@@ -1,0 +1,1064 @@
+{
+ "version": 1,
+ "holdout": true,
+ "casos": [
+  {
+   "id": "G01",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "con cuantas entidades tenemos convenio vigente?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "CONVENIOS",
+    "visual": "4a7d0e7f62fabed11f55",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(COUNT(CONVENIOS[ENTIDAD ]),\n    KEEPFILTERS(FILTER(ALL(CONVENIOS[FILTRO_VIG]), CONVENIOS[FILTRO_VIG] = \"VIGENTE\"))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "nota": "Porción VIGENTE de la dona CANTIDAD DE CONTRATOS POR VIGENCIA (CountNonNull de ENTIDAD).",
+   "criterio": "Verdad = cifra que el usuario ve en el visual 4a7d0e7f62fabed11f55 de la página «CONVENIOS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G02",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "agrupado",
+   "pregunta": "en q pisos o servicios estan repartidos los pacientes internados",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "DETALLE OCUPACIÓN",
+    "visual": "c9201dbba554d1531d27",
+    "dax": "EVALUATE SUMMARIZECOLUMNS('PACIENTES X ASEGURADORA'[HSUNOMBRE], \"v\", DISTINCTCOUNT('PACIENTES X ASEGURADORA'[ADNINGRESO]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual c9201dbba554d1531d27 de la página «DETALLE OCUPACIÓN» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G03",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "de las altas que se esperaban hoy cuantas ya se hicieron efectivas",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "EGRESOS PROBABLES",
+    "visual": "6b0bd9028ac5f7feb43f",
+    "dax": "EVALUATE ROW(\"v\", SUM('EGRESOS PROBABLES'[EGRESO_EFECTIVO_HOY]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 6b0bd9028ac5f7feb43f de la página «EGRESOS PROBABLES» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G04",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "el dia de ayer cuantos pacientes nuevos se admitieron?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "INGRESOS Y EGRESOS",
+    "visual": "3d1795f9a46904840108",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(INGRESOS[CONSECUTIVO]),\n    KEEPFILTERS(FILTER(ALL('EGRESOS'[SERVICIO]), NOT ('EGRESOS'[SERVICIO] IN {\"HOSPITALIZACION PARCIAL\"})))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "nota": "Tarjeta de ingresos de INGRESOS Y EGRESOS (la tabla trae el día anterior).",
+   "criterio": "Verdad = cifra que el usuario ve en el visual 3d1795f9a46904840108 de la página «INGRESOS Y EGRESOS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G05",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "agrupado",
+   "pregunta": "que tipo de cama es la que mas estan pidiendo",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "SOLICITUD CAMAS",
+    "visual": "d19840f3f78032edb03a",
+    "dax": "EVALUATE SUMMARIZECOLUMNS('SOLICITUD CAMAS'[TIPO], KEEPFILTERS(FILTER(ALL('SOLICITUD CAMAS'[estadooid]), 'SOLICITUD CAMAS'[estadooid] IN {2, 3})), KEEPFILTERS(FILTER(ALL('SOLICITUD CAMAS'[ssfechafin]), ISBLANK('SOLICITUD CAMAS'[ssfechafin]))), KEEPFILTERS(FILTER(ALL('SOLICITUD CAMAS'[camaoid]), ISBLANK('SOLICITUD CAMAS'[camaoid]))), \"v\", DISTINCTCOUNT('SOLICITUD CAMAS'[oid]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 1
+   },
+   "nota": "Torta SOLICITUDES POR TIPO DE CAMA.",
+   "criterio": "Verdad = cifra que el usuario ve en el visual d19840f3f78032edb03a de la página «SOLICITUD CAMAS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G06",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "numero",
+   "pregunta": "hay camas bloqueadas? cuantas son",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "GESTIÓN CAMAS",
+    "visual": "1d5477cb3d7ad9d21a8e",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]),\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL                   \", \"BLOQUEAR - CUIDADO BASICO NEONATAL                \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL             \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL            \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE               \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS          \", \"BLOQUEAR - URGENCIAS OBS SALA 2                   \", \"BLOQUEAR - URGENCIAS OBS SALA 3                 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO         \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))),\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"}))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"EXP\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"OH\"))))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[ESTADOS_CAM]), 'CAMAS DISPONIBLES'[ESTADOS_CAM] = \"BLOQUEADA\"))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "nota": "Porción BLOQUEADA de la dona de camas por estado (CountNonNull de HCACODIGO; un código por cama).",
+   "criterio": "Verdad = cifra que el usuario ve en el visual 1d5477cb3d7ad9d21a8e de la página «GESTIÓN CAMAS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G07",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "agrupado",
+   "pregunta": "imagenes diagnosticas tomadas segun el area que las pidio",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "BRIEFING HOSPITALARIO",
+    "informe": "BRIEFING HOSPITALARIO",
+    "pagina": "IMAGENES DIAGNOSTICAS",
+    "visual": "f24f7be74a100494959b",
+    "dax": "EVALUATE SUMMARIZECOLUMNS(IMAGENES_TOMADAS[AREA_DE_SERVICIO], \"v\", COUNT(IMAGENES_TOMADAS[ID_INGRESO]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   },
+   "nota": "Barras IMAGENES TOMADAS POR AREA DE SERVICIO.",
+   "criterio": "Verdad = cifra que el usuario ve en el visual f24f7be74a100494959b de la página «IMAGENES DIAGNOSTICAS» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G08",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "numero",
+   "pregunta": "en octubre cuanto se tardaban en asignarle cama a un paciente de urgencias",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "TIEMPO ASIGNACIÓN CAMAS",
+    "visual": "86db591799a4d36cd53b",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(AVERAGE(TIEMPO_PARA_EGRESO[TIEMPO_ASIG_CAMA]),\n    KEEPFILTERS(FILTER(ALL('TIEMPO_PARA_EGRESO'[SUBGRUPO]), 'TIEMPO_PARA_EGRESO'[SUBGRUPO] IN {\"URGENCIAS\"})),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= DATE(2026, 10, 1) && Calendario[FECHA] <= DATE(2026, 10, 31)))))",
+    "unidad": "min",
+    "tolerancia": 0.03,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "nota": "Línea de tiempo para asignación de cama (minutos), SUBGRUPO = URGENCIAS.",
+   "criterio": "Verdad = cifra que el usuario ve en el visual 86db591799a4d36cd53b de la página «TIEMPO ASIGNACIÓN CAMAS» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G09",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "numero",
+   "pregunta": "numero de interconsultas respondidas en urgencias durante octubre",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "INTERCONSULTAS",
+    "visual": "5e969b9a581cae3334a8",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(INTERCONSULTA[RESPUESTAS]),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= DATE(2026, 10, 1) && Calendario[FECHA] <= DATE(2026, 10, 31)))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 5e969b9a581cae3334a8 de la página «INTERCONSULTAS» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G10",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "numero",
+   "pregunta": "la semana pasada urgencias pidio cuantas interconsultas?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "INTERCONSULTAS",
+    "visual": "91b9e8de4c7c5c75e5a7",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(INTERCONSULTA[SOLICITUDES]),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= {INI_SEMANA_PASADA} && Calendario[FECHA] <= {FIN_SEMANA_PASADA}))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "nota": "Semana pasada = lunes a domingo anteriores ({INI_SEMANA_PASADA}..{FIN_SEMANA_PASADA}).",
+   "criterio": "Verdad = cifra que el usuario ve en el visual 91b9e8de4c7c5c75e5a7 de la página «INTERCONSULTAS» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G11",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "comparacion",
+   "pregunta": "los resultados de laboratorio de urgencias salieron mas rapido en junio o en julio?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO TIEMPOS URGENCIAS",
+    "informe": "TABLERO TIEMPOS URGENCIAS",
+    "pagina": "EXAMENES",
+    "visual": "bd24bcec419c6150eb3a",
+    "dax": "EVALUATE ROW(\"junio\", CALCULATE(AVERAGE(EXAMENES[TIEMPO_RESPUESTA]),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= DATE(2026, 6, 1) && Calendario[FECHA] <= DATE(2026, 6, 30)))), \"julio\", CALCULATE(AVERAGE(EXAMENES[TIEMPO_RESPUESTA]),\n    KEEPFILTERS(FILTER(ALL(Calendario[FECHA]), Calendario[FECHA] >= DATE(2026, 7, 1) && Calendario[FECHA] <= DATE(2026, 7, 31)))))",
+    "unidad": "min",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual bd24bcec419c6150eb3a de la página «EXAMENES» de TABLERO TIEMPOS URGENCIAS: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G12",
+   "tablero": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "definicion",
+   "pregunta": "desde que momento y hasta cual se mide lo de asignacion de cama en urgencias",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "todas": [
+     "cama"
+    ],
+    "alguna": [
+     "admisi",
+     "estancia",
+     "ingreso"
+    ]
+   },
+   "fuente": "docs_tableros/tablero_tiempos_urgencias/md/tiempo_asignacion_camas.md",
+   "criterio": "Definición tomada de la documentación del tablero."
+  },
+  {
+   "id": "G13",
+   "tablero": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "numero",
+   "pregunta": "cesareas realizadas en lo corrido del 2026",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "pagina": "PARTOS",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(PARTOS_DRIVE[CESÁREAS]),\n    KEEPFILTERS(FILTER(ALL('PARTOS_DRIVE'[Tipo de parto]), NOT ('PARTOS_DRIVE'[Tipo de parto] IN {\"ABORTO\", \"IVE\", \"IVE EXTRA INSTITUCIONAL\", \"IVE EXTRAINSTITUCIONAL\"}))),\n    KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= {INI_ANO} && 'Calendario'[Date] <= {HOY}))))",
+    "unidad": "",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": [
+     "('Calendario', 'Date'): el lado derecho no es un literal"
+    ]
+   },
+   "criterio": "Suma de PARTOS_DRIVE[CESÁREAS] con el filtro de página de PARTOS (sin abortos ni IVE) y el año en curso por 'Calendario'[Date]. PBIP local incompleto: la medida y los filtros salen del modelo (data/model_metadata) y de la documentación del tablero (docs_tableros/), no de un visual del PBIR. El filtro de página de PARTOS sobre 'Calendario'[Date] no se traduce (lado derecho no literal, igual que AI06/H13) y no cambia el año pedido."
+  },
+  {
+   "id": "G14",
+   "tablero": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "numero",
+   "pregunta": "en 2025 por cada cesarea cuantos partos vaginales hubo",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "pagina": "PARTOS",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([RELACIÓN],\n    KEEPFILTERS(FILTER(ALL('PARTOS_DRIVE'[Tipo de parto]), NOT ('PARTOS_DRIVE'[Tipo de parto] IN {\"ABORTO\", \"IVE\", \"IVE EXTRA INSTITUCIONAL\", \"IVE EXTRAINSTITUCIONAL\"}))),\n    KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2025, 1, 1) && 'Calendario'[Date] <= DATE(2025, 12, 31)))))",
+    "unidad": "",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": [
+     "('Calendario', 'Date'): el lado derecho no es un literal"
+    ]
+   },
+   "criterio": "[RELACIÓN] = SUM(VAGINALES)/SUM(CESÁREAS) de PARTOS_DRIVE con el filtro de página de PARTOS y el año 2025. PBIP local incompleto: la medida y los filtros salen del modelo (data/model_metadata) y de la documentación del tablero (docs_tableros/), no de un visual del PBIR. El filtro de página de PARTOS sobre 'Calendario'[Date] no se traduce (lado derecho no literal, igual que AI06/H13) y no cambia el año pedido."
+  },
+  {
+   "id": "G15",
+   "tablero": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "numero",
+   "pregunta": "consultas de urgencias de gineco obstetricia en octubre",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "pagina": "CONSULTAS OBSTETRICAS",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([Total_consultas_gineco],\n    KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[TIPO_TRIAGE]), 'CONSULTA_URGENCIAS'[TIPO_TRIAGE] IN {\"EMERGENCIA OBSTETRICA - I-G\", \"NO URGENTE OBSTETRICA - IV-G\", \"URGENCIA MEDICA OBSTETRICA - II-G\", \"URGENCIA OBSTETRICA - III-G\"})),\n    KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[FECHA_FOLIO]), NOT (ISBLANK('CONSULTA_URGENCIAS'[FECHA_FOLIO])))),\n    KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 10, 1) && 'Calendario'[Date] <= DATE(2026, 10, 31)))))",
+    "unidad": "",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "[Total_consultas_gineco] (clasificación con «-G» o causa MATERNIDAD) con el filtro de página de CONSULTAS OBSTETRICAS y octubre de 2026. PBIP local incompleto: la medida y los filtros salen del modelo (data/model_metadata) y de la documentación del tablero (docs_tableros/), no de un visual del PBIR."
+  },
+  {
+   "id": "G16",
+   "tablero": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "agrupado",
+   "pregunta": "las 5 especialidades quirurgicas que mas operaron en septiembre",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
+    "pagina": "CIRUGIAS",
+    "visual": null,
+    "dax": "EVALUATE TOPN(5, SUMMARIZECOLUMNS(CIRUGIAS[ESPECIALIDAD], KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 9, 1) && 'Calendario'[Date] <= DATE(2026, 9, 30))), \"v\", [TOTAL_CIRUGIAS]), [v], DESC)",
+    "unidad": "",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   },
+   "criterio": "[TOTAL_CIRUGIAS] por CIRUGIAS[ESPECIALIDAD], septiembre de 2026 ('Calendario'[Date]). PBIP local incompleto: la medida y los filtros salen del modelo (data/model_metadata) y de la documentación del tablero (docs_tableros/), no de un visual del PBIR."
+  },
+  {
+   "id": "G17",
+   "tablero": "ASIGNACION DE CITAS",
+   "tipo": "numero",
+   "pregunta": "cuantas citas ya fueron confirmadas por el paciente",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "ASIGNACION DE CITAS",
+    "informe": "ASIGNACION DE CITAS",
+    "pagina": "INICIO",
+    "visual": "9e03d7b662e8502b0d3b",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(CITAS_ASIGNADAS[CONFIRMADO]),\n    KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), NOT ('EN_ESPERA'[CCEESTADO] IN {2}))),\n    KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), 'EN_ESPERA'[CCEESTADO] IN {0, 1}))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "nota": "Porción CONFIRMADO de la torta de estados de INICIO.",
+   "criterio": "Verdad = cifra que el usuario ve en el visual 9e03d7b662e8502b0d3b de la página «INICIO» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G18",
+   "tablero": "ASIGNACION DE CITAS",
+   "tipo": "agrupado",
+   "pregunta": "q dia de la semana es el que mas gente deja de ir a la cita",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "ASIGNACION DE CITAS",
+    "informe": "ASIGNACION DE CITAS",
+    "pagina": "OFERTA ESPECIALIDADES",
+    "visual": "ce79a12d6b5d1b85e797",
+    "dax": "EVALUATE SUMMARIZECOLUMNS(Calendario[DIA_SEMANA], KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), NOT (('EN_ESPERA'[CCEESTADO] IN {2} || ISBLANK('EN_ESPERA'[CCEESTADO]))))), \"v\", SUM(CITAS_ASIGNADAS[Inasistida]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 1
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual ce79a12d6b5d1b85e797 de la página «OFERTA ESPECIALIDADES» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G19",
+   "tablero": "ASIGNACION DE CITAS",
+   "tipo": "numero",
+   "pregunta": "total de citas anuladas",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "ASIGNACION DE CITAS",
+    "informe": "ASIGNACION DE CITAS",
+    "pagina": "INICIO",
+    "visual": "9e03d7b662e8502b0d3b",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(CITAS_ASIGNADAS[ANULADO]),\n    KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), NOT ('EN_ESPERA'[CCEESTADO] IN {2}))),\n    KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), 'EN_ESPERA'[CCEESTADO] IN {0, 1}))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "nota": "Porción ANULADO de la torta de estados de INICIO.",
+   "criterio": "Verdad = cifra que el usuario ve en el visual 9e03d7b662e8502b0d3b de la página «INICIO» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G20",
+   "tablero": "TABLERO EPS",
+   "tipo": "numero",
+   "pregunta": "segun el tablero de las eps cuantos pacientes estan hospitalizados en urgencias",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO EPS",
+    "informe": "TABLERO EPS",
+    "pagina": "TRIAGES ATENDIDOS",
+    "visual": "b64226e940cac39c861d",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(COUNT(PACIENTES_HOSPITALIZADOS[PACNUMDOC]),\n    KEEPFILTERS(FILTER(ALL('PACIENTES_HOSPITALIZADOS'[GASNOMBRE]), 'PACIENTES_HOSPITALIZADOS'[GASNOMBRE] IN {\"URGENCIAS\"}))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual b64226e940cac39c861d de la página «TRIAGES ATENDIDOS» de TABLERO EPS: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G21",
+   "tablero": "TABLERO EPS",
+   "tipo": "numero",
+   "pregunta": "en eps cuantas atenciones de urgencias hay sin contar las obstetricas",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO EPS",
+    "informe": "TABLERO EPS",
+    "pagina": "TRIAGES ATENDIDOS",
+    "visual": "296cc058d2bb12dc6b21",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(CONSULTA_URGENCIAS[OID_TRIAGE]),\n    KEEPFILTERS(FILTER(ALL('OPORTUNIDAD_TRIAGE'[DESCRI_TRIGE]), NOT ('OPORTUNIDAD_TRIAGE'[DESCRI_TRIGE] IN {\"CONSULTA EXTERNA OBSTETRICA\", \"EMERGENCIA OBSTETRICA\", \"IV\", \"MUERTO\", \"NO URGENTE OBSTETRICA\", \"URGENCIA MEDICA OBSTETRICA\", \"URGENCIA OBSTETRICA\", \"V\"})))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 296cc058d2bb12dc6b21 de la página «TRIAGES ATENDIDOS» de TABLERO EPS: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G22",
+   "tablero": "TABLERO_FARMACIA",
+   "tipo": "definicion",
+   "pregunta": "q quiere decir oportunidad de dispensacion en farmacia y en q unidad esta",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "todas": [
+     "dispensa"
+    ],
+    "alguna": [
+     "hora",
+     "horas"
+    ]
+   },
+   "fuente": "docs_tableros/tablero_farmacia/md/oportunidad_dispensacion.md",
+   "criterio": "Definición tomada de la documentación del tablero."
+  },
+  {
+   "id": "G23",
+   "tablero": "TABLERO_FARMACIA",
+   "tipo": "agrupado",
+   "pregunta": "productos proximos a vencer agrupados por mes de vencimiento",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_FARMACIA",
+    "informe": "TABLERO_FARMACIA",
+    "pagina": "INICIO",
+    "visual": "d812d390d4c9c2eb2778",
+    "dax": "EVALUATE SUMMARIZECOLUMNS(VENCIMIENTO_PRODUCTOS[mes], \"v\", COUNT(VENCIMIENTO_PRODUCTOS[IFICANTID]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 4
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual d812d390d4c9c2eb2778 de la página «INICIO» de TABLERO_FARMACIA: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G24",
+   "tablero": "Tablero Control Facturacion",
+   "tipo": "numero",
+   "pregunta": "cuanta plata suman los montos facturados por los facturadores",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Tablero Control Facturacion",
+    "informe": "Tablero Control de Facturacion",
+    "pagina": "FACTURADORES",
+    "visual": "057dda6f630cc1909072",
+    "dax": "EVALUATE ROW(\"v\", SUM(FACTURADORES[MONTO_FACTURADO]))",
+    "unidad": "$",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 057dda6f630cc1909072 de la página «FACTURADORES» de Tablero Control Facturacion: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G25",
+   "tablero": "Tablero Control Facturacion",
+   "tipo": "numero",
+   "pregunta": "cuantos dias llevan en promedio las cuentas hospitalarias que estan en facturacion",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Tablero Control Facturacion",
+    "informe": "Tablero Control de Facturacion",
+    "pagina": "EN PROCESO FACTURACION",
+    "visual": "69698660b478049e4780",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([PROMEDIO_DIAS_PROCESO],\n    KEEPFILTERS(FILTER(ALL('ENPROCESO_FACTURACION'[TIPO INGRESO]), 'ENPROCESO_FACTURACION'[TIPO INGRESO] IN {\"HOSPITALARIO\"})),\n    KEEPFILTERS(FILTER(ALL('ENPROCESO_FACTURACION'[PERFIL]), 'ENPROCESO_FACTURACION'[PERFIL] IN {\"FACTURACION\"}))))",
+    "unidad": "días",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 69698660b478049e4780 de la página «EN PROCESO FACTURACION» de Tablero Control Facturacion: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G26",
+   "tablero": "Tablero Control Facturacion",
+   "tipo": "definicion",
+   "pregunta": "eso de valor estimado en control de facturacion incluye cuentas ya cerradas o solo abiertas?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "todas": [
+     "ingreso"
+    ],
+    "alguna": [
+     "abierto",
+     "factur",
+     "estimado"
+    ]
+   },
+   "fuente": "docs_tableros/tablero_control_facturacion/md/inicio.md",
+   "criterio": "Definición tomada de la documentación del tablero."
+  },
+  {
+   "id": "G27",
+   "tablero": "Demanda Insatisfecha",
+   "tipo": "numero",
+   "pregunta": "cuantos pacientes se quedaron sin la cama que pidieron este año",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Demanda Insatisfecha",
+    "informe": "Demanda Insatisfecha",
+    "pagina": "SOLICITUD CAMAS",
+    "visual": "419eebff31ea51a00005",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM('SOLICITUD DE CAMAS'[DEMANDA_INS]),\n    KEEPFILTERS(FILTER(ALL('SOLICITUD DE CAMAS'[GDPNOMBRE]), 'SOLICITUD DE CAMAS'[GDPNOMBRE] IN {\"QUIROFANOS\", \"SALA AZUL 3 PISO\", \"UCI ADULTOS\", \"URGENCIAS\", \"CUIDADO INTERMEDIO SUR\"})),\n    KEEPFILTERS(FILTER(ALL(CALENDARIO[Date]), CALENDARIO[Date] >= {INI_ANO} && CALENDARIO[Date] <= {HOY}))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 419eebff31ea51a00005 de la página «SOLICITUD CAMAS» de Demanda Insatisfecha: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G28",
+   "tablero": "Demanda Insatisfecha",
+   "tipo": "agrupado",
+   "pregunta": "de la gente que se fue del triage sin ser atendida en 2026, de q eps son la mayoria",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Demanda Insatisfecha",
+    "informe": "Demanda Insatisfecha",
+    "pagina": "TRIAGES",
+    "visual": "61e30c3c030199001657",
+    "dax": "EVALUATE TOPN(5, SUMMARIZECOLUMNS(TRIAGE[TERNOMCOM], KEEPFILTERS(FILTER(ALL('TRIAGE'[HCCESTADO]), 'TRIAGE'[HCCESTADO] = 2)), KEEPFILTERS(FILTER(ALL('TRIAGE'[TERNOMCOM]), NOT (ISBLANK('TRIAGE'[TERNOMCOM])))), KEEPFILTERS(FILTER(ALL(CALENDARIO[Date]), CALENDARIO[Date] >= {INI_ANO} && CALENDARIO[Date] <= {HOY})), \"v\", DISTINCTCOUNT(TRIAGE[OID])), [v], DESC)",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 3
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 61e30c3c030199001657 de la página «TRIAGES» de Demanda Insatisfecha: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G29",
+   "tablero": "Demanda Insatisfecha",
+   "tipo": "comparacion",
+   "pregunta": "la demanda que no pudimos cubrir subio o bajo de septiembre a octubre?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Demanda Insatisfecha",
+    "informe": "Demanda Insatisfecha",
+    "pagina": "CONSOLIDADO",
+    "visual": "87e601ddc8fc43f57002",
+    "dax": "EVALUATE ROW(\"septiembre\", CALCULATE([TOTAL_DEMANDA_INSATISFECHA],\n    KEEPFILTERS(FILTER(ALL('REFERENCIA'[CAUSA]), NOT (('REFERENCIA'[CAUSA] IN {\"Aceptado por otra institución\", \"Es de menor complejidad\", \"No contratación\", \"NO HABILITACIÓN\"} || ISBLANK('REFERENCIA'[CAUSA]))))),\n    KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[ESPECIALIDAD]), NOT ('CIRUGÍAS'[ESPECIALIDAD] IN {\"ANESTESIOLOGIA\", \"JUNTA MEDICA\"}))),\n    KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45)),\n    KEEPFILTERS(FILTER(ALL('CITAS MEDICAS'[CCCDESCRI]), 'CITAS MEDICAS'[CCCDESCRI] IN {\"CALAMIDAD DEL ESPECIALISTA\", \"DAÑO DE EQUIPO\", \"ERROR EN HABILITACION DE AGENDA\", \"FALTA DE INSUMOS\", \"MANTENIMIENTO DE EQUIPO\"})),\n    KEEPFILTERS(FILTER(ALL('SOLICITUD DE CAMAS'[GDPNOMBRE]), 'SOLICITUD DE CAMAS'[GDPNOMBRE] IN {\"QUIROFANOS\", \"SALA AZUL 3 PISO\", \"UCI ADULTOS\", \"URGENCIAS\", \"CUIDADO INTERMEDIO SUR\"})),\n    KEEPFILTERS(FILTER(ALL(CALENDARIO[Date]), CALENDARIO[Date] >= DATE(2026, 9, 1) && CALENDARIO[Date] <= DATE(2026, 9, 30)))), \"octubre\", CALCULATE([TOTAL_DEMANDA_INSATISFECHA],\n    KEEPFILTERS(FILTER(ALL('REFERENCIA'[CAUSA]), NOT (('REFERENCIA'[CAUSA] IN {\"Aceptado por otra institución\", \"Es de menor complejidad\", \"No contratación\", \"NO HABILITACIÓN\"} || ISBLANK('REFERENCIA'[CAUSA]))))),\n    KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[ESPECIALIDAD]), NOT ('CIRUGÍAS'[ESPECIALIDAD] IN {\"ANESTESIOLOGIA\", \"JUNTA MEDICA\"}))),\n    KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45)),\n    KEEPFILTERS(FILTER(ALL('CITAS MEDICAS'[CCCDESCRI]), 'CITAS MEDICAS'[CCCDESCRI] IN {\"CALAMIDAD DEL ESPECIALISTA\", \"DAÑO DE EQUIPO\", \"ERROR EN HABILITACION DE AGENDA\", \"FALTA DE INSUMOS\", \"MANTENIMIENTO DE EQUIPO\"})),\n    KEEPFILTERS(FILTER(ALL('SOLICITUD DE CAMAS'[GDPNOMBRE]), 'SOLICITUD DE CAMAS'[GDPNOMBRE] IN {\"QUIROFANOS\", \"SALA AZUL 3 PISO\", \"UCI ADULTOS\", \"URGENCIAS\", \"CUIDADO INTERMEDIO SUR\"})),\n    KEEPFILTERS(FILTER(ALL(CALENDARIO[Date]), CALENDARIO[Date] >= DATE(2026, 10, 1) && CALENDARIO[Date] <= DATE(2026, 10, 31)))))",
+    "unidad": "",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 87e601ddc8fc43f57002 de la página «CONSOLIDADO» de Demanda Insatisfecha: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G30",
+   "tablero": "Demanda Insatisfecha",
+   "tipo": "definicion",
+   "pregunta": "cuando una cirugia cuenta como no oportuna en demanda insatisfecha",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "todas": [
+     "45"
+    ],
+    "alguna": [
+     "dias",
+     "días",
+     "espera"
+    ]
+   },
+   "fuente": "docs_tableros/tablero_demanda_insatisfecha/md/cirugias.md",
+   "criterio": "Definición tomada de la documentación del tablero."
+  },
+  {
+   "id": "G31",
+   "tablero": "TABLERO_ANTIBIOTICOS",
+   "tipo": "numero",
+   "pregunta": "dosis de antibiotico aplicadas en las ucis",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_ANTIBIOTICOS",
+    "informe": "TABLERO_ANTIBIOTICOS",
+    "pagina": "ANTIBIOTICOS",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([TOTAL DOSIS SUMINISTRADAS],\n    KEEPFILTERS(FILTER(ALL(ANTIBIOTICOS[SERVICIO]), CONTAINSSTRING(ANTIBIOTICOS[SERVICIO], \"UCI\")))))",
+    "unidad": "",
+    "tolerancia": 0.005,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Tarjeta TOTAL DOSIS SUMINISTRADAS de ANTIBIOTICOS con SERVICIO que contiene «UCI» (lo que se ve al elegir las UCI en el segmentador de servicio)."
+  },
+  {
+   "id": "G32",
+   "tablero": "TABLERO_ANTIBIOTICOS",
+   "tipo": "numero",
+   "pregunta": "ahorita cuantos pacientes estan con meropenem",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_ANTIBIOTICOS",
+    "informe": "TABLERO_ANTIBIOTICOS",
+    "pagina": "ANTIBIOTICOS",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([PAC_ACT],\n    KEEPFILTERS(FILTER(ALL(ANTIBIOTICOS[ANTIBIOTICO]), CONTAINSSTRING(ANTIBIOTICOS[ANTIBIOTICO], \"MEROPENEM\")))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Tarjeta [PAC_ACT] con ANTIBIOTICO que contiene «MEROPENEM» (barra de MEROPENEM del gráfico PACIENTES ACTIVOS POR TIPO DE ANTIBIÓTICO). Si hoy no hay, la verdad es «sin datos»."
+  },
+  {
+   "id": "G33",
+   "tablero": "Tablero_lavanderia",
+   "tipo": "definicion",
+   "pregunta": "en lavanderia como se sabe si un pesaje es de la mañana, tarde o noche",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "todas": [
+     "turno"
+    ],
+    "alguna": [
+     "1",
+     "mañana",
+     "manana"
+    ]
+   },
+   "fuente": "docs_tableros/tablero_lavanderia/md/_diccionario.md",
+   "criterio": "Definición tomada de la documentación del tablero."
+  },
+  {
+   "id": "G34",
+   "tablero": "Tablero_lavanderia",
+   "tipo": "comparacion",
+   "pregunta": "en q mes entro mas ropa a lavanderia, julio o agosto",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Tablero_lavanderia",
+    "informe": "Tablero_lavanderia",
+    "pagina": "Página 1",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"julio\", CALCULATE(SUM(LAVANDERIA[Peso]),\n    KEEPFILTERS(FILTER(ALL(LAVANDERIA[Fecha]), LAVANDERIA[Fecha] >= DATE(2026, 7, 1) && LAVANDERIA[Fecha] <= DATE(2026, 7, 31)))), \"agosto\", CALCULATE(SUM(LAVANDERIA[Peso]),\n    KEEPFILTERS(FILTER(ALL(LAVANDERIA[Fecha]), LAVANDERIA[Fecha] >= DATE(2026, 8, 1) && LAVANDERIA[Fecha] <= DATE(2026, 8, 31)))))",
+    "unidad": "kg",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Suma de LAVANDERIA[Peso] por mes de LAVANDERIA[Fecha] (el PBIP local no trae visuales; mismo criterio que LV01). PBIP local incompleto: la medida y los filtros salen del modelo (data/model_metadata) y de la documentación del tablero (docs_tableros/), no de un visual del PBIR."
+  },
+  {
+   "id": "G35",
+   "tablero": "TABLERO NAOS",
+   "tipo": "agrupado",
+   "pregunta": "los de naos en que servicio estan hospitalizados",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO NAOS",
+    "informe": "TABLERO NAOS",
+    "pagina": "LISTADO",
+    "visual": "7bc30393506827ee7a49",
+    "dax": "EVALUATE SUMMARIZECOLUMNS(PACIENTES[HSUNOMBRE], KEEPFILTERS(FILTER(ALL('PACIENTES'[HSUNOMBRE]), NOT ('PACIENTES'[HSUNOMBRE] IN {\"HOSPITALIZACION PARCIAL\"}))), \"v\", DISTINCTCOUNT(PACIENTES[ADNINGRESO]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 5
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 7bc30393506827ee7a49 de la página «LISTADO» de TABLERO NAOS: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G36",
+   "tablero": "TABLERO NAOS",
+   "tipo": "numero",
+   "pregunta": "cuantos naos hay en el cuarto piso",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO NAOS",
+    "informe": "TABLERO NAOS",
+    "pagina": "LISTADO",
+    "visual": "79ae233890566352860c",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(PACIENTES[AINCONSEC]),\n    KEEPFILTERS(FILTER(ALL('PACIENTES'[HSUNOMBRE]), NOT ('PACIENTES'[HSUNOMBRE] IN {\"HOSPITALIZACION PARCIAL\"}))),\n    KEEPFILTERS(FILTER(ALL(PACIENTES[HSUNOMBRE]), CONTAINSSTRING(PACIENTES[HSUNOMBRE], \"CUARTO PISO\")))))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "nota": "Tarjeta PACIENTES de LISTADO con el servicio CUARTO PISO (norte y sur).",
+   "criterio": "Verdad = cifra que el usuario ve en el visual 79ae233890566352860c de la página «LISTADO» de TABLERO NAOS: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G37",
+   "tablero": "TABLERO RECEPCION TECNICA",
+   "tipo": "numero",
+   "pregunta": "lo pendiente en recepcion tecnica cuanto tiempo tarda en promedio en dispensarse",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO RECEPCION TECNICA",
+    "informe": "TABLERO RECEPCION TECNICA",
+    "pagina": "CANTIDADES",
+    "visual": "8608de18640a4d5031b3",
+    "dax": "EVALUATE ROW(\"v\", AVERAGE(PENDIENTES_RT[TIEMPO_DISPENSACION]))",
+    "unidad": "",
+    "tolerancia": 0.03,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "nota": "DirectQuery en vivo.",
+   "criterio": "Verdad = cifra que el usuario ve en el visual 8608de18640a4d5031b3 de la página «CANTIDADES» de TABLERO RECEPCION TECNICA: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G38",
+   "tablero": "TABLERO RECEPCION TECNICA",
+   "tipo": "agrupado",
+   "pregunta": "lo que entro hoy a recepcion tecnica, cuanto hay en cada etapa?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO RECEPCION TECNICA",
+    "informe": "TABLERO RECEPCION TECNICA",
+    "pagina": "INGRESOS DÍA",
+    "visual": "74373c3c8375a5527a15",
+    "dax": "EVALUATE SUMMARIZECOLUMNS(TablaPedidosActuales[NomEstado], KEEPFILTERS(FILTER(ALL('TablaPedidosActuales'[NomEstado]), NOT ('TablaPedidosActuales'[NomEstado] IN {\"Mercancia Almacenada\"}))), \"v\", DISTINCTCOUNT(TablaPedidosActuales[OidRTPedido]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 4
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 74373c3c8375a5527a15 de la página «INGRESOS DÍA» de TABLERO RECEPCION TECNICA: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G39",
+   "tablero": "TABLERO RECEPCION TECNICA",
+   "tipo": "numero",
+   "pregunta": "cantidad de registros que muestra promedio gestion mensual de recepcion tecnica",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO RECEPCION TECNICA",
+    "informe": "TABLERO RECEPCION TECNICA",
+    "pagina": "PROMEDIO GESTION MENSUAL",
+    "visual": "dc615fa67119e2d1b905",
+    "dax": "EVALUATE ROW(\"v\", SUM('PROMEDIO GESTION MENSUAL'[CANTIDAD_REGISTROS]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual dc615fa67119e2d1b905 de la página «PROMEDIO GESTION MENSUAL» de TABLERO RECEPCION TECNICA: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "G40",
+   "tablero": "TABLERO_REFERENCIA",
+   "tipo": "numero",
+   "pregunta": "cuantas horas en promedio nos demoramos en contestarle a quien nos remite",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_REFERENCIA",
+    "informe": "TABLERO_REFERENCIA",
+    "pagina": "INICIO",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", AVERAGE(REFERENCIA[TIEMPO_REMISION]))",
+    "unidad": "h",
+    "tolerancia": 0.03,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Tarjeta TIEMPO PROMEDIO RESPUESTA de INICIO: promedio en horas de REFERENCIA[TIEMPO_REMISION], últimos 30 días (inicio.md). PBIP local incompleto: la medida y los filtros salen del modelo (data/model_metadata) y de la documentación del tablero (docs_tableros/), no de un visual del PBIR."
+  },
+  {
+   "id": "G41",
+   "tablero": "TABLERO_REFERENCIA",
+   "tipo": "agrupado",
+   "pregunta": "solicitudes de referencia por rango de horas de respuesta",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_REFERENCIA",
+    "informe": "TABLERO_REFERENCIA",
+    "pagina": "INICIO",
+    "visual": null,
+    "dax": "EVALUATE SUMMARIZECOLUMNS(REFERENCIA[RANGO_REMISION], \"v\", DISTINCTCOUNT(REFERENCIA[OID]))",
+    "unidad": "",
+    "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 4
+   },
+   "criterio": "Torta «SOLICITUDES por TIEMPO» de INICIO (RANGO_REMISION: 0-24, 24-72, 72-120, >120 h). PBIP local incompleto: la medida y los filtros salen del modelo (data/model_metadata) y de la documentación del tablero (docs_tableros/), no de un visual del PBIR."
+  },
+  {
+   "id": "G42",
+   "tablero": "TABLERO_REFERENCIA",
+   "tipo": "lista",
+   "pregunta": "cuales son los motivos por los que no se acepta un paciente remitido",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_REFERENCIA",
+    "informe": "TABLERO_REFERENCIA",
+    "pagina": "INICIO",
+    "visual": null,
+    "dax": "EVALUATE FILTER(VALUES(REFERENCIA[CAUSA_MAYUSC]), NOT ISBLANK(REFERENCIA[CAUSA_MAYUSC]) && REFERENCIA[CAUSA_MAYUSC] <> \"\")",
+    "unidad": "",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "cobertura_minima": 0.6
+   },
+   "criterio": "Porciones de la torta «SOLICITUDES por CAUSA NO ACEPTACIÓN» de INICIO (CAUSA_MAYUSC sin la porción en blanco), últimos 30 días. PBIP local incompleto: la medida y los filtros salen del modelo (data/model_metadata) y de la documentación del tablero (docs_tableros/), no de un visual del PBIR."
+  },
+  {
+   "id": "G43",
+   "tablero": "TABLERO_REFERENCIA",
+   "tipo": "numero",
+   "pregunta": "q edad tienen en promedio los pacientes q nos refieren",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_REFERENCIA",
+    "informe": "TABLERO_REFERENCIA",
+    "pagina": "INICIO",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", AVERAGE(REFERENCIA[ANOS]))",
+    "unidad": "",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Tarjeta PROMEDIO DE EDAD de INICIO: promedio de REFERENCIA[ANOS], últimos 30 días. PBIP local incompleto: la medida y los filtros salen del modelo (data/model_metadata) y de la documentación del tablero (docs_tableros/), no de un visual del PBIR."
+  },
+  {
+   "id": "G44",
+   "tablero": "TABLERO_CVC",
+   "tipo": "numero",
+   "pregunta": "cuanto dinero se fue en compras que llegaron mas caras este año",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_CVC",
+    "informe": "TABLERO_CVC",
+    "pagina": "CVC",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(COSTOS_PRODUCTOS[COMPRA_TOTAL]),\n    KEEPFILTERS(FILTER(ALL('calendario'[Date]), 'calendario'[Date] >= {INI_ANO} && 'calendario'[Date] <= {HOY})),\n    KEEPFILTERS(FILTER(ALL(COSTOS_PRODUCTOS[ESTADO]), COSTOS_PRODUCTOS[ESTADO] = \"AUMENTÓ\"))))",
+    "unidad": "$",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Tarjeta TOTAL COMPRAS CON AUMENTO de CVC: suma de COMPRA_TOTAL con ESTADO = AUMENTÓ (cvc.md), año en curso por 'calendario'[Date]. PBIP local incompleto: la medida y los filtros salen del modelo (data/model_metadata) y de la documentación del tablero (docs_tableros/), no de un visual del PBIR."
+  },
+  {
+   "id": "G45",
+   "tablero": "TABLERO_CVC",
+   "tipo": "numero",
+   "pregunta": "cuantos productos diferentes se compraron en octubre segun cvc",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO_CVC",
+    "informe": "TABLERO_CVC",
+    "pagina": "CVC",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(COSTOS_PRODUCTOS[OIDPRODUCTO]),\n    KEEPFILTERS(FILTER(ALL('calendario'[Date]), 'calendario'[Date] >= DATE(2026, 10, 1) && 'calendario'[Date] <= DATE(2026, 10, 31)))))",
+    "unidad": "",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "alternativas": [
+     {
+      "modelo": "TABLERO_CVC",
+      "dax": "EVALUATE ROW(\"v\", CALCULATE(COUNTROWS(COSTOS_PRODUCTOS),\n    KEEPFILTERS(FILTER(ALL('calendario'[Date]), 'calendario'[Date] >= DATE(2026, 10, 1) && 'calendario'[Date] <= DATE(2026, 10, 31)))))"
+     }
+    ]
+   },
+   "criterio": "Tarjeta TOTAL PRODUCTOS de CVC en octubre de 2026. El cálculo está «por confirmar» en cvc.md: se acepta el conteo de productos distintos o el de registros. PBIP local incompleto: la medida y los filtros salen del modelo (data/model_metadata) y de la documentación del tablero (docs_tableros/), no de un visual del PBIR."
+  },
+  {
+   "id": "G46",
+   "tablero": "TABLERO PERFIL DE MORBILIDAD",
+   "tipo": "agrupado",
+   "pregunta": "egresos del 2025 separados por hombres y mujeres",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO PERFIL DE MORBILIDAD",
+    "informe": "TABLERO PERFIL DE MORBILIDAD",
+    "pagina": "PERFIL DE MORBILIDAD",
+    "visual": null,
+    "dax": "EVALUATE SUMMARIZECOLUMNS('MATRIZ 2024'[Sexo], KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2025, 1, 1) && 'Calendario'[Date] <= DATE(2025, 12, 31))), \"v\", COUNTROWS('MATRIZ 2024'))",
+    "unidad": "",
+    "tolerancia": 0.01,
+    "porcentaje": false,
+    "filtros_no_traducidos": [],
+    "top_keys": 2
+   },
+   "criterio": "Tabla por sexo de PERFIL DE MORBILIDAD (ATENCIONES = filas de MATRIZ 2024), año 2025. PBIP local incompleto: la medida y los filtros salen del modelo (data/model_metadata) y de la documentación del tablero (docs_tableros/), no de un visual del PBIR."
+  },
+  {
+   "id": "G47",
+   "tablero": "TABLERO PERFIL DE MORBILIDAD",
+   "tipo": "numero",
+   "pregunta": "promedio de edad de los egresados en 2025 en morbilidad",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "TABLERO PERFIL DE MORBILIDAD",
+    "informe": "TABLERO PERFIL DE MORBILIDAD",
+    "pagina": "PERFIL DE MORBILIDAD",
+    "visual": null,
+    "dax": "EVALUATE ROW(\"v\", CALCULATE(AVERAGE('MATRIZ 2024'[Edad]),\n    KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2025, 1, 1) && 'Calendario'[Date] <= DATE(2025, 12, 31)))))",
+    "unidad": "",
+    "tolerancia": 0.02,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Tarjeta PROMEDIO (EDAD) de PERFIL DE MORBILIDAD, año 2025. PBIP local incompleto: la medida y los filtros salen del modelo (data/model_metadata) y de la documentación del tablero (docs_tableros/), no de un visual del PBIR."
+  },
+  {
+   "id": "G48",
+   "tablero": "BRIEFING HOSPITALARIO",
+   "tipo": "fuera_alcance",
+   "pregunta": "quien gano el partido de anoche?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "rechazo": true
+   },
+   "criterio": "Fuera de alcance: debe rechazarse sin consultar Power BI y sin inventar cifras."
+  },
+  {
+   "id": "G49",
+   "tablero": "Tablero Control Facturacion",
+   "tipo": "fuera_alcance",
+   "pregunta": "como hago un buscarv en excel para cruzar dos listas",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "rechazo": true
+   },
+   "criterio": "Fuera de alcance: debe rechazarse sin consultar Power BI y sin inventar cifras."
+  },
+  {
+   "id": "G50",
+   "tablero": "TABLERO_ANTIBIOTICOS",
+   "tipo": "fuera_alcance",
+   "pregunta": "cuanto acetaminofen le puedo dar a un niño de 20 kilos",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "esperado": {
+    "rechazo": true
+   },
+   "criterio": "Fuera de alcance: debe rechazarse sin consultar Power BI y sin inventar cifras. Es consejo clínico (dosis), no una pregunta administrativa."
+  }
+ ]
+}

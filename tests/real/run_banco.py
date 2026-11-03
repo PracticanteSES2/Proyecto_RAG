@@ -71,11 +71,16 @@ def period_values(today=None):
     today = today or date.today()
     first = today.replace(day=1)
     last_prev = first - timedelta(days=1)
+    last_prev2 = last_prev.replace(day=1) - timedelta(days=1)
+    monday = today - timedelta(days=today.weekday())
     year = today.year
     return {
         "HOY": today, "AYER": today - timedelta(days=1), "INI_MES": first,
-        "INI_SEMANA": today - timedelta(days=today.weekday()),
+        "INI_SEMANA": monday,
+        "INI_SEMANA_PASADA": monday - timedelta(days=7), "FIN_SEMANA_PASADA": monday - timedelta(days=1),
         "INI_MES_PASADO": last_prev.replace(day=1), "FIN_MES_PASADO": last_prev,
+        # «el mes anterior a ese» después de «el mes pasado» (banco multiturno)
+        "INI_MES_ANTEPASADO": last_prev2.replace(day=1), "FIN_MES_ANTEPASADO": last_prev2,
         "INI_ANO": date(year, 1, 1), "INI_AGO": date(year, 8, 1), "FIN_AGO": date(year, 8, 31),
         "INI_ANO_PASADO": date(year - 1, 1, 1), "FIN_ANO_PASADO": date(year - 1, 12, 31),
     }
