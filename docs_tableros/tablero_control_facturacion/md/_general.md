@@ -4,8 +4,8 @@ pagina: GENERAL
 nombre_funcional: Control del proceso de facturación de cuentas de pacientes
 bloque: General
 tablas: [ULT_GESTION, FACTURACION PERFILES, ENPROCESO_FACTURACION, PENDIENTES_FACTURACION, FACTURADORES, FACTURACION, CALENDARIO, DIM_TIPO_INGRESO]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # GENERAL
@@ -45,15 +45,16 @@ Controla el proceso de facturación de las cuentas de los pacientes desde el egr
 ## Observaciones
 - **Dos perfiles FACTURACION**: Los códigos 2 y 13 se llaman igual (FACTURACION); un filtro por PERFIL = FACTURACION incluye ambos. En TIEMPOS el 2 se llama «FACTURADOR SERVICIO».
 - **Auditor por usuario**: En las consultas de tiempos, la auditoría se liga al perfil 4 o 5 por el usuario que entrega y no por el ingreso; un usuario que trabaje en ambos perfiles podría duplicar filas. Por confirmar.
-- **Códigos AINESTADO**: El significado de cada estado del ingreso (0 a 4) está por confirmar; cada consulta usa un conjunto distinto.
+- **Códigos AINESTADO**: Estado del ingreso en Dinámica: 0 = REGISTRADO, 1 = FACTURADO, 2 = ANULADO y 3 = BLOQUEADO (rótulos de las consultas SQL del PBIP: las de este tablero marcan 0 REGISTRADO, 1 FACTURADO y 3 BLOQUEADO, y la tabla INGRESOS de BRIEFING HOSPITALARIO rotula los cuatro). El significado del código 4 está por confirmar; cada consulta usa un conjunto distinto.
 - **Páginas del PBIP**: El PBIP trae 22 páginas: INICIO (visible) y 21 ocultas. La documentación describe además PROCESO FACTURACION y AUDITORES EXTERNOS, que no están en el PBIP; «Duplicado de INICIO» parece una versión de PROCESO FACTURACION.
 - **Navegación**: INICIO lleva a RESUMEN FACTURACION, FACTURACION (botón PROCESO FACTURACIÓN), FACTURACION PENDIENTE, TRAZABILIDAD_H-A y FACTURADORES. Ningún botón lleva a TIEMPOS, TRAZABILIDAD ni TRAZABILIDAD FACTURACION, y el botón AUDITORES EXTERNOS de RESUMEN FACTURACION no tiene destino.
 - **Nombre de tabla**: La documentación escribe FACTURACION_PERFILES; la tabla del modelo y del DAX se llama 'FACTURACION PERFILES'.
 - **Horas por día**: FACTURACION PERFILES convierte FECHA_RECIBE y FECHA_ENTREGA a fecha sin hora, por lo que el tiempo de gestión en horas es siempre un múltiplo de 24 (equivale a días por 24)
-- **Segmentadores que no filtran**: Los segmentadores AREA_SERVICIO de RESUMEN FACTURACION y FACTURADORES son de ULT_GESTION, tabla sin relación con FACTURACION PERFILES ni FACTURADORES; probablemente no filtran lo que se ve. Los filtros de visual sobre INGRESOS tampoco afectan a ULT_GESTION ni a PENDIENTES_FACTURACION. Por confirmar.
+- **Segmentadores que no filtran**: Los segmentadores AREA_SERVICIO de RESUMEN FACTURACION y FACTURADORES son de ULT_GESTION, que no se relaciona con FACTURACION PERFILES ni FACTURADORES, así que no filtran lo que se ve; los filtros de visual sobre INGRESOS tampoco afectan a ULT_GESTION ni a PENDIENTES_FACTURACION. En el modelo publicado (sincronizado el 2026-10-29) INGRESOS solo se relaciona con CALENDARIO y ULT_GESTION solo recibe filtros de DIM_TIPO_INGRESO, DIM_PERFIL y CALENDARIO, todas en un solo sentido.
 - **Tiempo de egreso a prefactura**: El gráfico «Tiempo entre el egreso del paciente y la prefactura» de TIEMPOS usa TIEMPO_PREFACTURA, que mide de la entrega de ESTACION DE ENFERMERIA a la entrega de FACTURADOR SERVICIO. Por confirmar.
 - **Días desde la salida**: En las páginas EN PROCESO la columna DIF_SALIDA_RECIBE mide desde FECHA_RECIBE y no desde la salida del paciente, aunque la documentación original la describía desde FECHA_SALIDA.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Códigos AINESTADO según las consultas SQL del PBIP y segmentadores sin efecto confirmados con las relaciones del modelo publicado. Autor: agente dic-pendientes.

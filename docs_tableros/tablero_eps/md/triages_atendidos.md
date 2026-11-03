@@ -4,8 +4,8 @@ pagina: TRIAGES ATENDIDOS
 nombre_funcional: Resumen de atenciones, capacidad y ocupación de urgencias
 bloque: Histórico
 tablas: [OPORTUNIDAD_TRIAGE, CONSULTA_URGENCIAS, CONSULTAS_PRIORITARIAS, PACIENTES_OBSERVADOS, PACIENTES_HOSPITALIZADOS, %OCUPACIONAL, Calendario]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # TRIAGES ATENDIDOS
@@ -44,9 +44,10 @@ Página principal del tablero. En pantalla lleva el título «CONSOLIDADO DE ATE
 ## Observaciones
 - **Rótulo de consultas prioritarias**: La tarjeta dice «Triages 4 - 5» pero cuenta citas prioritarias confirmadas de CITAS_MEDICAS.
 - **Ocupación de urgencias**: Incluye el servicio SEXTO PISO y excluye camas con EXP en el código. Por confirmar el motivo.
-- **Tipos de ingreso**: Por confirmar que el tipo 1 sea observación y el 2 hospitalización.
+- **Tipos de ingreso**: AINTIPING 1 es ingreso AMBULATORIO y 2 HOSPITALARIO (catálogo de ADNINGRESO que usan las consultas del PBIP de BRIEFING HOSPITALARIO): los observados son ingresos ambulatorios de urgencias y los hospitalizados, ingresos hospitalarios.
 - **Tarjeta de triages atendidos**: En la captura su valor coincide con el total del mapa de calor de triages, lo que indica la misma fuente.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Tipos de ingreso según el catálogo de ADNINGRESO usado en el PBIP de BRIEFING HOSPITALARIO. Autor: agente dic-pendientes.

@@ -4,8 +4,8 @@ pagina: FACTURADORES
 nombre_funcional: Producción de facturación por facturador
 bloque: Histórico
 tablas: [FACTURADORES, ULT_GESTION, CALENDARIO]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # FACTURADORES
@@ -35,9 +35,10 @@ Mide la producción de cada facturador: monto total facturado, separado en hospi
 ## Observaciones
 - **Totales que no cuadran**: Los facturadores que no están en ninguna lista solo suman en TOTAL FACTURACION; en la captura de la documentación hospitalario más ambulatorio es menor que el total.
 - **Columna sin usar**: La consulta trae TIPO_INGRESO y DIAS_EGRESO_A_FACTURA, pero no se usan en los visuales conocidos.
-- **Segmentador de área**: El segmentador AREA SERVICIO usa ULT_GESTION[AREA_SERVICIO], y ULT_GESTION no se relaciona con FACTURADORES en el modelo; el segmentador probablemente no filtra las facturas. Debería usar FACTURADORES[AREA_SERVICIO]. Por confirmar.
+- **Segmentador de área**: El segmentador AREA SERVICIO usa ULT_GESTION[AREA_SERVICIO], y ULT_GESTION no se relaciona con FACTURADORES en el modelo publicado, así que no filtra las facturas. Por confirmar si debe cambiarse a FACTURADORES[AREA_SERVICIO].
 - **Listas distintas**: Las listas de facturadores hospitalarios difieren entre la tarjeta (52 nombres) y el gráfico de barras (53), y la tabla del PBIP no está filtrada por lista.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Segmentador sin efecto confirmado con las relaciones del modelo publicado. Autor: agente dic-pendientes.

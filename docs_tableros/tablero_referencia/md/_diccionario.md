@@ -4,8 +4,8 @@ pagina: DICCIONARIO
 nombre_funcional: Diccionario de variables del tablero
 bloque: Diccionario
 tablas: [CONTRARREFERENCIA, DETALLE_RECEPCIONES, DETALLE_REMISIONES, REFERENCIA]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # DICCIONARIO
@@ -71,9 +71,10 @@ Diccionario de variables del tablero TABLERO REFERENCIA: qué es cada tabla, med
 - **Informe sin visuales**: El PBIP local solo trae las páginas (sin visuales), por lo que «Se usa en» de las columnas solo muestra los filtros de página. Por confirmar qué visuales usan cada columna.
 - **Documentación de remisión**: La documentación original de seguimiento de remisión describe la consulta de DETALLE_REMISIONES, pero sus columnas (EPS, fecha de remisión, aceptación, rango de tiempo) están en CONTRARREFERENCIA. Por confirmar de qué tabla se alimenta cada visual.
 - **Rangos de CONTRARREFERENCIA**: RANGO_TIEMPO deja en blanco los tiempos negativos; una aceptación anterior a la remisión (fecha por defecto) se trata como sin aceptar y cuenta hasta hoy.
-- **Fecha de no aceptación**: En la consulta de REFERENCIA, FechaNoAceptado usa FechaEdicion sin alias en el CASE; por confirmar si toma la fecha de HISTORICO_RECEPCIONES_DW (alias D) o la de la solicitud.
+- **Fecha de no aceptación**: En la consulta de REFERENCIA, FechaNoAceptado usa FechaEdicion sin alias cuando el estado es 3. La única fuente que expone esa columna es el OUTER APPLY D (última FechaEdicion con estado 3 en HISTORICO_RECEPCIONES_DW); si RECEPCIONES_DW o SEG_RECEPCIONES la tuvieran, SQL Server rechazaría la consulta por nombre ambiguo. Es, por tanto, la fecha del último cambio a «no aceptado» del histórico.
 - **Columnas por confirmar**: CONTRARREFERENCIA[Expr3] y el significado exacto de CONTRARREFERENCIA[Nombre].
 
 ## Historial de cambios
 - **2026-10-28 · v1**: Esqueleto generado desde data/model_metadata/tablero_referencia y hechos del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Fecha de no aceptación resuelta con la consulta SQL de REFERENCIA del PBIP (OUTER APPLY D) Autor: agente dic-pendientes.

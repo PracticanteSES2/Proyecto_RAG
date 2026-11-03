@@ -4,8 +4,8 @@ pagina: RESUMEN FACTURACION
 nombre_funcional: Tiempos de gestión del proceso de facturación
 bloque: Histórico
 tablas: [FACTURACION PERFILES, CALENDARIO, DIM_TIPO_INGRESO]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # RESUMEN FACTURACION
@@ -34,9 +34,10 @@ Muestra el tiempo promedio de gestión de las cuentas en el proceso de facturaci
 - **Sin filtros de página**: La página no filtra perfil ni estado de la factura (confirmado en el PBIP): promedia el tiempo de todos los perfiles, de cuentas facturadas o no.
 
 ## Observaciones
-- **Segmentador de área**: El segmentador AREA_SERVICIO es de ULT_GESTION, que no se relaciona con FACTURACION PERFILES; probablemente no filtre las medidas de la página. Por confirmar.
+- **Segmentador de área**: El segmentador AREA_SERVICIO es de ULT_GESTION, que no se relaciona con FACTURACION PERFILES; no filtra las medidas de la página. En el modelo publicado (sincronizado el 2026-10-29) INGRESOS solo se relaciona con CALENDARIO y ULT_GESTION solo recibe filtros de DIM_TIPO_INGRESO, DIM_PERFIL y CALENDARIO, todas en un solo sentido.
 - **Horas por día**: FACTURACION PERFILES convierte FECHA_RECIBE y FECHA_ENTREGA a fecha sin hora, por lo que el tiempo de gestión en horas es siempre un múltiplo de 24 (equivale a días por 24)
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Segmentador sin efecto confirmado con las relaciones del modelo publicado. Autor: agente dic-pendientes.

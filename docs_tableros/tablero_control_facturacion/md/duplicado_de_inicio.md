@@ -4,8 +4,8 @@ pagina: Duplicado de INICIO
 nombre_funcional: Copia de trabajo de INICIO con gestiones por usuario y monto facturado
 bloque: Histórico
 tablas: [FACTURACION PERFILES, ULT_GESTION, INGRESOS, DIM_PERFIL, CALENDARIO, DIM_TIPO_INGRESO]
-actualizado: 2026-10-28
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # Duplicado de INICIO
@@ -36,7 +36,8 @@ Copia de INICIO que mezcla indicadores de INICIO y de la página PROCESO FACTURA
 - **Filtros de página**: FACTURACION PERFILES[TIPO INGRESO] = HOSPITALARIO y FACTURACION PERFILES[TIEMPO] mayor o igual a 0 (confirmado en el PBIP); solo afectan a lo que usa FACTURACION PERFILES.
 
 ## Observaciones
-- **Columna fuera del modelo**: ULT_GESTION[SFANETOFAC] no existe en el modelo: la tarjeta MONTO FACTURADO y las barras por servicio quedan rotas o vacías. Por confirmar.
+- **Columna fuera del modelo**: ULT_GESTION[SFANETOFAC] no existe en el modelo local ni en el publicado (sincronizado el 2026-10-29): la tarjeta MONTO FACTURADO y las barras por servicio quedan rotas o vacías; el monto está en ULT_GESTION[MONTO_FACTURADO].
 
 ## Historial de cambios
 - **2026-10-28 · v1**: Página documentada a partir del modelo y del informe.
+- **2026-11-03 · v2**: Columna SFANETOFAC ausente también en el modelo publicado. Autor: agente dic-pendientes.
