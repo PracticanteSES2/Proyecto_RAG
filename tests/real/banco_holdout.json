@@ -284,7 +284,7 @@
      "('PARTOS_DRIVE', 'FECHA_REAL'): el lado derecho no es un literal"
     ]
    },
-   "nota": "Página ABORTOS (Tipo de parto ABORTO o IVE), mismo conteo que la página PARTOS.",
+   "nota": "Página ABORTOS (Tipo de parto ABORTO o IVE), mismo conteo que la página PARTOS. El filtro de página no traducido es FECHA_REAL > 2024-01-01: no cambia «este año».",
    "criterio": "Verdad = cifra que el usuario ve en la página «ABORTOS» de TABLERO DE ATENCIONES INSTITUCIONALES: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
@@ -374,7 +374,7 @@
     ],
     "top_keys": 5
    },
-   "nota": "Gráfico TOP 5 ASEGURADORAS CON CITAS EN ESPERA (filtro TopN del visual = TOPN 5).",
+   "nota": "Gráfico TOP 5 ASEGURADORAS CON CITAS EN ESPERA (el filtro TopN del visual, no traducido, es el TOPN 5 del DAX).",
    "criterio": "Verdad = cifra que el usuario ve en el visual 1552eb3df989fe3f0cb2 de la página «EN ESPERA X ESPECIALIDAD» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido."
   },
   {
@@ -586,6 +586,27 @@
     "dax": "EVALUATE ROW(\"v\", CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]),\n    KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45)),\n    KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[ESPECIALIDAD]), NOT ('CIRUGÍAS'[ESPECIALIDAD] IN {\"ANESTESIOLOGIA\", \"JUNTA MEDICA\"}))),\n    KEEPFILTERS(FILTER(ALL(CALENDARIO[Date]), CALENDARIO[Date] >= {INI_MES_PASADO} && CALENDARIO[Date] <= {FIN_MES_PASADO}))))",
     "unidad": "",
     "tolerancia": 0.0,
+    "porcentaje": false,
+    "filtros_no_traducidos": []
+   },
+   "criterio": "Verdad = cifra que el usuario ve en el visual 0dd5b6bdac1e3cc01ca0 de la página «CIRUGÍAS» de Demanda Insatisfecha: medida + filtros de informe, página y visual + periodo pedido."
+  },
+  {
+   "id": "H27b",
+   "tablero": "Demanda Insatisfecha",
+   "tipo": "comparacion",
+   "pregunta": "cirujias canceladas en agosto vs septiembre, cual mes tuvo mas?",
+   "turnos_extra": [],
+   "elegir": null,
+   "contrapregunta_aceptable": false,
+   "verdad": {
+    "modelo": "Demanda Insatisfecha",
+    "informe": "Demanda Insatisfecha",
+    "pagina": "CIRUGÍAS",
+    "visual": "0dd5b6bdac1e3cc01ca0",
+    "dax": "EVALUATE ROW(\"agosto\", CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]),\n    KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45)),\n    KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[ESPECIALIDAD]), NOT ('CIRUGÍAS'[ESPECIALIDAD] IN {\"ANESTESIOLOGIA\", \"JUNTA MEDICA\"}))),\n    KEEPFILTERS(FILTER(ALL(CALENDARIO[Date]), CALENDARIO[Date] >= DATE(2026, 8, 1) && CALENDARIO[Date] <= DATE(2026, 8, 31)))), \"septiembre\", CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]),\n    KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45)),\n    KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[ESPECIALIDAD]), NOT ('CIRUGÍAS'[ESPECIALIDAD] IN {\"ANESTESIOLOGIA\", \"JUNTA MEDICA\"}))),\n    KEEPFILTERS(FILTER(ALL(CALENDARIO[Date]), CALENDARIO[Date] >= DATE(2026, 9, 1) && CALENDARIO[Date] <= DATE(2026, 9, 30)))))",
+    "unidad": "",
+    "tolerancia": 0.02,
     "porcentaje": false,
     "filtros_no_traducidos": []
    },

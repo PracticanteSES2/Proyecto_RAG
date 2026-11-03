@@ -142,7 +142,8 @@ def build():
     f, s = ctx(R, "ABORTOS", None, "este_ano", CAL)
     add(case("H13", ATEN, "numero", "cuantos abortos van este año", page="ABORTOS", skipped=s,
              dax=numero("COUNTROWS(PARTOS_DRIVE)", f), tol=0.01,
-             nota="Página ABORTOS (Tipo de parto ABORTO o IVE), mismo conteo que la página PARTOS."))
+             nota="Página ABORTOS (Tipo de parto ABORTO o IVE), mismo conteo que la página PARTOS. El filtro de "
+                  "página no traducido es FECHA_REAL > 2024-01-01: no cambia «este año»."))
     f, s = ctx(R, "CONSULTAS AMBULATORIAS", None, "mes_pasado", CAL)
     add(case("H14", ATEN, "numero", "las consultas ambulatorias del mes pasado cuantas fueron?",
              page="CONSULTAS AMBULATORIAS", skipped=s, dax=numero("[Total Consultas]", f), tol=0.01))
@@ -163,7 +164,8 @@ def build():
     add(case("H17", CITAS, "agrupado", "top 5 aseguradoras con mas citas en espera", page="EN ESPERA X ESPECIALIDAD",
              visual=v, skipped=s, dax=agrupado("ASEGURADORA[ASEGURADORA_HM]", "COUNT(EN_ESPERA[OID_CITA])", f, top=5),
              tol=0.0,
-             nota="Gráfico TOP 5 ASEGURADORAS CON CITAS EN ESPERA (filtro TopN del visual = TOPN 5)."))
+             nota="Gráfico TOP 5 ASEGURADORAS CON CITAS EN ESPERA (el filtro TopN del visual, no traducido, es "
+                  "el TOPN 5 del DAX)."))
     add(case("H18", CITAS, "definicion", "el % pendiente de citas como lo calculan? puede dar mas de 100?",
              esperado={"todas": ["asignad"], "alguna": ["espera", "pendiente"]},
              fuente="docs_tableros/tablero_asignacion_de_citas/md/_diccionario.md"))
@@ -222,6 +224,11 @@ def build():
     f, s = ctx(R, "CIRUGÍAS", v, "mes_pasado", CAL)
     add(case("H27", DEM, "numero", "cirugias canceladas el mes pasado x demanda insatisfecha", page="CIRUGÍAS",
              visual=v, skipped=s, dax=numero("COUNT('CIRUGÍAS'[PROCEDIMIENTO])", f), tol=0.0))
+    fa, _ = ctx(R, "CIRUGÍAS", v, extra=[rango(CAL, AGO)])
+    fs, _ = ctx(R, "CIRUGÍAS", v, extra=[rango(CAL, SEP)])
+    add(case("H27b", DEM, "comparacion", "cirujias canceladas en agosto vs septiembre, cual mes tuvo mas?",
+             page="CIRUGÍAS", visual=v, skipped=s,
+             dax=comparacion("COUNT('CIRUGÍAS'[PROCEDIMIENTO])", {"agosto": fa, "septiembre": fs})))
     v = "b18910ca086d0609e975"
     f, s = ctx(R, "CITAS", v, "este_ano", CAL)
     add(case("H28", DEM, "agrupado", "por que motivos cancelo citas la institucion este año?", page="CITAS",
