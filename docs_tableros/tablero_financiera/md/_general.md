@@ -5,7 +5,7 @@ nombre_funcional: Facturación, devoluciones, ingresos abiertos, CUPS, costos y 
 bloque: General
 tablas: [FACTURACION, FACTU_AREA, FACTURACION_PENDIENTE, REFACTURACION, FACTURACION_DIARIA, INGRESOS_AB_DIARIO, CONSOLIDADO_INGRESOS_ABIERTOS+, CUPS, COSTOS, ANALISIS_RENTABILIDAD, ACTIVIDADES, TERCEROS, AcreedoresConFactura, AREAS DE SERVICIO, FiltroRefacturacion, CALENDARIO]
 actualizado: 2026-11-03
-version: 2
+version: 3
 ---
 
 # GENERAL
@@ -17,7 +17,7 @@ Se entra por INICIO, la única página visible; las otras 17 están ocultas en l
 
 ## Fuentes de datos
 - **FACTURACION**: Facturación por orden y área de servicio con el tercero que paga; columnas TOTALAREASERVORDEN (valor facturado), VLRENTIDADORDEN (valor a cargo de la entidad; la parte del paciente es VLRPACIENTE), NOMBRETERCERO y OID_TERCERO. Guarda las medidas NETA, Facturacion_2025_Mensual y Facturacion_2026.
-- **FACTU_AREA**: Facturación por área de servicio con CLASIFICACION_SERVICIO y TOTALAREASERVORDEN. Por confirmar en qué se diferencia de FACTURACION.
+- **FACTU_AREA**: Facturación por área de servicio con CLASIFICACION_SERVICIO y TOTALAREASERVORDEN. Suma lo mismo que FACTURACION en cada año; es una tabla oculta que se une a REFACTURACION por área de servicio.
 - **FACTURACION_PENDIENTE**: Ingresos abiertos con valor VLSERVICIO, total TOTAL_ING_ABIERTOS, TERCERO y CLASIFICACION_SERVICIO.
 - **REFACTURACION**: Devoluciones de facturas con valor VLRAREASERVICIO, TERCERO, CLASIFICACION_SERVICIO y NUEVOS_INGRESOS.
 - **FACTURACION_DIARIA**: Facturación del día a día con TOTALAREASERV, SERVICIO_R, NOMBRETERCERO y las marcas FACTUCOPAGO (factura de copago) y RECAUDADO_FRANQUICIA (recaudado por franquicia).
@@ -58,7 +58,7 @@ Se entra por INICIO, la única página visible; las otras 17 están ocultas en l
 - **Páginas sin acceso**: COMPARATIVO, FACTURACIÓN GENERAL (solo se abre desde COMPARATIVO), Duplicado de FACTURACIÓN GENERAL, COSTOS X MESES, Duplicado de Duplicado de COSTOS X MESES y COSTOS ANTERIOR no se alcanzan desde INICIO. Por confirmar si se deben eliminar.
 - **Página de facturación en uso**: El botón FACTURACIÓN de INICIO abre «Duplicado de Duplicado de FACTURACIÓN GENERAL», no FACTURACIÓN GENERAL.
 - **Sin DAX disponible**: El .pbix no trae el modelo en texto (TMDL), pero el DAX de las medidas sí está en el modelo sincronizado del Power BI (data/model_metadata/tablero_financiera); está en el diccionario del tablero.
-- **Cuatro medidas de facturación neta**: NETA y FACTURACION_NETA tienen el mismo DAX; NETA_AREA toma la facturación de FACTU_AREA y Facturacion_net resta la refacturación según el modo. Por confirmar con datos si FACTU_AREA y FACTURACION suman lo mismo.
+- **Cuatro medidas de facturación neta**: NETA y FACTURACION_NETA tienen el mismo DAX; NETA_AREA toma la facturación de FACTU_AREA, que suma lo mismo que FACTURACION, y Facturacion_net resta la refacturación según el modo.
 - **Medidas en CALENDARIO**: La mayoría de las medidas están guardadas en la tabla de fechas, no en la tabla de hechos que usan.
 - **Visuales personalizados sin uso**: El informe registra tres visuales personalizados (entre ellos Power KPI Matrix y Table Grid) que ninguna página usa.
 - **Sin documentación del propietario**: Todo lo descrito se infiere del informe; los puntos marcados por confirmar deben validarse con el área financiera.
@@ -66,3 +66,4 @@ Se entra por INICIO, la única página visible; las otras 17 están ocultas en l
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
 - **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): definiciones de facturación neta y rentabilidad, valores de Modo, modo de almacenamiento y DAX disponible. Autor: agente dic-pendientes.
+- **2026-11-03 · v3**: Resultados de las consultas financiera-01 a financiera-07 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

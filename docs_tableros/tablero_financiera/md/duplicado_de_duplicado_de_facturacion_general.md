@@ -5,7 +5,7 @@ nombre_funcional: Facturación, refacturación y facturación neta por servicio 
 bloque: Histórico
 tablas: [FACTURACION, FACTU_AREA, REFACTURACION, AREAS DE SERVICIO, AcreedoresConFactura, FiltroRefacturacion, CALENDARIO]
 actualizado: 2026-11-03
-version: 2
+version: 3
 ---
 
 # Duplicado de Duplicado de FACTURACIÓN GENERAL
@@ -46,9 +46,10 @@ Página de facturación en uso: la abren el botón FACTURACIÓN de INICIO y el b
 ## Observaciones
 - **Nombre de copia**: El nombre indica que es una copia de FACTURACIÓN GENERAL, pero es la versión en uso. Por confirmar si se debe renombrar.
 - **Valores de Modo**: FiltroRefacturacion[Modo] vale «ING. ORIGINALES» o «ING. ORIGINALES Y NUEVOS». Con «ING. ORIGINALES Y NUEVOS» (o sin selección) se resta toda la refacturación; con «ING. ORIGINALES», solo la de devoluciones con REFACTURACION[NUEVOINGRESO] falso.
-- **Fuentes distintas en tabla y torta**: La matriz usa FACTURACION con AREAS DE SERVICIO y la torta FACTU_AREA; los totales pueden no coincidir. Por confirmar.
+- **Fuentes distintas en tabla y torta**: La matriz y la torta usan FACTURACION y FACTU_AREA, que suman lo mismo en cada año; los totales coinciden.
 - **Origen de la obtención de detalles**: Por confirmar desde qué visual se usa la obtención de detalles por tercero.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
 - **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): DAX de la refacturación dinámica y la facturación neta, y valores de Modo. Autor: agente dic-pendientes.
+- **2026-11-03 · v3**: Resultados de las consultas financiera-01 a financiera-07 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

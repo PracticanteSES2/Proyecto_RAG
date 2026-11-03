@@ -5,7 +5,7 @@ nombre_funcional: Facturación, devoluciones y facturación neta por servicio (v
 bloque: Histórico
 tablas: [FACTU_AREA, REFACTURACION, FACTURACION, AREAS DE SERVICIO, CALENDARIO]
 actualizado: 2026-11-03
-version: 2
+version: 3
 ---
 
 # FACTURACIÓN GENERAL
@@ -39,9 +39,10 @@ Muestra por servicio y por mes la facturación, las devoluciones y la facturaci�
 
 ## Observaciones
 - **Página sin acceso desde INICIO**: Solo se abre desde COMPARATIVO; parece reemplazada por Duplicado de Duplicado de FACTURACIÓN GENERAL. Por confirmar si se debe eliminar.
-- **Fuentes distintas en tabla y torta**: La matriz usa FACTU_AREA y la torta FACTURACION con AREAS DE SERVICIO; los totales pueden no coincidir. Por confirmar.
+- **Fuentes distintas en tabla y torta**: La matriz y la torta usan FACTURACION y FACTU_AREA, que suman lo mismo en cada año; los totales coinciden.
 - **Copia casi idéntica**: Duplicado de FACTURACIÓN GENERAL repite esta página y solo cambia la tabla de la torta.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
 - **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): DAX de la facturación neta. Autor: agente dic-pendientes.
+- **2026-11-03 · v3**: Resultados de las consultas financiera-01 a financiera-07 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.

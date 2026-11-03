@@ -5,7 +5,7 @@ nombre_funcional: Rentabilidad por CUPS frente al costo histórico y al costo es
 bloque: Histórico
 tablas: [ANALISIS_RENTABILIDAD, CALENDARIO]
 actualizado: 2026-11-03
-version: 2
+version: 3
 ---
 
 # COSTO ESTIMADO
@@ -46,10 +46,11 @@ Compara por CUPS y pagador la venta con el costo histórico y con el costo estim
 - **Pérdida sin vacíos**: El segmentador PERDIDA excluye los valores vacíos.
 
 ## Observaciones
-- **Gráficos sin 2026**: Por el filtro fijo de años, los gráficos no muestran 2026. Por confirmar si se debe actualizar.
+- **Gráficos sin 2026**: Por el filtro fijo de años, los gráficos no muestran 2026 aunque ANALISIS_RENTABILIDAD ya trae meses de 2026. Por confirmar si se debe agregar el año.
 - **Promedios sobre otras columnas**: Las líneas de promedio se definen sobre sumas de VLRSERVICIOENORDEN, TOTAL_COSTO y RENTABILIDAD_TOTAL, no sobre las medidas que se grafican. Por confirmar si se muestran.
 - **Formato heredado**: La tabla guarda barras de datos para COSTOS[RENTABILIDAD] y COSTOS[%RENT], columnas que no están en el visual.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
 - **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): DAX de los indicadores. Autor: agente dic-pendientes.
+- **2026-11-03 · v3**: Resultados de las consultas financiera-01 a financiera-07 contra el modelo publicado (2026-11-03) Autor: agente dic-pendientes.
