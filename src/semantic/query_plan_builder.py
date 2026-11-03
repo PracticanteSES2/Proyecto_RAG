@@ -2672,7 +2672,14 @@ class QueryPlanBuilder:
                 continue
             if model_hint and normalize_text(metric.get("semantic_model")) != model_hint:
                 continue
-            dictionary = self._dictionary_tokens(metric)
+            dictionary = set(self._dictionary_tokens(metric))
+            # El nombre funcional documentado de sus páginas también dice lo
+            # que mide («Peso de ropa hospitalaria RECIBIDA en lavandería»).
+            model_key = normalize_text(metric.get("semantic_model"))
+            for page in [*self._metric_pages(metric), ""]:
+                text = self._functional_name_index().get((model_key, normalize_text(page)))
+                if text:
+                    dictionary.update(token for token in canonical_tokens(text) if len(token) >= 4)
             names = self._metric_vocabulary_tokens(metric)
             names.update(canonical_tokens(metric.get("semantic_model")))
             for report in self._metric_reports(metric):
@@ -2913,15 +2920,23 @@ class QueryPlanBuilder:
         # Páginas del indicador y las demás páginas que usan su tabla (la
         # página CITAS de «citas canceladas por causas institucionales»).
         pages = [normalize_text(page) for page in self._metric_pages(metric)]
-        try:
-            pages += [normalize_text(page) for page in self._table_pages(
-                metric.get("semantic_model"), self._metric_fact_table(metric))]
-        except Exception:
-            pass
         for key in [*dict.fromkeys(pages), ""]:
             text = functional.get((model, key))
             if text:
                 vocabulary.update(token for token in canonical_tokens(text) if len(token) >= 3)
+        # Las demás páginas de su tabla solo explican formas verbales que no
+        # son palabras del catálogo («canceló» ~ «citas canceladas por causas
+        # institucionales»); un sustantivo con indicador propio («exámenes»)
+        # sigue sin explicarse.
+        table_vocabulary = set()
+        try:
+            for page in self._table_pages(metric.get("semantic_model"), self._metric_fact_table(metric)):
+                text = functional.get((model, normalize_text(page)))
+                if text:
+                    table_vocabulary.update(token for token in canonical_tokens(text) if len(token) >= 4)
+        except Exception:
+            pass
+        catalog_vocabulary = self._catalog_vocabulary()
         action_vocabulary = vocabulary | {
             token for report in self._metric_reports(metric) for token in canonical_tokens(report) if len(token) >= 3
         }
@@ -2941,6 +2956,8 @@ class QueryPlanBuilder:
             if (
                 self._looks_like_verb(word) or (len(token) >= 3 and self._explains(token, vocabulary))
                 or participle_of_vocabulary(word)
+                or (len(token) >= 5 and token not in catalog_vocabulary
+                    and self._explains(token, table_vocabulary))
             ):
                 implied.append(word)
             else:

@@ -66,6 +66,7 @@ METRICS = [
     _metric("visitas", "VISITAS", GES, "VISITAS", "DISTINCTCOUNT('VISITAS'[OID])", ["VISITAS"]),
     _metric("visitas_dom", "VISITAS DOMICILIARIAS", GES, "VISITAS_DOM", "DISTINCTCOUNT('VISITAS_DOM'[OID])",
             ["DOMICILIARIAS"]),
+    _metric("anuladas", "VISITAS ANULADAS", GES, "VISITAS", "CALCULATE(DISTINCTCOUNT('VISITAS'[OID]))", ["ANULADAS"]),
     _metric("prog", "PROGRAMADAS", GES, "PROGRAMADAS", "COUNT('PROGRAMADAS'[CITA])", ["PROXIMAS"], "Count"),
     _metric("peso", "PESO", ROPA, "LAVANDERIA", "SUM('LAVANDERIA'[PESO])", ["Página 1"], "Sum"),
 ]
@@ -113,6 +114,7 @@ def _build_fixture(root):
         docs / "ges" / "md" / "_diccionario.json": DICTIONARIES["ges"],
         docs / "ges" / "md" / "_general.json": _page_doc(GES, "GENERAL", "Seguimiento de gestiones", "General"),
         docs / "ges" / "md" / "listado.json": _page_doc(GES, "LISTADO", "Listado de pacientes con pendientes activos"),
+        docs / "ges" / "md" / "anuladas.json": _page_doc(GES, "ANULADAS", "Visitas anuladas por causas institucionales"),
         docs / "ropa" / "md" / "p1.json": _page_doc(ROPA, "Página 1", "Peso de ropa recibida en lavandería"),
     }
     for path, data in files.items():
@@ -178,6 +180,25 @@ def test_participle_of_the_board_action_is_not_a_filter():
     # Nueva: «kilos de ropa LAVADOS en agosto» con el tablero de lavandería.
     implied, remaining = builder().implied_words(_by_id("peso"), ["lavados"])
     assert implied == ["lavados"] and not remaining, (implied, remaining)
+
+
+def test_verb_form_explained_by_another_page_of_the_same_table():
+    # Nueva: «por qué causas ANULÓ visitas la institución» con VISITAS: la
+    # página ANULADAS de la misma tabla («visitas anuladas por causas
+    # institucionales») explica la forma verbal; un sustantivo con indicador
+    # propio («domiciliarias») no.
+    implied, remaining = builder().implied_words(_by_id("visitas"), ["anulo", "domiciliarias"])
+    assert implied == ["anulo"] and remaining == ["domiciliarias"], (implied, remaining)
+
+
+def test_board_documentation_names_the_only_weight_measure():
+    # Nueva: «cuánta ropa RECIBIÓ la lavandería el mes pasado» -> PESO
+    # («Peso de ropa recibida en lavandería»).
+    qpb = builder()
+    question = "cuanta ropa recibio la lavanderia el mes pasado"
+    resolution = qpb._resolve_metric_flexible(question, qpb._source_context(question))
+    assert (resolution.get("metric") or {}).get("metric_id") == "peso", (
+        resolution.get("status"), (resolution.get("metric") or {}).get("label"))
 
 
 def test_real_filter_words_are_still_unresolved():
