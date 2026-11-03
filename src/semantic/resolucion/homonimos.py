@@ -106,6 +106,12 @@ class HomonimosMixin:
                     + " no está en ningún visual y sin periodo sumaría todo su histórico: se responde con el primero"
                 )
                 kept = shown
+        # r9 (causa 3): solo compiten los homónimos que aplican el filtro pedido
+        # («camas aisladas»: el que no tiene ese estado no es alternativa).
+        if 1 < len(kept) <= self._FEASIBLE_MAX:
+            feasible = self._filter_feasible_options(question, kept)
+            if feasible is not None:
+                kept = feasible
         return kept if len(kept) < len(items) else None
 
     def _same_name_ambiguity(self, question, source_context, metric_result):

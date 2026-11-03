@@ -222,6 +222,20 @@ class ContrapreguntaMixin:
             plan = grouped
             resolution = plan["metric_resolution"]
         candidates = resolution.get("candidates") or []
+        if status == "ambiguous" and plan.get("reason") is None and 1 < len(candidates) <= self._FEASIBLE_MAX:
+            # r9 (causa 3): fuera las opciones que no pueden aplicar el filtro
+            # o el periodo pedidos (las que sí lo aplican responden la pregunta).
+            feasible = self._filter_feasible_options(question, candidates)
+            if feasible is not None:
+                if len({self._logical_key(item["metric"]) for item in feasible}) == 1:
+                    return self._forced_plan(
+                        question, intent_result, feasible[0],
+                        "única opción que aplica todo lo que pide la pregunta (filtros y periodo): "
+                        "se responde sin contrapreguntar",
+                    )
+                plan = {**plan, "metric_resolution": {**resolution, "candidates": feasible}}
+                resolution = plan["metric_resolution"]
+                candidates = feasible
         if status == "ambiguous" and plan.get("reason") is None and len(candidates) > 1:
             counting = self._count_question_options(question, candidates)
             # Con solo palabras genéricas («cuántos pendientes hay») la pregunta
@@ -255,3 +269,51 @@ class ContrapreguntaMixin:
                 "con la pregunta: se responde sin contrapreguntar",
             )
         return plan
+
+    _FEASIBLE_MAX = 6
+
+    def _filter_feasible_options(self, question, candidates):
+        """Opciones que, armadas con la pregunta tal como está, quedan listas y sin palabras sin
+        aplicar; None si no descarta nada (todas o ninguna responden por completo)."""
+        full, exact = [], []
+        for item in candidates:
+            metric = item.get("metric") or {}
+            forced = {
+                "status": "resolved", "metric": metric,
+                "matched_name": item.get("matched_name") or metric.get("label"),
+                "score": item.get("score"),
+                "candidates": [{key: value for key, value in item.items() if not key.startswith("_")}],
+                "final": True,
+            }
+            notes = list(self.__dict__.get("_resolution_notes") or [])
+            try:
+                built = self._build_plan(question, None, forced_resolution=forced)
+            except Exception:
+                built = None
+            finally:
+                if self.__dict__.get("_resolution_notes") is not None:
+                    self._resolution_notes[:] = notes
+            if (
+                isinstance(built, dict) and built.get("status") == "ready"
+                and not built.get("unapplied_terms")
+                and any(f.get("type") == "categorical" and f.get("source") != "query_plan_temporal"
+                        for f in built.get("filters") or [])
+            ):
+                full.append(item)
+                # Un valor aproximado (otro género o raíz, en otra columna:
+                # SERVICIO = BLOQUEADO para «bloqueadas») pesa menos que el valor
+                # que la pregunta nombra (ESTADO = BLOQUEADA).
+                if not any(f.get("source") == "query_plan_approximate_value" for f in built.get("filters") or []):
+                    exact.append(item)
+        if exact and len(exact) < len(full):
+            full = exact
+        if not full or len(full) == len(candidates):
+            return None
+        dropped = [item for item in candidates if item not in full]
+        self._note(
+            "no aplican el filtro pedido: "
+            + ", ".join(f"{(i.get('metric') or {}).get('label')} ({(i.get('metric') or {}).get('semantic_model')})"
+                        for i in dropped)
+            + "; no se ofrecen"
+        )
+        return full

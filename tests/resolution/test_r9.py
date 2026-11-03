@@ -9,6 +9,8 @@ Reglas generales (cada una con 2 o 3 preguntas NUEVAS, que no están en ningún 
    están» son forma de pregunta de DATOS (data_shape_reason) y no caen al RAG.
 2. Verbos con clítico o conjugados frente al sustantivo de acción del catálogo («asignarle» /
    ASIGNACIÓN, «admitieron» / ADMISIÓN); cualquier forma de tardar/demorar/durar = TIEMPO.
+3. Solo se contrapregunta entre opciones que aplican el filtro pedido; un valor aproximado de otra
+   columna no compite con el valor que la pregunta nombra.
 4. El complemento agente («canceladas por el paciente») no es un desglose; «sin contar X»,
    «excepto X», «salvo X» excluyen el valor (NOT IN).
 5. Multiturno: mensaje corto sin «y» tras datos se intenta primero como seguimiento; un RAG en
@@ -262,6 +264,18 @@ def test_e2e_negation_and_agent():
     assert negated, plan.get("filters")
     results = _conversation("cuantas citas confirmadas ya por los pacientes hay")
     assert results[0].get("status") != "unsupported_filter", results[0].get("status")
+
+
+def test_e2e_options_that_cannot_apply_the_filter_are_dropped():
+    # r9 causa 3: NUMERO_CAMAS solo «aplica» «bloqueadas» con un valor aproximado de otra columna
+    # (SERVICIO = BLOQUEADO); CAMAS tiene el estado BLOQUEADA: no se contrapregunta.
+    results = _conversation("numero de camas que estan bloqueadas en este momento")
+    if results is None:
+        return
+    result = results[0]
+    assert result.get("status") == "success", (result.get("status"), result.get("answer"))
+    values = [item.get("value") for item in (result.get("query_plan") or {}).get("filters") or []]
+    assert "BLOQUEADA" in values, values
 
 
 TESTS = [value for name, value in sorted(globals().items()) if name.startswith("test_") and callable(value)]
