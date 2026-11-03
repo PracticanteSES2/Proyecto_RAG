@@ -88,6 +88,16 @@ Pendiente de esa rama (ver `tests/real/RETOMAR.md`):
   dispositivo). Pendiente decisión del usuario: `POWERBI_AUTH=device_code` en su .env vs versionar el catálogo.
 - En curso: `agente/r7` (TU04 en real: «Recuento de PACNUMDOC» del EPS le gana a CANTIDAD DE TRIAGES; holdout restante).
 
+## Actualización 2026-11-03 (cierre)
+- Rondas r6, r7 y r8 integradas: «sin datos» con fecha de corte; «cuántos X» → CANTIDAD/NÚMERO DE X; «Recuento de
+  <identificador>» detrás de indicadores de negocio; homónimos empatados se resuelven con todos los tableros.
+- **Banco real de desarrollo: 96 % (67/70)** — la única falla nueva (FM01) es dato en vivo: DAX del bot = DAX de verdad.
+  Fallan AI05 y AI06 (PBIP de ATENCIONES incompleto). **Holdout: 80 % (39/49)**, desde 40 %.
+- Divergencias simulador ↔ real documentadas en `tests/real/RETOMAR.md` §7 (validar siempre en real).
+- Subido a GitHub (`desarrollo`). El propietario: `git stash` si tiene cambios, `git pull origin desarrollo`, y
+  `powershell -ExecutionPolicy Bypass -File .ctualizar_proyecto.ps1` (hace el login con código si falta y
+  genera los enlaces del botón).
+
 ## Pendiente (en orden)
 1. Rama `agente/qa-real`: auditoría de la verdad y del comparador del banco real (ver `tests/real/RETOMAR.md`
    en esa rama). Integrarla cuando esté.
