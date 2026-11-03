@@ -5106,6 +5106,35 @@ class QueryPlanBuilder:
             "tokens": tuple(sorted(common)),
         }
 
+    def _context_word_family(self, leftover, field, semantic_model, question, context_tokens):
+        """Familia de valores sin las palabras de contexto (páginas del
+        indicador) cuando esas palabras eran lo que elegía un solo valor."""
+        if not context_tokens:
+            return None
+        words = normalize_text(leftover).split()
+        context = [word for word in words if canonical_token(word) in context_tokens]
+        rest = [word for word in words if canonical_token(word) not in context_tokens]
+        if not context or not [word for word in rest if len(canonical_token(word)) >= 4]:
+            return None
+        full = self._resolve_implicit_value(" ".join(words), field, semantic_model, None, question)
+        if not full or full.get("values") or full.get("value") is None:
+            return None
+        if not set(canonical_tokens(full["value"])) & {canonical_token(word) for word in context}:
+            return None
+        # La pregunta también sin esas palabras: si no, «urgencias» vuelve a
+        # «contradecir» a los demás valores de la familia.
+        reduced_question = " ".join(
+            word for word in normalize_text(question or "").split() if canonical_token(word) not in context_tokens
+        )
+        reduced = self._resolve_implicit_value(" ".join(rest), field, semantic_model, None, reduced_question)
+        if not reduced or not reduced.get("values") or full["value"] not in reduced["values"]:
+            return None
+        return {
+            **reduced,
+            "reason": reduced["reason"] + f"; «{' '.join(context)}» es la página donde se ve el indicador, "
+                      "no distingue entre esos valores",
+        }
+
     def _categorical_filter(self, field, resolved, source, semantic_model):
         data_type = self._column_type(semantic_model, field["table"], field["column"])
         if resolved.get("values") and resolved.get("value") is None:
@@ -5213,11 +5242,17 @@ class QueryPlanBuilder:
         # columnas de baja cardinalidad) a medida que el bucle los revisa, en su
         # orden de prioridad; al encontrar una coincidencia fuerte (≥ 1.0) no se
         # consulta el resto. Mismo orden y mismos valores que antes.
+        # Las páginas donde se ve el indicador («URGENCIAS» para TRIAGES) son
+        # su contexto: no distinguen entre valores de una familia.
+        page_tokens = {
+            token for page in self._metric_pages(metric) for token in canonical_tokens(page) if len(token) >= 4
+        }
         best = None
         for position, field in enumerate(ordered):
             self._prefetch_next(semantic_model, ordered, position)
             resolved = self._resolve_implicit_value(
                 leftover, field, semantic_model, decisions, question=question,
+                context_tokens=page_tokens,
             )
             if not resolved:
                 continue
@@ -5352,8 +5387,20 @@ class QueryPlanBuilder:
             return f"«{counted}» es lo que se cuenta en la pregunta, no un filtro"
         return None
 
-    def _resolve_implicit_value(self, leftover, field, semantic_model, decisions=None, question=None):
-        """Valor de `field` nombrado en `leftover` con las reglas estrictas, o None."""
+    def _resolve_implicit_value(self, leftover, field, semantic_model, decisions=None, question=None,
+                                context_tokens=None):
+        """Valor de `field` nombrado en `leftover` con las reglas estrictas, o None.
+
+        `context_tokens`: palabras de las páginas del indicador. Si una de
+        ellas es lo único que separa el mejor valor de su familia («triages
+        obstétricos en URGENCIAS»: URGENCIA OBSTETRICA frente a EMERGENCIA
+        OBSTETRICA, CONSULTA EXTERNA OBSTETRICA...), se filtra por la familia:
+        la página nombra dónde se ve el indicador, no un valor (holdout H05)."""
+        family = self._context_word_family(leftover, field, semantic_model, question, context_tokens)
+        if family is not None:
+            if decisions is not None:
+                decisions.append(f"aplicado: {family['reason']}")
+            return family
         values = self._get_values(semantic_model, field["table"], field["column"])
         if not values:
             return None
