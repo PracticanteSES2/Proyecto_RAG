@@ -2638,11 +2638,13 @@ class QueryPlanBuilder:
         words = self._question_content_words(business_question)
         tokens = [canonical_token(word) for word in words]
         tokens = [token for token in dict.fromkeys(tokens) if token and not _is_question_form_word(token)]
-        if len(tokens) < 2:
-            return None
         model_hint = ""
         if (source_context or {}).get("status") == "resolved" and source_context.get("routing_strength") == "strong":
             model_hint = normalize_text(source_context.get("semantic_model"))
+        # Con el tablero nombrado basta una palabra («porcentaje de MORTALIDAD
+        # según el perfil de morbilidad» -> %DEFUNCIONES, «Mortalidad: ...»).
+        if len(tokens) < (1 if model_hint else 2):
+            return None
 
         def common_root(token, other):
             # Raíz común de 4+ letras a la que solo le falta la terminación
@@ -2664,7 +2666,9 @@ class QueryPlanBuilder:
 
         found, by_name = {}, False
         for metric in self._dedupe_metrics(self.metrics):
-            if metric.get("validation_status") != "approved" or not metric.get("appearances"):
+            # Con el tablero nombrado también cuentan sus medidas sin visual
+            # (PBIR del informe sin definición de visuales).
+            if metric.get("validation_status") != "approved" or not (metric.get("appearances") or model_hint):
                 continue
             if model_hint and normalize_text(metric.get("semantic_model")) != model_hint:
                 continue
@@ -7579,8 +7583,13 @@ class QueryPlanBuilder:
         words = tail.split()
         first = canonical_token(words[0]) if words else ""
         variants = [tail]
-        for synonym in self._DIMENSION_NAME_SYNONYMS.get(first, ()):
-            if synonym != first:
+        synonyms = next(
+            (values for key, values in self._DIMENSION_NAME_SYNONYMS.items()
+             if canonical_token(key) == first or _stem_token(key) == _stem_token(words[0])),
+            (),
+        )
+        for synonym in synonyms:
+            if canonical_token(synonym) != first:
                 variants.append(" ".join([synonym, *words[1:]]))
         best = None
         for field in fields:

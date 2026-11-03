@@ -2924,7 +2924,9 @@ class QueryEngine:
             if asked:
                 chosen = asked
             elif bases:
-                chosen = bases[:1]
+                # Las bases (sin marca de variante) siguen siendo opciones
+                # entre sí: mismo nombre con otro cálculo se sigue preguntando.
+                chosen = bases
             else:
                 keep.update(group)
                 continue
