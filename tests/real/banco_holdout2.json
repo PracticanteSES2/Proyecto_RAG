@@ -323,7 +323,7 @@
     "informe": "TABLERO DE ATENCIONES INSTITUCIONALES",
     "pagina": "CONSULTAS OBSTETRICAS",
     "visual": null,
-    "dax": "EVALUATE ROW(\"v\", CALCULATE([Total_consultas_gineco],\n    KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[TIPO_TRIAGE]), 'CONSULTA_URGENCIAS'[TIPO_TRIAGE] IN {\"EMERGENCIA OBSTETRICA - I-G\", \"NO URGENTE OBSTETRICA - IV-G\", \"URGENCIA MEDICA OBSTETRICA - II-G\", \"URGENCIA OBSTETRICA - III-G\"})),\n    KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[FECHA_FOLIO]), NOT (ISBLANK('CONSULTA_URGENCIAS'[FECHA_FOLIO])))),\n    KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 10, 1) && 'Calendario'[Date] <= DATE(2026, 10, 31)))))",
+    "dax": "EVALUATE ROW(\"v\", CALCULATE([Total_consultas_gineco],\n    KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[FECHA_FOLIO]), NOT (ISBLANK('CONSULTA_URGENCIAS'[FECHA_FOLIO])))),\n    KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 10, 1) && 'Calendario'[Date] <= DATE(2026, 10, 31)))))",
     "unidad": "",
     "tolerancia": 0.01,
     "porcentaje": false,
@@ -370,7 +370,13 @@
     "unidad": "",
     "tolerancia": 0.0,
     "porcentaje": false,
-    "filtros_no_traducidos": []
+    "filtros_no_traducidos": [],
+    "alternativas": [
+     {
+      "modelo": "ASIGNACION DE CITAS",
+      "dax": "EVALUATE ROW(\"v\", SUM(CITAS_ASIGNADAS[CONFIRMADO]))"
+     }
+    ]
    },
    "nota": "Porción CONFIRMADO de la torta de estados de INICIO.",
    "criterio": "Verdad = cifra que el usuario ve en el visual 9e03d7b662e8502b0d3b de la página «INICIO» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido."
@@ -414,7 +420,13 @@
     "unidad": "",
     "tolerancia": 0.0,
     "porcentaje": false,
-    "filtros_no_traducidos": []
+    "filtros_no_traducidos": [],
+    "alternativas": [
+     {
+      "modelo": "ASIGNACION DE CITAS",
+      "dax": "EVALUATE ROW(\"v\", SUM(CITAS_ASIGNADAS[ANULADO]))"
+     }
+    ]
    },
    "nota": "Porción ANULADO de la torta de estados de INICIO.",
    "criterio": "Verdad = cifra que el usuario ve en el visual 9e03d7b662e8502b0d3b de la página «INICIO» de ASIGNACION DE CITAS: medida + filtros de informe, página y visual + periodo pedido."
