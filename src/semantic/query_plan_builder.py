@@ -10707,9 +10707,10 @@ class QueryPlanBuilder:
             metric, candidates, used_fields, candidates_words, question=question,
         ):
             result["filters"].append((field, resolved))
+            shown = resolved["value"] if resolved.get("value") is not None else " o ".join(resolved.get("values") or [])
             self._note(
                 f"«{resolved['phrase']}» se interpretó como {field['table']}[{field['column']}] = "
-                f"{resolved['value']} (coincidencia aproximada por raíz/plural)"
+                f"{shown} (coincidencia aproximada por raíz/plural)"
             )
         # c) Lo que sigue sin interpretar y la documentación del propio
         # indicador usa para describirlo («aumento de PRECIO», «imágenes
@@ -11323,6 +11324,21 @@ class QueryPlanBuilder:
             return 0.0
         return round(0.90 + 0.10 * coverage, 4)
 
+    def _fuzzy_value_family(self, tokens, tied, field, semantic_model):
+        """Valores empatados por una coincidencia aproximada que comparten la
+        palabra de la pregunta (lista ordenada), o None si es uno solo, son
+        demasiados o son todo el dominio (entonces la palabra no filtra)."""
+        values = list(dict.fromkeys(value for value, _ in tied))
+        if not (2 <= len(values) <= self._FAMILY_MAX_VALUES):
+            return None
+        domain = self._get_values(semantic_model, field["table"], field["column"]) or []
+        if domain and len(values) >= len([value for value in domain if value is not None]):
+            return None
+        for _, value_tokens in tied:
+            if not all(any(_tokens_match_loosely(token, other) for other in value_tokens) for token in tokens):
+                return None
+        return sorted(values, key=normalize_text)
+
     def _fuzzy_qualifier_filters(self, metric, candidates, used_fields, words, question=None):
         """Regla 3b: valores de dimensión aproximados del modelo del indicador.
         Prueba primero la frase completa y luego frases más cortas (cada una
@@ -11362,6 +11378,7 @@ class QueryPlanBuilder:
                     if not tokens:
                         continue
                     best = None
+                    ties = []   # otros valores del mismo campo con el mismo puntaje
                     for position, field in enumerate(fields):
                         if best is not None and best[0] >= 1.0:
                             break
@@ -11377,7 +11394,8 @@ class QueryPlanBuilder:
                         ) or [value for value, _ in index]
                         for value, value_tokens in index:
                             score = self._fuzzy_value_score(tokens, value_tokens)
-                            if not score or (best is not None and score <= best[0]):
+                            same = best is not None and best[1] is field and score == best[0]
+                            if not score or (best is not None and score <= best[0] and not same):
                                 continue
                             # Una palabra genérica sola («general») no elige un
                             # valor de varias palabras (HOSPITALIZACIÓN GENERAL)
@@ -11401,15 +11419,34 @@ class QueryPlanBuilder:
                                 "calificativo aproximado",
                             ):
                                 continue
+                            if same:
+                                ties.append((value, value_tokens))
+                                continue
                             best = (score, field, value, value_tokens)
+                            ties = []
                     if best is None:
                         continue
                     score, field, value, value_tokens = best
                     used.add((normalize_text(field.get("table")), normalize_text(field.get("column"))))
-                    found.append((field, {
-                        "value": value, "score": score, "phrase": " ".join(span),
-                        "tokens": set(value_tokens) | {canonical_token(word) for word in span},
-                    }))
+                    family = self._fuzzy_value_family(tokens, [(value, value_tokens), *ties], field, semantic_model)
+                    if family is not None:
+                        # «obstétricos» con URGENCIA OBSTETRICA, EMERGENCIA
+                        # OBSTETRICA...: la palabra es común a todos y la
+                        # pregunta no dice cuál -> se filtra por todos (holdout H05).
+                        found.append((field, {
+                            "value": None, "values": family, "score": score, "phrase": " ".join(span),
+                            "tokens": {t for _, toks in [(value, value_tokens), *ties] for t in toks}
+                                      | {canonical_token(word) for word in span},
+                        }))
+                        self._note(
+                            f"«{' '.join(span)}» es común a varios valores de {field['table']}[{field['column']}] "
+                            f"({', '.join(family)}) y la pregunta no dice cuál: se suman todos"
+                        )
+                    else:
+                        found.append((field, {
+                            "value": value, "score": score, "phrase": " ".join(span),
+                            "tokens": set(value_tokens) | {canonical_token(word) for word in span},
+                        }))
                     remaining = remaining[:start] + remaining[start + size:]
                     progress = True
                     break

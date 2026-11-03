@@ -191,6 +191,59 @@ def test_dominated_options_drop_implicit_identifier_count():
             qpb.question_coverage = saved
 
 
+# ------------------------------------------------------------ 4. familia por coincidencia aproximada (H05)
+_PATCHED = ("_implicit_eligible", "_field_filters_metric", "_value_token_index", "_get_values", "_prefetch_next",
+            "_spurious_value_reason", "_value_contradiction", "_generic_partial_value")
+
+
+def _with_domain(qpb, values):
+    from src.semantic.query_plan_builder import canonical_tokens
+    saved = {name: qpb.__dict__.get(name) for name in _PATCHED}
+    qpb._implicit_eligible = lambda field, model: True
+    qpb._field_filters_metric = lambda metric, field: True
+    qpb._value_token_index = lambda model, field: [(value, canonical_tokens(value)) for value in values]
+    qpb._get_values = lambda model, table, column, limit=None: list(values)
+    qpb._prefetch_next = lambda *args, **kwargs: None
+    qpb._spurious_value_reason = lambda *args, **kwargs: None
+    qpb._value_contradiction = lambda *args, **kwargs: False
+    qpb._generic_partial_value = lambda *args, **kwargs: False
+    return saved
+
+
+def _fuzzy(qpb, words):
+    field = {"table": "PEDIDOS", "column": "TIPO", "kind": "column", "aliases": ["TIPO"]}
+    return qpb._fuzzy_qualifier_filters(_by_id("visitas"), [field], set(), words, question=" ".join(words))
+
+
+def test_fuzzy_word_common_to_several_values_filters_by_all():
+    qpb = builder()
+    saved = _with_domain(qpb, ["URGENTE INTERNO", "URGENTE EXTERNO", "NORMAL", "DEVOLUCION"])
+    try:
+        # Nuevas: «pedidos urgentes», «urgentes» (plural: coincidencia aproximada).
+        for words in (["urgentes"], ["urgentes", "pedidos"]):
+            found = _fuzzy(qpb, words)
+            assert found, words
+            resolved = found[0][1]
+            assert resolved["value"] is None and resolved["values"] == [
+                "URGENTE EXTERNO", "URGENTE INTERNO"], (words, resolved)
+        # La palabra que distingue («internos») elige uno solo.
+        found = _fuzzy(qpb, ["urgentes", "internos"])
+        assert found and found[0][1]["value"] == "URGENTE INTERNO", found
+        # Una palabra de un solo valor sigue eligiendo ese valor.
+        found = _fuzzy(qpb, ["devoluciones"])
+        assert found and found[0][1]["value"] == "DEVOLUCION", found
+    finally:
+        _restore(qpb, saved)
+
+
+def _restore(qpb, saved):
+    for name, value in saved.items():
+        if value is None:
+            qpb.__dict__.pop(name, None)
+        else:
+            qpb.__dict__[name] = value
+
+
 TESTS = [value for name, value in sorted(globals().items()) if name.startswith("test_") and callable(value)]
 
 
