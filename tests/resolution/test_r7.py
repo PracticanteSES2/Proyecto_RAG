@@ -259,6 +259,25 @@ def test_group_label_skips_implicit_aggregation_reference():
         assert ":" not in label, label
 
 
+# ------------------------------------------------------------ 6. verbo de reparto (H02)
+def test_distribution_verb_is_not_the_head_noun():
+    from src.semantic.query_plan_builder import canonical_phrases
+    # Nuevas: «cómo están distribuidas las visitas por servicio», «cómo se
+    # reparten los pedidos x tipo», «cómo quedaron divididos los kilos por turno».
+    for text, kept in (("como estan distribuidas las visitas por servicio", "visitas por servicio"),
+                       ("como se reparten los pedidos x tipo", "pedidos x tipo"),
+                       ("como quedaron divididos los kilos por turno", "kilos por turno")):
+        rewritten, changes = canonical_phrases(text)
+        assert changes and kept in rewritten, (text, rewritten)
+        assert not any(word in rewritten for word in ("distribuid", "reparten", "dividid")), rewritten
+    # Sin «por <X>» no se toca («visitas repartidas» puede ser un estado).
+    assert canonical_phrases("cuantas visitas repartidas hay")[1] == []
+    # Con el verbo quitado, el sustantivo principal es lo que se reparte.
+    qpb = builder()
+    question = canonical_phrases("como estan distribuidas las visitas por servicio")[0]
+    assert qpb._head_token(question, qpb._source_context(question)) == canonical_token("visitas")
+
+
 def _restore(qpb, saved):
     for name, value in saved.items():
         if value is None:

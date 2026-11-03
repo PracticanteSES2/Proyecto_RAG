@@ -501,6 +501,16 @@ PROGRESSIVE_VERB_RE = re.compile(
 )
 
 
+# «cómo están REPARTIDAS las camas por estado», «cómo se distribuyen los
+# pacientes por servicio»: el verbo de reparto pide la agrupación que sigue
+# («por <X>»); no es el sustantivo del indicador ni un filtro (holdout H02).
+DISTRIBUTION_VERB_RE = re.compile(
+    r"(?<![a-z0-9])(?:(?:se\s+)?(?:esta|estan|estaba|estaban|quedan|queda|quedaron|quedo|van|fueron|son)\s+)?"
+    r"(?:repartid|distribuid|dividid)[oa]s?(?![a-z0-9])"
+    r"|(?<![a-z0-9])se\s+(?:reparten|distribuyen|dividen|reparte|distribuye|divide)(?![a-z0-9])"
+)
+
+
 def canonical_phrases(text):
     """(texto, [(frase original, reemplazo)]) con las frases equivalentes unificadas."""
     original = str(text or "")
@@ -509,6 +519,10 @@ def canonical_phrases(text):
     for match in PROGRESSIVE_VERB_RE.finditer(normalized):
         changes.append((match.group(0), ""))
     normalized = re.sub(r"\s{2,}", " ", PROGRESSIVE_VERB_RE.sub(" ", normalized)).strip()
+    distribution = DISTRIBUTION_VERB_RE.search(normalized)
+    if distribution and re.search(r"(?<![a-z0-9])(?:por|segun|x)(?![a-z0-9])", normalized[distribution.end():]):
+        changes.append((distribution.group(0), ""))
+        normalized = re.sub(r"\s{2,}", " ", DISTRIBUTION_VERB_RE.sub(" ", normalized, count=1)).strip()
     for pattern, replacement in PHRASE_SYNONYMS:
         for match in pattern.finditer(normalized):
             if match.group(0) != replacement:
