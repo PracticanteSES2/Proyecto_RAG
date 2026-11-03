@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # Actualiza el proyecto con lo último de la rama `desarrollo`
 # y deja el RAG listo para probar.
 #
@@ -79,6 +79,19 @@ $revision | & $python -X utf8 -
 if ($LASTEXITCODE -ne 0) { Falla "Faltan variables obligatorias en el .env (ver arriba)." }
 
 # ------------------------------------------------------------
+Paso "4a Sesion de Power BI para los enlaces del boton «Abrir en Power BI»"
+# El catalogo de enlaces se descarga con la API REST de Power BI y necesita
+# una sesion con codigo de dispositivo (no usa la ventana de login de ADOMD).
+& $python -X utf8 -m src.providers.powerbi_token estado
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "No hay sesion guardada: abre https://login.microsoft.com/device y escribe el codigo que aparece abajo." -ForegroundColor Yellow
+    & $python -X utf8 -m src.providers.powerbi_token login
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "AVISO: no se completo el inicio de sesion; el boton «Abrir en Power BI» no tendra enlaces." -ForegroundColor Yellow
+    }
+}
+
+# ------------------------------------------------------------
 Paso "4/5 Regenerar el RAG (metadata, catálogos, enlaces e índice)"
 Write-Host "Puede abrirse la ventana de inicio de sesión de Microsoft: entra con tu cuenta de Power BI." -ForegroundColor Yellow
 Write-Host "Este paso puede tardar varios minutos (embeddings de la documentación)."
@@ -89,6 +102,13 @@ if ($LASTEXITCODE -ne 0) { Falla "update_rag.py falló en algún paso (ver el me
 
 # ------------------------------------------------------------
 Paso "5/5 Listo"
+if (Test-Path "data\catalog\report_links.json") {
+    Write-Host "Enlaces del boton «Abrir en Power BI»: OK (data\catalog\report_links.json)." -ForegroundColor Green
+} else {
+    Write-Host "AVISO: no se generaron los enlaces del boton «Abrir en Power BI»." -ForegroundColor Yellow
+    Write-Host "  Ejecuta:  .venv\Scripts\python.exe -m src.providers.powerbi_token login" -ForegroundColor Yellow
+    Write-Host "  y luego:  .venv\Scripts\python.exe -X utf8 sync_powerbi_links.py" -ForegroundColor Yellow
+}
 Write-Host "Si la aplicación estaba abierta, CIÉRRALA (Ctrl+C en su terminal) y ábrela de nuevo:" -ForegroundColor Green
 Write-Host "    .venv\Scripts\python.exe -m streamlit run app.py" -ForegroundColor Green
 Write-Host "Sin reiniciar la app no se ven los cambios (botón «Abrir en Power BI», nuevas respuestas)."
