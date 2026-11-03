@@ -2690,6 +2690,7 @@ class QueryEngine:
             scored.append((float(item.get("score") or 0.0), metric))
         scored = self._collapse_measure_variants(question, scored)
         scored = self._drop_dominated_options(question, scored)
+        scored = self._options_matching_range(question, scored)
         if not scored:
             return []
         best = max(score for score, _ in scored)
@@ -2941,6 +2942,55 @@ class QueryEngine:
                 )
         return [pair for index, pair in enumerate(scored) if index in keep]
 
+    _RANGE_UNITS = {"hora": 1 / 24, "dia": 1, "semana": 7, "mes": 30, "ano": 365}
+    _QUESTION_RANGE_RE = re.compile(
+        r"(?:entre|de)\s+(\d{1,4})\s+(?:y|a|-)\s+(\d{1,4})\s+(horas?|dias?|semanas?|mes(?:es)?|anos?)"
+    )
+    _LABEL_RANGE_RE = re.compile(r"(\d{1,4})\s*-\s*(\d{1,4})\s*(horas?|dias?|semanas?|mes(?:es)?|anos?)")
+
+    def _range_days(self, low, high, unit):
+        unit = unit.rstrip("s")
+        unit = "mes" if unit.startswith("mes") else unit
+        factor = self._RANGE_UNITS.get(unit)
+        return None if factor is None else (int(low) * factor, int(high) * factor)
+
+    def _options_matching_range(self, question, scored):
+        """Regla: si la pregunta pide un rango («entre 2 y 4 meses») y las
+        opciones son tramos con su rango en el nombre («0-30 DÍAS»,
+        «30-120 DÍAS»), se elige el único tramo que contiene el rango pedido."""
+        if len(scored) < 2 or not question:
+            return scored
+        import unicodedata
+
+        def plain(value):
+            value = unicodedata.normalize("NFD", str(value or "").lower())
+            return "".join(char for char in value if unicodedata.category(char) != "Mn")
+
+        match = self._QUESTION_RANGE_RE.search(plain(question))
+        if not match:
+            return scored
+        wanted = self._range_days(*match.groups())
+        if wanted is None:
+            return scored
+        containing, ranged = [], 0
+        for pair in scored:
+            label = plain(pair[1].get("label"))
+            found = self._LABEL_RANGE_RE.search(label)
+            span = self._range_days(*found.groups()) if found else None
+            if span is None:
+                continue
+            ranged += 1
+            if span[0] <= wanted[0] + 1e-9 and wanted[1] <= span[1] + 1e-9:
+                containing.append(pair)
+        if ranged < 2 or len(containing) != 1:
+            return scored
+        self._think(
+            "Tramo elegido por el rango de la pregunta",
+            f"«{match.group(0)}» cae en {containing[0][1].get('label')}; los demás tramos no lo contienen",
+        )
+        self._range_choice = containing[0][1].get("metric_id")
+        return containing
+
     def _drop_dominated_options(self, question, scored):
         """Regla: una opción que explica (por nombre, tabla, página, tablero o
         nombre funcional) solo una parte de lo que explica otra no responde la
@@ -3086,6 +3136,7 @@ class QueryEngine:
     def _query_plan_clarification(self, plan, raw_candidates=None, prompt=None, margin=_CLARIFICATION_MARGIN):
         if raw_candidates is None:
             raw_candidates = plan.get("metric_resolution", {}).get("candidates", [])
+        self._range_choice = None
         choices = self._build_clarification_choices(
             raw_candidates, margin=margin, question=plan.get("question"),
         )
@@ -3115,7 +3166,10 @@ class QueryEngine:
                  if (item.get("metric") or {}).get("metric_id") == choices[0]["id"]),
                 None,
             ) or {}
-            direct = self._answer_single_option(plan, metric)
+            by_range = self.__dict__.get("_range_choice") == metric.get("metric_id")
+            direct = self._answer_single_option(
+                plan, metric, why="es el único tramo que contiene el rango pedido" if by_range else None,
+            )
             if direct is not None:
                 return direct
         self._pending_query_plan = {

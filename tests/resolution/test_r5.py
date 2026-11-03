@@ -241,6 +241,20 @@ def test_different_measures_are_not_variants():
     assert len(engine()._collapse_measure_variants("visitas", scored)) == 2
 
 
+def test_range_in_the_question_picks_the_bracket_that_contains_it():
+    # Nuevas: «insumos que vencen entre 1 y 3 semanas» (7-21 días) -> 0-30 DÍAS;
+    # «entre 2 y 6 meses» (60-180) no cabe en ningún tramo: se pregunta.
+    def scored():
+        return [(1.0, _option(1, "INSUMOS EN VENCIMIENTO 0-30 DÍAS", "[A]")),
+                (1.0, _option(2, "INSUMOS EN VENCIMIENTO 30-120 DÍAS", "[B]")),
+                (1.0, _option(3, "CANTIDAD", "[C]"))]
+    kept = engine()._options_matching_range("cuantos insumos vencen entre 1 y 3 semanas", scored())
+    assert [metric["metric_id"] for _, metric in kept] == [1], kept
+    kept = engine()._options_matching_range("cuantos insumos se vencen entre 2 y 4 meses", scored())
+    assert [metric["metric_id"] for _, metric in kept] == [2], kept
+    assert len(engine()._options_matching_range("insumos que vencen entre 2 y 6 meses", scored())) == 3
+
+
 def test_dominated_option_is_not_offered():
     # Nueva: «visitas domiciliarias del tablero gestión»: VISITAS DOMICILIARIAS
     # explica todo; VISITAS solo una parte.
