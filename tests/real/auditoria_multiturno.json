@@ -1,0 +1,403 @@
+{
+ "corrida": {
+  "commit": "54e4efb",
+  "fecha": "2026-11-03T14:37:18",
+  "salidas": "tests/real/out_multiturno/multiturno_20261103_143640/resultados.json (checkout principal)",
+  "automatica": "turnos 41/70, seguimientos 21/45, conversaciones 7/25"
+ },
+ "criterio": [
+  "Mismo criterio que auditoria_holdout2.json; la verdad de cada turno es la cifra del tablero con el contexto acumulado (periodo, filtro, tablero e indicador de los turnos anteriores).",
+  "origen: «suelta» = la pregunta suelta (o el turno 1) tiene el mismo problema y el contexto se conservó; «contexto» = el seguimiento perdió o deformó el periodo, filtro, tablero o indicador del turno anterior; «heredado» = depende de una opción que el runner pulsó por defecto en un turno anterior (inconcluso).",
+  "Se auditaron los 29 turnos fallidos y los aciertos sospechosos (MT10.3: verdad vacía por valor supuesto).",
+  "clase: a = falla real del bot, b = verdad equivocada o no evaluable, c = comparador demasiado estricto, d = contrapregunta legítima.",
+  "Re-evaluar: python -m tests.real.run_multiturno --reevaluar <copia de resultados.json> --auditoria tests/real/auditoria_multiturno.json (solo aplica el veredicto si la respuesta coincide: huella)."
+ ],
+ "causas": {
+  "1": "Filtros de página/visual no aplicados (valor general)",
+  "4": "Contrapregunta innecesaria",
+  "5": "Indicador equivocado o no resuelto",
+  "9": "Otra (cifra inventada por el RAG)",
+  "11": "Filtro de la pregunta reducido a un solo valor de una familia («obstétricos»)",
+  "20": "Contexto: periodo relativo al turno anterior («el mes anterior (a ese)») resuelto contra HOY",
+  "21": "Contexto: el seguimiento no hereda el indicador (va a RAG, fuera de alcance, contrapregunta u otro indicador)",
+  "22": "Contexto: sustitución elíptica del indicador («¿y el de consulta?») ignorada",
+  "23": "Contexto: arrastra los filtros del visual anterior en vez de los del visual del valor nuevo («¿y las ocupadas?»)",
+  "25": "Contexto: la reescritura mete palabras del texto de la respuesta anterior («filtros»)"
+ },
+ "turnos": {
+  "MT01.1": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "suelta",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4"
+   ],
+   "huella": "2cd9de04d5c7",
+   "nota": "«tiempo promedio de triage» = TIEMPO PARA TRIAGE; ofreció también TIEMPO PROMEDIO PARA ADMISION (solo comparte la página). El runner pulsó la 1.ª opción (ADMISION): banco corregido con elegir."
+  },
+  "MT01.2": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "filtro",
+    "indicador"
+   ],
+   "causas": [
+    "20"
+   ],
+   "huella": "2cd9de04d5c7",
+   "nota": "«¿y el mes anterior a ese?» repitió octubre (mes pasado contra hoy) en vez de septiembre. El indicador (ADMISION) viene del clic del runner."
+  },
+  "MT01.3": {
+   "veredicto": "inconcluso",
+   "clase": "b",
+   "origen": "heredado",
+   "fallas": [],
+   "causas": [],
+   "huella": "b24966ce78e8",
+   "nota": "Periodo correcto (noviembre hasta hoy); el indicador es el que el runner eligió por defecto en el turno 1: no dice nada del contexto. Banco corregido (elegir = TIEMPO PARA TRIAGE)."
+  },
+  "MT03.1": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "suelta",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "1"
+   ],
+   "huella": "fb3bd9fc8cb8",
+   "nota": "Total Egresos sin el filtro de página de INDICADORES sobre DIM_SERVICIO (2.598 frente a 1.362)."
+  },
+  "MT03.2": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "suelta",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "1"
+   ],
+   "huella": "2fa355d8290d",
+   "nota": "Contexto bien (agosto, mismo indicador); falla el mismo filtro de página que el turno 1."
+  },
+  "MT03.3": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "suelta",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "1"
+   ],
+   "huella": "81712788909a",
+   "nota": "Contexto bien (2025); falla el mismo filtro de página que el turno 1."
+  },
+  "MT04.1": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "suelta",
+   "fallas": [
+    "contrapregunta",
+    "filtro"
+   ],
+   "causas": [
+    "4",
+    "1"
+   ],
+   "huella": "37ff17519534",
+   "nota": "«triages sin atender» = tarjeta de Demanda con HCCESTADO = 2 (261); contrapreguntó contra CANTIDAD DE TRIAGES (que no son «sin atender») y respondió sin el filtro del visual (268, «No pude aplicar: atender»)."
+  },
+  "MT04.2": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "20",
+    "1"
+   ],
+   "huella": "4d67b7a300e3",
+   "nota": "«¿y el mes anterior?» repitió octubre en vez de septiembre."
+  },
+  "MT04.3": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "suelta",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "1"
+   ],
+   "huella": "c09f7a91408a",
+   "nota": "Periodo bien (año); sigue sin el filtro HCCESTADO = 2 del visual (2.781 frente a 2.345)."
+  },
+  "MT06.2": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "21"
+   ],
+   "huella": "92a2d5fb6b68",
+   "nota": "«¿por turno?» (sin «y») fue al RAG: no se detectó como seguimiento de PESO TOTAL. Con «¿y por servicio?» (MT05) sí funciona."
+  },
+  "MT07.3": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "21"
+   ],
+   "huella": "5ff558c18443",
+   "nota": "«¿cuál servicio tuvo más?» perdió Total Egresos (turnos 1-2 dijeron bien «no hay datos») y contrapreguntó entre 6 indicadores; el runner pulsó %OCUPACION."
+  },
+  "MT08.2": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "21"
+   ],
+   "huella": "a3bf008dc9d5",
+   "nota": "«¿cómo se reparten por especialidad?» fue al RAG; debía desglosar CITAS EN ESPERA (MT08.1). La frase «cómo se reparten» además se toma como descriptiva (también suelta, ver H02)."
+  },
+  "MT08.3": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "21"
+   ],
+   "huella": "d78a08f01870",
+   "nota": "«¿y por aseguradora?» fue al RAG: el último turno de datos (MT08.1) ya no sirve de base tras un turno de RAG."
+  },
+  "MT09.2": {
+   "veredicto": "no_evaluado",
+   "clase": "b",
+   "origen": null,
+   "fallas": [],
+   "causas": [],
+   "huella": "b60adb0938f7",
+   "nota": "Verdad con valor supuesto: CONTAINSSTRING(TERNOMCOM, \"NUEVA EPS\") da vacío; el nombre es «NUEVA EMPRESA PROMOTORA DE SALUD EPS S.A.», que es justo el que usó el bot (133). Verdad corregida; recalcular (Q04). Contexto conservado (TOTAL PACIENTES + filtro)."
+  },
+  "MT09.3": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "indicador",
+    "filtro"
+   ],
+   "causas": [
+    "21"
+   ],
+   "huella": "64eea3929e29",
+   "nota": "«¿y de SURA?» cambió a PACIENTES HOSPITALIZADOS (página URGENCIAS) y perdió el filtro: 6 frente a 112."
+  },
+  "MT10.2": {
+   "veredicto": "no_evaluado",
+   "clase": "b",
+   "origen": null,
+   "fallas": [],
+   "causas": [],
+   "huella": "3b9e47fe07e4",
+   "nota": "Verdad con valor supuesto («NUEVA EPS» no está en ULT_GESTION[TERNOMCOM]). El bot filtró ULT_GESTION[ENTIDAD] = \"NUEVA EPS\" ($35.000), probablemente un plan y no la aseguradora: confirmar con Q05/Q06."
+  },
+  "MT10.3": {
+   "veredicto": "no_evaluado",
+   "clase": "b",
+   "origen": null,
+   "fallas": [],
+   "causas": [],
+   "huella": "aadea3d50c44",
+   "nota": "El acierto automático («no hay datos») venía de la verdad vacía por el valor supuesto. Contexto conservado (acumula NUEVA EPS + HOSPITALARIO). Recalcular con la verdad corregida (Q05)."
+  },
+  "MT11.2": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "suelta",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "11"
+   ],
+   "huella": "47d38bccf589",
+   "nota": "«¿y los obstétricos?» filtró solo URGENCIA OBSTETRICA (29) en vez de la familia …OBSTETRICA (30). Contexto bien (TRIAGES del Briefing)."
+  },
+  "MT12.2": {
+   "veredicto": "acierto",
+   "clase": "b",
+   "origen": null,
+   "fallas": [],
+   "causas": [],
+   "huella": "7c755073aa5e",
+   "nota": "Verdad discutible: CARDIOLOGIA exacta (659) es la barra de EN ESPERA X ESPECIALIDAD (MT08.2) y lo que se elige en el segmentador; CONTAINSSTRING «CARDIOLOG» (881) suma otras. Alternativa añadida."
+  },
+  "MT12.3": {
+   "veredicto": "acierto",
+   "clase": "c",
+   "origen": null,
+   "fallas": [],
+   "causas": [],
+   "huella": "0d4ab71dceb7",
+   "nota": "Verdad vacía (no hay citas en espera de pediatría) y el bot dijo «0» para un conteo: es la misma información; el comparador exigía la frase «no hay datos»."
+  },
+  "MT13.2": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "23"
+   ],
+   "huella": "4cc798ea9565",
+   "nota": "«¿y las ocupadas?» mantuvo el visual de CAMAS DISPONIBLES y cambió ESTADOS = OCUPADA (232); la tarjeta de ocupadas tiene sus propios filtros (259)."
+  },
+  "MT14.2": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "22"
+   ],
+   "huella": "b24966ce78e8",
+   "nota": "«¿y el de consulta?» repitió TIEMPO PROMEDIO PARA ADMISION (5,2) en vez del tiempo para consulta (48,3)."
+  },
+  "MT14.3": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "22"
+   ],
+   "huella": "b24966ce78e8",
+   "nota": "«¿y el de triage?» repitió ADMISION en vez de TIEMPO PARA TRIAGE."
+  },
+  "MT16.1": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "suelta",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "5",
+    "4"
+   ],
+   "huella": "833b2dfc4d43",
+   "nota": "«triages atendidos … tablero eps» = nombre de la página TRIAGES ATENDIDOS (recuento de OID_TRIAGE). Dijo no encontrarlo y ofreció %OCUPACIONALC, Triages Gineco…"
+  },
+  "MT17.2": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "5",
+    "25"
+   ],
+   "huella": "85f709c54703",
+   "nota": "«de esos cuántos ya salieron» = EGRESO_EFECTIVO_HOY (también falla suelta, G03). Además preguntó por «filtros ya»: la reescritura metió «filtros» del texto de la respuesta anterior."
+  },
+  "MT17.3": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "21"
+   ],
+   "huella": "4b1e9c02481d",
+   "nota": "«¿en qué servicios están?» fue al RAG (remisiones); debía agrupar EGRESOS PROBABLES por servicio."
+  },
+  "MT19.3": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "indicador",
+    "inventada"
+   ],
+   "causas": [
+    "21",
+    "9"
+   ],
+   "huella": "8bea7f50e6bc",
+   "nota": "«¿y de mujeres?» fue al RAG, que INVENTÓ «125». Debía ser la tarjeta MUJERES (33), igual que HOMBRES."
+  },
+  "MT20.1": {
+   "veredicto": "acierto",
+   "clase": "d",
+   "origen": null,
+   "fallas": [],
+   "causas": [],
+   "huella": "c9260880c8ce",
+   "nota": "Contrapregunta legítima: «cuántas camas disponibles hay» sin «ahora» la responden el Briefing y ATENCIONES con cifras distintas; se eligió BRIEFING y la cifra es correcta (15)."
+  },
+  "MT23.2": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "21"
+   ],
+   "huella": "f22fe2b3dde9",
+   "nota": "«¿y por aseguradora?» fue al RAG; debía desglosar los EGRESOS de ayer por tercero."
+  },
+  "MT24.3": {
+   "veredicto": "falla",
+   "clase": "a",
+   "origen": "contexto",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "21"
+   ],
+   "huella": "5a2dd8ae26a5",
+   "nota": "«¿cuál está más lleno?» → fuera de alcance; debía tomar el máximo de %OCUPACION por servicio (MT24.2)."
+  }
+ }
+}

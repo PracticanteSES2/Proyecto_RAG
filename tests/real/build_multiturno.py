@@ -61,6 +61,10 @@ def contiene(col, texto):
     return f'KEEPFILTERS(FILTER(ALL({col}), CONTAINSSTRING({col}, "{texto}")))'
 
 
+def igual(col, valor):
+    return f'KEEPFILTERS(FILTER(ALL({col}), {col} = "{valor}"))'
+
+
 def turno(n, entrada, board, tipo, **kw):
     item = case(f"_t{n}", board, tipo, entrada, **kw)
     item.pop("id")
@@ -98,13 +102,16 @@ def build():
     R, CAL = TIEMPOS[1], "Calendario[FECHA]"
     v = "3d3e950347e7ce76fbd1"  # tarjeta AVG(OPORTUNIDAD_TRIAGE[MIN]) de RESUMEN
 
-    def triage(n, entrada, periodo, R=R, CAL=CAL, v=v):
+    def triage(n, entrada, periodo, R=R, CAL=CAL, v=v, **kw):
         f, s = ctx(R, "RESUMEN", v, extra=[per(CAL, periodo)])
         return turno(n, entrada, TIEMPOS, "numero", page="RESUMEN", visual=v, skipped=s,
-                     dax=numero("AVERAGE(OPORTUNIDAD_TRIAGE[MIN])", f), unidad="min")
+                     dax=numero("AVERAGE(OPORTUNIDAD_TRIAGE[MIN])", f), unidad="min", **kw)
 
     add(conv("MT01", "periodo", "Tiempo de triage: mes pasado → el anterior → este mes", [
-        triage(1, "cuanto fue el tiempo promedio de triage en urgencias el mes pasado", "mes_pasado"),
+        # Auditoría multiturno: si el bot contrapregunta (innecesario), el runner debe pulsar el indicador correcto;
+        # con la primera opción (TIEMPO PROMEDIO PARA ADMISION) los turnos 2 y 3 heredaban un indicador ajeno.
+        triage(1, "cuanto fue el tiempo promedio de triage en urgencias el mes pasado", "mes_pasado",
+               elegir="TIEMPO PARA TRIAGE"),
         triage(2, "¿y el mes anterior a ese?", "mes_antepasado"),
         triage(3, "¿y en lo que va de este mes?", "este_mes")]))
 
@@ -194,7 +201,9 @@ def build():
         turno(1, "cuantos pacientes hay hospitalizados ahora", BRIEF, "numero", page="INICIO", visual=v_pac,
               skipped=s, dax=numero(pac, f), tol=0.0),
         turno(2, "¿y de esos cuántos son de NUEVA EPS?", BRIEF, "numero", page="INICIO", visual=v_pac, skipped=s,
-              dax=numero(pac, f + [contiene(ase, "NUEVA EPS")]), tol=0.0),
+              dax=numero(pac, f + [contiene(ase, "NUEVA EMPRESA PROMOTORA")]), tol=0.0,
+              criterio="Tarjeta TOTAL PACIENTES de INICIO con la aseguradora NUEVA EPS. En TERNOMCOM se llama «NUEVA "
+                       "EMPRESA PROMOTORA DE SALUD EPS S.A.» (auditoría multiturno: «NUEVA EPS» no existe como texto)."),
         turno(3, "¿y de SURA?", BRIEF, "numero", page="INICIO", visual=v_pac, skipped=s,
               dax=numero(pac, f + [contiene(ase, "SURA")]), tol=0.0)]))
 
@@ -202,7 +211,9 @@ def build():
     v = "c159d258360e91566173"
     f, s = ctx(R, "INICIO", v)
     fac = "SUM(ULT_GESTION[FACTURADO])"
-    eps = contiene("ULT_GESTION[TERNOMCOM]", "NUEVA EPS")
+    # Auditoría multiturno: TERNOMCOM trae el nombre legal («NUEVA EMPRESA PROMOTORA DE SALUD EPS S.A.»), no
+    # «NUEVA EPS» (la verdad daba vacío). Por confirmar con tests/real/consultas_auditoria.json.
+    eps = contiene("ULT_GESTION[TERNOMCOM]", "NUEVA EMPRESA PROMOTORA")
     add(conv("MT10", "filtro", "Valor estimado: total → NUEVA EPS → de eso, hospitalario", [
         turno(1, "cual es el valor estimado pendiente de facturar", FACT, "numero", page="INICIO", visual=v,
               skipped=s, dax=numero(fac, f), unidad="$", tol=0.01),
@@ -227,15 +238,19 @@ def build():
     f, s = ctx(R, "INICIO", v_esp)
     esp = "EN_ESPERA[GEEDESCRI]"
 
-    def espera(n, entrada, texto, f=f, s=s):
+    def espera(n, entrada, texto, exacto=None, f=f, s=s):
+        # Auditoría multiturno (MT12.2): elegir la especialidad exacta en el segmentador («CARDIOLOGIA», 659) es
+        # tan válido como la familia por CONTAINSSTRING («CARDIOLOG», 881): se acepta como alternativa.
+        alts = [numero("DISTINCTCOUNT(EN_ESPERA[OID_CITA])", f + [igual(esp, exacto)])] if exacto else None
         return turno(n, entrada, CITAS, "numero", page="INICIO", visual=v_esp, skipped=s,
                      dax=numero("DISTINCTCOUNT(EN_ESPERA[OID_CITA])", f + [contiene(esp, texto)]), tol=0.0,
+                     alternativas=alts,
                      criterio="Tarjeta de citas en espera de INICIO con la especialidad pedida (CONTAINSSTRING sobre "
                               "EN_ESPERA[GEEDESCRI]: lo que se ve al elegirla en el segmentador).")
 
     add(conv("MT12", "filtro", "Citas en espera por especialidad: ortopedia → cardiología → pediatría", [
         espera(1, "cuantas citas hay en espera para ortopedia", "ORTOPED"),
-        espera(2, "¿y para cardiología?", "CARDIOLOG"),
+        espera(2, "¿y para cardiología?", "CARDIOLOG", exacto="CARDIOLOGIA"),
         espera(3, "¿y para pediatría?", "PEDIATR")]))
 
     # ================================================================ INDICADOR

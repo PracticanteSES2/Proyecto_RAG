@@ -144,6 +144,10 @@ def build():
              criterio="[RELACIÓN] = SUM(VAGINALES)/SUM(CESÁREAS) de PARTOS_DRIVE con el filtro de página de PARTOS y "
                       "el año 2025." + MODELO_DOC + PARTOS_FECHA))
     f, s = ctx(R, "CONSULTAS OBSTETRICAS", None, extra=[rango(CAL, OCT)])
+    # Auditoría holdout 2: el filtro de página del PBIR usa CONSULTA_URGENCIAS[TIPO_TRIAGE], que ya no existe en el
+    # modelo (la columna es CLASIFICACION_TRIAGE) y rompía la verdad. [Total_consultas_gineco] ya se restringe a
+    # «-G»/MATERNIDAD, así que se quita el filtro obsoleto.
+    f = [x for x in f if "TIPO_TRIAGE" not in x]
     add(case("G15", ATEN, "numero", "consultas de urgencias de gineco obstetricia en octubre", page="CONSULTAS OBSTETRICAS",
              skipped=s, dax=numero("[Total_consultas_gineco]", f), tol=0.01,
              criterio="[Total_consultas_gineco] (clasificación con «-G» o causa MATERNIDAD) con el filtro de página de "
@@ -158,8 +162,11 @@ def build():
     R = CITAS[1]
     v = "9e03d7b662e8502b0d3b"
     f, s = ctx(R, "INICIO", v)
+    # Auditoría holdout 2 (G19): el filtro de página sobre EN_ESPERA[CCEESTADO] es de OTRA tabla y cambia la cifra
+    # < 2 % (105.741 frente a 104.868); como en AC02 se acepta también la cifra sin ese filtro.
     add(case("G17", CITAS, "numero", "cuantas citas ya fueron confirmadas por el paciente", page="INICIO", visual=v,
              skipped=s, dax=numero("SUM(CITAS_ASIGNADAS[CONFIRMADO])", f), tol=0.0,
+             alternativas=[numero("SUM(CITAS_ASIGNADAS[CONFIRMADO])", [])],
              nota="Porción CONFIRMADO de la torta de estados de INICIO."))
     v = "ce79a12d6b5d1b85e797"
     f, s = ctx(R, "OFERTA ESPECIALIDADES", v)
@@ -170,6 +177,7 @@ def build():
     f, s = ctx(R, "INICIO", v)
     add(case("G19", CITAS, "numero", "total de citas anuladas", page="INICIO", visual=v, skipped=s,
              dax=numero("SUM(CITAS_ASIGNADAS[ANULADO])", f), tol=0.0,
+             alternativas=[numero("SUM(CITAS_ASIGNADAS[ANULADO])", [])],
              nota="Porción ANULADO de la torta de estados de INICIO."))
 
     # ------------------------------------------------------------ EPS (2)

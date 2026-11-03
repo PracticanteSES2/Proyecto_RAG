@@ -220,3 +220,34 @@ IDs a validar en real: `correr_todo --solo TU04,TU01,TU03,TU10,BH10,BH15,EP02,AI
   Programador de tareas: ver el docstring de `regresion_real.py` y `regresion_tarea.ps1` (la tarea NO se creó).
 - Pendiente: primera corrida real y `--aceptar` para crear la línea base; auditar los fallos de holdout 2 y del
   multiturno (verdades de PBIP incompletos y valores supuestos: NUEVA EPS, SURA, ORTOPED, MEROPENEM, HOSPITAL).
+
+## 9. Auditoría de holdout 2 y multiturno (rama `agente/qa-auditoria-2`, corridas de `desarrollo` antes del refactor)
+
+Archivos: `auditoria_holdout2.json`, `auditoria_multiturno.json` (veredicto por turno, campo `origen`),
+`consultas_auditoria.json` (DAX de solo lectura pendientes, Q01–Q07). `run_multiturno --reevaluar <copia> --auditoria
+tests/real/auditoria_multiturno.json` aplica los veredictos auditados (por huella).
+
+- **Holdout 2**: 9/49 → **10/49 (20 %)**. 41 auditados: a = 39, b = 1 (G15: verdad rota, columna TIPO_TRIAGE
+  inexistente), c = 1 (G19: filtro de página de otra tabla < 2 %), d = 0. Verdades corregidas en `build_holdout2`
+  (G15 sin el filtro obsoleto; G17/G19 con alternativa sin el filtro de EN_ESPERA). G31 («UCI») pendiente de Q01.
+  Valores supuestos revisados: MEROPENEM y HOSPITAL(ARIO) existen (verdad no vacía); «UCI» probablemente no.
+- **Multiturno**: turnos 41/70 → **43/66 (65 %)**, seguimientos 21/45 → **22/41 (54 %)**, conversaciones 7/25 →
+  **9/24 (38 %)**. 30 auditados: a = 23 (15 de contexto, 8 de la pregunta suelta), b = 5 (NUEVA EPS supuesto en
+  MT09.2, MT10.2, MT10.3; MT12.2 cardiología exacta; MT01.3 heredado del clic del runner), c = 1 (MT12.3: «0» = sin
+  datos), d = 1 (MT20.1). `build_multiturno`: NUEVA EPS → «NUEVA EMPRESA PROMOTORA», alternativa exacta en MT12.2 y
+  `elegir = TIEMPO PARA TRIAGE` en MT01.1. SURA y ORTOPED dan cifra (familias por CONTAINSSTRING).
+
+Causas raíz (reglas generales; se da la función porque el código se está refactorizando):
+| Causa | Casos | Dónde | Regla |
+|---|---|---|---|
+| Datos → RAG | G02 G11 G16 G18 G23 G29 G31 G34 G35 G39 G41 G42 (G26 al revés) | `query_plan_builder.looks_numeric`, `QueryEngine.process` | Comparación «X o Y», «por/según X», «top N», «qué día/servicio… más», página nombrada = datos; el RAG nunca da cifras ni listas de valores (G16, G29, MT19.3 inventaron) |
+| Indicador no resuelto | G03 G04 G08 G10 G13 G14 G27 G32 G36 G40 G43 G44 G45 G47 MT16.1 | `_resolve_metric`, `alternative_metrics`, `_source_context` | Lematizar verbos/clíticos (asignarle, dispensarse, admitieron, salieron, altas); sinónimos (más caras→AUMENTÓ); un valor categórico (meropenem) o el nombre del tablero (naos, morbilidad) fija el tablero; preferir medidas usadas en visuales (G14) |
+| Contrapregunta innecesaria | G03 G04 G06 G08 G14 G24 G25 G32 G37 G38 G40 G45 G46 G47 MT01.1 MT04.1 | `_unresolved_words_clarification`, `_build_clarification_choices`, `_query_plan_failure` | Descartar opciones que no aplican el filtro pedido o no cubren el periodo; nunca confirmar UNA opción; «diferentes» = DISTINCT |
+| Filtro/agrupación espurios o negados | G17 G21 G24 G25 G26 G28 MT11.2 | `_resolve_implicit_value`, `_requested_group_tail`, `_value_match_score` | «por el paciente/los facturadores» (agente) no es desglose; «sin contar X» = NOT IN; «cuentas» no es PERFIL; palabra común a varios valores = familia |
+| Filtros de página no aplicados | MT03.x MT04.x | `_visual_filter_clauses`, `_with_visual_filters` | Aplicar los filtros de página del indicador también en medidas |
+| Contexto: seguimiento no detectado | MT06.2 MT07.3 MT08.2 MT08.3 MT09.3 MT17.3 MT19.3 MT23.2 MT24.3 | `contextual_rewriter.analyze`, `QueryEngine._followup_plan`, `_contextual_generic`, `_documentation_about_topic` | Mensaje corto tras datos («¿por X?», «¿cuál … más?», «¿y de mujeres?») se intenta PRIMERO como seguimiento; valor/columna/medida hermana de la tabla anterior = filtro o agrupación; la base es el último turno de DATOS aunque haya un RAG en medio |
+| Contexto: periodo relativo | MT01.2 MT04.2 | `_followup_plan` / `_with_previous_year`, `period_parser` | «el mes/año/semana anterior (a ese)» se desplaza desde el periodo del turno anterior, no desde hoy |
+| Contexto: elipsis de indicador | MT14.2 MT14.3 | `_ELLIPSIS_RE` + `_followup_plan` | «¿y el de X?» reemplaza el calificativo del indicador anterior y re-resuelve en el mismo tablero |
+| Contexto: visual arrastrado | MT13.2 | `_followup_plan` | Si el valor nuevo tiene su propia tarjeta, usar sus filtros |
+| Contexto: reescritura contaminada | MT17.2 | `LLMContextRewriter.build_messages/validate`, `conversation_memory.summarize_result` | El transcript no lleva rótulos de la respuesta («Filtros:»); `validate` rechaza palabras que solo están ahí |
+| Fuera de alcance clínico | G50 | detector de alcance (`question_kind`) | Dosis/tratamiento se rechaza antes del Query Plan |

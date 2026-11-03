@@ -124,6 +124,32 @@ def evaluate_all(results, convs):
     return results
 
 
+AUDITORIA = HERE / "auditoria_multiturno.json"
+
+
+def apply_audit(results, audit):
+    """Veredicto auditado por turno (tests/real/auditoria_multiturno.json, clave «MT01.2»): reemplaza la
+    evaluación automática solo si la respuesta final del turno es la misma que se auditó (huella)."""
+    from tests.real import auditoria
+
+    casos = (audit or {}).get("turnos") or {}
+    n = 0
+    for r in results:
+        for t in r["turnos"]:
+            item = casos.get(t["id"])
+            last = (t["turnos"][-1].get("answer") if t["turnos"] else "") or ""
+            if not item or item.get("huella") != auditoria.huella(last):
+                continue
+            n += 1
+            ver = item["veredicto"]
+            t["eval"] = {**t["eval"], "auditado": True, "clase": item.get("clase"), "origen": item.get("origen"),
+                         "causas": item.get("causas") or [],
+                         "correcto": {"acierto": True, "falla": False}.get(ver),
+                         "fallas": [] if ver == "acierto" else list(item.get("fallas") or t["eval"]["fallas"])}
+        r["correcto"] = conv_ok(r["turnos"])
+    return n
+
+
 def _rate(a, b):
     return {"aciertos": a, "evaluados": b, "pct": round(100 * a / b, 1) if b else None}
 
@@ -228,6 +254,7 @@ def main(argv=None):
     parser.add_argument("--reevaluar", help="resultados.json previo: recalcula la evaluación sin volver a preguntar")
     parser.add_argument("--sim", action="store_true", help="Power BI simulado + LLM falso (sin verdad ni producción)")
     parser.add_argument("--banco", help="banco JSON (por defecto tests/real/banco_multiturno.json)")
+    parser.add_argument("--auditoria", help="con --reevaluar: auditoria_multiturno.json (veredictos por turno)")
     args = parser.parse_args(argv)
     real_env.setup_env()
     convs = load(args.banco)
@@ -236,6 +263,9 @@ def main(argv=None):
         path = Path(args.reevaluar)
         data = json.loads(path.read_text(encoding="utf-8"))
         evaluate_all(data["resultados"], convs)
+        if args.auditoria:
+            audit = json.loads(Path(args.auditoria).read_text(encoding="utf-8"))
+            print(f"Turnos con veredicto auditado: {apply_audit(data['resultados'], audit)}")
         path.write_text(json.dumps(data, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
         print(json.dumps(write_summary(path.parent, data["resultados"], data["meta"]), ensure_ascii=False, indent=1))
         return 0

@@ -12,7 +12,7 @@
      "n": 1,
      "tablero": "TABLERO TIEMPOS URGENCIAS",
      "tipo": "numero",
-     "elegir": null,
+     "elegir": "TIEMPO PARA TRIAGE",
      "contrapregunta_aceptable": false,
      "verdad": {
       "modelo": "TABLERO TIEMPOS URGENCIAS",
@@ -632,13 +632,13 @@
       "informe": "BRIEFING HOSPITALARIO",
       "pagina": "INICIO",
       "visual": "9cd6df47bd35217add22",
-      "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT('PACIENTES X ASEGURADORA'[ADNINGRESO]),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))),\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), 'SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"CUARTO PISO NORTE                                 \", \"CUARTO PISO SUR                                   \", \"CUIDADO INTERMEDIO NORTE\", \"CUIDADO INTERMEDIO SUR\", \"HOSPITALIZACION NEONATOS\", \"OBSTETRICIA                                       \", \"QUINTO PISO NORTE                                 \", \"QUINTO PISO SUR\", \"SALA AZUL 3 PISO\", \"SEXTO PISO\", \"UNIDAD DE CUIDADO INTENSIVO\", \"URGENCIAS\", \"URGENCIAS 2 PISO\"})),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))),\n    KEEPFILTERS(FILTER(ALL('PACIENTES X ASEGURADORA'[TERNOMCOM]), CONTAINSSTRING('PACIENTES X ASEGURADORA'[TERNOMCOM], \"NUEVA EPS\")))))",
+      "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT('PACIENTES X ASEGURADORA'[ADNINGRESO]),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))),\n    KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), 'SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"CUARTO PISO NORTE                                 \", \"CUARTO PISO SUR                                   \", \"CUIDADO INTERMEDIO NORTE\", \"CUIDADO INTERMEDIO SUR\", \"HOSPITALIZACION NEONATOS\", \"OBSTETRICIA                                       \", \"QUINTO PISO NORTE                                 \", \"QUINTO PISO SUR\", \"SALA AZUL 3 PISO\", \"SEXTO PISO\", \"UNIDAD DE CUIDADO INTENSIVO\", \"URGENCIAS\", \"URGENCIAS 2 PISO\"})),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))),\n    KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))),\n    KEEPFILTERS(FILTER(ALL('PACIENTES X ASEGURADORA'[TERNOMCOM]), CONTAINSSTRING('PACIENTES X ASEGURADORA'[TERNOMCOM], \"NUEVA EMPRESA PROMOTORA\")))))",
       "unidad": "",
       "tolerancia": 0.0,
       "porcentaje": false,
       "filtros_no_traducidos": []
      },
-     "criterio": "Verdad = cifra que el usuario ve en el visual 9cd6df47bd35217add22 de la página «INICIO» de BRIEFING HOSPITALARIO: medida + filtros de informe, página y visual + periodo pedido.",
+     "criterio": "Tarjeta TOTAL PACIENTES de INICIO con la aseguradora NUEVA EPS. En TERNOMCOM se llama «NUEVA EMPRESA PROMOTORA DE SALUD EPS S.A.» (auditoría multiturno: «NUEVA EPS» no existe como texto).",
      "entrada": "¿y de esos cuántos son de NUEVA EPS?"
     },
     {
@@ -700,7 +700,7 @@
       "informe": "Tablero Control de Facturacion",
       "pagina": "INICIO",
       "visual": "c159d258360e91566173",
-      "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(ULT_GESTION[FACTURADO]),\n    KEEPFILTERS(FILTER(ALL(ULT_GESTION[TERNOMCOM]), CONTAINSSTRING(ULT_GESTION[TERNOMCOM], \"NUEVA EPS\")))))",
+      "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(ULT_GESTION[FACTURADO]),\n    KEEPFILTERS(FILTER(ALL(ULT_GESTION[TERNOMCOM]), CONTAINSSTRING(ULT_GESTION[TERNOMCOM], \"NUEVA EMPRESA PROMOTORA\")))))",
       "unidad": "$",
       "tolerancia": 0.01,
       "porcentaje": false,
@@ -720,7 +720,7 @@
       "informe": "Tablero Control de Facturacion",
       "pagina": "INICIO",
       "visual": "c159d258360e91566173",
-      "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(ULT_GESTION[FACTURADO]),\n    KEEPFILTERS(FILTER(ALL(ULT_GESTION[TERNOMCOM]), CONTAINSSTRING(ULT_GESTION[TERNOMCOM], \"NUEVA EPS\"))),\n    KEEPFILTERS(FILTER(ALL(ULT_GESTION[TIPO_INGRESO]), CONTAINSSTRING(ULT_GESTION[TIPO_INGRESO], \"HOSPITAL\")))))",
+      "dax": "EVALUATE ROW(\"v\", CALCULATE(SUM(ULT_GESTION[FACTURADO]),\n    KEEPFILTERS(FILTER(ALL(ULT_GESTION[TERNOMCOM]), CONTAINSSTRING(ULT_GESTION[TERNOMCOM], \"NUEVA EMPRESA PROMOTORA\"))),\n    KEEPFILTERS(FILTER(ALL(ULT_GESTION[TIPO_INGRESO]), CONTAINSSTRING(ULT_GESTION[TIPO_INGRESO], \"HOSPITAL\")))))",
       "unidad": "$",
       "tolerancia": 0.01,
       "porcentaje": false,
@@ -820,7 +820,13 @@
       "unidad": "",
       "tolerancia": 0.0,
       "porcentaje": false,
-      "filtros_no_traducidos": []
+      "filtros_no_traducidos": [],
+      "alternativas": [
+       {
+        "modelo": "ASIGNACION DE CITAS",
+        "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT(EN_ESPERA[OID_CITA]),\n    KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), NOT ('EN_ESPERA'[CCEESTADO] IN {2}))),\n    KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), 'EN_ESPERA'[CCEESTADO] IN {0})),\n    KEEPFILTERS(FILTER(ALL(EN_ESPERA[GEEDESCRI]), EN_ESPERA[GEEDESCRI] = \"CARDIOLOGIA\"))))"
+       }
+      ]
      },
      "criterio": "Tarjeta de citas en espera de INICIO con la especialidad pedida (CONTAINSSTRING sobre EN_ESPERA[GEEDESCRI]: lo que se ve al elegirla en el segmentador).",
      "entrada": "¿y para cardiología?"

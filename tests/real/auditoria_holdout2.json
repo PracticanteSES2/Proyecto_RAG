@@ -1,0 +1,560 @@
+{
+ "corrida": {
+  "commit": "6146b53",
+  "fecha": "2026-11-03T14:30:15",
+  "salidas": "tests/real/out_holdout2/resultado.json (checkout principal)",
+  "automatica": "9/49"
+ },
+ "criterio": [
+  "Mismo criterio que tests/real/auditoria.json (RETOMAR.md): la verdad es la cifra que el usuario ve en el tablero (medida + filtros de visual y de página + periodo pedido); un filtro de página sobre OTRA tabla con efecto < 2 % se tolera (AC02).",
+  "Contrapregunta legítima solo si varias fuentes responden la pregunta TAL COMO ESTÁ con cifras distintas. No lo es si una opción no puede aplicar el filtro pedido (camas BLOQUEADAS), si es un tablero de una sola EPS para una pregunta institucional o si confirma una sola opción.",
+  "PBIP local incompleto (REFERENCIA, CVC, MORBILIDAD, páginas de ATENCIONES): si el bot falla con independencia de la fuente (indicador o enrutamiento equivocados), es falla real; la verdad se revisó contra data/model_metadata y docs_tableros.",
+  "Se auditaron las 40 fallas automáticas y el caso no evaluado (G15); los aciertos conservan el veredicto automático.",
+  "clase: a = falla real del bot, b = verdad equivocada o no evaluable, c = comparador demasiado estricto, d = contrapregunta legítima.",
+  "El veredicto solo se aplica si la respuesta coincide con la auditada (huella)."
+ ],
+ "causas": {
+  "1": "Filtros de página/visual no aplicados (valor general)",
+  "2": "Filtro o agrupación espurios por palabras de la pregunta («cuentas», «por el paciente», «por los facturadores»)",
+  "3": "Fuente sin cobertura del periodo (tablero del día) o fecha equivocada",
+  "4": "Contrapregunta innecesaria (verbo tomado como filtro, opciones que no aplican el filtro pedido, confirmación de una sola opción)",
+  "5": "Indicador equivocado o no resuelto (sinónimos, verbos, tablero nombrado, medida sin visual)",
+  "6": "Enrutamiento datos ↔ documentación (RAG) equivocado",
+  "7": "Opciones mal rotuladas",
+  "8": "Agrupación ignorada («cada etapa», «qué tipo… más», «separados por»)",
+  "9": "Otra (error de DAX, cifra inventada, lentitud)",
+  "10": "Lenguaje de chat sin normalizar (x, q, pa, d, errores de tipeo)",
+  "11": "Filtro de la pregunta ignorado, negado o reducido («sin contar X», «en facturación», «meropenem»)",
+  "12": "Periodo mal resuelto",
+  "13": "RAG recupera la definición de otro indicador",
+  "14": "Sin datos mal explicado",
+  "15": "Fuera de alcance no rechazado (consejo clínico tratado como pregunta de datos)"
+ },
+ "casos": {
+  "G02": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6",
+    "10"
+   ],
+   "huella": "c6dacd099b82",
+   "nota": "«en q pisos o servicios están repartidos» fue al RAG (describió el gráfico sin cifras). Pregunta de agrupación sobre DETALLE OCUPACIÓN: es de datos."
+  },
+  "G03": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "5",
+    "4"
+   ],
+   "huella": "5674b010d18d",
+   "nota": "«altas que se esperaban hoy … efectivas» = EGRESO_EFECTIVO_HOY de EGRESOS PROBABLES. «esperaban» casó con «ESPERA» (citas) y ofreció 5 indicadores de espera; «altas» no se reconoce como egresos."
+  },
+  "G04": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "5",
+    "4"
+   ],
+   "huella": "488bb9dedfbb",
+   "nota": "«pacientes nuevos se admitieron ayer» = ingresos (INGRESOS Y EGRESOS). Eligió PACIENTES de NAOS y preguntó por «nuevos»; «admitir/nuevos» no se asocia a INGRESOS."
+  },
+  "G05": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "agrupacion"
+   ],
+   "causas": [
+    "8"
+   ],
+   "huella": "0b6ffbfeaa47",
+   "nota": "«qué tipo de cama es la que más están pidiendo» respondió el total (70) sin agrupar por TIPO. La verdad excluye la porción en blanco (67) en el comparador: top = AISLAMIENTO."
+  },
+  "G06": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4"
+   ],
+   "huella": "a0ed250d3bb2",
+   "nota": "Cifra correcta (5), pero ofreció NUMERO CAMAS de ATENCIONES, que no tiene estado BLOQUEADA: una opción que no puede aplicar el filtro pedido no es alternativa."
+  },
+  "G08": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "5",
+    "4"
+   ],
+   "huella": "3b179722d701",
+   "nota": "«cuánto se tardaban en asignarle cama» = TIEMPO PARA ASIGNACIÓN DE CAMA (608 min). Eligió Pacientes1 (conteo) y preguntó por «asignarle»: el verbo con clítico no se lematiza a «asignación»."
+  },
+  "G10": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5"
+   ],
+   "huella": "131cc70d2282",
+   "nota": "«urgencias pidió cuántas interconsultas» = SOLICITUDES de TIEMPOS URGENCIAS (350). Eligió INTERCONSULTAS SIN RESPUESTA del Briefing (8): el filtro del visual («sin respuesta») contradice la pregunta."
+  },
+  "G11": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6"
+   ],
+   "huella": "ebfde1676164",
+   "nota": "Comparación junio/julio del tiempo de laboratorio fue al RAG (sin cifras)."
+  },
+  "G12": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "rag"
+   ],
+   "causas": [
+    "13"
+   ],
+   "huella": "d6f369bddb90",
+   "nota": "Explicó «D espera de cama» (NEDOCS, triage→asignación) en vez de TIEMPO ASIGNACIÓN CAMAS (admisión→primera estancia, tiempo_asignacion_camas.md)."
+  },
+  "G13": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5"
+   ],
+   "huella": "4366861fec62",
+   "nota": "«cesáreas realizadas en 2026» → out_of_scope. CESÁREAS es columna de PARTOS_DRIVE (página PARTOS); el bot no indexa columnas de conteo como indicador. Falla con independencia del PBIP incompleto."
+  },
+  "G14": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "5",
+    "4"
+   ],
+   "huella": "cca7bfe191d9",
+   "nota": "Contrapregunta ATENCIONES vs NUEVA EPS no legítima (el tablero de una EPS no responde la pregunta institucional). Luego usó RELACION_PARTOS_VAGINALES_CESAREA (tabla PARTOS, «no aparece en visuales» según _diccionario.md): 1,11 frente a la tarjeta [RELACIÓN] de PARTOS_DRIVE (1,056)."
+  },
+  "G15": {
+   "veredicto": "no_evaluado",
+   "clase": "b",
+   "fallas": [],
+   "causas": [],
+   "huella": "777306b98655",
+   "nota": "Verdad con error: el filtro de página usaba CONSULTA_URGENCIAS[TIPO_TRIAGE], que no existe en el modelo. Corregido en build_holdout2 (se quita el filtro obsoleto); hay que recalcular la verdad (Q02). El bot usó Total_consultas_urgencias con SERVICIO_ATENCION = GINECO-OBSTETRICIA (757): revisar con Q02."
+  },
+  "G16": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador",
+    "inventada"
+   ],
+   "causas": [
+    "6",
+    "9"
+   ],
+   "huella": "8117b07bcb4e",
+   "nota": "Top 5 especialidades quirúrgicas fue al RAG, que INVENTÓ una lista (Cardiología, Neumología…)."
+  },
+  "G17": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "2"
+   ],
+   "huella": "df464668644f",
+   "nota": "Resolvió CITAS CONFIRMADAS pero leyó «por el paciente» (complemento agente) como desglose por paciente y respondió unsupported_filter."
+  },
+  "G18": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6",
+    "10"
+   ],
+   "huella": "4df264fdfc14",
+   "nota": "«q día de la semana … deja de ir a la cita» fue al RAG (habló de canceladas de Demanda)."
+  },
+  "G19": {
+   "veredicto": "acierto",
+   "clase": "c",
+   "fallas": [],
+   "causas": [],
+   "huella": "55152fe53740",
+   "nota": "105.741 = SUM(ANULADO) sin el filtro de página sobre EN_ESPERA[CCEESTADO] (OTRA tabla; 0,8 % < 2 %, criterio AC02). Se añadió la alternativa sin ese filtro en build_holdout2."
+  },
+  "G21": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "filtro"
+   ],
+   "causas": [
+    "11"
+   ],
+   "huella": "a45dbcf8d191",
+   "nota": "«sin contar las obstétricas»: la negación no se interpreta (buscó un valor en ASEGURADORA y respondió unsupported_filter). El visual ya excluye las obstétricas: bastaba la tarjeta."
+  },
+  "G23": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6"
+   ],
+   "huella": "7511b94acd16",
+   "nota": "«próximos a vencer agrupados por mes de vencimiento» fue al RAG (explicó el cálculo, sin cifras)."
+  },
+  "G24": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4",
+    "2"
+   ],
+   "huella": "3f8a24b4d385",
+   "nota": "Cifra presente, pero contrapreguntó entre 6 montos; «por los facturadores» nombra la tabla FACTURADORES (MONTO_FACTURADO) y además se leyó como desglose (tabla por facturador en vez del total)."
+  },
+  "G25": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "filtro"
+   ],
+   "causas": [
+    "4",
+    "2",
+    "11"
+   ],
+   "huella": "d779e562e68b",
+   "nota": "«días» no encontró PROMEDIO DIAS PROCESO (sí estaba en las opciones); luego «cuentas» → PERFIL = CUENTAS (espurio, igual que FC04) y «en facturación» (PERFIL = FACTURACION) se ignoró → sin datos."
+  },
+  "G26": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "rag"
+   ],
+   "causas": [
+    "6",
+    "2"
+   ],
+   "huella": "a2da83d0d208",
+   "nota": "Pregunta de definición («incluye cuentas cerradas o solo abiertas?») enviada a datos con PERFIL = CUENTAS espurio → «No hay datos». inicio.md: valor estimado = ingresos abiertos."
+  },
+  "G27": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5"
+   ],
+   "huella": "15cf1338b6f6",
+   "nota": "«se quedaron sin la cama que pidieron» = DEMANDA_INS de Demanda Insatisfecha (509). Eligió TOTAL DE PACIENTES del Briefing (71)."
+  },
+  "G28": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "filtro",
+    "agrupacion"
+   ],
+   "causas": [
+    "2",
+    "8",
+    "10"
+   ],
+   "huella": "a45dbcf8d191",
+   "nota": "«se fue del triage sin ser atendida … de q eps son la mayoría»: buscó un valor de filtro en OPORTUNIDAD_TRIAGE (EPS) y respondió unsupported_filter; la agrupación por EPS no se reconoció."
+  },
+  "G29": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador",
+    "inventada"
+   ],
+   "causas": [
+    "6",
+    "9"
+   ],
+   "huella": "452644f68fa2",
+   "nota": "Comparación septiembre/octubre fue al RAG, que afirmó «subió» sin cifras (dirección adivinada: 294→346)."
+  },
+  "G31": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6"
+   ],
+   "huella": "96708cb7f9c1",
+   "nota": "Fue al RAG (definición de la medida, sin cifra). OJO verdad: CONTAINSSTRING(SERVICIO, \"UCI\") da vacío; probable valor supuesto (los servicios se llaman «UNIDAD DE CUIDADO INTENSIVO…»): ver consultas_auditoria.json (Q01) y corregir el texto del filtro."
+  },
+  "G32": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "indicador",
+    "filtro"
+   ],
+   "causas": [
+    "4",
+    "5",
+    "11"
+   ],
+   "huella": "3b68b8cfafbc",
+   "nota": "«ahorita cuántos pacientes están con meropenem»: «meropenem» es un valor de ANTIBIOTICOS[ANTIBIOTICO] y debía fijar el tablero (PAC_ACT = 9). Contrapreguntó entre conteos de pacientes de otros tableros."
+  },
+  "G34": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6",
+    "10"
+   ],
+   "huella": "30672f882145",
+   "nota": "Comparación julio/agosto de lavandería fue al RAG."
+  },
+  "G35": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6"
+   ],
+   "huella": "7893bc8141ff",
+   "nota": "«los de naos en qué servicio están» fue al RAG; es la agrupación por servicio de LISTADO."
+  },
+  "G36": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5"
+   ],
+   "huella": "aeb67d5fb6a6",
+   "nota": "metric_not_resolved: «naos» (nombre del tablero) = la población de PACIENTES. La verdad vacía es real (hoy no hay NAOS en CUARTO PISO, ver G35): la respuesta correcta es «no hay»."
+  },
+  "G37": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta"
+   ],
+   "causas": [
+    "4"
+   ],
+   "huella": "af2fdc377473",
+   "nota": "Cifra correcta (31,4) tras contrapreguntar por «promedio» entre 5 tiempos; «lo pendiente … dispensarse» nombra PENDIENTES_RT[TIEMPO_DISPENSACION] (verbo sin lematizar)."
+  },
+  "G38": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "agrupacion"
+   ],
+   "causas": [
+    "4",
+    "8"
+   ],
+   "huella": "5f284ab538de",
+   "nota": "«cuánto hay en cada etapa» = por NomEstado de INGRESOS DÍA. Ofreció los indicadores de otra página y dio el total (14) sin agrupar; «etapa» no se asocia a estado."
+  },
+  "G39": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6"
+   ],
+   "huella": "0c806921a5c1",
+   "nota": "Nombra la página PROMEDIO GESTION MENSUAL y «cantidad de registros»: es dato (SUM CANTIDAD_REGISTROS); fue al RAG."
+  },
+  "G40": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "4",
+    "5"
+   ],
+   "huella": "dc3eacaf81e4",
+   "nota": "Confirmación de UNA opción equivocada (PROMEDIO ESTANCIA HORAS de ATENCIONES). «contestarle a quien nos remite» = TIEMPO PROMEDIO RESPUESTA de REFERENCIA. Falla con independencia del PBIP incompleto."
+  },
+  "G41": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6"
+   ],
+   "huella": "697eb89b0437",
+   "nota": "Agrupación por RANGO_REMISION fue al RAG (listó los rangos sin cifras)."
+  },
+  "G42": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "6"
+   ],
+   "huella": "0e1d70039b41",
+   "nota": "Lista de causas de no aceptación fue al RAG, que describió columnas en vez de los valores."
+  },
+  "G43": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5",
+    "10"
+   ],
+   "huella": "c2a8ab0f7598",
+   "nota": "«pacientes q nos refieren» = REFERENCIA[ANOS]; tomó PROMEDIO EDAD del Briefing (PACIENTES EMERGENCIA)."
+  },
+  "G44": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "indicador"
+   ],
+   "causas": [
+    "5"
+   ],
+   "huella": "5a2dd8ae26a5",
+   "nota": "out_of_scope: «compras que llegaron más caras» = TOTAL COMPRAS CON AUMENTO (ESTADO = AUMENTÓ, cvc.md); falta el sinónimo «más caras»→aumentó."
+  },
+  "G45": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "4",
+    "5"
+   ],
+   "huella": "c0bb906fbbb1",
+   "nota": "«productos diferentes … según cvc» → Volatilidad_Costo y contrapregunta por «diferentes» (= DISTINCT). TOTAL PRODUCTOS es la tarjeta (cvc.md)."
+  },
+  "G46": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "agrupacion",
+    "lenta"
+   ],
+   "causas": [
+    "4",
+    "3",
+    "8"
+   ],
+   "huella": "47fcb64510a0",
+   "nota": "Confirmación de una sola opción (EGRESOS del Briefing, que solo trae el día anterior) → sin datos 2025; «separados por hombres y mujeres» ignorado (Sexo). Fuente con cobertura: MATRIZ 2024 de MORBILIDAD."
+  },
+  "G47": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "contrapregunta",
+    "indicador"
+   ],
+   "causas": [
+    "4",
+    "5"
+   ],
+   "huella": "16587867d091",
+   "nota": "«en morbilidad» nombra el tablero y se tomó como filtro («egresados morbilidad»); usó PROMEDIO EDAD del Briefing → sin datos."
+  },
+  "G50": {
+   "veredicto": "falla",
+   "clase": "a",
+   "fallas": [
+    "alcance",
+    "contrapregunta"
+   ],
+   "causas": [
+    "15"
+   ],
+   "huella": "4e3d71fd6387",
+   "nota": "Dosis de acetaminofén (consejo clínico) → «Peso total por mes» de lavandería por «kilos». Debe rechazarse."
+  }
+ }
+}
