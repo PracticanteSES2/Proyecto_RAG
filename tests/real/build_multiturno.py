@@ -102,13 +102,16 @@ def build():
     R, CAL = TIEMPOS[1], "Calendario[FECHA]"
     v = "3d3e950347e7ce76fbd1"  # tarjeta AVG(OPORTUNIDAD_TRIAGE[MIN]) de RESUMEN
 
-    def triage(n, entrada, periodo, R=R, CAL=CAL, v=v):
+    def triage(n, entrada, periodo, R=R, CAL=CAL, v=v, **kw):
         f, s = ctx(R, "RESUMEN", v, extra=[per(CAL, periodo)])
         return turno(n, entrada, TIEMPOS, "numero", page="RESUMEN", visual=v, skipped=s,
-                     dax=numero("AVERAGE(OPORTUNIDAD_TRIAGE[MIN])", f), unidad="min")
+                     dax=numero("AVERAGE(OPORTUNIDAD_TRIAGE[MIN])", f), unidad="min", **kw)
 
     add(conv("MT01", "periodo", "Tiempo de triage: mes pasado → el anterior → este mes", [
-        triage(1, "cuanto fue el tiempo promedio de triage en urgencias el mes pasado", "mes_pasado"),
+        # Auditoría multiturno: si el bot contrapregunta (innecesario), el runner debe pulsar el indicador correcto;
+        # con la primera opción (TIEMPO PROMEDIO PARA ADMISION) los turnos 2 y 3 heredaban un indicador ajeno.
+        triage(1, "cuanto fue el tiempo promedio de triage en urgencias el mes pasado", "mes_pasado",
+               elegir="TIEMPO PARA TRIAGE"),
         triage(2, "¿y el mes anterior a ese?", "mes_antepasado"),
         triage(3, "¿y en lo que va de este mes?", "este_mes")]))
 

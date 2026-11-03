@@ -12,7 +12,7 @@
      "n": 1,
      "tablero": "TABLERO TIEMPOS URGENCIAS",
      "tipo": "numero",
-     "elegir": null,
+     "elegir": "TIEMPO PARA TRIAGE",
      "contrapregunta_aceptable": false,
      "verdad": {
       "modelo": "TABLERO TIEMPOS URGENCIAS",

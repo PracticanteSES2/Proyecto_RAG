@@ -1,0 +1,54 @@
+{
+ "descripcion": "Consultas DAX de SOLO LECTURA pendientes de la auditoría de holdout 2 y multiturno (agente qa-auditoria-2). Solo columnas NO personales (servicios, aseguradoras, especialidades) y agregados. Las ejecuta el coordinador; con el resultado se corrige el generador (build_holdout2 / build_multiturno) y se cierra el veredicto en auditoria_holdout2.json / auditoria_multiturno.json.",
+ "consultas": [
+  {
+   "id": "Q01",
+   "casos": ["G31"],
+   "modelo": "TABLERO_ANTIBIOTICOS",
+   "motivo": "La verdad de G31 filtra CONTAINSSTRING(ANTIBIOTICOS[SERVICIO], \"UCI\") y da vacío: probable valor supuesto. Ver cómo se llaman los servicios de cuidado intensivo y cuántas dosis tienen.",
+   "dax": "EVALUATE SUMMARIZECOLUMNS(ANTIBIOTICOS[SERVICIO], \"dosis\", [TOTAL DOSIS SUMINISTRADAS]) ORDER BY ANTIBIOTICOS[SERVICIO]"
+  },
+  {
+   "id": "Q02",
+   "casos": ["G15"],
+   "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "motivo": "Verdad de G15 corregida (sin el filtro obsoleto sobre CONSULTA_URGENCIAS[TIPO_TRIAGE]) frente a la cifra del bot (Total_consultas_urgencias con SERVICIO_ATENCION = GINECO-OBSTETRICIA = 757).",
+   "dax": "EVALUATE ROW(\"verdad\", CALCULATE([Total_consultas_gineco], KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[FECHA_FOLIO]), NOT ISBLANK('CONSULTA_URGENCIAS'[FECHA_FOLIO]))), KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 10, 1) && 'Calendario'[Date] <= DATE(2026, 10, 31)))), \"bot\", CALCULATE([Total_consultas_urgencias], TREATAS({\"GINECO-OBSTETRICIA\"}, 'CONSULTA_URGENCIAS'[SERVICIO_ATENCION]), KEEPFILTERS(FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 10, 1) && 'Calendario'[Date] <= DATE(2026, 10, 31)))))"
+  },
+  {
+   "id": "Q03",
+   "casos": ["G15"],
+   "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "motivo": "Valores de la clasificación de triage (para saber si el filtro de página de CONSULTAS OBSTETRICAS se traduce a CLASIFICACION_TRIAGE).",
+   "dax": "EVALUATE VALUES('CONSULTA_URGENCIAS'[CLASIFICACION_TRIAGE])"
+  },
+  {
+   "id": "Q04",
+   "casos": ["MT09.2"],
+   "modelo": "BRIEFING HOSPITALARIO",
+   "motivo": "Verdad corregida de MT09.2 (NUEVA EPS = «NUEVA EMPRESA PROMOTORA…»). El bot respondió 133.",
+   "dax": "EVALUATE ROW(\"v\", CALCULATE(DISTINCTCOUNT('PACIENTES X ASEGURADORA'[ADNINGRESO]), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), 'SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"CUARTO PISO NORTE                                 \", \"CUARTO PISO SUR                                   \", \"CUIDADO INTERMEDIO NORTE\", \"CUIDADO INTERMEDIO SUR\", \"HOSPITALIZACION NEONATOS\", \"OBSTETRICIA                                       \", \"QUINTO PISO NORTE                                 \", \"QUINTO PISO SUR\", \"SALA AZUL 3 PISO\", \"SEXTO PISO\", \"UNIDAD DE CUIDADO INTENSIVO\", \"URGENCIAS\", \"URGENCIAS 2 PISO\"})), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), KEEPFILTERS(FILTER(ALL('PACIENTES X ASEGURADORA'[TERNOMCOM]), CONTAINSSTRING('PACIENTES X ASEGURADORA'[TERNOMCOM], \"NUEVA EMPRESA PROMOTORA\")))))"
+  },
+  {
+   "id": "Q05",
+   "casos": ["MT10.2", "MT10.3"],
+   "modelo": "Tablero Control Facturacion",
+   "motivo": "Cómo aparece NUEVA EPS en ULT_GESTION[TERNOMCOM] (aseguradora del treemap) y su valor estimado total y hospitalario.",
+   "dax": "EVALUATE SUMMARIZECOLUMNS(ULT_GESTION[TERNOMCOM], KEEPFILTERS(FILTER(ALL(ULT_GESTION[TERNOMCOM]), CONTAINSSTRING(ULT_GESTION[TERNOMCOM], \"NUEVA\"))), \"total\", SUM(ULT_GESTION[FACTURADO]), \"hospitalario\", CALCULATE(SUM(ULT_GESTION[FACTURADO]), KEEPFILTERS(FILTER(ALL(ULT_GESTION[TIPO_INGRESO]), CONTAINSSTRING(ULT_GESTION[TIPO_INGRESO], \"HOSPITAL\")))))"
+  },
+  {
+   "id": "Q06",
+   "casos": ["MT10.2"],
+   "modelo": "Tablero Control Facturacion",
+   "motivo": "El bot filtró ULT_GESTION[ENTIDAD] = \"NUEVA EPS\" ($35.000): ver qué es ENTIDAD (¿plan/contrato?) frente a TERNOMCOM.",
+   "dax": "EVALUATE SUMMARIZECOLUMNS(ULT_GESTION[ENTIDAD], KEEPFILTERS(FILTER(ALL(ULT_GESTION[ENTIDAD]), CONTAINSSTRING(ULT_GESTION[ENTIDAD], \"NUEVA\"))), \"total\", SUM(ULT_GESTION[FACTURADO]))"
+  },
+  {
+   "id": "Q07",
+   "casos": ["MT12.2", "MT12.3"],
+   "modelo": "ASIGNACION DE CITAS",
+   "motivo": "Especialidades de EN_ESPERA que contienen CARDIOLOG o PEDIATR (familia frente a valor exacto) con sus citas en espera.",
+   "dax": "EVALUATE SUMMARIZECOLUMNS(EN_ESPERA[GEEDESCRI], KEEPFILTERS(FILTER(ALL(EN_ESPERA[GEEDESCRI]), CONTAINSSTRING(EN_ESPERA[GEEDESCRI], \"CARDIOLOG\") || CONTAINSSTRING(EN_ESPERA[GEEDESCRI], \"PEDIATR\"))), KEEPFILTERS(FILTER(ALL('EN_ESPERA'[CCEESTADO]), 'EN_ESPERA'[CCEESTADO] IN {0})), \"en_espera\", DISTINCTCOUNT(EN_ESPERA[OID_CITA]))"
+  }
+ ]
+}

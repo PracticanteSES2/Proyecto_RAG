@@ -547,6 +547,7 @@
    "veredicto": "falla",
    "clase": "a",
    "fallas": [
+    "alcance",
     "contrapregunta"
    ],
    "causas": [
