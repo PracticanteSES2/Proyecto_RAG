@@ -4,8 +4,8 @@ pagina: DETALLE OCUPACIÓN
 nombre_funcional: Pacientes hospitalizados con días de estancia y semáforo de estancia prolongada
 bloque: Día
 tablas: [PACIENTES X ASEGURADORA, AUDITORIA_CONCURRENTE]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # DETALLE OCUPACIÓN
@@ -15,7 +15,7 @@ Lista los pacientes que ocupan cama en este momento con su servicio, aseguradora
 
 ## Fuentes de datos
 - **PACIENTES X ASEGURADORA**: Camas ocupadas (HCAESTADO = 2) con ingreso, paciente, plan de beneficios, servicio, aseguradora y días de estancia. Se une con la programación de cirugía para traer la especialidad y las horas desde la solicitud de cirugía.
-- **AUDITORIA_CONCURRENTE**: Notas de seguimiento de auditoría concurrente por paciente con fecha, texto y responsable. Consulta de origen por confirmar.
+- **AUDITORIA_CONCURRENTE**: Notas de seguimiento de auditoría concurrente por paciente con fecha, texto y responsable. Consulta en DirectQuery sobre PLANILLAUSUARIO.DBO.DnSoliServicio_new: Solo solicitudes con TipNecesidadOid = 38 de ingresos sin egreso, con su última nota de seguimiento (DnHistorialSs_new).
 
 ## Indicadores
 - **Total pacientes**: Pacientes hospitalizados ocupando cama. DISTINCTCOUNT(PACIENTES X ASEGURADORA[ADNINGRESO]).
@@ -41,9 +41,10 @@ Lista los pacientes que ocupan cama en este momento con su servicio, aseguradora
 
 ## Observaciones
 - **Semáforo y leyenda no coinciden**: ColorFila pinta de amarillo desde 4 días, pero la leyenda y la tabla de rangos empiezan en 6 días; los pacientes con 4 y 5 días salen amarillos y se cuentan en «5 DÍAS O MENOS». Por confirmar cuál es el umbral correcto.
-- **Pacientes por aseguradora en INICIO**: El visual de INICIO que trae a esta página usa la misma tabla; su cálculo exacto (porcentaje por TERNOMCOM) está por confirmar.
+- **Pacientes por aseguradora en INICIO**: El visual PACIENTES por ASEGURADORA de INICIO usa la misma tabla: cantidad de pacientes = DISTINCTCOUNT(PACIENTES X ASEGURADORA[ADNINGRESO]) por TERNOMCOM y % PACIENTES = ese conteo sobre el total del visual.
 - **Versión de marzo**: La versión de marzo de 2026 de la documentación no traía la tabla de rangos de estancia.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Se completó con el PBIP (consultas SQL de las particiones TMDL, campos, agregaciones y filtros de los visuales, relaciones): consulta de AUDITORIA_CONCURRENTE y cálculo del visual de pacientes por aseguradora. Autor: agente dic-pendientes.

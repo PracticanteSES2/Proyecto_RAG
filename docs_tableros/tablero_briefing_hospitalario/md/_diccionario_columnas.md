@@ -4,8 +4,8 @@ pagina: DICCIONARIO COLUMNAS
 nombre_funcional: Diccionario de columnas del tablero
 bloque: Diccionario
 tablas: []
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # DICCIONARIO COLUMNAS
@@ -48,7 +48,7 @@ Columnas calculadas y columnas clave (usadas en visuales o filtros) del tablero 
 - **AMBULATORIO_SS[CITA]**: Cita ambulatoria próxima; la matriz CONSULTAS PRÓXIMA SEMANA las cuenta por día y tramo horario. Tipo: entero. Se usa en: INICIO › Matriz «CONSULTAS PRÓXIMA SEMANA»; CONSULTAS PROXIMA SEMANA › Tarjeta «CONSULTAS AMBULATORIAS»; CONSULTAS PROXIMA SEMANA › Tarjeta «CONSULTAS IMÁGENES»; CONSULTAS PROXIMA SEMANA › Gráfico de columnas agrupadas «CONSULTAS PROXIMA SEMANA»; CONSULTAS PROXIMA SEMANA › Matriz «CONSULTAS PRÓXIMA SEMANA».
 - **AMBULATORIO_SS[ESPECIALIDAD]**: Especialidad de la cita. Tipo: texto. Valores: nombres de especialidades médicas. Se usa en: CONSULTAS PROXIMA SEMANA › Segmentación de AMBULATORIO_SS[ESPECIALIDAD].
 - **AMBULATORIO_SS[FECHA]**: Fecha de la cita. Tipo: fecha. Se usa en: INICIO › Matriz «CONSULTAS PRÓXIMA SEMANA»; CONSULTAS PROXIMA SEMANA › Gráfico de columnas agrupadas «CONSULTAS PROXIMA SEMANA»; CONSULTAS PROXIMA SEMANA › Matriz «CONSULTAS PRÓXIMA SEMANA».
-- **AMBULATORIO_SS[TIPO_CONSULTA]**: Tipo de consulta de la cita; filtra la tarjeta CONSULTAS AMBULATORIAS. Tipo: texto. Valores: Por confirmar. Se usa en: CONSULTAS PROXIMA SEMANA › Tarjeta «CONSULTAS AMBULATORIAS»; CONSULTAS PROXIMA SEMANA › Tarjeta «CONSULTAS IMÁGENES»; CONSULTAS PROXIMA SEMANA › Segmentación de AMBULATORIO_SS[ESPECIALIDAD]; CONSULTAS PROXIMA SEMANA › Gráfico de columnas agrupadas «CONSULTAS PROXIMA SEMANA»; CONSULTAS PROXIMA SEMANA › Segmentación de AMBULATORIO_SS[TIPO_CONSULTA]; IMAGENES DIAGNOSTICAS › Tarjeta «SOLICITUDES REALIZADAS» y 1 más.
+- **AMBULATORIO_SS[TIPO_CONSULTA]**: Tipo de consulta de la cita; filtra la tarjeta CONSULTAS AMBULATORIAS. Tipo: texto. Valores: «CONSULTA AMBULATORIA» e «IMAGENES» (filtros de las tarjetas); si hay otros, Por confirmar (consulta de datos pendiente). Se usa en: CONSULTAS PROXIMA SEMANA › Tarjeta «CONSULTAS AMBULATORIAS»; CONSULTAS PROXIMA SEMANA › Tarjeta «CONSULTAS IMÁGENES»; CONSULTAS PROXIMA SEMANA › Segmentación de AMBULATORIO_SS[ESPECIALIDAD]; CONSULTAS PROXIMA SEMANA › Gráfico de columnas agrupadas «CONSULTAS PROXIMA SEMANA»; CONSULTAS PROXIMA SEMANA › Segmentación de AMBULATORIO_SS[TIPO_CONSULTA]; IMAGENES DIAGNOSTICAS › Tarjeta «SOLICITUDES REALIZADAS» y 1 más.
 - **AMBULATORIO_SS[TramoHorario]**: Hora de la cita (tramo horario) para las filas de la matriz. Tipo: fecha. Se usa en: INICIO › Matriz «CONSULTAS PRÓXIMA SEMANA»; CONSULTAS PROXIMA SEMANA › Matriz «CONSULTAS PRÓXIMA SEMANA».
 - **ATENCIONES_SERVICIO[ASEGURADOR]**: Nombre comercial del tercero (aseguradora) del plan de la atención. Tipo: texto. Valores: nombres de aseguradoras o EPS. Se usa en: ATENCIONES POR ASEGURADOR › Segmentación de ATENCIONES_SERVICIO[ASEGURADOR]; ATENCIONES POR ASEGURADOR › Gráfico de barras agrupadas «ASEGURADOR».
 - **ATENCIONES_SERVICIO[FECHA]**: Fecha en que se prestó el servicio. Tipo: fecha. Se usa en: ATENCIONES POR ASEGURADOR › Segmentación de ATENCIONES_SERVICIO[FECHA] (Año); ATENCIONES POR ASEGURADOR › Segmentación de ATENCIONES_SERVICIO[FECHA] (Mes); ATENCIONES POR ASEGURADOR › Gráfico de líneas «TOTAL DE ATENCIONES».
@@ -208,3 +208,4 @@ Columnas calculadas y columnas clave (usadas en visuales o filtros) del tablero 
 ## Historial de cambios
 - **2026-10-28 · v1**: Esqueleto generado desde data/model_metadata/briefing_hospitalario y hechos del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Se completó con el PBIP (consultas SQL de las particiones TMDL, campos, agregaciones y filtros de los visuales, relaciones): valores de TIPO_CONSULTA usados en los filtros de los visuales. Autor: agente dic-pendientes.

@@ -4,8 +4,8 @@ pagina: EXAMENES
 nombre_funcional: Exámenes de laboratorio, histórico
 bloque: Histórico
 tablas: [EXAMENES]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # EXAMENES
@@ -33,8 +33,9 @@ Muestra por año y mes la cantidad de solicitudes de exámenes con respuesta y e
 
 ## Observaciones
 - **Sin filtro de laboratorio**: A diferencia de LABORATORIOS_DIA (área 15), la sentencia no filtra el área de laboratorio y podría incluir otros tipos de examen. Por confirmar.
-- **Área 42**: El área de servicio 42 no está identificada. Por confirmar.
+- **Área 42**: El área de servicio 42 es la de ginecobstetricia: la consulta PACIENTES OBSERVADOS del BRIEFING HOSPITALARIO, sobre la misma tabla de áreas de Dinámica, anota «2=urgencias 42=ginecop».
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del PBIP y de la documentación versión 2.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Área 42 identificada con el comentario de la consulta PACIENTES OBSERVADOS del PBIP del BRIEFING HOSPITALARIO («2=urgencias 42=ginecop»), sobre la misma tabla GENARESER de Dinámica. Autor: agente dic-pendientes.

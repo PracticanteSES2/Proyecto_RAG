@@ -4,8 +4,8 @@ pagina: PACIENTES EMERGENCIA
 nombre_funcional: Pacientes atendidos por el movimiento telúrico de agosto de 2026 en Manizales
 bloque: Histórico
 tablas: []
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # PACIENTES EMERGENCIA
@@ -14,7 +14,7 @@ version: 2
 Registro de los pacientes atendidos por el hospital durante el movimiento telúrico de Manizales y los días siguientes: total de pacientes, edad promedio, distribución por observación, rango de edad y EPS. Es un registro de un evento puntual, no un indicador diario. Se llega desde el botón DETALLE del visual PACIENTES EMERGENCIA MOVIMIENTO TELURICO en INICIO.
 
 ## Fuentes de datos
-- **Archivo de emergencia**: Excel «DATOS DE PACIENTES - EMEREGENCIA HOJA DE TRABAJO (1).xlsx» en el SharePoint de coordinación de facturación hospitalaria, con documento, edad, aseguradora, fecha y observación de cada paciente. Nombre de la tabla en el modelo por confirmar.
+- **Archivo de emergencia**: Excel «DATOS DE PACIENTES - EMEREGENCIA HOJA DE TRABAJO (1).xlsx» en el SharePoint de coordinación de facturación hospitalaria, con documento, edad, aseguradora, fecha y observación de cada paciente. En el modelo es la tabla PACIENTES EMERGENCIA (Import desde Excel, hoja DATOS).
 
 ## Indicadores
 - **Total de pacientes**: Pacientes atendidos por la emergencia. Recuento de PACIENTES EMERGENCIA[DOCUMENTO].
@@ -38,3 +38,4 @@ Registro de los pacientes atendidos por el hospital durante el movimiento telúr
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Se completó con el PBIP (consultas SQL de las particiones TMDL, campos, agregaciones y filtros de los visuales, relaciones): nombre de la tabla del archivo de emergencia. Autor: agente dic-pendientes.

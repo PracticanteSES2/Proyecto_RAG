@@ -4,8 +4,8 @@ pagina: EGRESOS PROBABLES
 nombre_funcional: Pacientes hospitalizados con fecha probable de egreso y egresos efectivos de hoy
 bloque: Día
 tablas: [EGRESOS PROBABLES, TablaFechas]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # EGRESOS PROBABLES
@@ -18,8 +18,8 @@ Lista los pacientes hospitalizados con fecha probable de egreso y cuenta cuánto
 - **TablaFechas**: Calendario para el segmentador de día; la medida TieneDatos limita los días a los que tienen registros.
 
 ## Indicadores
-- **Egresos probables**: Pacientes con fecha probable de egreso según los filtros. Cálculo por confirmar (conteo de ingresos).
-- **Egresos efectivos hoy**: Pacientes con egreso efectivo en la fecha de hoy. Cálculo por confirmar (suma de EGRESO_EFECTIVO_HOY).
+- **Egresos probables**: Pacientes con fecha probable de egreso según los filtros. DISTINCTCOUNT(EGRESOS PROBABLES[AINCONSEC]).
+- **Egresos efectivos hoy**: Pacientes con egreso efectivo en la fecha de hoy. SUM(EGRESOS PROBABLES[EGRESO_EFECTIVO_HOY]); la consulta marca 1 si el ingreso tiene epicrisis de hoy o, sin epicrisis, orden de salida de hoy.
 
 ## Visuales
 - **Tarjetas**: EGRESOS PROBABLES y EGRESOS EFECTIVOS HOY.
@@ -39,3 +39,4 @@ Lista los pacientes hospitalizados con fecha probable de egreso y cuenta cuánto
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Se completó con el PBIP (consultas SQL de las particiones TMDL, campos, agregaciones y filtros de los visuales, relaciones): cálculo de las tarjetas. Autor: agente dic-pendientes.
