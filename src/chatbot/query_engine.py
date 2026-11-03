@@ -3108,6 +3108,18 @@ class QueryEngine:
             index for index, words in enumerate(covered)
             if any(other > words for other in covered)
         }
+        # Un conteo implícito de un identificador («Recuento de PACNUMDOC»)
+        # que no explica más que un indicador con nombre de negocio tampoco
+        # se ofrece: su nombre es la columna, no la entidad que se cuenta.
+        implicit = getattr(self.query_plan_builder, "_implicit_identifier_count", None)
+        if callable(implicit):
+            flags = [bool(implicit(metric)) for _, metric in scored]
+            for index, words in enumerate(covered):
+                if flags[index] and any(
+                    not flags[other] and covered[other] >= words and other not in dominated
+                    for other in range(len(scored))
+                ):
+                    dominated.add(index)
         if not dominated or len(dominated) == len(scored):
             return scored
         self._think(
