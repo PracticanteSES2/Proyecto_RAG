@@ -248,7 +248,7 @@
    "tipo": "numero",
    "pregunta": "cuantas atenciones de hospitalizacion parcial hubo en 2025",
    "turnos_extra": [],
-   "elegir": null,
+   "elegir": "ATENCION HP",
    "contrapregunta_aceptable": false,
    "verdad": {
     "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
@@ -446,7 +446,7 @@
    "tipo": "numero",
    "pregunta": "cuantos productos se vencen entre 2 y 4 meses",
    "turnos_extra": [],
-   "elegir": null,
+   "elegir": "30-120",
    "contrapregunta_aceptable": false,
    "verdad": {
     "modelo": "TABLERO_FARMACIA",

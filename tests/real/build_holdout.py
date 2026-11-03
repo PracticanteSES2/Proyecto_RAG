@@ -138,7 +138,9 @@ def build():
     CAL = "'Calendario'[Date]"
     f, s = ctx(R, "HOSPITALIZACION PARCIAL", None, extra=[rango(CAL, A2025)])
     add(case("H12", ATEN, "numero", "cuantas atenciones de hospitalizacion parcial hubo en 2025",
-             page="HOSPITALIZACION PARCIAL", skipped=s, dax=numero("[ATENCION_HP]", f), tol=0.01))
+             page="HOSPITALIZACION PARCIAL", skipped=s, dax=numero("[ATENCION_HP]", f), tol=0.01,
+             # Auditoría v1: el runner pulsó ATENCION ANUAL (medida del AÑO ANTERIOR) por coincidir el modelo.
+             elegir="ATENCION HP"))
     f, s = ctx(R, "ABORTOS", None, "este_ano", CAL)
     add(case("H13", ATEN, "numero", "cuantos abortos van este año", page="ABORTOS", skipped=s,
              dax=numero("COUNTROWS(PARTOS_DRIVE)", f), tol=0.01,
@@ -187,7 +189,9 @@ def build():
     v = "878ef1301da929a65e21"
     f, s = ctx(R, "MEDICAMENTOS VENCIDOS", v)
     add(case("H21", FARM, "numero", "cuantos productos se vencen entre 2 y 4 meses", page="MEDICAMENTOS VENCIDOS",
-             visual=v, skipped=s, dax=numero("DISTINCTCOUNT(VENCIMIENTO_PRODUCTOS[IPRCODIGO])", f), tol=0.0))
+             visual=v, skipped=s, dax=numero("DISTINCTCOUNT(VENCIMIENTO_PRODUCTOS[IPRCODIGO])", f), tol=0.0,
+             # Auditoría v1: tarjeta «30-120 DÍAS» (mes 2, 3 y 4); el runner pulsó la de 0-30 por la página.
+             elegir="30-120"))
     v = "e8ef2e93c24e94fd4b29"
     f, s = ctx(R, "INICIO", v)
     add(case("H22", FARM, "agrupado", "pendientes de farmacia por rango de horas", page="INICIO", visual=v, skipped=s,
