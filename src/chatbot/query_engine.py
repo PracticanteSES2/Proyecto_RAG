@@ -5298,6 +5298,7 @@ class QueryEngine:
         if swapped is not None:
             return swapped
         phrases, cited = [], None
+        bare = False
         pending_named = []
         from_context = complement is not None
         if complement is not None:
@@ -5422,7 +5423,7 @@ class QueryEngine:
                 )
                 return None
         status = plan.get("status")
-        if from_context and status == "ready" and not lenient:
+        if (from_context or bare) and status == "ready" and not lenient:
             # Sin «y» ni anáfora, todo el complemento debe entenderse como
             # periodo, filtro o agrupación del indicador anterior; si sobra
             # algo («total atenciones por servicio»: «atenciones») es otra pregunta.
