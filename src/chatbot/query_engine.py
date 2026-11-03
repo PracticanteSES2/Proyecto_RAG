@@ -3834,6 +3834,21 @@ class QueryEngine:
                 self._think("No se pudo revisar la única opción", f"{type(error).__name__}: {error}")
                 return None
             why = "su nombre explica todas las palabras de la pregunta"
+        # Una fuente que no trae el periodo pedido (citas de los próximos días
+        # para «el mes pasado») nunca se responde sola.
+        not_covered = getattr(self.query_plan_builder, "period_not_covered", None)
+        try:
+            missing = not_covered(question, metric) if callable(not_covered) else None
+        except Exception as error:
+            self._think("No se pudo revisar el periodo de la única opción", f"{type(error).__name__}: {error}")
+            missing = None
+        if missing:
+            self._think(
+                "La única opción no trae el periodo pedido",
+                f"{metric.get('label')}: su tabla ({missing}) no cubre el periodo según su documentación; "
+                "no se responde con ella",
+            )
+            return None
         label = str(metric.get("label") or metric_id)
         try:
             direct = self.query_plan_builder.build(question, selected_metric_id=metric_id)
@@ -6376,6 +6391,24 @@ class QueryEngine:
                         "Pregunta de ranking",
                         "pide ordenar o limitar un indicador («top», «con más/menos»): "
                         "se contrapregunta por el indicador sin pasar por la documentación",
+                    )
+                    return early_response
+                names_page = getattr(self.query_plan_builder, "names_data_page", None)
+                try:
+                    page_named = (
+                        early_response.get("status") == "needs_clarification"
+                        and callable(names_page) and names_page(message)
+                    )
+                except Exception as error:
+                    self._think("No se pudo revisar si la pregunta nombra una página", f"{type(error).__name__}: {error}")
+                    page_named = False
+                if page_named:
+                    # Regla: una frase nominal sobre una página con datos
+                    # («medicamentos vencidos del tablero de farmacia») pide
+                    # sus cifras; la documentación nunca da cifras.
+                    self._think(
+                        "La pregunta nombra una página con indicadores",
+                        "se ofrecen sus indicadores sin pasar por la documentación (RAG)",
                     )
                     return early_response
                 # Métrica no resuelta: la pregunta puede ser documental

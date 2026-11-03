@@ -2901,9 +2901,24 @@ class QueryPlanBuilder:
         activos»). Devuelve (implícitas, restantes)."""
         model = normalize_text(metric.get("semantic_model"))
         vocabulary = set(self._metric_vocabulary_tokens(metric))
+        # Lo que el diccionario dice que MIDE la propia medida («%DEFUNCIONES:
+        # Mortalidad: defunciones sobre egresos…»), no lo que dice de su tabla.
+        index = self._dictionary_index()
+        for name in (metric.get("measure"), metric.get("label")):
+            gist = index.get((model, "m:" + normalize_text(name))) if name else None
+            if gist:
+                head = re.split(r"[.;(]", gist, maxsplit=1)[0]
+                vocabulary.update(token for token in canonical_tokens(head) if len(token) >= 4)
         functional = self._functional_name_index()
+        # Páginas del indicador y las demás páginas que usan su tabla (la
+        # página CITAS de «citas canceladas por causas institucionales»).
         pages = [normalize_text(page) for page in self._metric_pages(metric)]
-        for key in [*pages, ""]:
+        try:
+            pages += [normalize_text(page) for page in self._table_pages(
+                metric.get("semantic_model"), self._metric_fact_table(metric))]
+        except Exception:
+            pass
+        for key in [*dict.fromkeys(pages), ""]:
             text = functional.get((model, key))
             if text:
                 vocabulary.update(token for token in canonical_tokens(text) if len(token) >= 3)
@@ -4335,7 +4350,7 @@ class QueryPlanBuilder:
     def _best_dimension(self, text, candidates, exclude_temporal=False):
         scored = []
         for field in candidates:
-            if exclude_temporal and self._is_temporal_field(field):
+            if exclude_temporal and self._is_period_field(field):
                 continue
             score = self._dimension_match_score(text, field)
             if score <= 0:
@@ -5434,6 +5449,19 @@ class QueryPlanBuilder:
             or column in {"date", "fecha", "fecha servicio", "fecha atencion"}
         )
 
+    def _is_period_field(self, field):
+        """¿Es una columna de periodo (fecha, año, mes) y no una categoría
+        con nombre temporal? DIA_SEMANA («1. LUNES»…) o un rango de horas de
+        texto se agrupan como cualquier dimensión («por día de la semana»)."""
+        if not self._is_temporal_field(field):
+            return False
+        model = field.get("semantic_model")
+        if model and self._column_type(model, field.get("table"), field.get("column")) == "text":
+            words = set(normalize_text(field.get("column")).replace("_", " ").split())
+            if not words & {"ano", "anio", "year", "mes", "month", "fecha", "date"}:
+                return False
+        return True
+
     def _detect_year_month(self, question):
         normalized = normalize_text(question)
         year_match = re.search(r"\b(20\d{2})\b", normalized)
@@ -6433,6 +6461,25 @@ class QueryPlanBuilder:
             }):
                 return True
         return False
+
+    def period_not_covered(self, question, metric):
+        """Tabla del indicador que, según su documentación, no trae el periodo
+        de la pregunta («el mes pasado» con las citas de los próximos días);
+        None si lo trae o la pregunta no tiene periodo."""
+        period, start, end = self._requested_period_bounds(self._metric_business_question(
+            question, self._source_context(question)))
+        if period is None:
+            return None
+        return self._metric_misses_period(metric, start, end, pages=True)
+
+    def names_data_page(self, question, dashboard=None):
+        """¿La pregunta (frase nominal) es el nombre de una página o indicador
+        con datos, solo o seguido de su tablero?"""
+        text, _ = canonical_phrases(question)
+        if self._is_descriptive(normalize_text(text)):
+            return False
+        source_context = self._source_context(text, dashboard=dashboard)
+        return self._names_indicator_exactly(text, source_context) or self._names_data_page_with_context(text)
 
     def _names_data_page_with_context(self, text):
         """Frase nominal que empieza por el nombre (2+ palabras) de una página
@@ -7593,7 +7640,7 @@ class QueryPlanBuilder:
                 variants.append(" ".join([synonym, *words[1:]]))
         best = None
         for field in fields:
-            if self._is_temporal_field(field):
+            if self._is_period_field(field):
                 continue
             head_words = normalize_text(self._column_description_head(field)).split()
             for size in range(min(len(head_words), 4), 0, -1):
