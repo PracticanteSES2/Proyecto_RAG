@@ -596,25 +596,10 @@ class QueryPlanBuilder(
         # Valores implícitos («cirugía plástica»): se buscan SIEMPRE, también
         # cuando ya hay filtros explícitos o agrupación; así ninguna palabra
         # específica se pierde porque otro filtro coincidió primero.
-        for _ in range(3):
-            implicit = self._resolve_implicit_filter(
-                question=question, metric=metric,
-                matched_name=metric_result.get("matched_name"),
-                source_context=source_context, candidates=candidates,
-                group_by=group_by, used_fields=used_fields,
-                extra_removals=consumed_tokens, decisions=implicit_decisions,
-            )
-            if not implicit:
-                break
-            field = implicit["field"]
-            implicit_filter = self._categorical_filter(
-                field, implicit, "query_plan_implicit_value", semantic_model,
-            )
-            if implicit.get("reason"):
-                implicit_filter["reason"] = implicit["reason"]
-            filters.append(implicit_filter)
-            used_fields.add((normalize_text(field["table"]), normalize_text(field["column"])))
-            consumed_tokens.update(implicit.get("tokens", ()))
+        self._add_implicit_filters(
+            3, question, metric, metric_result, source_context, candidates, group_by,
+            used_fields, consumed_tokens, implicit_decisions, filters, semantic_model,
+        )
 
         temporal_result = self._apply_temporal(temporal, candidates, semantic_model, group_by, metric=metric)
         requested_period = temporal_result["unsupported_period"]
@@ -673,25 +658,10 @@ class QueryPlanBuilder(
         # valor («camas ocupadas en uci»: tras ESTADOS_CAM = OCUPADA, «uci» es
         # SERVICIOS = UCI ADULTOS; antes «ocupadas uci» no coincidía con nada).
         if qualifier.get("filters"):
-            for _ in range(2):
-                implicit = self._resolve_implicit_filter(
-                    question=question, metric=metric,
-                    matched_name=metric_result.get("matched_name"),
-                    source_context=source_context, candidates=candidates,
-                    group_by=group_by, used_fields=used_fields,
-                    extra_removals=consumed_tokens, decisions=implicit_decisions,
-                )
-                if not implicit:
-                    break
-                field = implicit["field"]
-                implicit_filter = self._categorical_filter(
-                    field, implicit, "query_plan_implicit_value", semantic_model,
-                )
-                if implicit.get("reason"):
-                    implicit_filter["reason"] = implicit["reason"]
-                filters.append(implicit_filter)
-                used_fields.add((normalize_text(field["table"]), normalize_text(field["column"])))
-                consumed_tokens.update(implicit.get("tokens", ()))
+            self._add_implicit_filters(
+                2, question, metric, metric_result, source_context, candidates, group_by,
+                used_fields, consumed_tokens, implicit_decisions, filters, semantic_model,
+            )
 
         # El mismo indicador (mismo nombre) en otro tablero/modelo y nada en la
         # pregunta que los distinga: se contrapregunta en lugar de elegir uno.
@@ -804,6 +774,32 @@ class QueryPlanBuilder(
             "period": None if temporal_result.get("current_state") else self._period_summary(temporal),
             "dimension_candidates_checked": min(len(candidates), 20),
         }
+
+    def _add_implicit_filters(self, rounds, question, metric, metric_result, source_context, candidates,
+                              group_by, used_fields, consumed_tokens, implicit_decisions, filters,
+                              semantic_model):
+        """Hasta `rounds` filtros de valores implícitos («cirugía plástica»). Agrega a `filters`,
+        `used_fields` y `consumed_tokens` (los modifica en el sitio). Antes era un bloque copiado
+        dos veces en _build_plan (3 y 2 vueltas)."""
+        for _ in range(rounds):
+            implicit = self._resolve_implicit_filter(
+                question=question, metric=metric,
+                matched_name=metric_result.get("matched_name"),
+                source_context=source_context, candidates=candidates,
+                group_by=group_by, used_fields=used_fields,
+                extra_removals=consumed_tokens, decisions=implicit_decisions,
+            )
+            if not implicit:
+                break
+            field = implicit["field"]
+            implicit_filter = self._categorical_filter(
+                field, implicit, "query_plan_implicit_value", semantic_model,
+            )
+            if implicit.get("reason"):
+                implicit_filter["reason"] = implicit["reason"]
+            filters.append(implicit_filter)
+            used_fields.add((normalize_text(field["table"]), normalize_text(field["column"])))
+            consumed_tokens.update(implicit.get("tokens", ()))
 
     _PERIOD_SWITCH_SCORE_GAP = 0.25
 
