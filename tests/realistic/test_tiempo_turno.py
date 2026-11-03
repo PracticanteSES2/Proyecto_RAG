@@ -87,6 +87,9 @@ def _ask(text):
 
 
 def test_h34_answers_within_limit():
+    # El primer turno del proceso paga la carga en frío (catálogos, índices,
+    # caché del simulador): se calienta con otra pregunta para medir solo H34.
+    _ask("cual es el nivel de ocupacion?")
     result, ui, elapsed = _ask(H34)
     assert not (result.get("_sim") or {}).get("exception"), result["_sim"]["exception"]
     assert elapsed < MAX_TURN_S, f"«{H34}» tardó {elapsed:.1f} s (límite {MAX_TURN_S:.0f} s)"
