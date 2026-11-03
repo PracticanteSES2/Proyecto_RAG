@@ -76,6 +76,18 @@ Pendiente de esa rama (ver `tests/real/RETOMAR.md`):
   ATENCIONES incompleto: pedir el completo al propietario). Salidas `Documents/banco_real_out_v7_*`.
 - En curso: banco **holdout** (`tests/real/banco_holdout.json`, ~40 preguntas nuevas) para medir generalización.
 
+## Actualización 2026-11-03
+- Banco **holdout** (`tests/real/banco_holdout.json`, 50 preguntas nuevas, auditado en `auditoria_holdout.json`):
+  40 % (v1) → 67 % (r5: normalización de chat `question_normalizer.py` + reglas generales) → **76 % (r6)**.
+  Banco de desarrollo: **96 %** (67/70). Salidas `Documents/banco_*_out_v9_530eecc` y `banco_holdout_out_v3_530eecc`.
+- Arreglos: cuelgue O(n²) en `value_contradiction` + presupuesto `PLAN_TIME_BUDGET_S` (`plan_budget.py`);
+  privacidad: listados excluyen familiar/vocero/acudiente/contacto; respuestas «sin datos» con fecha de corte.
+- Repo: `.pyc` ya no se versionan. `actualizar_proyecto.ps1` (propietario): pull + deps + .env + login de dispositivo
+  si falta + `update_rag.py`. Push a GitHub hasta `bfbd594`; lo posterior (r6) está solo en local.
+- Botón «Abrir en Power BI» del propietario: requiere `data/catalog/report_links.json` (sync con sesión de
+  dispositivo). Pendiente decisión del usuario: `POWERBI_AUTH=device_code` en su .env vs versionar el catálogo.
+- En curso: `agente/r7` (TU04 en real: «Recuento de PACNUMDOC» del EPS le gana a CANTIDAD DE TRIAGES; holdout restante).
+
 ## Pendiente (en orden)
 1. Rama `agente/qa-real`: auditoría de la verdad y del comparador del banco real (ver `tests/real/RETOMAR.md`
    en esa rama). Integrarla cuando esté.
