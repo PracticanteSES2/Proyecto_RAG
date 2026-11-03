@@ -197,3 +197,26 @@ Pendientes del holdout v3 (no forzados):
 
 IDs a validar en real: `correr_todo --solo TU04,TU01,TU03,TU10,BH10,BH15,EP02,AI04` y holdout
 `--banco tests/real/banco_holdout.json --solo H02,H05,H09,H20,H24,H29`.
+
+## 8. Bancos nuevos y regresión periódica (rama `agente/qa-bancos`, sin corrida real)
+
+- **Holdout 2** (`build_holdout2.py` → `banco_holdout2.json`, 50 casos G01–G50): escrito sin mirar `src/` ni las
+  fallas, misma mezcla de tableros y tipos que el holdout. Verdad desde el PBIR; en los PBIP incompletos (REFERENCIA,
+  CVC, MORBILIDAD y páginas de ATENCIONES sin visuales) desde el modelo y la documentación, marcado en `criterio`
+  («PBIP local incompleto»). `similitud.py` verifica que no repite ni parafrasea los otros bancos (Jaccard de palabras
+  de contenido + trigramas, y difflib); `test_bancos` lo exige.
+  Correr: `correr_todo --banco tests/real/banco_holdout2.json` (salida en `out_holdout2/`).
+- **Multiturno** (`build_multiturno.py` → `banco_multiturno.json`, 26 conversaciones, 71 turnos): periodo,
+  agrupación, filtro, indicador, pronombres, corrección y clic en contrapregunta. Cada turno tiene su verdad DAX
+  (marcadores nuevos `{INI_MES_ANTEPASADO}`, `{FIN_MES_ANTEPASADO}`, `{INI_SEMANA_PASADA}`, `{FIN_SEMANA_PASADA}`).
+  `run_multiturno.py` usa el mismo sistema que `run_real`, calcula la verdad antes de cada turno, pulsa la opción de
+  `elegir` si hay contrapregunta y evalúa cada turno con `run_banco.evaluate`. Informe: acierto por turno, por
+  posición, por categoría, seguimientos (y seguimientos con el turno anterior correcto) y por conversación.
+  Los primeros turnos reutilizan preguntas del banco de desarrollo a propósito: lo que se mide es el seguimiento.
+- **Regresión periódica** (`regresion_real.py` en la raíz): corre los cuatro bancos en serie, compara con
+  `tests/real/linea_base/<banco>.json` (solo id, correcto, fallas y cifra) y escribe `out_regresion/REGRESION.md`.
+  «Dato en vivo» = falla de cifra con la misma firma DAX (columnas, medidas y literales) que la verdad.
+  `--aceptar` promueve la corrida; `--reusar <carpeta>` compara o acepta una corrida ya hecha. Salida 0/1/2.
+  Programador de tareas: ver el docstring de `regresion_real.py` y `regresion_tarea.ps1` (la tarea NO se creó).
+- Pendiente: primera corrida real y `--aceptar` para crear la línea base; auditar los fallos de holdout 2 y del
+  multiturno (verdades de PBIP incompletos y valores supuestos: NUEVA EPS, SURA, ORTOPED, MEROPENEM, HOSPITAL).
