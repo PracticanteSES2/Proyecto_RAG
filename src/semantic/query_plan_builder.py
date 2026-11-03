@@ -2551,6 +2551,7 @@ class QueryPlanBuilder:
                     continue
                 item["score"] = lowered
                 item["_name_priority"] = 0.0
+                item["exact_name_displaced"] = True
                 self._note(
                     f"{item['metric'].get('label')} coincide exacto, pero "
                     f"{wider[0]['metric'].get('label')} nombra además "
@@ -4076,10 +4077,26 @@ class QueryPlanBuilder:
         result.sort(key=lambda item: item.get("relevance_score", 0), reverse=True)
         return result
 
-    def _group_label(self, field):
+    def _group_label(self, field, metric=None):
         """Encabezado de la agrupación: su primer alias o, si es el nombre
-        técnico (GEEDESCRI, TERNOMCOM), el nombre de negocio de los visuales."""
-        label = (field.get("aliases") or [field.get("column")])[0]
+        técnico (GEEDESCRI, TERNOMCOM), el nombre de negocio de los visuales.
+        Un alias que solo repite palabras del indicador («VALOR ESTIMADO» para
+        AREA_SERVICIO, tomado del título «VALOR ESTIMADO POR SERVICIO») no
+        nombra la dimensión: se salta."""
+        aliases = list(field.get("aliases") or [])
+        own = {
+            token for name in (self._metric_names(metric) if metric else []) if name
+            for token in canonical_tokens(name)
+        }
+        column_tokens = set(canonical_tokens(field.get("column")))
+
+        def names_metric(alias):
+            tokens = set(canonical_tokens(alias))
+            return bool(own and tokens and tokens <= own and not tokens & column_tokens)
+
+        if own and aliases:
+            aliases = [alias for alias in aliases if not names_metric(alias)] or [field.get("column")]
+        label = (aliases or [field.get("column")])[0]
         column = normalize_text(field.get("column"))
         # Una columna que ya se llama con la palabra de negocio (ESPECIALIDAD,
         # SERVICIO) conserva ese nombre: el de un visual puede calificarla de
@@ -4088,9 +4105,15 @@ class QueryPlanBuilder:
         if column and any(column in synonyms for synonyms in DIMENSION_SYNONYMS.values()):
             return label if normalize_text(label) == column else field.get("column")
         if normalize_text(label) == column:
-            names = self._column_business_names(field.get("semantic_model"), field.get("column"), field.get("table"))
+            names = [
+                name for name in self._column_business_names(
+                    field.get("semantic_model"), field.get("column"), field.get("table"))
+                if not names_metric(name)
+            ]
             if names:
                 return names[0]
+            if own and "_" in str(field.get("column") or ""):
+                return str(field.get("column")).replace("_", " ")
         return label
 
     def _technical_column_aliases(self, semantic_model, table, column):
@@ -7593,11 +7616,22 @@ class QueryPlanBuilder:
             for word in STOPWORDS | GENERIC_QUERY_WORDS | FILTER_NEUTRAL_WORDS | set(MONTHS)
         } | {"por", "segun", "total"}
         dimension_tokens = set()
+        own_name_tokens = {
+            token for name in self._metric_names(metric) if name and not re.search(r"[().]", str(name))
+            for token in canonical_tokens(name)
+        }
         for field in [*group_by, *(spec["field"] for spec in explicit_specs)]:
             # El nombre de la tabla («ATENCIONES.SEDE») no nombra la dimensión.
             table_tokens = set(canonical_tokens(field.get("table")))
+            # Un alias tomado del título de un visual («VALOR ESTIMADO POR
+            # SERVICIO» para AREA_SERVICIO) trae palabras del indicador: esas
+            # no son de la dimensión salvo que la columna se llame así (H24).
+            column_tokens = set(canonical_tokens(field.get("column")))
             for alias in field.get("aliases", []) or []:
-                dimension_tokens.update(set(canonical_tokens(alias)) - table_tokens)
+                dimension_tokens.update(
+                    token for token in set(canonical_tokens(alias)) - table_tokens
+                    if token in column_tokens or token not in own_name_tokens
+                )
         if not dimension_tokens:
             return None
 
@@ -11527,6 +11561,24 @@ class QueryPlanBuilder:
                 question, metric, metric_result, group_by, explicit_specs, source_context,
             )
             if rejection is not None:
+                # El que desplazó al nombre exacto («VALOR ESTIMADO POR
+                # SERVICIO» frente a VALOR ESTIMADO) solo coincidía por la
+                # agrupación: vuelve el exacto (holdout H24).
+                exact = next((
+                    item for item in (metric_result or {}).get("candidates") or []
+                    if item.get("exact_name_displaced")
+                    and self._logical_key(item["metric"]) != self._logical_key(metric)
+                ), None)
+                if exact is not None and not forced_resolution:
+                    self._note(
+                        f"{metric.get('label')} solo coincidía por la agrupación: se vuelve al nombre exacto "
+                        f"{exact['metric'].get('label')}"
+                    )
+                    chosen = {key: value for key, value in exact.items() if not str(key).startswith("_")}
+                    return self._build_plan(question, intent_result, forced_resolution={
+                        "status": "resolved", "metric": exact["metric"], "matched_name": exact.get("matched_name"),
+                        "score": exact.get("score"), "final": True, "candidates": [chosen],
+                    })
                 return rejection
 
         filters = []
@@ -11809,7 +11861,7 @@ class QueryPlanBuilder:
         normalized_group_by = [{
             "table": field["table"],
             "column": field["column"],
-            "label": self._group_label(field),
+            "label": self._group_label(field, metric),
             "source": "query_plan_group_by",
         } for field in group_by if self._dimension_relation(metric, field) != "unrelated"]
         if temporal_result["group"]:

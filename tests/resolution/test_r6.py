@@ -322,6 +322,30 @@ def test_page_word_does_not_pick_one_value_of_the_family():
     assert not (out or {}).get("values"), out
 
 
+# ------------------------------------------------------------ 5. alias de la dimensión con el nombre del indicador
+def test_dimension_alias_that_names_the_metric_is_not_the_header():
+    # H24: AREA_SERVICIO tiene el alias «VALOR ESTIMADO» (título «VALOR ESTIMADO POR
+    # SERVICIO»). Nuevas: «peso lavado por area de servicio», «peso lavado x area».
+    qpb = builder()
+    metric = {"label": "PESO LAVADO POR SERVICIO", "aliases": ["PESO LAVADO POR SERVICIO", "PESO LAVADO"],
+              "semantic_model": GES, "table": "LAVANDERIA"}
+    field = {"semantic_model": GES, "table": "LAVANDERIA", "column": "AREA_SERVICIO",
+             "aliases": ["PESO LAVADO", "AREA_SERVICIO"]}
+    saved = qpb.__dict__.get("_column_business_names")
+    qpb._column_business_names = lambda model, column, table=None: ["PESO LAVADO"]
+    try:
+        assert qpb._group_label(field, metric) == "AREA SERVICIO", qpb._group_label(field, metric)
+        # Sin indicador (comportamiento anterior) o con un alias propio de la dimensión, igual que antes.
+        assert qpb._group_label(field) == "PESO LAVADO"
+        named = {**field, "aliases": ["AREA DE SERVICIO", "PESO LAVADO"]}
+        assert qpb._group_label(named, metric) == "AREA DE SERVICIO"
+    finally:
+        if saved is None:
+            qpb.__dict__.pop("_column_business_names", None)
+        else:
+            qpb._column_business_names = saved
+
+
 TESTS = [value for name, value in sorted(globals().items()) if name.startswith("test_") and callable(value)]
 
 
