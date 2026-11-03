@@ -95,3 +95,25 @@ Aciertos 25/67 (37 %). Correctos nuevos: BH05, AI05, EP03 y AI02 (contrapregunta
 4. Pedir al coordinador: `correr_todo --solo AI03,DI02,TU12,BH03,TU05,TU10,AI01,AI06,AI08` (inconclusos y elecciones corregidas).
 5. Escribir `tests/real/INFORME.md`. Top 10 propuesto: BH01, FM01, BH07, BH17, TU04+AI04, BH14, TU03, BH09, TU12 (pregunta real del usuario), FC05+LV01. Incluir evidencia (pregunta, respuesta, verdad, DAX del bot frente al DAX de verdad) tomada de `resultado.json`.
 6. Comparar con la segunda pasada del coordinador (código nuevo).
+
+## 5. Holdout v1 (adf0fb0) — auditoría (`auditoria_holdout.json`)
+
+Corrida: `C:\Users\ad6708\Documents\banco_holdout_out_v1_adf0fb0\` (19/50 automática). Auditadas las 31 fallas:
+29 fallas reales (a), 2 no evaluables (b: H40 anafórica sin turno previo + PBIR de REFERENCIA vacío; H41 PBIR de
+REFERENCIA vacío), 0 de comparador (c) y 0 contrapreguntas legítimas (d). **Tasa auditada: 19/48 (40 %).**
+Re-evaluar: `correr_todo --banco tests/real/banco_holdout.json --informe <resultado.json> --out-informe <carpeta>`
+(usa `auditoria_holdout.json`, no la del banco real). Banco: `elegir` de H12 («ATENCION HP») y H21 («30-120»).
+Comparador: una respuesta por RAG a una pregunta de datos es enrutamiento aunque haya sondas DAX exitosas.
+
+| Causa raíz (reglas GENERALES) | Casos | Dónde | Regla sugerida |
+|---|---|---|---|
+| 10 Lenguaje de chat sin normalizar | H02 H03 H10 H11 H24 H27b H29 H31 H35 H38 | no hay paso común: `query_plan_builder.normalize_text`, `question_kind.normalize_question`, `_GROUP_TAIL_RE`, `looks_numeric`, `period_parser` | Normalizar UNA vez al entrar (`QueryEngine.process`): x→por, q→que, pa→para, d→de, xq→porque; corregir tipeos contra el vocabulario del catálogo (distancia ≤ 2 en palabras ≥ 6 letras) antes de rutear |
+| 4 Contrapregunta innecesaria | H03 H10 H12 H21 H22 H26 H28 H31 H33 H39 H43 H45 | `query_engine._unresolved_words_clarification`, `_build_clarification_choices`/`_finalize_choices`, `_query_plan_failure` | Palabras sobrantes que son verbos o que la página ya implica no son filtros; colapsar opciones de la misma medida base (agregación o variante de tiempo); usar filtros de visual de cada opción para elegir sola (rango, periodo); nunca confirmar una sola opción |
+| 5 Indicador no resuelto o equivocado | H11 H12 H13 H24 H26 H32 H45 | `query_plan_builder._resolve_metric`, `_source_context` | Indexar como alias los títulos de visual, nombres de página y valores categóricos (ABORTO), y la documentación (mortalidad→%DEFUNCIONES); un tablero nombrado en la pregunta restringe la búsqueda |
+| 6 Enrutamiento datos ↔ RAG | H02 H27b H29 H34 H38 | `query_plan_builder.looks_numeric`, `question_kind.descriptive_phrase` | Frase nominal/lista/agrupación sobre una página con indicadores = datos; RAG nunca devuelve cifras de datos; «por qué etapas/estados pasa» = descriptiva |
+| 8 Agrupación ignorada | H09 H22 H28 H35 | `_requested_group_tail`, `_group_field_in` | «por/x/según <X>» busca X también en valores y descripciones de columnas (rango de horas→HORAS_SUMINISTRO, motivos→CCCDESCRI, día de la semana→DIA_SEMANA) antes de tratarlo como filtro |
+| 3 Fuente sin cobertura del periodo | H05 H14 H15 | `_snapshot_table`, `_current_state_period` | Cobertura temporal por tabla (día anterior, próximas citas, 30 días) desde la documentación; descartar fuentes que no cubren el periodo; con «hoy» en un corte de ayer, responder el corte y avisarlo |
+| 11 Filtro de la pregunta ignorado o reducido | H05 H20 | `_resolve_implicit_value` | Una palabra que coincide con varios valores (OBSTETRICA) filtra por todos; si no se aplica, decirlo; preferir el visual cuyo filtro coincide |
+| 12 Periodo mal resuelto | H08 H10 | `period_parser` (mes sin año = todos los años) | Mes sin año = su ocurrencia más reciente (como ya se hace en comparaciones) |
+| 2 Filtro espurio | H35 | `_value_match_score` | Una palabra de la agrupación no puede ser también valor de filtro |
+| 13 RAG recupera otro indicador | H18 | `src/rag/ranking.py` | Priorizar el fragmento cuyo indicador coincide con el nombrado («% pendiente») y el tablero del contexto |
