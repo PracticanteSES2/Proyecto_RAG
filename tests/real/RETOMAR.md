@@ -117,3 +117,30 @@ Comparador: una respuesta por RAG a una pregunta de datos es enrutamiento aunque
 | 12 Periodo mal resuelto | H08 H10 | `period_parser` (mes sin año = todos los años) | Mes sin año = su ocurrencia más reciente (como ya se hace en comparaciones) |
 | 2 Filtro espurio | H35 | `_value_match_score` | Una palabra de la agrupación no puede ser también valor de filtro |
 | 13 RAG recupera otro indicador | H18 | `src/rag/ranking.py` | Priorizar el fragmento cuyo indicador coincide con el nombrado («% pendiente») y el tablero del contexto |
+
+## 6. Ronda r6 (rama `agente/r6`, sin corrida real)
+
+Reglas generales (pruebas en `tests/resolution/test_r6.py`, preguntas nuevas):
+- **Cobertura (TU04)**: `table_coverage.covers` solo da la holgura de un día a periodos de 1–2 días; «este mes»
+  el día 3 ya no lo trae la tabla «del día anterior» (TRIAGES del Briefing) → CANTIDAD DE TRIAGES de TIEMPOS URGENCIAS.
+  `_named_page_refinement`: una página nombrada no arrastra a indicadores cuya tabla no trae el periodo.
+- **Sin datos (AI01, AI08)**: `empty_result` también para tablas agrupadas vacías; la respuesta dice indicador,
+  periodo y, si el último dato es anterior al periodo, «La fuente tiene datos hasta el dd/mm/aaaa»
+  (`generate_data_until`, una consulta extra solo con resultado vacío). Comparador: verdad vacía (0 filas o valor
+  en blanco, también en las alternativas) → acierto si dice claramente «no hay datos» sin filas; si no, falla
+  `redaccion` (causa 14).
+- **H20**: lo común a los valores de un filtro de inclusión de un visual nombra su indicador (Triages Gineco).
+- **H05**: la página del indicador («urgencias») no elige un solo valor de una familia («obstétricos»).
+- **H24**: un alias de dimensión tomado del título del indicador no cuenta como dimensión ni como encabezado.
+- **H29**: «qué <entidades> se están <verbo>» → el gráfico del tablero por esa entidad, agrupado.
+
+Pendientes del holdout v2 (no forzados):
+- PBIP incompleto: H26, H39, H40, H41 (REFERENCIA: PBIR vacío), H43 (CVC: sin fecha en el modelo local),
+  H13, H14, H15 (ATENCIONES: PARTOS_DRIVE/CONSULTAS_AMBULATORIAS sin visuales ni fecha en el PBIP local).
+- H02 («cómo están repartidas las camas x estado»): en el simulador contrapregunta, en real fue a RAG (MedGemma);
+  revisar con la corrida real.
+- H09 (promedio de triage por día de la semana): `unsupported_filter`; falta revisar con datos reales de DIA_SEMANA.
+- H11: en el simulador ya elige TIEMPO PROMEDIO PARA EL EGRESO con SUBGRUPO = URGENCIAS (igual que la verdad); validar.
+- H18 (RAG trae RELACIÓN ACEPTADOS para «% pendiente de citas»): ranking del RAG, sin tocar.
+- H27b («cirujias canceladas agosto vs septiembre»): elige TOTAL_CIRUGIAS/CANCELADAS de citas; la verdad es
+  CIRUGÍAS de Demanda Insatisfecha con TIEMPO_CIRUGÍA > 45; sin tocar.
