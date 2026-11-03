@@ -101,6 +101,16 @@ QUESTION_FORM_WORDS = {
     "dura", "duran", "duro", "duraron", "durado", "durando",
     "demora", "demoran", "demoro", "demoraron", "demorado", "demorando", "demoras",
     "tarda", "tardan", "tardo", "tardaron", "tardado", "tardando",
+    # Verbos de movimiento o estado de uso común en preguntas («cuánto tiempo
+    # PASA un paciente», «hasta que lo SUBEN», «cuántas LLEGAN»).
+    # Sin homónimos que puedan ser valores («baja complejidad», «toma de
+    # muestras», «uso»).
+    "pasa", "pasan", "pasaron", "queda", "quedan", "quedo", "lleva", "llevan",
+    "llega", "llegan", "llego", "sube", "suben", "subio", "bajan",
+    "sale", "salen", "salio", "entran", "toman", "tomo",
+    "usan", "usando", "pudimos", "pudieron", "pudo", "tenemos", "tienen",
+    "reportado", "reportados", "reportada", "reportadas", "registrado", "registrados",
+    "registrada", "registradas", "muestran",
 }
 _QUESTION_FORM_TOKENS = set(QUESTION_FORM_WORDS)   # ya sin tildes ni mayúsculas
 # Cola de «por <dimensión> ...» que no nombra un valor («en total», «en general»).
@@ -1969,8 +1979,33 @@ class QueryPlanBuilder:
                     name, _, text = str(source or "").partition(":")
                     if name.strip() and text.strip() and "[" not in name:
                         put("t:" + normalize_text(name), text)
+                        # Texto completo (con «Origen» y «Granularidad»): la
+                        # ventana de datos de la tabla suele estar ahí
+                        # («una fila por cita ambulatoria PRÓXIMA»).
+                        key = (model, "tfull:" + normalize_text(name))
+                        index[key] = (index.get(key, "") + " " + re.sub(r"\s+", " ", text)).strip()
         self._dictionary_index_cache = index
         return index
+
+    _TABLE_ORIGIN_RE = re.compile(
+        r"origen\s*:\s*(?:consulta\s+sql\s+)?(?:sobre|de|desde)\s+([A-Za-z_][A-Za-z0-9_\.]*)", re.IGNORECASE,
+    )
+
+    def _table_coverage_text(self, model, table):
+        """Lo que la documentación dice de una tabla (entrada completa) más lo
+        que dice de su origen («Origen: consulta SQL sobre BI_PROXIMAS_CITAS»
+        -> «Citas asignadas para los próximos días»)."""
+        index = self._dictionary_index()
+        table_norm = normalize_text(table)
+        full = index.get((model, "tfull:" + table_norm)) or index.get((model, "t:" + table_norm)) or ""
+        texts = [full] if full else []
+        for origin in self._TABLE_ORIGIN_RE.findall(full):
+            origin_norm = normalize_text(origin)
+            if origin_norm and origin_norm != table_norm:
+                extra = index.get((model, "tfull:" + origin_norm)) or index.get((model, "t:" + origin_norm))
+                if extra:
+                    texts.append(extra)
+        return " ".join(texts)
 
     def _dictionary_tokens(self, metric):
         """Palabras con que el diccionario de variables describe lo que mide el
@@ -2609,11 +2644,22 @@ class QueryPlanBuilder:
         if (source_context or {}).get("status") == "resolved" and source_context.get("routing_strength") == "strong":
             model_hint = normalize_text(source_context.get("semantic_model"))
 
+        def common_root(token, other):
+            # Raíz común de 4+ letras a la que solo le falta la terminación
+            # de la palabra más corta («lavado» ~ «lavandería»: lava-).
+            size = 0
+            for a, b in zip(token, other):
+                if a != b:
+                    break
+                size += 1
+            return size >= 4 and size >= min(len(token), len(other)) - 2
+
         def loose(token, vocabulary):
             if self._explains(token, vocabulary):
                 return True
             return len(token) >= 4 and any(
-                len(other) >= 4 and (other.startswith(token) or token.startswith(other)) for other in vocabulary
+                len(other) >= 4 and (other.startswith(token) or token.startswith(other) or common_root(token, other))
+                for other in vocabulary
             )
 
         found, by_name = {}, False
@@ -2684,12 +2730,11 @@ class QueryPlanBuilder:
         documentación no dice nada."""
         from src.semantic.table_coverage import coverage_window, covers
 
-        index = self._dictionary_index()
         model = normalize_text(metric.get("semantic_model"))
         today = self._today()
         documented = False
         for table in self._metric_coverage_tables(metric):
-            text = index.get((model, "t:" + normalize_text(table)))
+            text = self._table_coverage_text(model, table)
             if not text:
                 continue
             window = coverage_window(text, today)
@@ -2767,6 +2812,121 @@ class QueryPlanBuilder:
                 "dos visuales de la misma página (misma tabla): se ofrece una sola vez"
             )
         return kept
+
+    def _functional_name_index(self):
+        """{(modelo, página): nombre funcional} de la documentación por página
+        («LISTADO» -> «Listado de pacientes con pendientes activos») y
+        {(modelo, ""): nombre funcional del tablero} (página GENERAL)."""
+        cached = self.__dict__.get("_functional_name_cache")
+        if cached is not None:
+            return cached
+        index = {}
+        root = self.project_root / "data" / "semantic_documents"
+        try:
+            paths = sorted(root.rglob("*.json")) if root.exists() else []
+        except OSError:
+            paths = []
+        for path in paths:
+            try:
+                document = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(document, dict):
+                continue
+            model = normalize_text(document.get("semantic_model"))
+            for dashboard in document.get("dashboards") or []:
+                if not isinstance(dashboard, dict) or dashboard.get("is_dictionary"):
+                    continue
+                meta = dashboard.get("md_metadata")
+                if not isinstance(meta, dict) or not meta.get("nombre_funcional"):
+                    continue
+                page = normalize_text(meta.get("pagina") or dashboard.get("name"))
+                key = "" if normalize_text(meta.get("bloque")) == "general" else page
+                if model:
+                    index.setdefault((model, key), str(meta["nombre_funcional"]))
+        self._functional_name_cache = index
+        return index
+
+    # Terminaciones verbales que no son de sustantivos ni valores
+    # («llegaron», «usaban», «lavando», «atendiendo»).
+    _VERB_ENDINGS = ("aron", "ieron", "aban", "ando", "iendo")
+
+    def _looks_like_verb(self, word):
+        """Verbo conjugado que no puede ser un valor de dimensión: pretérito,
+        imperfecto o gerundio; o presente plural («suben», «llegan») que no
+        aparece en ningún nombre, columna ni valor del catálogo."""
+        word = normalize_text(word)
+        if _is_question_form_word(word):
+            return True
+        if len(word) >= 6 and word.endswith(self._VERB_ENDINGS):
+            return True
+        if len(word) >= 5 and word.endswith(("an", "en")):
+            token = canonical_token(word)
+            return not any(_token_similarity(token, other) >= 0.88 for other in self._catalog_vocabulary())
+        return False
+
+    def question_coverage(self, question, metric):
+        """(palabras con contenido de la pregunta, las que explica el
+        indicador por su nombre, tabla, páginas, tablero o nombre funcional
+        documentado). Sirve para descartar opciones dominadas."""
+        words = [
+            canonical_token(word) for word in self._question_content_words(question)
+            if not self._looks_like_verb(word)
+        ]
+        vocabulary = set(self._metric_vocabulary_tokens(metric))
+        vocabulary.update(
+            token for report in self._metric_reports(metric) for token in canonical_tokens(report) if len(token) >= 3
+        )
+        model = normalize_text(metric.get("semantic_model"))
+        functional = self._functional_name_index()
+        for key in [*(normalize_text(page) for page in self._metric_pages(metric)), ""]:
+            text = functional.get((model, key))
+            if text:
+                vocabulary.update(token for token in canonical_tokens(text) if len(token) >= 3)
+        vocabulary.update(
+            canonical_token(token.lstrip("%")) for token in list(vocabulary) if token.startswith("%") and len(token) > 3
+        )
+        return set(words), {word for word in words if self._explains(word, vocabulary)}
+
+    def implied_words(self, metric, words):
+        """Palabras de `words` que no son filtros del indicador porque son
+        forma de la pregunta (verbos) o porque ya las dice el propio
+        indicador: su nombre, tabla, páginas, títulos de visual o el nombre
+        funcional (documentado) de su página o
+        tablero («pendientes» en LISTADO = «pacientes con pendientes
+        activos»). Devuelve (implícitas, restantes)."""
+        model = normalize_text(metric.get("semantic_model"))
+        vocabulary = set(self._metric_vocabulary_tokens(metric))
+        functional = self._functional_name_index()
+        pages = [normalize_text(page) for page in self._metric_pages(metric)]
+        for key in [*pages, ""]:
+            text = functional.get((model, key))
+            if text:
+                vocabulary.update(token for token in canonical_tokens(text) if len(token) >= 3)
+        action_vocabulary = vocabulary | {
+            token for report in self._metric_reports(metric) for token in canonical_tokens(report) if len(token) >= 3
+        }
+
+        def participle_of_vocabulary(word):
+            # «lavados» (lav-ar) con LAVANDERÍA; «cancelados» con CANCELADAS:
+            # el participio de la acción que el indicador ya nombra.
+            match = re.fullmatch(r"([a-z]{3,})(?:ad|id)(?:o|a|os|as)", word)
+            return bool(match) and any(
+                other.startswith(match.group(1)) and len(other) >= len(match.group(1)) + 3
+                for other in action_vocabulary
+            )
+
+        implied, remaining = [], []
+        for word in normalize_text(" ".join(words) if isinstance(words, (list, tuple)) else words).split():
+            token = canonical_token(word)
+            if (
+                self._looks_like_verb(word) or (len(token) >= 3 and self._explains(token, vocabulary))
+                or participle_of_vocabulary(word)
+            ):
+                implied.append(word)
+            else:
+                remaining.append(word)
+        return implied, remaining
 
     def _page_block_index(self):
         """{(modelo, página): bloque} de la documentación por página del
@@ -4489,6 +4649,10 @@ class QueryPlanBuilder:
             set(tokens) <= set(canonical_tokens(phrase)) for phrase in phrases
         )
 
+    # Alcance de toda la institución («la institución», «el hospital»): no es
+    # un valor de la dimensión agrupada.
+    _SCOPE_GROUP_WORDS = {canonical_token(word) for word in ("institucion", "hospital", "clinica", "entidad")}
+
     def _detect_group_or_dimension_filter(self, question, metric, candidates, source_context=None):
         normalized = normalize_text(question)
         match = re.search(
@@ -4499,10 +4663,18 @@ class QueryPlanBuilder:
             return {"group_by": [], "explicit_filters": []}
 
         tail = self._clean_tail(match.group(1), metric)
+        tail = self._strip_group_interrogative(tail) if tail else tail
         if not tail:
             return {"group_by": [], "explicit_filters": []}
 
         best = self._best_dimension(tail, candidates, exclude_temporal=True)
+        if not best or not any(_alias_prefix(tail, alias) for alias in best.get("aliases") or []):
+            # Ningún nombre de columna abre la cola: la dimensión puede
+            # nombrarse por su descripción documentada («rango de horas»).
+            described = self._described_group_field(tail, candidates)
+            if described is not None:
+                field, phrase = described
+                return {"group_by": [field], "explicit_filters": [], "phrase": phrase}
         if not best:
             return {"group_by": [], "explicit_filters": []}
 
@@ -4545,10 +4717,18 @@ class QueryPlanBuilder:
             remainder = remainder[top.end():].strip(" ,;")
         # «por asegurador en total / en general»: forma de la pregunta, no el
         # valor SALUD TOTAL EPS; se agrupa.
-        if remainder and all(
-            word in _GROUP_NEUTRAL_TAIL_WORDS or _is_question_form_word(word)
-            for word in remainder.split()
-        ):
+        content = [
+            word for word in remainder.split()
+            if word not in _GROUP_NEUTRAL_TAIL_WORDS and not _is_question_form_word(word)
+            and canonical_token(word) not in self._content_ignored_tokens()
+            and canonical_token(word) not in self._SCOPE_GROUP_WORDS
+        ]
+        # «por qué motivos CANCELÓ CITAS LA INSTITUCIÓN»: lo que sigue a la
+        # dimensión son verbos o palabras que el propio indicador dice (su
+        # nombre, página o nombre funcional), no un valor de la dimensión.
+        if remainder and content and metric and not self.implied_words(metric, content)[1]:
+            content = []
+        if remainder and not content:
             self._note(
                 f"«{matched_alias} {remainder}»: «{remainder}» no es un valor de "
                 f"{best.get('table')}[{best.get('column')}]; se agrupa"
@@ -4784,6 +4964,38 @@ class QueryPlanBuilder:
             "values": sorted(family, key=normalize_text),
             "words": [word for word in normalize_text(leftover).split() if canonical_token(word) in head],
             "tokens": head,
+        }
+
+    def _value_word_family(self, leftover, tied, values, question=None):
+        """Regla general: la palabra pedida es una palabra COMÚN a varios
+        valores de la columna, en cualquier posición («obstétricos» ->
+        URGENCIA OBSTETRICA, TRIAGE OBSTETRICA, CONSULTA OBSTETRICA): se
+        filtra por todos los que la contienen (no por uno solo ni por
+        ninguno). Solo si son todos los empatados, entre 2 y
+        _FAMILY_MAX_VALUES, no todo el dominio y ninguno contradice la pregunta."""
+        leftover_tokens = {token for token in canonical_tokens(leftover) if len(token) >= 4}
+        if not leftover_tokens:
+            return None
+        common = None
+        for value in tied:
+            tokens = set(canonical_tokens(value)) & leftover_tokens
+            common = tokens if common is None else common & tokens
+        if not common:
+            return None
+        family = [value for value in values if common <= set(canonical_tokens(value))]
+        if not (2 <= len(family) <= self._FAMILY_MAX_VALUES) or len(family) >= len(values):
+            return None
+        if not set(tied) <= set(family):
+            return None
+        # Polaridad: «no obstétricos» / «sin antibiótico» no es la familia.
+        if re.search(r"(?<![a-z])(?:no|sin)\s+(?:\w+\s+)?(?:" + "|".join(
+                re.escape(word) for word in normalize_text(leftover).split()
+                if canonical_token(word) in common) + r")(?![a-z])", normalize_text(question or leftover)):
+            return None
+        return {
+            "values": sorted(family, key=normalize_text),
+            "words": [word for word in normalize_text(leftover).split() if canonical_token(word) in common],
+            "tokens": tuple(sorted(common)),
         }
 
     def _categorical_filter(self, field, resolved, source, semantic_model):
@@ -5050,6 +5262,15 @@ class QueryPlanBuilder:
         # MAYORES DE EDAD; «aceptadas» no es NO ACEPTADO).
         consistent, contradicted = [], []
         for score, value in scored:
+            # Solo importan el mejor valor coherente y sus empates (hasta el
+            # tamaño máximo de una familia): con miles de valores parecidos
+            # (nombres de personas) no se revisa todo el dominio.
+            if consistent and (
+                score < consistent[0][0] - 1e-9 or len(consistent) > self._FAMILY_MAX_VALUES + 1
+            ):
+                break
+            if len(contradicted) > self._FAMILY_MAX_VALUES * 4:
+                break
             # La pregunta completa conserva la polaridad («no aceptadas»),
             # que el texto sobrante pierde al quitar palabras vacías.
             reason = (
@@ -5092,7 +5313,9 @@ class QueryPlanBuilder:
             return None
         ties = [value for score, value in scored[1:] if score >= top_score - 1e-9]
         if ties and top_score < 1.10 and plausible:
-            family = self._value_family(leftover, [top_value, *ties], values)
+            family = self._value_family(leftover, [top_value, *ties], values) or self._value_word_family(
+                leftover, [top_value, *ties], values, question,
+            )
             if family:
                 words = " ".join(family["words"])
                 return {
@@ -5794,6 +6017,28 @@ class QueryPlanBuilder:
         today = self._today()
         return bool(start and end and start <= today < end)
 
+    def _daily_cut_for_today(self, period, metric):
+        """Tabla del indicador que, según su documentación, es el corte del día
+        anterior («Triages del día anterior») cuando la pregunta pide «hoy»;
+        None en otro caso."""
+        if not metric:
+            return None
+        from src.semantic.table_coverage import coverage_window
+
+        start, end = as_date(period.get("start")), as_date(period.get("end"))
+        today = self._today()
+        if not (start and end and start == today and end <= today + timedelta(days=1)):
+            return None
+        model = normalize_text(metric.get("semantic_model"))
+        for table in self._metric_coverage_tables(metric):
+            text = self._table_coverage_text(model, table)
+            if not text or not re.search(r"(?<![a-z])(?:del dia anterior|de ayer)(?![a-z])", normalize_text(text)):
+                continue
+            window = coverage_window(text, today)
+            if window and window[0] == today - timedelta(days=1):
+                return table
+        return None
+
     def _snapshot_table(self, metric, candidates):
         """(tabla, tiene_fechas) de un indicador sin ninguna columna temporal
         válida (propia o relacionada) entre las candidatas: su tabla refleja el
@@ -5840,6 +6085,19 @@ class QueryPlanBuilder:
         }
         period = analysis.get("period")
         granularity = analysis.get("granularity")
+        cut = self._daily_cut_for_today(period, metric) if period else None
+        if cut:
+            # «hoy» sobre una tabla que es el corte del día anterior (TRIAGES
+            # del BRIEFING): filtrar hoy daría vacío; se responde el corte
+            # del tablero y se dice de cuándo es.
+            phrase = _original_phrase(analysis.get("question") or "", period.get("phrase")) or period.get("label")
+            result["notes"].append(
+                f"«{phrase}»: la tabla {cut} trae solo el corte del día anterior según su documentación; "
+                "se muestra ese corte (la cifra del tablero), no la de hoy."
+            )
+            result["current_state"] = True
+            result["daily_cut"] = cut
+            period = None
         if period:
             filters, unapplied, notes = self._period_filters(period, candidates, semantic_model)
             snapshot = None if filters else self._snapshot_table(metric, candidates)
@@ -6172,6 +6430,38 @@ class QueryPlanBuilder:
                 return True
         return False
 
+    def _names_data_page_with_context(self, text):
+        """Frase nominal que empieza por el nombre (2+ palabras) de una página
+        con indicadores y cuyo resto solo nombra su tablero o lo que dice su
+        documentación («cirugías pendientes de los pacientes de NAOS» ->
+        página CIRUGÍAS PENDIENTES del TABLERO NAOS, «pacientes» en su nombre
+        funcional): pide las cifras de esa página, no su descripción."""
+        phrase = self._LEADING_ARTICLE_RE.sub("", normalize_text(text).replace("_", " ")).strip()
+        words = phrase.split()
+        if len(words) < 3:
+            return False
+        functional = self._functional_name_index()
+        ignored = self._content_ignored_tokens()
+        for item in self._page_index().values():
+            page_words = normalize_text(item.get("page")).replace("_", " ").split()
+            if len(page_words) < 2 or words[:len(page_words)] != page_words:
+                continue
+            model = normalize_text(item.get("semantic_model"))
+            vocabulary = set(canonical_tokens(item.get("semantic_model")))
+            for report in [item.get("report"), *(item.get("reports") or [])]:
+                vocabulary.update(canonical_tokens(report))
+            for key in (normalize_text(item.get("page")), ""):
+                vocabulary.update(canonical_tokens(functional.get((model, key)) or ""))
+            rest = [
+                canonical_token(word) for word in words[len(page_words):]
+                if canonical_token(word) not in ignored and len(word) >= 3
+            ]
+            if rest and all(self._explains(token, vocabulary) for token in rest) and self._page_members({
+                "semantic_model": item.get("semantic_model"), "page": item.get("page"),
+            }):
+                return True
+        return False
+
     def _nominal_metric_with_filter(self, question, dashboard=None):
         """Frase nominal sin verbo, periodo ni «por ...» que nombra TAL CUAL un
         indicador más un valor de filtro («interconsultas sin responder de
@@ -6191,6 +6481,8 @@ class QueryPlanBuilder:
         # respuesta»): se pide el dato (si es una página, se ofrecen sus
         # indicadores), no la documentación.
         if self._names_indicator_exactly(text, source_context):
+            return True
+        if self._names_data_page_with_context(text):
             return True
         metric_result = self._resolve_metric_flexible(text, source_context)
         if metric_result.get("status") != "resolved":
@@ -7242,11 +7534,79 @@ class QueryPlanBuilder:
             return None
         # Primero el filtro barato (algún alias abre `tail`); luego el mejor
         # de esos por coincidencia y relevancia, como `_best_dimension`.
+        tail = self._strip_group_interrogative(tail)
         named = [
             field for field in fields
             if any(_alias_prefix(tail, alias) for alias in field.get("aliases") or [])
         ]
-        return self._best_dimension(tail, named, exclude_temporal=True) if named else None
+        if named:
+            return self._best_dimension(tail, named, exclude_temporal=True)
+        described = self._described_group_field(tail, fields)
+        return described[0] if described else None
+
+    # «por QUÉ motivos», «según CUÁL servicio»: el interrogativo no es parte
+    # del nombre de la dimensión.
+    _GROUP_INTERROGATIVE_RE = re.compile(r"^(?:que|cual|cuales|cada)\s+")
+    # Sinónimos de nombres de dimensión (genéricos, no de un tablero).
+    _DIMENSION_NAME_SYNONYMS = {
+        "motivo": ("causa", "razon", "motivo"), "causa": ("motivo", "razon", "causa"),
+        "razon": ("motivo", "causa", "razon"),
+    }
+
+    def _strip_group_interrogative(self, tail):
+        return self._GROUP_INTERROGATIVE_RE.sub("", normalize_text(tail)).strip() if tail else tail
+
+    def _column_description_head(self, field):
+        """Frase inicial con que el diccionario describe la columna («Rango de
+        horas de espera de la orden», «Causa de cancelación de la cita»)."""
+        index = self._dictionary_index()
+        key = (
+            normalize_text(field.get("semantic_model")),
+            f"c:{normalize_text(field.get('table'))}[{normalize_text(field.get('column'))}]",
+        )
+        text = index.get(key) or ""
+        return re.split(r"[.,;:(\n]", text, maxsplit=1)[0].strip()
+
+    def _described_group_field(self, tail, fields):
+        """«por rango de horas» -> HORAS_SUMINISTRO («Rango de horas de espera…»);
+        «por motivos» -> CCCDESCRI («Causa de cancelación…»): la dimensión
+        también se nombra con el comienzo de su descripción documentada (dos
+        palabras o más, o una de ≥ 5 letras, con sinónimos genéricos).
+        Devuelve (campo, texto de la pregunta que la nombra) o None."""
+        tail = self._strip_group_interrogative(tail)
+        if not tail:
+            return None
+        words = tail.split()
+        first = canonical_token(words[0]) if words else ""
+        variants = [tail]
+        for synonym in self._DIMENSION_NAME_SYNONYMS.get(first, ()):
+            if synonym != first:
+                variants.append(" ".join([synonym, *words[1:]]))
+        best = None
+        for field in fields:
+            if self._is_temporal_field(field):
+                continue
+            head_words = normalize_text(self._column_description_head(field)).split()
+            for size in range(min(len(head_words), 4), 0, -1):
+                phrase = " ".join(head_words[:size])
+                content = [w for w in phrase.split() if w not in _ALIAS_CONNECTORS]
+                if not content or (len(content) == 1 and len(content[0]) < 5):
+                    continue
+                if phrase.split()[-1] in _ALIAS_CONNECTORS:
+                    continue
+                matched = next((prefix for prefix in (_alias_prefix(v, phrase) for v in variants) if prefix), None)
+                if matched:
+                    score = (len(content), field.get("relevance_score", 0))
+                    if best is None or score > best[0]:
+                        best = (score, field, " ".join(words[:len(matched.split())]))
+                    break
+        if best is None:
+            return None
+        self._note(
+            f"«por {best[2]}» nombra la dimensión {best[1].get('table')}[{best[1].get('column')}] "
+            "según su descripción documentada"
+        )
+        return best[1], best[2]
 
     def _group_topic_words(self, question, source_context, tail):
         """Palabras del tema de «detalle de ocupación por aseguradores»
@@ -8090,10 +8450,24 @@ class QueryPlanBuilder:
         name_tokens = {
             token for name in self._metric_names(metric) for token in canonical_tokens(name)
         }
-        return all(
-            any(_tokens_match_loosely(canonical_token(word), token) for token in name_tokens)
-            for word in words
-        )
+        unexplained = [
+            word for word in words
+            if not any(_tokens_match_loosely(canonical_token(word), token) for token in name_tokens)
+        ]
+        if not unexplained:
+            return True
+        # Con al menos una palabra en el nombre o la página del indicador, el
+        # resto puede decirlo su tablero o su nombre funcional documentado, o
+        # ser un verbo («medicamentos desabastecidos hay reportados» -> CASOS
+        # TOTALES de la página DETALLE MEDICAMENTOS DESABASTECIDOS).
+        page_tokens = {token for page in self._metric_pages(metric) for token in canonical_tokens(page)}
+        if len(unexplained) == len(words) and not any(
+            any(_tokens_match_loosely(canonical_token(word), token) for token in page_tokens) for word in words
+        ):
+            return False
+        _, covered = self.question_coverage(question, metric)
+        rest = [word for word in unexplained if canonical_token(word) not in covered]
+        return not rest or not self.implied_words(metric, rest)[1]
 
     def _head_token(self, question, source_context):
         """Sustantivo principal: primera palabra con contenido de la pregunta
@@ -10089,10 +10463,17 @@ class QueryPlanBuilder:
         if not texts:
             return []
         forms = {}
+        excluding = {"excluye", "excluyen", "excluia", "excluian", "excluir", "excluyendo", "sin",
+                     "salvo", "excepto", "menos", "no"}
         for text in texts:
             normalized = normalize_text(text)
-            for doc_word in normalized.split():
+            doc_words = normalized.split()
+            for position, doc_word in enumerate(doc_words):
                 if len(doc_word) < 4:
+                    continue
+                # «excluye los triages OBSTETRICOS»: lo que la documentación
+                # excluye no describe al indicador.
+                if excluding & set(doc_words[max(0, position - 4):position]):
                     continue
                 for form in (canonical_token(doc_word), _stem_token(doc_word)):
                     forms.setdefault(form, normalized)
@@ -11097,6 +11478,17 @@ class QueryPlanBuilder:
             source_context, group_by, extra_removals=consumed_tokens,
         )
         significant = [token for token in leftover.split() if len(token) >= 3]
+        if significant:
+            # Verbos y palabras que el indicador ya dice (nombre, página,
+            # diccionario, nombre funcional de su página) no son filtros.
+            implied, remaining = self.implied_words(metric, significant)
+            if implied:
+                self._note(
+                    f"«{' '.join(implied)}» no es un filtro: es forma de la pregunta o lo dice el propio "
+                    f"indicador {metric.get('label')} (su nombre, página o documentación)"
+                )
+                significant = remaining
+                leftover = " ".join(word for word in leftover.split() if word not in implied)
         if significant and exploring:
             # Si lo no interpretado es el núcleo de la pregunta (el sustantivo
             # principal) o pesa más que lo que coincidió con el indicador, no

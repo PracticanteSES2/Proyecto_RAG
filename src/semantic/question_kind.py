@@ -45,6 +45,11 @@ _MEANING = (
     r"de\s+donde\s+(?:sale|salen|se\s+obtiene|se\s+obtienen|viene|vienen|proviene|provienen"
     r"|se\s+toma|se\s+toman|toma|toman|se\s+saca|se\s+sacan)",
     r"(?:cual|que)\s+es\s+(?:la\s+)?fuente\s+de",
+    # Proceso / flujo: «por qué estados pasa un pedido», «qué etapas tiene
+    # una solicitud», «cuál es el flujo de una remisión».
+    r"por\s+(?:que|cuales)\s+(?:estados|etapas|pasos|fases)\s+(?:pasa|pasan|va|van|transita|transitan|recorre)",
+    r"(?:que|cuales)\s+(?:son\s+(?:los|las)\s+)?(?:etapas|pasos|fases)\s+(?:tiene|tienen|sigue|siguen|hay)",
+    r"(?:cual|como)\s+es\s+el\s+(?:flujo|proceso|ciclo)\s+(?:de|del)",
 )
 
 # Rangos / colores / criterios / semáforo: con artículo («los rangos del NEDOCS»).
