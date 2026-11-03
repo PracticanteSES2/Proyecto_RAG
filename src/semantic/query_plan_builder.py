@@ -10,6 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from src.providers.domain_cache import connection_open, domain_cache_for, identifier_column
+from src.semantic import plan_budget
 from src.semantic.question_kind import descriptive_phrase
 from src.semantic.answer_shape import DETAIL_REQUEST_WORDS, detail_request
 from src.semantic.period_parser import (
@@ -618,6 +619,7 @@ def _domain_text_analysis(domain, text_words):
     cached = _DOMAIN_TEXT_CACHE.get(memo_key)
     if cached is not None:
         return cached
+    plan_budget.check("análisis de valores opuestos")
     words_by_value, keys_by_value, frequency = _domain_word_analysis(domain)
     total = len(domain)
     text_list = list(text_words)
@@ -5120,6 +5122,7 @@ class QueryPlanBuilder:
         # MAYORES DE EDAD; «aceptadas» no es NO ACEPTADO).
         consistent, contradicted = [], []
         for score, value in scored:
+            plan_budget.check("valor implícito")
             # La pregunta completa conserva la polaridad («no aceptadas»),
             # que el texto sobrante pierde al quitar palabras vacías.
             reason = (
@@ -10636,6 +10639,7 @@ class QueryPlanBuilder:
                     for position, field in enumerate(fields):
                         if best is not None and best[0] >= 1.0:
                             break
+                        plan_budget.check("calificativo aproximado")
                         key = (normalize_text(field.get("table")), normalize_text(field.get("column")))
                         if key in used:
                             continue
@@ -10732,6 +10736,7 @@ class QueryPlanBuilder:
 
     def _build_plan(self, question, intent_result=None, selected_metric_id=None,
                     forced_resolution=None):
+        plan_budget.check("armado del plan")
         intent_result = intent_result or {}
         dashboard = intent_result.get("dashboard")
         source_context = self._source_context(question, dashboard=dashboard)
