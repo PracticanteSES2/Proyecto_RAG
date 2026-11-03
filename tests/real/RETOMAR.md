@@ -151,7 +151,8 @@ Reglas generales (pruebas en `tests/resolution/test_r7.py`, preguntas nuevas):
 - **TU04 (causa en real)**: «cuántos triages» nunca coincidía con CANTIDAD DE TRIAGES (`_core_name_score` exigía
   dos palabras tras «cantidad de»), así que en el catálogo real solo competían TRIAGES (Demanda) y el «Recuento de
   PACNUMDOC» de TRIAGES ATENDIDOS (EPS), que explicaba «urgencias» por su filtro GASNOMBRE y su página. Ahora:
-  (1) «cuántos/número de X» nombra «CANTIDAD/NÚMERO DE X» completo (no «TOTAL X»); (2) el tablero del indicador
+  (1) «cuántos/número de X» nombra «CANTIDAD/NÚMERO DE X» completo (no «TOTAL X» ni unidades genéricas:
+  CANTIDAD DE PACIENTES); (2) el tablero del indicador
   explica un calificativo también en `_promote_qualifier_metrics` («urgencias» → TABLERO TIEMPOS URGENCIAS), como ya
   lo hacía el puntaje; (3) un conteo implícito de identificador («Recuento de <col. de documento/OID/ingreso>»,
   `_implicit_identifier_count`) va detrás de un indicador con nombre de negocio que explica lo mismo
@@ -194,5 +195,5 @@ Pendientes del holdout v3 (no forzados):
 5. **Tablas «del día anterior»**: en el simulador tienen historia completa; la cobertura solo sale de la
    documentación (`table_coverage`), así que una regla de cobertura mal escrita no se nota en las cifras.
 
-IDs a validar en real: `correr_todo --solo TU04,TU03,TU05,BH03,EP01,EP02` y holdout
+IDs a validar en real: `correr_todo --solo TU04,TU01,TU03,TU10,BH10,BH15,EP02,AI04` y holdout
 `--banco tests/real/banco_holdout.json --solo H02,H05,H09,H20,H24,H29`.
