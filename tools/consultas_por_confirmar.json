@@ -1,0 +1,671 @@
+{
+ "descripcion": "Consultas DAX de solo lectura para resolver con datos los «Por confirmar» de docs_tableros. Las genera el agente dic-pendientes (2026-11-03); se ejecutan contra el modelo publicado indicado en «modelo» y sus resultados se usan para editar los .md con aplicar_operaciones.",
+ "reglas": [
+  "Solo lectura: EVALUATE, sin cambios en el modelo ni en la base.",
+  "Solo agregados (conteos, sumas, mínimos, máximos, medianas), valores distintos de columnas categóricas NO personales y rangos de fechas.",
+  "Ninguna consulta devuelve filas de pacientes, nombres, documentos, ingresos individuales ni nombres de colaboradores.",
+  "Una consulta con varios EVALUATE devuelve varias tablas; en DAX Studio se ven como pestañas."
+ ],
+ "campos": {
+  "id": "identificador citado en POR_CONFIRMAR.md",
+  "tablero": "source_group",
+  "modelo": "modelo semántico publicado",
+  "tipo": "distinct | agregado | rango_fechas",
+  "objetivo": "qué se quiere saber",
+  "resuelve": "archivo › sección › entrada que se actualiza con el resultado",
+  "dax": "consulta"
+ },
+ "consultas": [
+  {
+   "id": "antibioticos-01",
+   "tablero": "tablero_antibioticos",
+   "modelo": "TABLERO_ANTIBIOTICOS",
+   "tipo": "agregado",
+   "objetivo": "Inferir la unidad de HCCANTIDAD y de hccantdosis: rango y valores típicos por antibiótico (si salen 1, 2, 3 son unidades/ampollas; si salen 500, 1000, 2000 son mg).",
+   "resuelve": [
+    "_diccionario.md › Medidas › [TOTAL DOSIS SUMINISTRADAS]",
+    "_diccionario.md › Medidas › [Dosis_Diaria]",
+    "_diccionario.md › Columnas clave › ANTIBIOTICOS[hccantdosis]",
+    "_diccionario.md › Observaciones › Pendiente para el dueño"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( ANTIBIOTICOS[ANTIBIOTICO], \"Filas\", COUNTROWS ( ANTIBIOTICOS ), \"MinCantidad\", MIN ( ANTIBIOTICOS[HCCANTIDAD] ), \"MedianaCantidad\", MEDIAN ( ANTIBIOTICOS[HCCANTIDAD] ), \"MaxCantidad\", MAX ( ANTIBIOTICOS[HCCANTIDAD] ), \"MinCantDosis\", MIN ( ANTIBIOTICOS[hccantdosis] ), \"MedianaCantDosis\", MEDIAN ( ANTIBIOTICOS[hccantdosis] ), \"MaxCantDosis\", MAX ( ANTIBIOTICOS[hccantdosis] ) ) ORDER BY [Filas] DESC"
+  },
+  {
+   "id": "antibioticos-02",
+   "tablero": "tablero_antibioticos",
+   "modelo": "TABLERO_ANTIBIOTICOS",
+   "tipo": "distinct",
+   "objetivo": "Los 30 valores más frecuentes de HCCANTIDAD con su número de aplicaciones.",
+   "resuelve": [
+    "_diccionario.md › Observaciones › Pendiente para el dueño"
+   ],
+   "dax": "EVALUATE TOPN ( 30, SUMMARIZECOLUMNS ( ANTIBIOTICOS[HCCANTIDAD], \"Filas\", COUNTROWS ( ANTIBIOTICOS ) ), [Filas], DESC )"
+  },
+  {
+   "id": "briefing-01",
+   "tablero": "tablero_briefing_hospitalario",
+   "modelo": "BRIEFING HOSPITALARIO",
+   "tipo": "distinct",
+   "objetivo": "Valores de AMBULATORIO_SS[TIPO_CONSULTA] (vista BI_PROXIMAS_CITAS) y cuántos días cubre la vista.",
+   "resuelve": [
+    "_diccionario_columnas.md › Columnas clave › AMBULATORIO_SS[TIPO_CONSULTA]",
+    "consultas_proxima_semana.md › Observaciones › Horizonte"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( AMBULATORIO_SS[TIPO_CONSULTA], \"Citas\", DISTINCTCOUNT ( AMBULATORIO_SS[CITA] ), \"Desde\", MIN ( AMBULATORIO_SS[FECHA] ), \"Hasta\", MAX ( AMBULATORIO_SS[FECHA] ) )"
+  },
+  {
+   "id": "briefing-02",
+   "tablero": "tablero_briefing_hospitalario",
+   "modelo": "BRIEFING HOSPITALARIO",
+   "tipo": "distinct",
+   "objetivo": "Estados del trámite de remisión (catálogo, sin pacientes).",
+   "resuelve": [
+    "_diccionario_columnas.md › Columnas clave › SEGUIMIENTO REMISIONES[ESTADO_TRAMITE]"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( 'SEGUIMIENTO REMISIONES'[ESTADO_TRAMITE], \"Filas\", COUNTROWS ( 'SEGUIMIENTO REMISIONES' ) )"
+  },
+  {
+   "id": "briefing-03",
+   "tablero": "tablero_briefing_hospitalario",
+   "modelo": "BRIEFING HOSPITALARIO",
+   "tipo": "agregado",
+   "objetivo": "Rango de las variables C y D de NEDOCS para saber si están en horas o en minutos (la fórmula estándar usa horas).",
+   "resuelve": [
+    "_diccionario.md › Observaciones › Unidades de NEDOCS",
+    "detalle_nedocs.md › Indicadores › C espera de consulta",
+    "detalle_nedocs.md › Indicadores › D espera de cama",
+    "detalle_nedocs.md › Observaciones › Unidades de C y D"
+   ],
+   "dax": "EVALUATE ROW ( \"Filas\", COUNTROWS ( NEDOCS ), \"C_min\", MIN ( NEDOCS[C] ), \"C_max\", MAX ( NEDOCS[C] ), \"C_prom\", AVERAGE ( NEDOCS[C] ), \"D_min\", MIN ( NEDOCS[D] ), \"D_max\", MAX ( NEDOCS[D] ), \"D_prom\", AVERAGE ( NEDOCS[D] ), \"A2\", MAX ( NEDOCS[A2] ), \"B2\", MAX ( NEDOCS[B2] ) )"
+  },
+  {
+   "id": "briefing-04",
+   "tablero": "tablero_briefing_hospitalario",
+   "modelo": "BRIEFING HOSPITALARIO",
+   "tipo": "distinct",
+   "objetivo": "Nombres de área de servicio que muestra el gráfico de imágenes tomadas.",
+   "resuelve": [
+    "imagenes_diagnosticas.md › Observaciones › Códigos de área"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( IMAGENES_TOMADAS[AREA_DE_SERVICIO], \"Filas\", COUNTROWS ( IMAGENES_TOMADAS ) )"
+  },
+  {
+   "id": "briefing-05",
+   "tablero": "tablero_briefing_hospitalario",
+   "modelo": "BRIEFING HOSPITALARIO",
+   "tipo": "agregado",
+   "objetivo": "Qué marca CAMAS DISPONIBLES[MOSTRAR_6TO]: camas por valor y servicio (sin pacientes).",
+   "resuelve": [
+    "gestion_camas.md › Observaciones › Columna MOSTRAR_6TO",
+    "_diccionario.md › Observaciones › Vistas de origen"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( 'CAMAS DISPONIBLES'[MOSTRAR_6TO], 'CAMAS DISPONIBLES'[HSUNOMBRE], \"Camas\", DISTINCTCOUNT ( 'CAMAS DISPONIBLES'[HCACODIGO] ) )"
+  },
+  {
+   "id": "briefing-06",
+   "tablero": "tablero_briefing_hospitalario",
+   "modelo": "BRIEFING HOSPITALARIO",
+   "tipo": "rango_fechas",
+   "objetivo": "Fechas que cubren las tablas de digiturnos, citas próximas, imágenes y convenios.",
+   "resuelve": [
+    "consultas_proxima_semana.md › Observaciones › Horizonte",
+    "convenios.md (vigencias)"
+   ],
+   "dax": "EVALUATE UNION ( ROW ( \"Tabla\", \"TURNOS_AMBULATORIO\", \"Min\", MIN ( TURNOS_AMBULATORIO[FECHA] ), \"Max\", MAX ( TURNOS_AMBULATORIO[FECHA] ) ), ROW ( \"Tabla\", \"AMBULATORIO_SS\", \"Min\", MIN ( AMBULATORIO_SS[FECHA] ), \"Max\", MAX ( AMBULATORIO_SS[FECHA] ) ), ROW ( \"Tabla\", \"SOLICITUDES_RESPUESTA\", \"Min\", MIN ( SOLICITUDES_RESPUESTA[FECHA] ), \"Max\", MAX ( SOLICITUDES_RESPUESTA[FECHA] ) ), ROW ( \"Tabla\", \"CONVENIOS (FECHA FINAL)\", \"Min\", MIN ( CONVENIOS[FECHA FINAL] ), \"Max\", MAX ( CONVENIOS[FECHA FINAL] ) ) )"
+  },
+  {
+   "id": "control_facturacion-01",
+   "tablero": "tablero_control_facturacion",
+   "modelo": "Tablero Control Facturacion",
+   "tipo": "distinct",
+   "objetivo": "Estados de ingreso presentes en ULT_GESTION (¿aparece el 4?).",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › ULT_GESTION[AINESTADO]"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( ULT_GESTION[AINESTADO], \"Filas\", COUNTROWS ( ULT_GESTION ) )"
+  },
+  {
+   "id": "control_facturacion-02",
+   "tablero": "tablero_control_facturacion",
+   "modelo": "Tablero Control Facturacion",
+   "tipo": "agregado",
+   "objetivo": "Pendientes por tipo de ingreso (si el botón AMBULATORIO puede mostrar algo).",
+   "resuelve": [
+    "facturacion_pendiente.md › Observaciones › Botón AMBULATORIO"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( PENDIENTES_FACTURACION[TIPO_INGRESO], \"Ingresos\", DISTINCTCOUNT ( PENDIENTES_FACTURACION[INGRESO] ) )"
+  },
+  {
+   "id": "control_facturacion-03",
+   "tablero": "tablero_control_facturacion",
+   "modelo": "Tablero Control Facturacion",
+   "tipo": "agregado",
+   "objetivo": "Filas por perfil en FACTURACION PERFILES (si AUDITORES EXTERNOS y ESTACION ENFERMERIA tienen registros).",
+   "resuelve": [
+    "auditores_externos.md › Observaciones › Sin datos en la captura",
+    "estacion_enfermeria.md › Observaciones › Sin datos en la captura",
+    "en_proceso_auditoria_pertinencia.md › Observaciones › Sin datos en la captura"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( 'FACTURACION PERFILES'[PERFIL], \"Filas\", COUNTROWS ( 'FACTURACION PERFILES' ), \"Min\", MIN ( 'FACTURACION PERFILES'[FECHA] ), \"Max\", MAX ( 'FACTURACION PERFILES'[FECHA] ) )"
+  },
+  {
+   "id": "cvc-01",
+   "tablero": "tablero_cvc",
+   "modelo": "TABLERO_CVC",
+   "tipo": "agregado",
+   "objetivo": "Qué cuentan y suman las tarjetas: registros, productos distintos y COMPRA_TOTAL por ESTADO (comparar con la captura: TOTAL PRODUCTOS 4.367).",
+   "resuelve": [
+    "cvc.md › Indicadores › Total productos",
+    "cvc.md › Indicadores › Total compras con aumento",
+    "cvc.md › Indicadores › Total compras con disminución",
+    "cvc.md › Observaciones › Total productos igual a aumentos"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( ROLLUPADDISSUBTOTAL ( COSTOS_PRODUCTOS[ESTADO], \"EsTotal\" ), \"Registros\", COUNTROWS ( COSTOS_PRODUCTOS ), \"ProductosDistintos\", DISTINCTCOUNT ( COSTOS_PRODUCTOS[IPRCODIGO] ), \"CompraTotal\", SUM ( COSTOS_PRODUCTOS[COMPRA_TOTAL] ), \"SinCostoAnterior\", COUNTROWS ( FILTER ( COSTOS_PRODUCTOS, ISBLANK ( COSTOS_PRODUCTOS[COSTO_ANTERIOR] ) ) ) )"
+  },
+  {
+   "id": "cvc-02",
+   "tablero": "tablero_cvc",
+   "modelo": "TABLERO_CVC",
+   "tipo": "distinct",
+   "objetivo": "Valores de la marca de regulación del Excel de regulados (y de la columna sin expresión COSTOS_PRODUCTOS[REGULADO]; si esta falla, quitarla).",
+   "resuelve": [
+    "cvc.md › Observaciones › Producto regulado",
+    "_diccionario.md › Observaciones › Columna REGULADO sin cálculo"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( PRODUCTOS_REGULADOS[REGULADO], \"Productos\", COUNTROWS ( PRODUCTOS_REGULADOS ) ) EVALUATE SUMMARIZECOLUMNS ( COSTOS_PRODUCTOS[REGULADO], \"Registros\", COUNTROWS ( COSTOS_PRODUCTOS ) )"
+  },
+  {
+   "id": "cvc-03",
+   "tablero": "tablero_cvc",
+   "modelo": "TABLERO_CVC",
+   "tipo": "rango_fechas",
+   "objetivo": "Hasta qué fecha llegan los registros de costo.",
+   "resuelve": [
+    "_diccionario.md › Tablas › COSTOS_PRODUCTOS (vigencia)"
+   ],
+   "dax": "EVALUATE ROW ( \"MinFECHAREG\", MIN ( COSTOS_PRODUCTOS[FECHAREG] ), \"MaxFECHAREG\", MAX ( COSTOS_PRODUCTOS[FECHAREG] ) )"
+  },
+  {
+   "id": "atenciones-01",
+   "tablero": "tablero_de_atenciones_institucionales",
+   "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "distinct",
+   "objetivo": "Valores de primera vez/control, estado y tipo de atención de las citas ambulatorias (códigos, no pacientes).",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › CONSULTAS_AMBULATORIAS[PV_CONTROL]",
+    "_diccionario.md › Columnas clave › CONSULTAS_AMBULATORIAS[ESTADO_CITA]",
+    "_diccionario.md › Observaciones › Pendientes de negocio"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( CONSULTAS_AMBULATORIAS[PV_CONTROL], CONSULTAS_AMBULATORIAS[ESTADO_CITA], CONSULTAS_AMBULATORIAS[TIPO_ATENCION], \"Filas\", COUNTROWS ( CONSULTAS_AMBULATORIAS ) )"
+  },
+  {
+   "id": "atenciones-02",
+   "tablero": "tablero_de_atenciones_institucionales",
+   "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "distinct",
+   "objetivo": "Tipos de laboratorio de patología y categoría EPS (catálogo).",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › LABORATORIOS_PATOLOGICOS[TipoLaboratorio]"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( LABORATORIOS_PATOLOGICOS[TipoLaboratorio], LABORATORIOS_PATOLOGICOS[CategoriaEPS], \"Filas\", COUNTROWS ( LABORATORIOS_PATOLOGICOS ) )"
+  },
+  {
+   "id": "atenciones-03",
+   "tablero": "tablero_de_atenciones_institucionales",
+   "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "rango_fechas",
+   "objetivo": "Periodo que cubre la parte histórica (AT_AMB_MAYO_2025, antes del 2025-11-01) de CONSULTAS_AMBULATORIAS y desde cuándo viene la parte actual.",
+   "resuelve": [
+    "_diccionario.md › Tablas › CONSULTAS_AMBULATORIAS",
+    "consultas_ambulatorias.md › Fuentes de datos › CONSULTAS_AMBULATORIAS"
+   ],
+   "dax": "EVALUATE ROW ( \"MinTotal\", MIN ( CONSULTAS_AMBULATORIAS[FECHA_CITA] ), \"MaxTotal\", MAX ( CONSULTAS_AMBULATORIAS[FECHA_CITA] ), \"MinHistorico\", CALCULATE ( MIN ( CONSULTAS_AMBULATORIAS[FECHA_CITA] ), CONSULTAS_AMBULATORIAS[FECHA_CITA] < DATE ( 2025, 11, 1 ) ), \"MaxHistorico\", CALCULATE ( MAX ( CONSULTAS_AMBULATORIAS[FECHA_CITA] ), CONSULTAS_AMBULATORIAS[FECHA_CITA] < DATE ( 2025, 11, 1 ) ), \"FilasHistorico\", CALCULATE ( COUNTROWS ( CONSULTAS_AMBULATORIAS ), CONSULTAS_AMBULATORIAS[FECHA_CITA] < DATE ( 2025, 11, 1 ) ) )"
+  },
+  {
+   "id": "atenciones-04",
+   "tablero": "tablero_de_atenciones_institucionales",
+   "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "agregado",
+   "objetivo": "Comprobar las relaciones sospechosas por OID: cuántos OID distintos de cada tabla existen también en la tabla destino.",
+   "resuelve": [
+    "_diccionario.md › Relaciones › IMAGENES_CARDIOLOGIA[OID] → ASEGURADORAS[OID]",
+    "_diccionario.md › Relaciones › IMAGENES_ECOGRAFIA[OID] → ASEGURADORAS[OID]",
+    "_diccionario.md › Relaciones › IMAGENES_OTRAS[OID] → ASEGURADORAS[OID]",
+    "_diccionario.md › Relaciones › CIRUGIAS[OID] → ASEGURADORAS[OID]",
+    "_diccionario.md › Relaciones › CIRUGIAS[OID] → CAMAS[OID]",
+    "_diccionario.md › Relaciones › CIRUGIAS[OID] → UNIDAD[OID]",
+    "_diccionario.md › Relaciones › SERVICIO[OID] → ASEGURADORAS[OID]"
+   ],
+   "dax": "EVALUATE UNION ( ROW ( \"Relacion\", \"IMAGENES_CARDIOLOGIA→ASEGURADORAS\", \"Distintos\", DISTINCTCOUNT ( IMAGENES_CARDIOLOGIA[OID] ), \"Coinciden\", COUNTROWS ( INTERSECT ( VALUES ( IMAGENES_CARDIOLOGIA[OID] ), VALUES ( ASEGURADORAS[OID] ) ) ) ), ROW ( \"Relacion\", \"IMAGENES_ECOGRAFIA→ASEGURADORAS\", \"Distintos\", DISTINCTCOUNT ( IMAGENES_ECOGRAFIA[OID] ), \"Coinciden\", COUNTROWS ( INTERSECT ( VALUES ( IMAGENES_ECOGRAFIA[OID] ), VALUES ( ASEGURADORAS[OID] ) ) ) ), ROW ( \"Relacion\", \"IMAGENES_OTRAS→ASEGURADORAS\", \"Distintos\", DISTINCTCOUNT ( IMAGENES_OTRAS[OID] ), \"Coinciden\", COUNTROWS ( INTERSECT ( VALUES ( IMAGENES_OTRAS[OID] ), VALUES ( ASEGURADORAS[OID] ) ) ) ), ROW ( \"Relacion\", \"CIRUGIAS→ASEGURADORAS\", \"Distintos\", DISTINCTCOUNT ( CIRUGIAS[OID] ), \"Coinciden\", COUNTROWS ( INTERSECT ( VALUES ( CIRUGIAS[OID] ), VALUES ( ASEGURADORAS[OID] ) ) ) ), ROW ( \"Relacion\", \"CIRUGIAS→CAMAS\", \"Distintos\", DISTINCTCOUNT ( CIRUGIAS[OID] ), \"Coinciden\", COUNTROWS ( INTERSECT ( VALUES ( CIRUGIAS[OID] ), VALUES ( CAMAS[OID] ) ) ) ), ROW ( \"Relacion\", \"CIRUGIAS→UNIDAD\", \"Distintos\", DISTINCTCOUNT ( CIRUGIAS[OID] ), \"Coinciden\", COUNTROWS ( INTERSECT ( VALUES ( CIRUGIAS[OID] ), VALUES ( UNIDAD[OID] ) ) ) ), ROW ( \"Relacion\", \"SERVICIO↔ASEGURADORAS\", \"Distintos\", DISTINCTCOUNT ( SERVICIO[OID] ), \"Coinciden\", COUNTROWS ( INTERSECT ( VALUES ( SERVICIO[OID] ), VALUES ( ASEGURADORAS[OID] ) ) ) ) )"
+  },
+  {
+   "id": "atenciones-05",
+   "tablero": "tablero_de_atenciones_institucionales",
+   "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "distinct",
+   "objetivo": "Clasificaciones de triage (incluidas las obstétricas -G y el triage I) en las dos tablas de urgencias, con su conteo.",
+   "resuelve": [
+    "triages_obstetricos.md › Observaciones › Filtro obstétrico no documentado",
+    "oportunidad_triage_obstetrico.md › Observaciones › Regla de triage I",
+    "triage.md › Reglas de negocio › Vista obstetricia",
+    "consultas_obstetricas.md › Observaciones › Filtro obstétrico no documentado"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( OPORTUNIDAD_TRIAGE[DESCRI_TRIGE], OPORTUNIDAD_TRIAGE[CLASIFICACION_TRIAGE], \"Filas\", COUNTROWS ( OPORTUNIDAD_TRIAGE ) ) EVALUATE SUMMARIZECOLUMNS ( CONSULTA_URGENCIAS[CLASIFICACION_TRIAGE], CONSULTA_URGENCIAS[CAUSA_INGRESO], \"Filas\", COUNTROWS ( CONSULTA_URGENCIAS ) )"
+  },
+  {
+   "id": "atenciones-06",
+   "tablero": "tablero_de_atenciones_institucionales",
+   "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "rango_fechas",
+   "objetivo": "Hasta qué fecha llega cada tabla de hechos (y si las consultas de urgencias ya no traen 2023 y 2024).",
+   "resuelve": [
+    "urgencias.md › Observaciones › Consulta desactualizada",
+    "consultas_obstetricas.md › Observaciones › Consulta desactualizada",
+    "atenciones_pediatricas_consultas.md › Observaciones › Consulta desactualizada",
+    "oportunidad_consulta_obstetrica.md › Observaciones › Tarjeta vacía",
+    "_diccionario.md › Tablas (vigencia)"
+   ],
+   "dax": "EVALUATE UNION ( ROW ( \"Tabla\", \"CONSULTA_URGENCIAS\", \"Min\", MIN ( CONSULTA_URGENCIAS[FECHA_FOLIO] ), \"Max\", MAX ( CONSULTA_URGENCIAS[FECHA_FOLIO] ) ), ROW ( \"Tabla\", \"OPORTUNIDAD_TRIAGE\", \"Min\", MIN ( OPORTUNIDAD_TRIAGE[FECHA] ), \"Max\", MAX ( OPORTUNIDAD_TRIAGE[FECHA] ) ), ROW ( \"Tabla\", \"CIRUGIAS\", \"Min\", MIN ( CIRUGIAS[FECHA] ), \"Max\", MAX ( CIRUGIAS[FECHA] ) ), ROW ( \"Tabla\", \"QUIMIOTERAPIA\", \"Min\", MIN ( QUIMIOTERAPIA[FECHA] ), \"Max\", MAX ( QUIMIOTERAPIA[FECHA] ) ), ROW ( \"Tabla\", \"RADIOTERAPIA\", \"Min\", MIN ( RADIOTERAPIA[FECHA] ), \"Max\", MAX ( RADIOTERAPIA[FECHA] ) ), ROW ( \"Tabla\", \"REFERENCIA\", \"Min\", MIN ( REFERENCIA[FECHALLAM] ), \"Max\", MAX ( REFERENCIA[FECHALLAM] ) ), ROW ( \"Tabla\", \"PARTOS_DRIVE\", \"Min\", MIN ( PARTOS_DRIVE[FECHA_REAL] ), \"Max\", MAX ( PARTOS_DRIVE[FECHA_REAL] ) ), ROW ( \"Tabla\", \"OBSERVADOS\", \"Min\", MIN ( OBSERVADOS[fecha] ), \"Max\", MAX ( OBSERVADOS[fecha] ) ), ROW ( \"Tabla\", \"LABORATORIOS\", \"Min\", MIN ( LABORATORIOS[FECHA_ATENCION] ), \"Max\", MAX ( LABORATORIOS[FECHA_ATENCION] ) ), ROW ( \"Tabla\", \"HOSPITALIZACION_PARCIAL\", \"Min\", MIN ( HOSPITALIZACION_PARCIAL[FECHA] ), \"Max\", MAX ( HOSPITALIZACION_PARCIAL[FECHA] ) ), ROW ( \"Tabla\", \"ATENCION DOMICILIARIA\", \"Min\", MIN ( 'ATENCION DOMICILIARIA'[FECHA] ), \"Max\", MAX ( 'ATENCION DOMICILIARIA'[FECHA] ) ), ROW ( \"Tabla\", \"UNIDAD_CARDIOVASCULAR\", \"Min\", MIN ( UNIDAD_CARDIOVASCULAR[FECHA_SERVICIO] ), \"Max\", MAX ( UNIDAD_CARDIOVASCULAR[FECHA_SERVICIO] ) ), ROW ( \"Tabla\", \"CONSOLIDADO_IMAGENES_2025\", \"Min\", MIN ( CONSOLIDADO_IMAGENES_2025[FECHA] ), \"Max\", MAX ( CONSOLIDADO_IMAGENES_2025[FECHA] ) ) ) EVALUATE SUMMARIZECOLUMNS ( Calendario[Año], \"ConsultasUrgencias\", COUNTROWS ( CONSULTA_URGENCIAS ) )"
+  },
+  {
+   "id": "atenciones-07",
+   "tablero": "tablero_de_atenciones_institucionales",
+   "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "agregado",
+   "objetivo": "De dónde puede salir la cifra de 308 camas de CAPACIDAD INSTALADA: conteos de camas en las tablas y medidas del modelo.",
+   "resuelve": [
+    "indicadores.md › Indicadores › Capacidad instalada",
+    "indicadores.md › Observaciones › Capacidad instalada sin cuadrar"
+   ],
+   "dax": "EVALUATE ROW ( \"CAMAS_filas\", COUNTROWS ( CAMAS ), \"CAMAS_codigos\", DISTINCTCOUNT ( CAMAS[HCACODIGO] ), \"CAMAS_HABILITADAS_codigos\", DISTINCTCOUNT ( 'CAMAS HABILITADAS'[codcama] ), \"PORCENTAJE_OCUPACIONAL_codigos\", DISTINCTCOUNT ( PORCENTAJE_OCUPACIONAL[CODCAMA] ), \"NUM_CAM_EGRESOS\", [NUM_CAM_EGRESOS], \"NUMERO_CAMAS\", [NUMERO_CAMAS] )"
+  },
+  {
+   "id": "atenciones-08",
+   "tablero": "tablero_de_atenciones_institucionales",
+   "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "agregado",
+   "objetivo": "Valor anual de cada medida de promedio de estancia, para ver cuál da el rango 118–148 de la captura y en qué unidad.",
+   "resuelve": [
+    "indicadores.md › Indicadores › Promedio de estancia",
+    "indicadores.md › Observaciones › Unidad del promedio de estancia",
+    "_diccionario.md › Medidas › [ESTANCIA_TOTAL]"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( Calendario[Año], \"PROMEDIO_ESTANCIA_TOTAL\", [PROMEDIO_ESTANCIA_TOTAL], \"PROMEDIO_ESTANCIA_TOTAL1\", [PROMEDIO_ESTANCIA_TOTAL1], \"PROM_ESTANCIA\", [PROM_ESTANCIA], \"PROMEDIO_ESTANCIA_SERV\", [PROMEDIO_ESTANCIA_SERV], \"PROMEDIO_ESTANCIA_TRASLADOS\", [PROMEDIO_ESTANCIA_TRASLADOS] )"
+  },
+  {
+   "id": "atenciones-09",
+   "tablero": "tablero_de_atenciones_institucionales",
+   "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "distinct",
+   "objetivo": "Estados actuales de las solicitudes de cirugía (para definir pendientes y canceladas).",
+   "resuelve": [
+    "pendientes.md › Indicadores › Cirugías pendientes",
+    "pendientes.md › Observaciones › Definición de pendiente",
+    "cancelaciones.md › Indicadores › Cirugías canceladas"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( CIRUGIAS_PENDIENTES[ESTADO ACTUAL], \"Filas\", COUNTROWS ( CIRUGIAS_PENDIENTES ) )"
+  },
+  {
+   "id": "atenciones-10",
+   "tablero": "tablero_de_atenciones_institucionales",
+   "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "agregado",
+   "objetivo": "Si una solicitud de referencia aparece en varias filas (una por causa): filas frente a solicitudes distintas, por estado.",
+   "resuelve": [
+    "referencia_y_contrarreferencia.md › Observaciones › Posibles duplicados",
+    "motivos_de_no_aceptacion.md › Observaciones › Totales distintos al estado No Aceptado"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( REFERENCIA[NOMBRE_ESTADO], \"Filas\", COUNTROWS ( REFERENCIA ), \"Solicitudes\", DISTINCTCOUNT ( REFERENCIA[OID] ) )"
+  },
+  {
+   "id": "atenciones-11",
+   "tablero": "tablero_de_atenciones_institucionales",
+   "modelo": "TABLERO DE ATENCIONES INSTITUCIONALES",
+   "tipo": "distinct",
+   "objetivo": "Servicios que caen en la regla CRIT de ocupación y códigos de estado de las camas habilitadas.",
+   "resuelve": [
+    "porcentaje_ocupacional.md › Observaciones › Regla CRIT amplia",
+    "porcentaje_ocupacional.md › Observaciones › Estados numéricos"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( 'CAMAS HABILITADAS'[servicio], 'CAMAS HABILITADAS'[estado], \"Filas\", COUNTROWS ( 'CAMAS HABILITADAS' ) )"
+  },
+  {
+   "id": "demanda-01",
+   "tablero": "tablero_demanda_insatisfecha",
+   "modelo": "Demanda Insatisfecha",
+   "tipo": "agregado",
+   "objetivo": "Cuántas solicitudes de cama hay por EstadoOid y cuántas marca DEMANDA_INS, para ver qué regla de estado (=4 o <>4) cuadra.",
+   "resuelve": [
+    "_diccionario.md › SOLICITUD DE CAMAS[DEMANDA_INS]",
+    "solicitud_camas.md › Observaciones › Dos reglas de cama",
+    "consolidado.md › Observaciones › Reglas de cama distintas"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( 'SOLICITUD DE CAMAS'[EstadoOid], \"Solicitudes\", COUNTROWS ( 'SOLICITUD DE CAMAS' ), \"DemandaIns\", SUM ( 'SOLICITUD DE CAMAS'[DEMANDA_INS] ) )"
+  },
+  {
+   "id": "demanda-02",
+   "tablero": "tablero_demanda_insatisfecha",
+   "modelo": "Demanda Insatisfecha",
+   "tipo": "agregado",
+   "objetivo": "Triages por estado del turno (HCCESTADO) y por concepto (HCNCONCOTRI): cuánto cambia el total con y sin el filtro de estado 2.",
+   "resuelve": [
+    "_diccionario.md › TRIAGE[HCCESTADO]",
+    "triages.md › Reglas de negocio › Filtro de página",
+    "consolidado.md › Observaciones › Triages sin filtro de estado"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( TRIAGE[HCCESTADO], TRIAGE[HCNCONCOTRI], \"Filas\", COUNTROWS ( TRIAGE ) )"
+  },
+  {
+   "id": "demanda-03",
+   "tablero": "tablero_demanda_insatisfecha",
+   "modelo": "Demanda Insatisfecha",
+   "tipo": "distinct",
+   "objetivo": "Código y nombre de las causas de cancelación de citas, y estado de la cita (catálogo, sin pacientes).",
+   "resuelve": [
+    "citas.md › Reglas de negocio › Causas incluidas",
+    "citas.md › Observaciones › Estado de la cita"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( 'CITAS MEDICAS'[CMNCAUCAN], 'CITAS MEDICAS'[CCCDESCRI], 'CITAS MEDICAS'[CCMESTADO], 'CITAS MEDICAS'[CCMESTNOM], \"Citas\", COUNTROWS ( 'CITAS MEDICAS' ) )"
+  },
+  {
+   "id": "eps-01",
+   "tablero": "tablero_eps",
+   "modelo": "TABLERO EPS",
+   "tipo": "distinct",
+   "objetivo": "Nombres de las áreas de servicio 2 y 42 (catálogo, no pacientes).",
+   "resuelve": [
+    "_diccionario.md › Observaciones › Tipos de ingreso"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( PACIENTES_OBSERVADOS[GASNOMBRE], \"Filas\", COUNTROWS ( PACIENTES_OBSERVADOS ) ) EVALUATE SUMMARIZECOLUMNS ( PACIENTES_HOSPITALIZADOS[GASNOMBRE], \"Filas\", COUNTROWS ( PACIENTES_HOSPITALIZADOS ) )"
+  },
+  {
+   "id": "eps-02",
+   "tablero": "tablero_eps",
+   "modelo": "TABLERO EPS",
+   "tipo": "distinct",
+   "objetivo": "Camas con EXP en el código y servicios a los que pertenecen (catálogo de camas).",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › %OCUPACIONAL[codcama]",
+    "triages_atendidos.md › Observaciones › Ocupación de urgencias"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( '%OCUPACIONAL'[SERVICIO], '%OCUPACIONAL'[codcama], FILTER ( VALUES ( '%OCUPACIONAL'[codcama] ), CONTAINSSTRING ( '%OCUPACIONAL'[codcama], \"EXP\" ) ), \"Dias\", COUNTROWS ( '%OCUPACIONAL' ) )"
+  },
+  {
+   "id": "farmacia-01",
+   "tablero": "tablero_farmacia",
+   "modelo": "TABLERO_FARMACIA",
+   "tipo": "distinct",
+   "objetivo": "Nombres exactos de los almacenes (catálogo, no datos de pacientes).",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › ALMACENES[IALNOMBRE]",
+    "_diccionario.md › Observaciones › Pendiente de contrastar con el dueño"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( ALMACENES[OID], ALMACENES[IALNOMBRE] )"
+  },
+  {
+   "id": "farmacia-02",
+   "tablero": "tablero_farmacia",
+   "modelo": "TABLERO_FARMACIA",
+   "tipo": "distinct",
+   "objetivo": "Áreas de servicio del filtro SERVICIO de OPORTUNIDAD DISPENSACIÓN y zonas de almacenamiento de los lotes.",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › TIEMPOS_DISPENSACIÓN[gasnombre]",
+    "_diccionario.md › Columnas clave › VENCIMIENTO_PRODUCTOS[NombreZona]"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( 'TIEMPOS_DISPENSACIÓN'[gasnombre], \"Filas\", COUNTROWS ( 'TIEMPOS_DISPENSACIÓN' ) ) EVALUATE SUMMARIZECOLUMNS ( VENCIMIENTO_PRODUCTOS[NombreZona], \"Lotes\", COUNTROWS ( VENCIMIENTO_PRODUCTOS ) )"
+  },
+  {
+   "id": "farmacia-03",
+   "tablero": "tablero_farmacia",
+   "modelo": "TABLERO_FARMACIA",
+   "tipo": "agregado",
+   "objetivo": "Cómo calcula la vista PRODUCTOS_VENCIDOS_FARMACIA el campo mes: días que faltan para vencer (mínimo y máximo) por cada valor de mes.",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › VENCIMIENTO_PRODUCTOS[mes]",
+    "medicamentos_vencidos.md › Observaciones › Días frente a meses"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( VENCIMIENTO_PRODUCTOS[mes], \"Lotes\", COUNTROWS ( VENCIMIENTO_PRODUCTOS ), \"MinDias\", MINX ( VENCIMIENTO_PRODUCTOS, DATEDIFF ( TODAY (), VENCIMIENTO_PRODUCTOS[ilsfecven], DAY ) ), \"MaxDias\", MAXX ( VENCIMIENTO_PRODUCTOS, DATEDIFF ( TODAY (), VENCIMIENTO_PRODUCTOS[ilsfecven], DAY ) ) ) ORDER BY VENCIMIENTO_PRODUCTOS[mes]"
+  },
+  {
+   "id": "farmacia-04",
+   "tablero": "tablero_farmacia",
+   "modelo": "TABLERO_FARMACIA",
+   "tipo": "agregado",
+   "objetivo": "Granularidad de VENCIMIENTO_PRODUCTOS: filas frente a combinaciones distintas de producto, lote, zona y almacén.",
+   "resuelve": [
+    "_diccionario.md › Tablas › VENCIMIENTO_PRODUCTOS"
+   ],
+   "dax": "EVALUATE ROW ( \"Filas\", COUNTROWS ( VENCIMIENTO_PRODUCTOS ), \"ProductoLote\", COUNTROWS ( SUMMARIZE ( VENCIMIENTO_PRODUCTOS, VENCIMIENTO_PRODUCTOS[IPRCODIGO], VENCIMIENTO_PRODUCTOS[ILSCODIGO] ) ), \"ProductoLoteZonaAlmacen\", COUNTROWS ( SUMMARIZE ( VENCIMIENTO_PRODUCTOS, VENCIMIENTO_PRODUCTOS[IPRCODIGO], VENCIMIENTO_PRODUCTOS[ILSCODIGO], VENCIMIENTO_PRODUCTOS[NombreZona], VENCIMIENTO_PRODUCTOS[OID] ) ) )"
+  },
+  {
+   "id": "farmacia-05",
+   "tablero": "tablero_farmacia",
+   "modelo": "TABLERO_FARMACIA",
+   "tipo": "agregado",
+   "objetivo": "Por qué la tarjeta MEDICAMENTOS VENCIDOS de INICIO puede salir en blanco: total de iddcantid y rango de fechas de PRODUCTOS_VENCIDOS por almacén.",
+   "resuelve": [
+    "inicio.md › Observaciones › Vencidos en blanco"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( ALMACENES[IALNOMBRE], \"Cantidad\", SUM ( PRODUCTOS_VENCIDOS[iddcantid] ), \"MinFecha\", MIN ( PRODUCTOS_VENCIDOS[IDFECDOC] ), \"MaxFecha\", MAX ( PRODUCTOS_VENCIDOS[IDFECDOC] ) )"
+  },
+  {
+   "id": "farmacia-06",
+   "tablero": "tablero_farmacia",
+   "modelo": "TABLERO_FARMACIA",
+   "tipo": "agregado",
+   "objetivo": "Peso de las órdenes sin dispensar en la oportunidad: promedio de OportunidadHor por mes con y sin documento de suministro.",
+   "resuelve": [
+    "oportunidad_dispensacion.md › Observaciones › Tendencia llamativa"
+   ],
+   "dax": "EVALUATE GROUPBY ( ADDCOLUMNS ( 'TIEMPOS_DISPENSACIÓN', \"Anio\", YEAR ( 'TIEMPOS_DISPENSACIÓN'[hcfecfol] ), \"MesNum\", MONTH ( 'TIEMPOS_DISPENSACIÓN'[hcfecfol] ), \"SinDoc\", IF ( ISBLANK ( 'TIEMPOS_DISPENSACIÓN'[IDFECDOC] ), 1, 0 ) ), [Anio], [MesNum], \"Ordenes\", COUNTX ( CURRENTGROUP (), 1 ), \"SinDocumento\", SUMX ( CURRENTGROUP (), [SinDoc] ), \"PromedioHoras\", AVERAGEX ( CURRENTGROUP (), 'TIEMPOS_DISPENSACIÓN'[OportunidadHor] ) )"
+  },
+  {
+   "id": "financiera-01",
+   "tablero": "tablero_financiera",
+   "modelo": "TABLERO_FINANCIERA",
+   "tipo": "distinct",
+   "objetivo": "Valores de los dos campos de medicamentos de CUPS y si coinciden fila a fila.",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › CUPS[INCLUIRPRODUCTOS]",
+    "cups.md › Observaciones › Valores de mostrar medicamentos",
+    "cups.md › Observaciones › Columna de medicamentos repetida"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( CUPS[INCLUIRPRODUCTOS], CUPS[INCLUIRPRODUC], \"Filas\", COUNTROWS ( CUPS ) )"
+  },
+  {
+   "id": "financiera-02",
+   "tablero": "tablero_financiera",
+   "modelo": "TABLERO_FINANCIERA",
+   "tipo": "distinct",
+   "objetivo": "Valores de la marca de copago de la facturación diaria.",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › FACTURACION_DIARIA[FACTUCOPAGO]",
+    "facturacion_diaria.md › Observaciones › Valores de copago y franquicia"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( FACTURACION_DIARIA[FACTUCOPAGO], \"Filas\", COUNTROWS ( FACTURACION_DIARIA ) )"
+  },
+  {
+   "id": "financiera-03",
+   "tablero": "tablero_financiera",
+   "modelo": "TABLERO_FINANCIERA",
+   "tipo": "distinct",
+   "objetivo": "Lista de clasificaciones de servicio de FACTU_AREA (catálogo, no datos de pacientes).",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › FACTU_AREA[CLASIFICACION_SERVICIO]"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( FACTU_AREA[CLASIFICACION_SERVICIO], \"Filas\", COUNTROWS ( FACTU_AREA ) ) ORDER BY [Filas] DESC"
+  },
+  {
+   "id": "financiera-04",
+   "tablero": "tablero_financiera",
+   "modelo": "TABLERO_FINANCIERA",
+   "tipo": "distinct",
+   "objetivo": "Forma de los valores de COSTOS[CUP_ACTIVIDAD] (código de actividad y CUPS): cuántos hay y los 30 más frecuentes.",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › COSTOS[CUP_ACTIVIDAD]"
+   ],
+   "dax": "EVALUATE ROW ( \"Distintos\", DISTINCTCOUNT ( COSTOS[CUP_ACTIVIDAD] ) ) EVALUATE TOPN ( 30, SUMMARIZECOLUMNS ( COSTOS[CUP_ACTIVIDAD], \"Filas\", COUNTROWS ( COSTOS ) ), [Filas], DESC )"
+  },
+  {
+   "id": "financiera-05",
+   "tablero": "tablero_financiera",
+   "modelo": "TABLERO_FINANCIERA",
+   "tipo": "agregado",
+   "objetivo": "Comparar por año la facturación de FACTURACION y de FACTU_AREA (base de [NETA] frente a [NETA_AREA] y de la tabla frente a la torta).",
+   "resuelve": [
+    "_diccionario.md › Tablas › FACTU_AREA",
+    "_general.md › Observaciones › Cuatro medidas de facturación neta",
+    "facturacion_general.md › Observaciones › Fuentes distintas en tabla y torta",
+    "duplicado_de_duplicado_de_facturacion_general.md › Observaciones › Fuentes distintas en tabla y torta"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( CALENDARIO[Año], \"FACTURACION\", SUM ( FACTURACION[TOTALAREASERVORDEN] ), \"FACTU_AREA\", SUM ( FACTU_AREA[TOTALAREASERVORDEN] ), \"REFACTURACION\", SUM ( REFACTURACION[VLRAREASERVICIO] ) )"
+  },
+  {
+   "id": "financiera-06",
+   "tablero": "tablero_financiera",
+   "modelo": "TABLERO_FINANCIERA",
+   "tipo": "agregado",
+   "objetivo": "Si TOTAL_ING_ABIERTOS (entidad + paciente) suma lo mismo que VLSERVICIO en FACTURACION_PENDIENTE.",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › FACTURACION_PENDIENTE[TOTAL_ING_ABIERTOS]",
+    "comparativo.md › Observaciones › Ingresos abiertos con dos columnas"
+   ],
+   "dax": "EVALUATE ROW ( \"Filas\", COUNTROWS ( FACTURACION_PENDIENTE ), \"VLSERVICIO\", SUM ( FACTURACION_PENDIENTE[VLSERVICIO] ), \"TOTAL_ING_ABIERTOS\", SUM ( FACTURACION_PENDIENTE[TOTAL_ING_ABIERTOS] ), \"FilasDistintas\", COUNTROWS ( FILTER ( FACTURACION_PENDIENTE, ROUND ( FACTURACION_PENDIENTE[VLSERVICIO] - FACTURACION_PENDIENTE[TOTAL_ING_ABIERTOS], 0 ) <> 0 ) ) )"
+  },
+  {
+   "id": "financiera-07",
+   "tablero": "tablero_financiera",
+   "modelo": "TABLERO_FINANCIERA",
+   "tipo": "rango_fechas",
+   "objetivo": "Hasta qué fecha llega cada tabla de hechos (y si COSTO ESTIMADO ya tiene datos de 2026).",
+   "resuelve": [
+    "costo_estimado.md › Observaciones › Gráficos sin 2026",
+    "_diccionario.md › Tablas (vigencia de los datos)"
+   ],
+   "dax": "EVALUATE UNION ( ROW ( \"Tabla\", \"FACTURACION\", \"Min\", MIN ( FACTURACION[FECHA] ), \"Max\", MAX ( FACTURACION[FECHA] ) ), ROW ( \"Tabla\", \"REFACTURACION\", \"Min\", MIN ( REFACTURACION[FECHA] ), \"Max\", MAX ( REFACTURACION[FECHA] ) ), ROW ( \"Tabla\", \"FACTU_AREA\", \"Min\", MIN ( FACTU_AREA[FECHA] ), \"Max\", MAX ( FACTU_AREA[FECHA] ) ), ROW ( \"Tabla\", \"FACTURACION_PENDIENTE\", \"Min\", MIN ( FACTURACION_PENDIENTE[FECHA] ), \"Max\", MAX ( FACTURACION_PENDIENTE[FECHA] ) ), ROW ( \"Tabla\", \"CUPS\", \"Min\", MIN ( CUPS[FECHA] ), \"Max\", MAX ( CUPS[FECHA] ) ), ROW ( \"Tabla\", \"COSTOS\", \"Min\", MIN ( COSTOS[FECHA] ), \"Max\", MAX ( COSTOS[FECHA] ) ), ROW ( \"Tabla\", \"ANALISIS_RENTABILIDAD\", \"Min\", MIN ( ANALISIS_RENTABILIDAD[FECHA] ), \"Max\", MAX ( ANALISIS_RENTABILIDAD[FECHA] ) ), ROW ( \"Tabla\", \"CONSOLIDADO_INGRESOS_ABIERTOS+\", \"Min\", MIN ( 'CONSOLIDADO_INGRESOS_ABIERTOS+'[FECHA] ), \"Max\", MAX ( 'CONSOLIDADO_INGRESOS_ABIERTOS+'[FECHA] ) ) )"
+  },
+  {
+   "id": "lavanderia-01",
+   "tablero": "tablero_lavanderia",
+   "modelo": "Tablero_lavanderia",
+   "tipo": "agregado",
+   "objetivo": "Inferir la unidad del peso por su rango (un pesaje de ropa por servicio de decenas indica kg; de cientos, libras).",
+   "resuelve": [
+    "pagina_1.md › Indicadores › Peso",
+    "_general.md › Definiciones › Peso",
+    "_diccionario.md › Observaciones › Unidad del peso"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( LAVANDERIA[SERVICIO], \"Pesajes\", COUNTROWS ( LAVANDERIA ), \"Min\", MIN ( LAVANDERIA[Peso] ), \"Mediana\", MEDIAN ( LAVANDERIA[Peso] ), \"Max\", MAX ( LAVANDERIA[Peso] ), \"Total\", SUM ( LAVANDERIA[Peso] ) )"
+  },
+  {
+   "id": "lavanderia-02",
+   "tablero": "tablero_lavanderia",
+   "modelo": "Tablero_lavanderia",
+   "tipo": "rango_fechas",
+   "objetivo": "Rango de las dos fechas y cuántos pesajes caen en un día distinto del de su encabezado (si casi nunca difieren, da igual cuál alimenta Año y Mes).",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › LAVANDERIA[Fecha]",
+    "_diccionario.md › Observaciones › Fecha de los filtros",
+    "pagina_1.md › Observaciones › Fecha de los filtros"
+   ],
+   "dax": "EVALUATE ROW ( \"MinFecha\", MIN ( LAVANDERIA[Fecha] ), \"MaxFecha\", MAX ( LAVANDERIA[Fecha] ), \"MinFechaRegistro\", MIN ( LAVANDERIA[FechaRegistro] ), \"MaxFechaRegistro\", MAX ( LAVANDERIA[FechaRegistro] ), \"MesDistinto\", COUNTROWS ( FILTER ( LAVANDERIA, FORMAT ( LAVANDERIA[Fecha], \"YYYYMM\" ) <> FORMAT ( LAVANDERIA[FechaRegistro], \"YYYYMM\" ) ) ), \"Filas\", COUNTROWS ( LAVANDERIA ) )"
+  },
+  {
+   "id": "naos-01",
+   "tablero": "tablero_naos",
+   "modelo": "TABLERO NAOS",
+   "tipo": "distinct",
+   "objetivo": "Valores que entrega la vista TABLERO_NAOS para las marcas TIPO_PACIENTE (gráfico CLASIFICACIÓN) y SOLICITUD_CAMA, con conteo.",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › PACIENTES[SOLICITUD_CAMA]",
+    "listado.md › Observaciones › Clasificación sin documentar",
+    "_diccionario.md › Observaciones › Vista TABLERO_NAOS"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( PACIENTES[TIPO_PACIENTE], \"Pacientes\", COUNTROWS ( PACIENTES ) ) EVALUATE SUMMARIZECOLUMNS ( PACIENTES[SOLICITUD_CAMA], \"Pacientes\", COUNTROWS ( PACIENTES ) )"
+  },
+  {
+   "id": "naos-02",
+   "tablero": "tablero_naos",
+   "modelo": "TABLERO NAOS",
+   "tipo": "distinct",
+   "objetivo": "Valores posibles de EXAMENES[ESTADO_EXAMEN].",
+   "resuelve": [
+    "examenes.md › Observaciones › Consulta de EXAMENES_NAOS"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( EXAMENES[ESTADO_EXAMEN], \"Examenes\", COUNTROWS ( EXAMENES ) )"
+  },
+  {
+   "id": "morbilidad-01",
+   "tablero": "tablero_perfil_de_morbilidad",
+   "modelo": "TABLERO PERFIL DE MORBILIDAD",
+   "tipo": "agregado",
+   "objetivo": "Si una cirugía con varios procedimientos o varios GRD por diagnóstico repite filas en PERIOPERATORIA.",
+   "resuelve": [
+    "_diccionario.md › Tablas › PERIOPERATORIA"
+   ],
+   "dax": "EVALUATE ROW ( \"Filas\", COUNTROWS ( PERIOPERATORIA ), \"IngresoFechaCups\", COUNTROWS ( SUMMARIZE ( PERIOPERATORIA, PERIOPERATORIA[Ingreso], PERIOPERATORIA[FECHA_CIRUGIA], PERIOPERATORIA[CUPS] ) ), \"IngresoFecha\", COUNTROWS ( SUMMARIZE ( PERIOPERATORIA, PERIOPERATORIA[Ingreso], PERIOPERATORIA[FECHA_CIRUGIA] ) ), \"MinFecha\", MIN ( PERIOPERATORIA[FECHA_CIRUGIA] ), \"MaxFecha\", MAX ( PERIOPERATORIA[FECHA_CIRUGIA] ) )"
+  },
+  {
+   "id": "morbilidad-02",
+   "tablero": "tablero_perfil_de_morbilidad",
+   "modelo": "TABLERO PERFIL DE MORBILIDAD",
+   "tipo": "agregado",
+   "objetivo": "Egresos por año, ingresos distintos (duplicados por epicrisis) y cuántos cruzan con FACTURACION (cruce incompleto desde 2025).",
+   "resuelve": [
+    "_general.md › Observaciones › Posibles duplicados",
+    "_general.md › Observaciones › Número de ingreso distinto por origen",
+    "facturacion.md › Observaciones › Cruce incompleto en 2025",
+    "_diccionario.md › Observaciones › Facturación 2025"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( 'MATRIZ 2024'[Anno], \"Filas\", COUNTROWS ( 'MATRIZ 2024' ), \"IngresosDistintos\", DISTINCTCOUNT ( 'MATRIZ 2024'[Ingreso] ), \"FilasConFactura\", COUNTROWS ( FILTER ( 'MATRIZ 2024', CALCULATE ( COUNTROWS ( FACTURACION ) ) > 0 ) ) )"
+  },
+  {
+   "id": "morbilidad-03",
+   "tablero": "tablero_perfil_de_morbilidad",
+   "modelo": "TABLERO PERFIL DE MORBILIDAD",
+   "tipo": "agregado",
+   "objetivo": "Si FACTURACION tiene varias facturas por ingreso (promedio por factura frente a promedio por atención).",
+   "resuelve": [
+    "facturacion.md › Indicadores › Promedio de facturación",
+    "facturacion.md › Indicadores › Atenciones"
+   ],
+   "dax": "EVALUATE ROW ( \"Facturas\", COUNTROWS ( FACTURACION ), \"IngresosDistintos\", DISTINCTCOUNT ( FACTURACION[Ingreso] ), \"PromedioPorFactura\", AVERAGE ( FACTURACION[VALOR_FACTURA] ), \"PromedioPorIngreso\", DIVIDE ( SUM ( FACTURACION[VALOR_FACTURA] ), DISTINCTCOUNT ( FACTURACION[Ingreso] ) ) )"
+  },
+  {
+   "id": "referencia-01",
+   "tablero": "tablero_referencia",
+   "modelo": "TABLERO_REFERENCIA",
+   "tipo": "distinct",
+   "objetivo": "Valores del estado de la remisión (CONTRARREFERENCIA[Nombre]) y forma de Expr3 sin listar sus valores (cuántos distintos, vacíos y largo máximo), porque Expr3 no está documentada y podría traer datos personales.",
+   "resuelve": [
+    "_diccionario.md › Columnas clave › CONTRARREFERENCIA[Nombre]",
+    "_diccionario.md › Columnas clave › CONTRARREFERENCIA[Expr3]"
+   ],
+   "dax": "EVALUATE SUMMARIZECOLUMNS ( CONTRARREFERENCIA[Nombre], \"Filas\", COUNTROWS ( CONTRARREFERENCIA ) ) EVALUATE ROW ( \"Expr3Distintos\", DISTINCTCOUNT ( CONTRARREFERENCIA[Expr3] ), \"Expr3Vacios\", COUNTBLANK ( CONTRARREFERENCIA[Expr3] ), \"Expr3LargoMax\", MAXX ( CONTRARREFERENCIA, LEN ( CONTRARREFERENCIA[Expr3] ) ) )"
+  },
+  {
+   "id": "referencia-02",
+   "tablero": "tablero_referencia",
+   "modelo": "TABLERO_REFERENCIA",
+   "tipo": "agregado",
+   "objetivo": "Solicitudes sin especialidad (SERVICIO vacío) y sin respuesta, por mes, y rango de fechas de REFERENCIA y CONTRARREFERENCIA.",
+   "resuelve": [
+    "inicio.md › Observaciones › Especialidad vacía",
+    "_general.md › Observaciones › Solicitudes sin respuesta"
+   ],
+   "dax": "EVALUATE ROW ( \"Solicitudes\", COUNTROWS ( REFERENCIA ), \"SinServicio\", COUNTROWS ( FILTER ( REFERENCIA, ISBLANK ( REFERENCIA[SERVICIO] ) || REFERENCIA[SERVICIO] = \"\" ) ), \"SinAceptarNiNoAceptar\", COUNTROWS ( FILTER ( REFERENCIA, ISBLANK ( REFERENCIA[FECHAACEPTADO] ) && ISBLANK ( REFERENCIA[FechaNoAceptado] ) ) ), \"MinLlamada\", MIN ( REFERENCIA[FECHALLAMADA] ), \"MaxLlamada\", MAX ( REFERENCIA[FECHALLAMADA] ), \"MinIngresoRemision\", MIN ( CONTRARREFERENCIA[FechaIngreso] ), \"MaxIngresoRemision\", MAX ( CONTRARREFERENCIA[FechaIngreso] ) )"
+  },
+  {
+   "id": "urgencias-01",
+   "tablero": "tablero_tiempos_urgencias",
+   "modelo": "TABLERO TIEMPOS URGENCIAS",
+   "tipo": "distinct",
+   "objetivo": "Cuántas consultas del día tienen los códigos IIP e IIS, que TRIAGE_II no cuenta.",
+   "resuelve": [
+    "_diccionario.md › Observaciones › Triage IIP e IIS",
+    "consultas_dia.md › Observaciones › IIP e IIS excluidos"
+   ],
+   "dax": "EVALUATE UNION ( SELECTCOLUMNS ( SUMMARIZECOLUMNS ( CONSULTAS_DIA[HCCODIGO], \"Filas\", COUNTROWS ( CONSULTAS_DIA ) ), \"Tabla\", \"CONSULTAS_DIA\", \"Codigo\", CONSULTAS_DIA[HCCODIGO], \"Filas\", [Filas] ), SELECTCOLUMNS ( SUMMARIZECOLUMNS ( EN_ESPERA_CONSULTA[HCCODIGO], \"Filas\", COUNTROWS ( EN_ESPERA_CONSULTA ) ), \"Tabla\", \"EN_ESPERA_CONSULTA\", \"Codigo\", EN_ESPERA_CONSULTA[HCCODIGO], \"Filas\", [Filas] ) )"
+  }
+ ]
+}
