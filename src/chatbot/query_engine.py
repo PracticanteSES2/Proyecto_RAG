@@ -6744,6 +6744,15 @@ class QueryEngine:
                 except Exception:
                     shape = None
                 if shape:
+                    finder = getattr(self.query_plan_builder, "named_page_without_metrics", None)
+                    try:
+                        # La página nombrada solo está en la documentación: el
+                        # RAG responde y dice que el indicador no está en los modelos.
+                        if callable(finder) and finder(message):
+                            shape = None
+                    except Exception:
+                        pass
+                if shape:
                     # r9 (causa 1): comparación de periodos, top N, «por X»,
                     # «en qué X están» piden cifras de Power BI; la
                     # documentación no las tiene (y no puede inventarlas).

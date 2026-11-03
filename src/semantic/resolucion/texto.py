@@ -345,12 +345,14 @@ def _verb_participle_match(left, right):
 # catálogo: «asignarle» / ASIGNACIÓN, «dispensarse» / DISPENSACIÓN, «admitieron» / ADMISIÓN,
 # «facturaron» / FACTURACIÓN (r9, causa 2: verbos sin lematizar).
 _CLITIC_RE = re.compile(r"(?<=[aei]r)(?:se|le|les|lo|la|los|las|me|nos|te)$|(?<=ndo)(?:se|le|les|lo|la|los|las)$")
+# Sin participios: «ocupadas» (estado de la cama) no es OCUPACIÓN (el indicador), ni
+# «facturado» es FACTURACIÓN; solo formas conjugadas, infinitivo y gerundio.
 _AR_ENDINGS = {
-    "a", "an", "ar", "o", "e", "en", "aron", "aba", "aban", "ado", "ada", "ados", "adas", "ando",
+    "a", "an", "ar", "o", "e", "en", "aron", "aba", "aban", "ando",
     "amos", "aria", "arian", "ara", "aran", "ase", "asen", "emos",
 }
 _ER_IR_ENDINGS = {
-    "e", "en", "er", "ir", "io", "ieron", "ia", "ian", "ido", "ida", "idos", "idas", "iendo", "imos",
+    "e", "en", "er", "ir", "io", "ieron", "ia", "ian", "iendo", "imos",
     "a", "an", "iera", "ieran", "iria", "irian",
 }
 
