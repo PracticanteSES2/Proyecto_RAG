@@ -4,8 +4,8 @@ pagina: RADIOTERAPIA
 nombre_funcional: Ingresos a radioterapia por mes y año
 bloque: Histórico
 tablas: [RADIOTERAPIA]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # RADIOTERAPIA
@@ -31,7 +31,7 @@ Muestra cuántas atenciones (ingresos) hay en el servicio de radioterapia cada m
 
 ## Observaciones
 - **Nombre de página**: En Power BI la página se llama RADIOTERAPIA; la documentación del propietario la titula «ATENCIONES EN RADIOTERAPIA».
-- **Sin relación con el Calendario**: La tabla no se une al Calendario; los segmentadores Año y Mes deben salir de la fecha de la propia tabla. Por confirmar.
+- **Sin relación con el Calendario**: Confirmado en el modelo: RADIOTERAPIA no tiene relación con Calendario (no tiene ninguna relación). Un segmentador o filtro sobre Calendario no la filtra; los segmentadores Año y Mes solo funcionan si usan la fecha de la propia tabla. El filtro de página sobre Calendario[Date] del PBIR tampoco la filtra.
 - **Columna sin uso**: SERVICIO QUE INGRESA siempre vale RADIOTERAPIA porque la consulta ya filtra el área 117.
 - **Asegurador sin agrupar**: El asegurador es el nombre del plan de beneficio, sin la agrupación de aseguradoras de otras páginas.
 - **Años del gráfico**: En la captura el gráfico solo muestra 2024 y 2025 y la tabla también 2023, que tiene datos solo desde mayo. Filtro del gráfico por confirmar.
@@ -39,3 +39,4 @@ Muestra cuántas atenciones (ingresos) hay en el servicio de radioterapia cada m
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Relaciones verificadas en el modelo sincronizado del Power BI (data/model_metadata, 2026-10-29) y filtro de página del PBIR. Autor: agente dic-pendientes.

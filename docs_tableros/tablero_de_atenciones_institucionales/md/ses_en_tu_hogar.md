@@ -4,14 +4,14 @@ pagina: SES EN TU HOGAR
 nombre_funcional: Atenciones domiciliarias (SES en tu Hogar) por mes y aseguradora
 bloque: Histórico
 tablas: [ATENCION DOMICILIARIA, Calendario, MostrarProyeccion]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # SES EN TU HOGAR
 
 ## Propósito
-Muestra cuántas atenciones domiciliarias (programa SES en tu Hogar) hay cada mes, compara los años con proyección opcional y muestra su distribución por aseguradora. Se llega, según parece, con el botón SES EN TU HOGAR de INDICADORES (por confirmar).
+Muestra cuántas atenciones domiciliarias (programa SES en tu Hogar) hay cada mes, compara los años con proyección opcional y muestra su distribución por aseguradora. Se llega con el botón SES EN TU HOGAR de INDICADORES.
 
 ## Fuentes de datos
 - **ATENCION DOMICILIARIA**: Todas las filas de la vista ATC_DOMICILIARIA (estancias en camas de hospitalización en casa con ingreso, cama, servicio, fechas de ingreso y egreso de cama, días de estancia, aseguradora, plan, diagnóstico CIE10, CMD, GRD y municipio), más FECHA = fecha de egreso final sin hora. Se une al Calendario por FECHA.
@@ -46,3 +46,4 @@ Muestra cuántas atenciones domiciliarias (programa SES en tu Hogar) hay cada me
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Navegación confirmada en el PBIR: el botón SES EN TU HOGAR de INDICADORES abre esta página. Autor: agente dic-pendientes.

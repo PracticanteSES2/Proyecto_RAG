@@ -4,8 +4,8 @@ pagina: GINECO
 nombre_funcional: Ingresos por maternidad (gineco) por mes y año
 bloque: Histórico
 tablas: [ATENCIONES_GINECO, ASEGURADORAS]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # GINECO
@@ -31,10 +31,11 @@ Muestra cuántas atenciones de ginecología (ingresos con causa maternidad) hay 
 
 ## Observaciones
 - **Nombre de página**: El PBIP actual no trae una página con este nombre; la página existe en la documentación del propietario. Por confirmar su nombre en Power BI.
-- **Sin relación con el Calendario**: La tabla no se une al Calendario; los segmentadores Año y Mes deben salir de la fecha de ingreso de la propia tabla. Por confirmar.
+- **Sin relación con el Calendario**: Confirmado en el modelo: ATENCIONES_GINECO no tiene relación con Calendario (solo se une a ASEGURADORAS). Un segmentador o filtro sobre Calendario no la filtra; los segmentadores Año y Mes solo funcionan si usan la fecha de ingreso de la propia tabla.
 - **Sin medidas documentadas**: El documento no lista medidas ni dice qué se cuenta.
 - **Ingresos no excluidos**: A diferencia de urgencias, esta consulta no excluye ingresos por estado (AINESTADO).
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Relaciones verificadas en el modelo sincronizado del Power BI (data/model_metadata, 2026-10-29) Autor: agente dic-pendientes.

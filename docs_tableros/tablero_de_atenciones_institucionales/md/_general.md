@@ -4,8 +4,8 @@ pagina: GENERAL
 nombre_funcional: Indicadores asistenciales institucionales por servicio
 bloque: General
 tablas: [Calendario, TERCERO, ASEGURADORAS, DIM_SERVICIO, MostrarProyeccion, VistaServicios]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 4
 ---
 
 # GENERAL
@@ -20,8 +20,8 @@ Tablero histórico de la actividad asistencial del hospital: egresos, estancia, 
 - **ASEGURADORAS**: Planes de beneficio (GENDETCON) con su tercero; se relaciona con gineco, referencia, imágenes antiguas y estancia.
 - **DIM_SERVICIO**: Servicios homologados (SERVICIO_HOMOLOGADO) que unen egresos, estancia y ocupación.
 - **MostrarProyeccion**: Tabla fija con las opciones «SI» y «No» que alimenta las casillas «Mostrar proyección».
-- **VistaServicios**: Tabla fija con IND_GEN, IND URG, IND GIN, IND NEO, IND HOSP e IND UCI; parece apoyar las vistas por servicio de INDICADORES. Por confirmar.
-- **Históricos mensuales**: Tablas EGRESOS, EGRESOS_URGENCIAS, EGRESOS_GINECO, EGRESOS_NEONATOS, EGRESOS_UCI, CIRUGIAS_ARC, CONSULTA_AMBULATORIAS, ATENCIONES_IMAGENES, ATENCIONES_LABORATORIO y Hoja1 con totales por año y mes cargados de un archivo; se usan en proyecciones. Origen del archivo por confirmar.
+- **VistaServicios**: Tabla fija con IND_GEN, IND URG, IND GIN, IND NEO, IND HOSP e IND UCI; repite los nombres de los marcadores de INDICADORES, pero ningún marcador ni visual del PBIR la usa.
+- **Históricos mensuales**: Tablas EGRESOS, EGRESOS_URGENCIAS, EGRESOS_GINECO, EGRESOS_NEONATOS, EGRESOS_UCI, CIRUGIAS_ARC, CONSULTA_AMBULATORIAS, ATENCIONES_IMAGENES, ATENCIONES_LABORATORIO y Hoja1 con totales por año y mes cargados de un archivo; se usan en proyecciones. Origen: libro Excel «DATOS EPIDEMIOLOGIA.xlsx» del OneDrive de la cuenta de analista de datos (SharePoint del hospital), según las consultas de Power Query del PBIP.
 
 ## Definiciones
 - **Clasificación de triage**: Códigos I, II, III, IV y V; los obstétricos llevan sufijo -G (I-G emergencia obstétrica, II-G urgencia médica obstétrica, III-G urgencia obstétrica, IV-G no urgente obstétrica, V-G consulta externa obstétrica).
@@ -42,7 +42,7 @@ Tablero histórico de la actividad asistencial del hospital: egresos, estancia, 
 ## Reglas de negocio
 - **Agrupación de aseguradoras**: Nombres con NUEVA se agrupan como NUEVA EPS; con SURA (sin ARL SURA, seguros de vida ni Suramericana) como SURA; con SANITAS (sin Colsanitas ni Medisanitas) como SANITAS; con MALLAMAS como MALLAMAS; el resto conserva su nombre.
 - **Periodo cargado**: La mayoría de consultas traen datos desde 2023-01-01 hasta hoy; cada página indica su periodo cuando es distinto.
-- **Ingresos excluidos**: Las consultas de urgencias excluyen los ingresos con AINESTADO 2 y 4. Significado de esos estados por confirmar.
+- **Ingresos excluidos**: Las consultas de urgencias excluyen los ingresos con AINESTADO 2 (ANULADO, según la consulta INGRESOS del PBIP de BRIEFING HOSPITALARIO, que rotula 0 REGISTRADO, 1 FACTURADO, 2 ANULADO y 3 BLOQUEADO) y 4. Significado del estado 4 por confirmar.
 - **Segmentadores comunes**: Casi todas las páginas tienen ASEGURADOR, Año y Mes; las de triage y urgencias agregan Día, grupo de edad y los botones GENERAL, URGENCIAS y OBSTETRICIA.
 - **Navegación**: El botón de casa vuelve a INDICADORES y la flecha vuelve a la página anterior del grupo.
 
@@ -58,3 +58,5 @@ Tablero histórico de la actividad asistencial del hospital: egresos, estancia, 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario y del PBIP.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Se completó con el PBIP (TMDL y marcadores): uso de VistaServicios y archivo de origen de los históricos mensuales. Autor: agente dic-pendientes.
+- **2026-11-03 · v4**: El significado de AINESTADO 2 sale de la consulta INGRESOS del PBIP de BRIEFING HOSPITALARIO (0 REGISTRADO, 1 FACTURADO, 2 ANULADO, 3 BLOQUEADO); el 4 sigue sin rótulo. Autor: agente dic-pendientes.

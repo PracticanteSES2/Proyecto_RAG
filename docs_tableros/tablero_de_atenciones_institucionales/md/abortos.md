@@ -4,8 +4,8 @@ pagina: ABORTOS
 nombre_funcional: Abortos e IVE registrados por mes
 bloque: Histórico
 tablas: [PARTOS_DRIVE, Calendario]
-actualizado: 2026-10-28
-version: 2
+actualizado: 2026-11-03
+version: 3
 ---
 
 # ABORTOS
@@ -14,7 +14,7 @@ version: 2
 Muestra cuántos abortos se registran cada mes en los últimos tres años, separando la interrupción voluntaria del embarazo (IVE) del aborto no seguro. Se llega desde el botón ABORTOS de TRIAGES OBSTÉTRICOS y se vuelve con la flecha.
 
 ## Fuentes de datos
-- **PARTOS_DRIVE**: El mismo archivo Excel de gestantes (partos MSPS) de epidemiología que usa la página PARTOS; los abortos son las filas cuyo tipo es ABORTO o IVE. Tabla del modelo por confirmar.
+- **PARTOS_DRIVE**: El mismo archivo Excel de gestantes (partos MSPS) de epidemiología que usa la página PARTOS; los abortos son las filas cuyo tipo es ABORTO o IVE. Es la tabla de los filtros de esta página en el PBIR (PARTOS_DRIVE[Tipo de parto] y [FECHA_REAL]).
 
 ## Indicadores
 - **Total abortos**: Número de abortos del periodo. Medida por confirmar.
@@ -38,3 +38,4 @@ Muestra cuántos abortos se registran cada mes en los últimos tres años, separ
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial a partir de la documentación del propietario.
 - **2026-10-28 · v2**: Diccionario y revisión contra el modelo y el informe.
+- **2026-11-03 · v3**: Tabla confirmada con los filtros de página del PBIR. Autor: agente dic-pendientes.
