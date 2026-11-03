@@ -3427,7 +3427,7 @@ class QueryEngine:
         if top_level:
             self._record_turn(label or option_id, result, via="botón")
             if (
-                deferred and isinstance(result, dict) and result.get("status") == "success"
+                deferred and isinstance(result, dict) and result.get("status") in ("success", "empty_result")
                 and result.get("route") == "powerbi"
             ):
                 # «y en el mes pasado?» llegó con la contrapregunta pendiente:
@@ -4903,8 +4903,10 @@ class QueryEngine:
         status = result.get("status")
         plan = result.get("query_plan") or {}
         metric = plan.get("metric") or {}
+        # Un resultado vacío de un plan listo también es contexto: tras «no hay
+        # datos de X este mes», «¿y el mes pasado?» sigue con X.
         if (
-            status == "success" and result.get("route") == "powerbi"
+            status in ("success", "empty_result") and result.get("route") == "powerbi"
             and plan.get("status") == "ready" and metric.get("metric_id")
             and not result.get("measures")
         ):
