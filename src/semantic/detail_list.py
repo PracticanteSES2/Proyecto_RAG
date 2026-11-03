@@ -50,6 +50,8 @@ PRIVATE_DETAIL_COLUMN_PARTS = (
     "nombrepaciente", "pacientenombre", "nombrecomp", "nomcomp", "apellido",
     "telefon", "celular", "direccion", "correo", "email", "historia",
     "adningreso", "numingreso", "noingreso", "nroingreso", "paciente",
+    # Personas cercanas al paciente (NAOS › FAMILIAR VOCERO traía nombres).
+    "familiar", "vocero", "acudiente", "acompanante", "contacto", "responsable",
 )
 # Nombres completos (compactos) que también identifican a una persona.
 PRIVATE_DETAIL_COLUMN_NAMES = {"ingreso", "nombre", "nombres", "usuario", "responsable", "cc", "tipodoc"}

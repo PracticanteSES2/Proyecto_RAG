@@ -220,7 +220,8 @@ def test_listable_choice_only_for_explicit_lists():
 def test_private_columns_policy():
     for column, header in [("PACNUMDOC", "CEDULA"), ("GPANOMCOM", "PACIENTE"), ("Identificacion", "DOCUMENTO"),
                            ("NOMBRE_COMP", "ULTIMO USUARIO EN MARCAR"), ("TELEFONO", None), ("ADNINGRESO", None),
-                           ("NOMBRE_PACIENTE", "PACIENTE")]:
+                           ("NOMBRE_PACIENTE", "PACIENTE"), ("FAMILIAR VOCERO", None),
+                           ("ACUDIENTE", None), ("TEL_CONTACTO", "CONTACTO"), ("ACOMPANANTE", None)]:
         assert is_private_column(column, header), column
     for column, header in [("HCACODIGO", "CAMA"), ("HSUNOMBRE", "SERVICIO"), ("TERNOMCOM", "ASEGURADORA"),
                            ("SERVICIOS", "SERVICIO"), ("ESTADOS_CAM", "ESTADO")]:
