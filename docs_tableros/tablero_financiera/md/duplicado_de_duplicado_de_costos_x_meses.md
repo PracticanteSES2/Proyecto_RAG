@@ -4,8 +4,8 @@ pagina: Duplicado de Duplicado de COSTOS X MESES
 nombre_funcional: Venta, costo unitario y rentabilidad por CUPS (copia sin acceso)
 bloque: Histórico
 tablas: [CUPS, COSTOS, ACTIVIDADES, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # Duplicado de Duplicado de COSTOS X MESES
@@ -21,13 +21,13 @@ Muestra la venta, el costo, la rentabilidad y la frecuencia por CUPS desde septi
 
 ## Indicadores
 - **Ventas**: Suma de CUPS[VLRTOTSERV], tarjeta VENTAS. Unidad: pesos.
-- **Costo total**: Medida CALENDARIO[COSTO_TOTAL], tarjeta COSTOS. Unidad: pesos. Cálculo: Por confirmar.
-- **Utilidad monetaria**: Medida CALENDARIO[UTILIDAD_MONETARIA], tarjeta y columna RENTABILIDAD. Unidad: pesos. Cálculo: Por confirmar.
+- **Costo total**: Medida CALENDARIO[COSTO_TOTAL], tarjeta COSTOS. Unidad: pesos. Cálculo: `SUM(CUPS[CANTIDAD])*AVERAGE(COSTOS[COSTOACTIVIDAD])`.
+- **Utilidad monetaria**: Medida CALENDARIO[UTILIDAD_MONETARIA], tarjeta y columna RENTABILIDAD. Unidad: pesos. Cálculo: `((SUM(CUPS[VLRTOTSERV])/SUM(CUPS[CANTIDAD]))-AVERAGE(COSTOS[COSTOACTIVIDAD]))*SUM(CUPS[CANTIDAD])`.
 - **Frecuencia**: Suma de CUPS[CANTIDAD], tarjeta y columna FRECUENCIA. Unidad: cantidad de servicios.
-- **Precio de venta**: Medida CUPS[PRECIO_VENTA], columna VENTA. Unidad: pesos. Cálculo: Por confirmar.
+- **Precio de venta**: Medida CUPS[PRECIO_VENTA], columna VENTA. Unidad: pesos. Cálculo: `SUM(CUPS[VLRTOTSERV])/SUM(CUPS[CANTIDAD])`.
 - **Costo unitario**: Promedio de COSTOS[COSTOACTIVIDAD], columna COSTO UNITARIO. Unidad: pesos.
-- **Prueba costo unitario**: Medida CUPS[Prueba CostoUnitario], columna con el nombre técnico. Unidad: pesos. Cálculo: Por confirmar.
-- **Porcentaje de utilidad**: Medida CALENDARIO[%UTILIDAD], columna %RENTABILIDAD. Unidad: porcentaje. Cálculo: Por confirmar.
+- **Prueba costo unitario**: Medida CUPS[Prueba CostoUnitario], columna con el nombre técnico. Unidad: pesos. Cálculo: `VAR MesCups = SELECTEDVALUE('CUPS'[FECHA], BLANK()) VAR ACups = YEAR(MesCups) VAR Mes = MONTH(MesCups) RETURN CALCULATE( AVERAGE('COSTOS'[COSTOACTIVIDAD]), USERELATIONSHIP('CUPS'[GENSERIPS], 'ACTIVIDADES'[oid]), FILTER( 'COSTOS', 'COSTOS'[GENSERIPS] = RELATED('ACTIVIDADES'[oid]) && 'COSTOS'[Mes] = Mes && 'COSTOS'[AÑO] = ACups ) )`.
+- **Porcentaje de utilidad**: Medida CALENDARIO[%UTILIDAD], columna %RENTABILIDAD. Unidad: porcentaje. Cálculo: `((SUM(CUPS[VLRTOTSERV])/SUM(CUPS[CANTIDAD]))-AVERAGE(COSTOS[COSTOACTIVIDAD]))/AVERAGE(COSTOS[COSTOACTIVIDAD])`.
 
 ## Visuales
 - **Botón inicio**: Imagen arriba a la izquierda que vuelve a INICIO.
@@ -49,3 +49,4 @@ Muestra la venta, el costo, la rentabilidad y la frecuencia por CUPS desde septi
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
+- **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): DAX de los indicadores. Autor: agente dic-pendientes.

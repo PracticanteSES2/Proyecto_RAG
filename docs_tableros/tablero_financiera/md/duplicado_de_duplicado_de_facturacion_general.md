@@ -4,8 +4,8 @@ pagina: Duplicado de Duplicado de FACTURACIÓN GENERAL
 nombre_funcional: Facturación, refacturación y facturación neta por servicio (página del botón FACTURACIÓN)
 bloque: Histórico
 tablas: [FACTURACION, FACTU_AREA, REFACTURACION, AREAS DE SERVICIO, AcreedoresConFactura, FiltroRefacturacion, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # Duplicado de Duplicado de FACTURACIÓN GENERAL
@@ -24,8 +24,8 @@ Página de facturación en uso: la abren el botón FACTURACIÓN de INICIO y el b
 
 ## Indicadores
 - **Facturación**: Suma de FACTURACION[TOTALAREASERVORDEN], columna FACTURACIÓN. Unidad: pesos.
-- **Refacturación dinámica**: Medida CALENDARIO[Refacturación Dinámica], columna REFACTURACIÓN; cambia según el valor elegido en FiltroRefacturacion[Modo]. Unidad: pesos. Cálculo: Por confirmar.
-- **Facturación neta**: Medida CALENDARIO[Facturacion_net], columna FACTURACIÓN NETA. Unidad: pesos. Cálculo: Por confirmar.
+- **Refacturación dinámica**: Medida CALENDARIO[Refacturación Dinámica], columna REFACTURACIÓN; cambia según el valor elegido en FiltroRefacturacion[Modo]. Unidad: pesos. Cálculo: `VAR Seleccion = SELECTEDVALUE ( FiltroRefacturacion[Modo], "SI" ) RETURN SWITCH ( Seleccion, "ING. ORIGINALES Y NUEVOS", SUM ( REFACTURACION[VLRAREASERVICIO]), "ING. ORIGINALES", CALCULATE ( SUM ( REFACTURACION[VLRAREASERVICIO] ), REFACTURACION[NUEVOINGRESO] = FALSE() ), SUM ( REFACTURACION[VLRAREASERVICIO] ) )`.
+- **Facturación neta**: Medida CALENDARIO[Facturacion_net], columna FACTURACIÓN NETA. Unidad: pesos. Cálculo: `SUM(FACTURACION[TOTALAREASERVORDEN]) - [Refacturación Dinámica]`.
 - **Facturación de la torta**: Suma de FACTU_AREA[TOTALAREASERVORDEN], título FACTURACION. Unidad: pesos, etiquetas en millones.
 
 ## Visuales
@@ -45,9 +45,10 @@ Página de facturación en uso: la abren el botón FACTURACIÓN de INICIO y el b
 
 ## Observaciones
 - **Nombre de copia**: El nombre indica que es una copia de FACTURACIÓN GENERAL, pero es la versión en uso. Por confirmar si se debe renombrar.
-- **Valores de Modo**: Los valores de FiltroRefacturacion[Modo] y su efecto en la refacturación están por confirmar.
+- **Valores de Modo**: FiltroRefacturacion[Modo] vale «ING. ORIGINALES» o «ING. ORIGINALES Y NUEVOS». Con «ING. ORIGINALES Y NUEVOS» (o sin selección) se resta toda la refacturación; con «ING. ORIGINALES», solo la de devoluciones con REFACTURACION[NUEVOINGRESO] falso.
 - **Fuentes distintas en tabla y torta**: La matriz usa FACTURACION con AREAS DE SERVICIO y la torta FACTU_AREA; los totales pueden no coincidir. Por confirmar.
 - **Origen de la obtención de detalles**: Por confirmar desde qué visual se usa la obtención de detalles por tercero.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
+- **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): DAX de la refacturación dinámica y la facturación neta, y valores de Modo. Autor: agente dic-pendientes.

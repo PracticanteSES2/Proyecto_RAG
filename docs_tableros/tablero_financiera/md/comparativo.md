@@ -4,8 +4,8 @@ pagina: COMPARATIVO
 nombre_funcional: Comparativo mensual de facturación neta, ingresos abiertos y devoluciones (versión anterior de INICIO)
 bloque: Histórico
 tablas: [FACTURACION_PENDIENTE, REFACTURACION, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # COMPARATIVO
@@ -19,7 +19,7 @@ Parece la versión anterior de INICIO: tarjetas del mes anterior con facturació
 - **CALENDARIO**: Fecha del filtro del mes anterior, jerarquía de año y mes y medida FACTURACION_NETA.
 
 ## Indicadores
-- **Facturación neta**: Medida CALENDARIO[FACTURACION_NETA], título FACTURACION, en la tarjeta (mes anterior) y en el gráfico. Unidad: pesos. Cálculo: Por confirmar.
+- **Facturación neta**: Medida CALENDARIO[FACTURACION_NETA], título FACTURACION, en la tarjeta (mes anterior) y en el gráfico. Unidad: pesos. Cálculo: `SUM(FACTURACION[TOTALAREASERVORDEN])-SUM(REFACTURACION[VLRAREASERVICIO])`.
 - **Ingresos abiertos del mes anterior**: Suma de FACTURACION_PENDIENTE[TOTAL_ING_ABIERTOS] en el mes calendario anterior. Unidad: pesos.
 - **Ingresos abiertos mensuales**: Suma de FACTURACION_PENDIENTE[VLSERVICIO] en el gráfico de área. Unidad: pesos.
 - **Devoluciones**: Suma de REFACTURACION[VLRAREASERVICIO], en la tarjeta (mes anterior) y en el gráfico. Unidad: pesos.
@@ -37,8 +37,9 @@ Parece la versión anterior de INICIO: tarjetas del mes anterior con facturació
 
 ## Observaciones
 - **Página sin acceso**: Ningún botón lleva a esta página y no tiene botón de inicio. Por confirmar si se debe eliminar.
-- **Ingresos abiertos con dos columnas**: La tarjeta usa TOTAL_ING_ABIERTOS y el gráfico VLSERVICIO (la tarjeta de INICIO usa VLSERVICIO). Por confirmar cuál es la correcta.
+- **Ingresos abiertos con dos columnas**: La tarjeta usa TOTAL_ING_ABIERTOS y el gráfico VLSERVICIO (la tarjeta de INICIO usa VLSERVICIO). TOTAL_ING_ABIERTOS es una columna calculada: valor a cargo de la entidad más valor a cargo del paciente (VLRENTIDAD + VLPACIENTE). Por confirmar cuál debe usarse.
 - **Gráfico fijo en 2024**: Por el filtro de año, el segmentador de año no puede mostrar otros años en el gráfico.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
+- **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): DAX de la facturación neta y cálculo de TOTAL_ING_ABIERTOS. Autor: agente dic-pendientes.

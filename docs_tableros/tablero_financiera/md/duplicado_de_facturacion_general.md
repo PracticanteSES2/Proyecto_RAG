@@ -4,8 +4,8 @@ pagina: Duplicado de FACTURACIÓN GENERAL
 nombre_funcional: Facturación, devoluciones y facturación neta por servicio (copia sin acceso)
 bloque: Histórico
 tablas: [FACTU_AREA, REFACTURACION, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # Duplicado de FACTURACIÓN GENERAL
@@ -21,7 +21,7 @@ Copia de FACTURACIÓN GENERAL: facturación, devoluciones y facturación neta po
 ## Indicadores
 - **Facturación por servicio**: Suma de FACTU_AREA[TOTALAREASERVORDEN], columna FACTURACION y torta. Unidad: pesos.
 - **Devoluciones**: Suma de REFACTURACION[VLRAREASERVICIO], columna DEVOLUCIONES. Unidad: pesos.
-- **Facturación neta**: Medida CALENDARIO[NETA_AREA], columna FACTURACION NETA. Unidad: pesos. Cálculo: Por confirmar.
+- **Facturación neta**: Medida CALENDARIO[NETA_AREA], columna FACTURACION NETA. Unidad: pesos. Cálculo: `SUM(FACTU_AREA[TOTALAREASERVORDEN])- SUM(REFACTURACION[VLRAREASERVICIO])`.
 
 ## Visuales
 - **Botón inicio**: Imagen arriba a la izquierda que vuelve a INICIO.
@@ -40,3 +40,4 @@ Copia de FACTURACIÓN GENERAL: facturación, devoluciones y facturación neta po
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
+- **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): DAX de la facturación neta. Autor: agente dic-pendientes.

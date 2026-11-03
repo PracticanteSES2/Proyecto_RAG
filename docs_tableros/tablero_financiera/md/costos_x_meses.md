@@ -4,8 +4,8 @@ pagina: COSTOS X MESES
 nombre_funcional: Costo por actividad mes a mes y utilidad de las principales entidades
 bloque: Histórico
 tablas: [COSTOS, CUPS, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # COSTOS X MESES
@@ -22,7 +22,7 @@ Muestra el costo promedio y la frecuencia por actividad (CUPS) mes a mes desde s
 - **Costo de la actividad**: Promedio de COSTOS[COSTOACTIVIDAD], columna COSTO ACTIVIDAD. Unidad: pesos.
 - **Frecuencia**: Suma de CUPS[CANTIDAD], columna FRECUENCIA. Unidad: cantidad de servicios.
 - **Facturación por entidad**: Suma de CUPS[VLRTOTSERV], título FACTURACIÓN. Unidad: pesos.
-- **Porcentaje de utilidad**: Medida CALENDARIO[%UTILIDAD]. Unidad: porcentaje. Cálculo: Por confirmar.
+- **Porcentaje de utilidad**: Medida CALENDARIO[%UTILIDAD]. Unidad: porcentaje. Cálculo: `((SUM(CUPS[VLRTOTSERV])/SUM(CUPS[CANTIDAD]))-AVERAGE(COSTOS[COSTOACTIVIDAD]))/AVERAGE(COSTOS[COSTOACTIVIDAD])`.
 
 ## Visuales
 - **Botón inicio**: Imagen arriba a la izquierda que vuelve a INICIO.
@@ -38,7 +38,8 @@ Muestra el costo promedio y la frecuencia por actividad (CUPS) mes a mes desde s
 
 ## Observaciones
 - **Página sin acceso**: Ningún botón lleva a esta página. Por confirmar si se debe eliminar.
-- **Frecuencia de otra tabla**: La matriz cruza el costo de COSTOS con la frecuencia de CUPS; por confirmar que la relación entre ambas tablas sea por actividad.
+- **Frecuencia de otra tabla**: La matriz cruza el costo de COSTOS con la frecuencia de CUPS. En el modelo COSTOS[CUPS] y CUPS[CUPS] se unen por código CUPS (muchos a muchos, filtro en ambos sentidos), y las dos tablas se unen además a ACTIVIDADES por GENSERIPS; no hay relación por actividad.
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
+- **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): DAX de %UTILIDAD y relación entre COSTOS y CUPS. Autor: agente dic-pendientes.

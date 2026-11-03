@@ -4,8 +4,8 @@ pagina: FACTURACION X EPS
 nombre_funcional: Facturación, participación, devoluciones y facturación neta por asegurador
 bloque: Histórico
 tablas: [FACTURACION, REFACTURACION, AcreedoresConFactura, AREAS DE SERVICIO, CALENDARIO]
-actualizado: 2026-10-20
-version: 1
+actualizado: 2026-11-03
+version: 2
 ---
 
 # FACTURACION X EPS
@@ -24,7 +24,7 @@ Muestra por asegurador (EPS) y por mes la facturación, su participación en el 
 - **Facturación**: Suma de FACTURACION[TOTALAREASERVORDEN], columna FACTURACIÓN. Unidad: pesos.
 - **Participación en el mes**: Facturación del asegurador dividida por la facturación de todos los aseguradores en la misma columna de año y mes (cálculo del visual, % PARTICIPACIÓN). Unidad: porcentaje.
 - **Devoluciones**: Suma de REFACTURACION[VLRAREASERVICIO], columna DEVOLUCIONES. Unidad: pesos.
-- **Facturación neta**: Medida CALENDARIO[FACTURACION_NETA], columna FACTURACIÓN NETA. Unidad: pesos. Cálculo: Por confirmar.
+- **Facturación neta**: Medida CALENDARIO[FACTURACION_NETA], columna FACTURACIÓN NETA. Unidad: pesos. Cálculo: `SUM(FACTURACION[TOTALAREASERVORDEN])-SUM(REFACTURACION[VLRAREASERVICIO])`.
 
 ## Visuales
 - **Botón inicio**: Imagen arriba a la izquierda que vuelve a INICIO.
@@ -43,3 +43,4 @@ Muestra por asegurador (EPS) y por mes la facturación, su participación en el 
 
 ## Historial de cambios
 - **2026-10-20 · v1**: Documentación inicial generada a partir del informe (.pbix), sin documentación previa del propietario.
+- **2026-11-03 · v2**: Se completó con el modelo sincronizado del Power BI (2026-10-29): DAX de la facturación neta. Autor: agente dic-pendientes.
