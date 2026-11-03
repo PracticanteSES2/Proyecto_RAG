@@ -18,7 +18,8 @@ Reglas (todas generales, ninguna por frase):
 3. Abreviaturas de chat, solo como palabra suelta: x -> por (salvo
    multiplicación: un número al lado, «3 x 4»), q/k/qe -> que, pa/pa' -> para,
    d -> de (no tras un número), xq/xk/pq/porq -> porque, tb/tmb -> también,
-   cant -> cantidad, prom -> promedio.
+   cant -> cantidad, prom -> promedio. «por cada <dimensión>» -> «por
+   <dimensión>» (agrupar), salvo «por cada 100 ...» (tasa) y «por cada una».
 4. Errores de tipeo SOLO contra el vocabulario del catálogo real (nombres de
    medidas, columnas, valores documentados, páginas, títulos de visual y
    tableros de data/catalog, data/model_metadata y docs_tableros/*/md, con las
@@ -280,9 +281,9 @@ def vocabulary_for(project_root=None, docs_root=None):
     """Vocabulario del catálogo de `project_root` (data/ y docs_tableros/),
     en caché por proceso. Sin catálogo devuelve un vocabulario vacío: solo se
     aplican abreviaturas, repeticiones y signos."""
-    root = Path(project_root) if project_root else PROJECT_ROOT
-    docs = Path(docs_root) if docs_root else _default_docs_root(root)
     try:
+        root = Path(project_root) if project_root else PROJECT_ROOT
+        docs = Path(docs_root) if docs_root else _default_docs_root(root)
         return _build_vocabulary(str(root), str(docs))
     except Exception:
         return EMPTY_VOCABULARY
@@ -397,7 +398,8 @@ class NormalizedQuestion:
 
     def describe(self):
         labels = {"abreviatura": "abreviatura", "repeticion": "letras repetidas",
-                  "tipeo": "tipeo corregido con el catálogo", "signos": "espacios y signos"}
+                  "tipeo": "tipeo corregido con el catálogo", "signos": "espacios y signos",
+                  "agrupacion": "agrupación"}
         lines = []
         for change in self.changes:
             if change["kind"] == "signos":
@@ -425,6 +427,7 @@ def _clean_signs(text):
     return text
 
 
+_EACH_RE = re.compile(r"(?i)(?<![^\W_])por\s+cada\s+(?!(?:un|uno|una|unos|unas)(?![^\W_]))(?=[^\W\d_])")
 _TOKEN_RE = re.compile(r"\w+|[^\w\s]+|\s+")
 _ROMAN_RE = re.compile(r"^[IVXLCDM]+$")
 
@@ -511,4 +514,10 @@ def normalize_question(text, vocabulary=None):
         output[index] = token
 
     normalized = "".join(output)
+    # «por cada servicio» = «por servicio» (agrupar). No si sigue un número
+    # («por cada 100 camas» es una tasa) ni «uno/una» («por cada una de...»).
+    grouped = _EACH_RE.sub("por ", normalized)
+    if grouped != normalized:
+        changes.append({"kind": "agrupacion", "from": "por cada", "to": "por"})
+        normalized = grouped
     return NormalizedQuestion(original=original, text=normalized, changes=changes)

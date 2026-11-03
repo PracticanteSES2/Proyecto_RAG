@@ -6013,14 +6013,36 @@ class QueryEngine:
         return result
 
     def process(self, message):
+        from src.semantic.question_normalizer import normalize_question, vocabulary_for
+
         top_level = getattr(self, "_trace", None) is None
         if top_level:
             self._turn_interpretation = None
             # Un mensaje aplazado vale solo hasta el botón siguiente.
             self._deferred_context_message = None
-        result = self._traced("question", message, lambda: self._process_turn(message))
+        # Lenguaje de chat normalizado UNA vez al entrar («x servicio», «q»,
+        # «pa», «d», tipeos contra el catálogo): el resto del turno recibe el
+        # texto normalizado; la traza guarda el original y el normalizado.
+        try:
+            root = getattr(getattr(self, "query_plan_builder", None), "project_root", None)
+            normalized = normalize_question(message, vocabulary_for(root))
+        except Exception:
+            normalized = None  # la normalización nunca tumba el turno
+        text = normalized.text if normalized is not None and normalized.text else message
+
+        def run():
+            if normalized is not None and normalized.changed:
+                self._think("Pregunta normalizada", f"original: «{message}»", f"normalizada: «{text}»",
+                            *normalized.describe())
+            return self._process_turn(text)
+
+        result = self._traced("question", message, run)
+        if isinstance(result, dict) and normalized is not None and normalized.changed:
+            result.setdefault("normalized_question", normalized.to_dict())
         if top_level:
-            self._record_turn(message, result, via="texto")
+            # La memoria (seguimientos, historial del RAG) guarda el texto
+            # normalizado: así un seguimiento no vuelve a traer «x» o «q».
+            self._record_turn(text, result, via="texto")
         return result
 
     def _discard_stale_dashboard_clarification(self, message):
