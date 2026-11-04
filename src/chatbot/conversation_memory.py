@@ -97,10 +97,12 @@ def summarize_result(result):
         else:
             value = result.get("value")
             text = f"{metric}: {format_value_es(value, metric, result.get('metric_format')) or value}"
+        # Sin rótulos («Filtros:», «No se pudo aplicar:»): el LLM de la
+        # reescritura los copiaba como si fueran palabras de la pregunta (r9, MT17.2).
         if filters:
-            text += f". Filtros: {filters}"
+            text += f" ({filters})"
         if unapplied:
-            text += f". No se pudo aplicar: {', '.join(unapplied)}"
+            text += f"; sin aplicar {', '.join(unapplied)}"
         return _short(text)
     if status == "empty_result":
         filters = _filters_text(result.get("filters") or (result.get("query_plan") or {}).get("filters"))

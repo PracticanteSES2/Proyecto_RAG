@@ -258,6 +258,9 @@ _STOP = {
 }
 
 
+_ANSWER_LABEL_WORDS = {"filtro", "filtros", "fila", "filas", "opcion", "opciones", "aplicar"}
+
+
 class LLMContextRewriter:
     """Pide a MedGemma la pregunta autónoma equivalente al último mensaje."""
 
@@ -345,6 +348,13 @@ Asistente: CIRUGÍAS PROGRAMADAS: 6.803. Filtros: 2024
                 or f"{word}s" in allowed_words or f"{word}es" in allowed_words
             )
 
+        # Rótulos de la respuesta del asistente («Filtros», «filas», «opciones»)
+        # no son palabras de una pregunta: si el mensaje no las dice, la
+        # reescritura los copió de la conversación (r9, MT17.2).
+        message_words = set(norm(message).split())
+        labels = [w for w in words if w in _ANSWER_LABEL_WORDS and w not in message_words]
+        if labels:
+            return False, f"copia rótulos de la respuesta anterior ({', '.join(labels)})"
         numbers = [w for w in words if any(ch.isdigit() for ch in w)]
         invented_numbers = [w for w in numbers if w not in allowed_words]
         if invented_numbers:
