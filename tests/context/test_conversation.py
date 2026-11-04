@@ -363,7 +363,9 @@ def test_sim_topic_change_and_return():
     assert other["route"] == "rag" and interpretation(other) is None  # tema nuevo: sin reescritura
     result, ui = ask("volviendo al peso, ¿y en febrero de 2026?")
     assert "PESO" in str(result["metric"]).upper() and "febrero 2026" in period(result), ui
-    assert "vuelve a un tema anterior" in ctx.reasoning(result)
+    # r9: el RAG en medio ya no borra el último turno de DATOS: el mensaje es seguimiento directo.
+    reasoning = ctx.reasoning(result)
+    assert "vuelve a un tema anterior" in reasoning or "Seguimiento de la consulta anterior" in ctx.steps(result)
 
 
 def test_sim_new_question_inherits_nothing():

@@ -240,8 +240,9 @@ def test_anaphoric_followups_reuse_previous_query():
 def test_anaphora_is_bounded():
     engine, builder = _followup_engine()
     calls = len(builder.calls)
-    # Sin referencia ni «y»: no es seguimiento (como antes).
-    assert engine._followup_plan("en 2025") is None
+    # Sin referencia ni «y» y largo: no es seguimiento (r9: un mensaje corto sin «y» tras datos
+    # sí se intenta primero como seguimiento).
+    assert engine._followup_plan("en el 2025 cuantas hubo en la sede norte de la ciudad") is None
     # «de los 50» con otro número (sin demostrativo): no se refiere a la respuesta.
     assert engine._followup_plan("de los 50 cuantos en 2025") is None
     # Nombra otro indicador: pregunta nueva aunque diga «de esos».

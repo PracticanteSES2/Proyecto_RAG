@@ -644,7 +644,8 @@ def test_followup_is_bounded():
     engine, builder = followup_engine()
     calls = len(builder.calls)
     # No empieza con «y», nombra otro indicador o es largo: no es seguimiento.
-    for text in ("en 2025", "y cuantas programadas hubo en 2025",
+    # (r9: «en 2025» corto sin «y» tras datos sí se intenta como seguimiento.)
+    for text in ("en el 2025 cuantas hubo en la sede norte de la ciudad", "y cuantas programadas hubo en 2025",
                  "y en 2025 en la sede norte de la ciudad para la especialidad de urologia"):
         assert engine._followup_plan(text) is None, text
     # Sin período, filtro ni agrupación reconocibles: no es seguimiento.

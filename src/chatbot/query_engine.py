@@ -5340,6 +5340,7 @@ class QueryEngine:
             return swapped
         phrases, cited = [], None
         bare = False
+        rejected_reference = False
         pending_named = []
         from_context = complement is not None
         if complement is not None:
@@ -5365,6 +5366,7 @@ class QueryEngine:
             plain_number = [p for p in phrases if re.fullmatch(r"(?:de|entre) (?:los|las) [\d ]+", p)]
             if plain_number and len(plain_number) == len(phrases) and not self._same_number(cited, last.get("value")):
                 phrases = []
+                rejected_reference = True
             if phrases and len(words) <= self._ANAPHORA_MAX_WORDS:
                 complement_text = self._normalize_text(message)
                 for phrase in sorted(phrases, key=len, reverse=True):
@@ -5411,6 +5413,7 @@ class QueryEngine:
                     len(words) >= 1 and words[0] in self._BARE_FOLLOWUP_STARTS
                     and len(words) <= self._BARE_FOLLOWUP_MAX_WORDS
                     and not self._descriptive_reason(message)
+                    and not rejected_reference
                 )
                 if bare:
                     words = ["y", *words]
