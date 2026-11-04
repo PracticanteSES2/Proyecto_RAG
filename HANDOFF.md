@@ -98,6 +98,18 @@ Pendiente de esa rama (ver `tests/real/RETOMAR.md`):
   `powershell -ExecutionPolicy Bypass -File .ctualizar_proyecto.ps1` (hace el login con código si falta y
   genera los enlaces del botón).
 
+## Actualización 2026-11-04 (cinco puntos)
+- Refactor del motor por etapas (`src/semantic/resolucion/*`, mapa en `src/semantic/README_motor.md`; golden master
+  `tests/resolution/test_golden.py`). Bancos nuevos: `banco_multiturno.json`, `banco_holdout2.json`, `regresion_real.py`.
+  Diccionario: `docs_tableros/POR_CONFIRMAR.md` (145 preguntas para el propietario). r9: salvaguarda de cifras del RAG
+  (`src/rag/grounding.py`), verbos/clíticos, contrapreguntas por filtro, NOT IN, seguimientos.
+- Real (2026-11-04): desarrollo **96 %**, holdout 1 **80 %**, **holdout 2 22 %** (11/49), multiturno (sin auditar)
+  turnos 70 %, seguimientos 67 %, conversaciones 50 %. Sin regresiones.
+- Holdout 2 casi no mejoró en real: sus fallas son paráfrasis semánticas («especialidades que más operaron»,
+  «pacientes internados repartidos por piso») y comparaciones entre periodos («subió o bajó de sept a oct»,
+  «más rápido en junio o en julio»). El motor de reglas llega a su límite ahí; ver propuesta de usar el LLM para
+  extraer la intención estructurada (indicador, filtros, periodos, comparación) y validarla con el catálogo.
+
 ## Pendiente (en orden)
 1. Rama `agente/qa-real`: auditoría de la verdad y del comparador del banco real (ver `tests/real/RETOMAR.md`
    en esa rama). Integrarla cuando esté.
