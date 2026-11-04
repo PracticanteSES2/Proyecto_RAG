@@ -28,7 +28,7 @@
     "prompt": null,
     "answer": "**2 camas** (indicador EN TRANSICION):\n\n| SERVICIO | CAMA |\n| --- | --- |\n| HOSPITALIZACIÓN GENERAL | 416 |\n| HOSPITALIZACIÓN INTERMEDIOS | 511 |\n\nCifra tal como la muestra la tarjeta de la página GESTIÓN CAMAS del tablero BRIEFING HOSPITALARIO (con sus 6 filtros; p. ej., solo estado de la cama EN TRANSICIÓN).",
     "exception": null,
-    "latency_s": 4.213
+    "latency_s": 1.889
    }
   ]
  },
@@ -72,7 +72,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 1.703
+    "latency_s": 0.715
    },
    {
     "input": "[botón] CAMAS",
@@ -106,7 +106,7 @@
     "prompt": null,
     "answer": "**CAMAS** por estado:\n\n| ESTADO | CAMAS |\n| --- | --- |\n| OCUPADA | 43 |\n| DISPONIBLE | 16 |\n| BLOQUEADA | 3 |\n| EN TRANSICIÓN | 2 |\n| CAMA SOLICITADA | 2 |\n\nCifra tal como la muestra la tabla de la página GESTIÓN CAMAS del tablero BRIEFING HOSPITALARIO (con sus 5 filtros; p. ej., excluye servicio ATENCION DOMICILIARIA, BLOQUEAR y 18 más).",
     "exception": null,
-    "latency_s": 0.095
+    "latency_s": 0.049
    }
   ]
  },
@@ -136,9 +136,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**2.997 medicamentos** (indicador CASOS TOTALES).\n\nLa lista de 2.997 medicamentos es demasiado larga para mostrarla aquí (más de 50). Indica un filtro (servicio, estado...) y te muestro el detalle.",
+    "answer": "**3.002 medicamentos** (indicador CASOS TOTALES).\n\nLa lista de 3.002 medicamentos es demasiado larga para mostrarla aquí (más de 50). Indica un filtro (servicio, estado...) y te muestro el detalle.",
     "exception": null,
-    "latency_s": 3.48
+    "latency_s": 1.648
    }
   ]
  },
@@ -172,7 +172,7 @@
     "prompt": null,
     "answer": "**CONSULTAS AMBULATORIAS**: **101**\n\nCifra tal como la muestra la tarjeta de la página CONSULTAS PROXIMA SEMANA del tablero BRIEFING HOSPITALARIO (con su filtro).",
     "exception": null,
-    "latency_s": 1.89
+    "latency_s": 1.095
    }
   ]
  },
@@ -206,7 +206,7 @@
     "prompt": null,
     "answer": "**TRIAGES**: **12**\n\n«hoy»: la tabla TRIAGES trae solo el corte del día anterior según su documentación; se muestra ese corte (la cifra del tablero), no la de hoy. Cifra tal como la muestra la tabla de la página URGENCIAS del tablero BRIEFING HOSPITALARIO (con su filtro).",
     "exception": null,
-    "latency_s": 1.396
+    "latency_s": 0.869
    }
   ]
  },
@@ -243,9 +243,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**EGRESOS PROBABLES** por servicio (de mayor a menor):\n\n| SERVICIO | EGRESOS PROBABLES |\n| --- | --- |\n| PROFESIONAL 01 | 101 |\n| PROFESIONAL 12 | 101 |\n| PROFESIONAL 05 | 99 |\n| PROFESIONAL 13 | 91 |\n| PROFESIONAL 04 | 86 |\n| PROFESIONAL 11 | 85 |\n| PROFESIONAL 09 | 74 |\n| PROFESIONAL 02 | 71 |\n| PROFESIONAL 10 | 69 |\n| PROFESIONAL 14 | 69 |\n| PROFESIONAL 08 | 68 |\n| PROFESIONAL 07 | 68 |\n| PROFESIONAL 06 | 65 |\n| PROFESIONAL 03 | 59 |\n\nOrdenado de mayor a menor (SERVICIO). Las filas suman 1.106; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
+    "answer": "**EGRESOS PROBABLES** por servicio (de mayor a menor):\n\n| SERVICIO | EGRESOS PROBABLES |\n| --- | --- |\n| PROFESIONAL 01 | 101 |\n| PROFESIONAL 12 | 101 |\n| PROFESIONAL 05 | 99 |\n| PROFESIONAL 13 | 91 |\n| PROFESIONAL 04 | 86 |\n| PROFESIONAL 11 | 85 |\n| PROFESIONAL 09 | 75 |\n| PROFESIONAL 02 | 72 |\n| PROFESIONAL 10 | 69 |\n| PROFESIONAL 14 | 69 |\n| PROFESIONAL 08 | 68 |\n| PROFESIONAL 07 | 68 |\n| PROFESIONAL 06 | 65 |\n| PROFESIONAL 03 | 59 |\n\nOrdenado de mayor a menor (SERVICIO). Las filas suman 1.108; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
     "exception": null,
-    "latency_s": 0.725
+    "latency_s": 0.551
    }
   ]
  },
@@ -267,7 +267,7 @@
     "filters": [
      {
       "column": "Date",
-      "end": "2026-11-04",
+      "end": "2026-11-05",
       "label": "noviembre 2026 hasta hoy",
       "month": 11,
       "start": "2026-11-01",
@@ -279,17 +279,17 @@
     "unapplied_terms": [],
     "group_by": [],
     "dax": [
-     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(AVERAGE('CONSULTA_URGENCIAS'[MINUTOS_ADMISION]), KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[TIPO_TRIAGE]), NOT ('CONSULTA_URGENCIAS'[TIPO_TRIAGE] IN {\"EMERGENCIA OBSTETRICA - I-G\", \"MUERTO\", \"NO URGENTE OBSTETRICA - IV-G\", \"URGENCIA MEDICA OBSTETRICA - II-G\", \"URGENCIA OBSTETRICA - III-G\"})))), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 1) && 'Calendario'[FECHA] < DATE(2026, 11, 4)) ) )"
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(AVERAGE('CONSULTA_URGENCIAS'[MINUTOS_ADMISION]), KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[TIPO_TRIAGE]), NOT ('CONSULTA_URGENCIAS'[TIPO_TRIAGE] IN {\"EMERGENCIA OBSTETRICA - I-G\", \"MUERTO\", \"NO URGENTE OBSTETRICA - IV-G\", \"URGENCIA MEDICA OBSTETRICA - II-G\", \"URGENCIA OBSTETRICA - III-G\"})))), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 1) && 'Calendario'[FECHA] < DATE(2026, 11, 5)) ) )"
     ],
     "dax_log": [
-     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(AVERAGE('CONSULTA_URGENCIAS'[MINUTOS_ADMISION]), KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[TIPO_TRIAGE]), NOT ('CONSULTA_URGENCIAS'[TIPO_TRIAGE] IN {\"EMERGENCIA OBSTETRICA - I-G\", \"MUERTO\", \"NO URGENTE OBSTETRICA - IV-G\", \"URGENCIA MEDICA OBSTETRICA - II-G\", \"URGENCIA OBSTETRICA - III-G\"})))), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 1) && 'Calendario'[FECHA] < DATE(2026, 11, 4)) ) )",
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(AVERAGE('CONSULTA_URGENCIAS'[MINUTOS_ADMISION]), KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[TIPO_TRIAGE]), NOT ('CONSULTA_URGENCIAS'[TIPO_TRIAGE] IN {\"EMERGENCIA OBSTETRICA - I-G\", \"MUERTO\", \"NO URGENTE OBSTETRICA - IV-G\", \"URGENCIA MEDICA OBSTETRICA - II-G\", \"URGENCIA OBSTETRICA - III-G\"})))), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 1) && 'Calendario'[FECHA] < DATE(2026, 11, 5)) ) )",
      "EVALUATE ROW(\"__hasta\", MAXX(FILTER(ALL('Calendario'[FECHA]), NOT ISBLANK(CALCULATE(CALCULATE(AVERAGE('CONSULTA_URGENCIAS'[MINUTOS_ADMISION]), KEEPFILTERS(FILTER(ALL('CONSULTA_URGENCIAS'[TIPO_TRIAGE]), NOT ('CONSULTA_URGENCIAS'[TIPO_TRIAGE] IN {\"EMERGENCIA OBSTETRICA - I-G\", \"MUERTO\", \"NO URGENTE OBSTETRICA - IV-G\", \"URGENCIA MEDICA OBSTETRICA - II-G\", \"URGENCIA OBSTETRICA - III-G\"}))))))), 'Calendario'[FECHA]))"
     ],
     "options": [],
     "prompt": null,
     "answer": "No hay datos de **TIEMPO PROMEDIO PARA ADMISION** en lo que va de noviembre de 2026. La fuente tiene datos hasta el 19/06/2026.\n\nFiltros: noviembre 2026 hasta hoy.",
     "exception": null,
-    "latency_s": 15.847
+    "latency_s": 6.434
    }
   ]
  },
@@ -333,7 +333,7 @@
     "prompt": null,
     "answer": "No hay datos de **TIEMPO PROMEDIO DE RESPUESTA** en septiembre de 2026. La fuente tiene datos hasta el 20/06/2026.\n\nFiltros: septiembre 2026.",
     "exception": null,
-    "latency_s": 3.177
+    "latency_s": 1.251
    }
   ]
  },
@@ -377,14 +377,13 @@
      "EVALUATE SUMMARIZECOLUMNS( 'OPORTUNIDAD_TRIAGE'[DIA_SEMANA], FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 10, 1) && 'Calendario'[Date] < DATE(2026, 11, 1)), \"__value\", [PROMEDIO_TRIAGE_2026] ) ORDER BY [__value] DESC"
     ],
     "dax_log": [
-     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('TRIAGE'[TERNOMCOM]), \"Value\", 'TRIAGE'[TERNOMCOM] ), NOT ISBLANK([Value]) ), [Value], ASC )",
      "EVALUATE SUMMARIZECOLUMNS( 'OPORTUNIDAD_TRIAGE'[DIA_SEMANA], FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2026, 10, 1) && 'Calendario'[Date] < DATE(2026, 11, 1)), \"__value\", [PROMEDIO_TRIAGE_2026] ) ORDER BY [__value] DESC"
     ],
     "options": [],
     "prompt": null,
     "answer": "En octubre de 2026 (mes pasado), **PROMEDIO_TRIAGE_2026** por dia semana:\n\n| DIA SEMANA | PROMEDIO_TRIAGE_2026 |\n| --- | --- |\n| sábado | 159,6 |\n| viernes | 138,62 |\n| miércoles | 132,2 |\n| lunes | 116,2 |\n| martes | 114,33 |\n| jueves | 110,67 |\n| (sin dia semana) | 107,67 |\n| domingo | 98 |\n\nFiltros: octubre 2026 (mes pasado).",
     "exception": null,
-    "latency_s": 3.527
+    "latency_s": 1.011
    }
   ]
  },
@@ -406,7 +405,7 @@
     "filters": [
      {
       "column": "Date",
-      "end": "2026-11-04",
+      "end": "2026-11-05",
       "label": "2026 hasta hoy",
       "start": "2026-01-01",
       "table": "Calendario",
@@ -417,18 +416,18 @@
     "unapplied_terms": [],
     "group_by": [],
     "dax": [
-     "EVALUATE ROW( \"__value\", CALCULATE( AVERAGE('TIEMPO_HOSPI'[TIEMPO_HOSPI]), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 1, 1) && 'Calendario'[FECHA] < DATE(2026, 11, 4)) ) )"
+     "EVALUATE ROW( \"__value\", CALCULATE( AVERAGE('TIEMPO_HOSPI'[TIEMPO_HOSPI]), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 1, 1) && 'Calendario'[FECHA] < DATE(2026, 11, 5)) ) )"
     ],
     "dax_log": [
      "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('SOLICITUD DE CAMAS'[aseguradora])), \"__card1\", COUNTROWS(VALUES('SOLICITUD DE CAMAS'[GDPNOMBRE])) )",
      "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('SOLICITUD DE CAMAS'[aseguradora]), \"Value\", 'SOLICITUD DE CAMAS'[aseguradora]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('SOLICITUD DE CAMAS'[GDPNOMBRE]), \"Value\", 'SOLICITUD DE CAMAS'[GDPNOMBRE]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )",
-     "EVALUATE ROW( \"__value\", CALCULATE( AVERAGE('TIEMPO_HOSPI'[TIEMPO_HOSPI]), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 1, 1) && 'Calendario'[FECHA] < DATE(2026, 11, 4)) ) )"
+     "EVALUATE ROW( \"__value\", CALCULATE( AVERAGE('TIEMPO_HOSPI'[TIEMPO_HOSPI]), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 1, 1) && 'Calendario'[FECHA] < DATE(2026, 11, 5)) ) )"
     ],
     "options": [],
     "prompt": null,
     "answer": "**TIEMPO PROMEDIO EN URGENCIAS (HOSPITALIZACIÓN)** en lo que va de 2026: **122,8 horas**\n\nFiltros: 2026 hasta hoy.",
     "exception": null,
-    "latency_s": 3.188
+    "latency_s": 1.207
    }
   ]
  },
@@ -477,7 +476,7 @@
     "prompt": null,
     "answer": "De agosto a septiembre de 2026, **TIEMPO PROMEDIO PARA EL EGRESO** por mes:\n\n| Mes | TIEMPO PROMEDIO PARA EL EGRESO |\n| --- | --- |\n| agosto 2026 |  |\n| septiembre 2026 |  |\n\nFiltros: agosto–septiembre 2026.\n\nCifra tal como la muestra la tarjeta de la página RESUMEN del TABLERO TIEMPOS URGENCIAS (con sus 2 filtros; p. ej., solo unidad URGENCIAS).",
     "exception": null,
-    "latency_s": 1.903
+    "latency_s": 0.825
    }
   ]
  },
@@ -528,7 +527,7 @@
     "prompt": null,
     "answer": "**ATEHP2025** en 2025, con servicio HOSPITALIZACION PARCIAL: **49 atenciones**\n\nFiltros: SERVICIO = HOSPITALIZACION PARCIAL · 2025.",
     "exception": null,
-    "latency_s": 3.469
+    "latency_s": 1.194
    }
   ]
  },
@@ -556,7 +555,7 @@
     "prompt": null,
     "answer": "Esa pregunta está fuera del alcance de los tableros disponibles: no corresponde a ninguno de sus indicadores ni a su documentación. Puedo ayudarte con indicadores de los tableros institucionales. Por ejemplo: «AGENDA» (ASIGNACION DE CITAS) o «REPS» (BRIEFING HOSPITALARIO).",
     "exception": null,
-    "latency_s": 3.591
+    "latency_s": 1.082
    }
   ]
  },
@@ -595,7 +594,7 @@
     "prompt": null,
     "answer": "¿Te refieres a Promedio Consulta AMB?",
     "exception": null,
-    "latency_s": 2.296
+    "latency_s": 0.694
    },
    {
     "input": "[botón] Promedio Consulta AMB",
@@ -621,7 +620,7 @@
     "prompt": null,
     "answer": "Identifiqué la métrica, pero este tablero no tiene una fecha que permita aplicar el período «octubre 2026 (mes pasado)». Prueba con un año o un mes.",
     "exception": null,
-    "latency_s": 0.05
+    "latency_s": 0.018
    }
   ]
  },
@@ -660,7 +659,7 @@
     "prompt": null,
     "answer": "¿Te refieres a Promedio Consulta AMB?",
     "exception": null,
-    "latency_s": 2.248
+    "latency_s": 0.712
    },
    {
     "input": "[botón] Promedio Consulta AMB",
@@ -686,7 +685,7 @@
     "prompt": null,
     "answer": "Identifiqué la métrica, pero este tablero no tiene una fecha que permita aplicar el período «2026 hasta hoy». Prueba con un año o un mes.",
     "exception": null,
-    "latency_s": 0.061
+    "latency_s": 0.019
    }
   ]
  },
@@ -718,7 +717,7 @@
     "prompt": null,
     "answer": "**%PENDIENTE**: **0,76 %**\n\nCifra tal como la muestra la tarjeta de la página OFERTA ESPECIALIDADES del tablero ASIGNACION DE CITAS (con su filtro).",
     "exception": null,
-    "latency_s": 2.095
+    "latency_s": 0.598
    }
   ]
  },
@@ -748,16 +747,16 @@
      "ASEGURADORA"
     ],
     "dax": [
-     "EVALUATE TOPN( 5, SUMMARIZECOLUMNS( 'ASEGURADORA'[ASEGURADORA_HM], \"__value\", SUM('EN_ESPERA'[PENDIENTES]) ), [__value], DESC ) ORDER BY [__value] DESC"
+     "EVALUATE TOPN( 5, FILTER( SUMMARIZECOLUMNS( 'ASEGURADORA'[ASEGURADORA_HM], \"__value\", SUM('EN_ESPERA'[PENDIENTES]) ), NOT ISBLANK('ASEGURADORA'[ASEGURADORA_HM]) ), [__value], DESC ) ORDER BY [__value] DESC"
     ],
     "dax_log": [
-     "EVALUATE TOPN( 5, SUMMARIZECOLUMNS( 'ASEGURADORA'[ASEGURADORA_HM], \"__value\", SUM('EN_ESPERA'[PENDIENTES]) ), [__value], DESC ) ORDER BY [__value] DESC"
+     "EVALUATE TOPN( 5, FILTER( SUMMARIZECOLUMNS( 'ASEGURADORA'[ASEGURADORA_HM], \"__value\", SUM('EN_ESPERA'[PENDIENTES]) ), NOT ISBLANK('ASEGURADORA'[ASEGURADORA_HM]) ), [__value], DESC ) ORDER BY [__value] DESC"
     ],
     "options": [],
     "prompt": null,
-    "answer": "**CITAS EN ESPERA** por aseguradora (los primeros 5, de mayor a menor):\n\n| ASEGURADORA | CITAS EN ESPERA |\n| --- | --- |\n| FUERZAS MILITARES | 371 |\n| MEDICINA PREPAGADA COLSANITAS | 204 |\n| PARTICULAR | 147 |\n| ASMET SALUD EPS | 104 |\n| SURA EPS | 90 |\n\nOrdenado de mayor a menor; se muestran los 5 primeros (ASEGURADORA).",
+    "answer": "**CITAS EN ESPERA** por aseguradora (los primeros 5, de mayor a menor):\n\n| ASEGURADORA | CITAS EN ESPERA |\n| --- | --- |\n| FUERZAS MILITARES | 373 |\n| MEDICINA PREPAGADA COLSANITAS | 204 |\n| PARTICULAR | 147 |\n| ASMET SALUD EPS | 103 |\n| SURA EPS | 91 |\n\nOrdenado de mayor a menor; se muestran los 5 primeros (ASEGURADORA).",
     "exception": null,
-    "latency_s": 2.906
+    "latency_s": 0.678
    }
   ]
  },
@@ -785,7 +784,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Diccionario de variables del tablero: DEMANDA INSATISFECHA Sección del diccionario: Medidas Medida: RELACIÓN ACEPTADOS Diccionario de variables del tablero: DEMANDA INSATISFECHA Medida Power BI: RELACIÓN ACEPTADOS Tabla: CALENDARIO Descripción: Pacientes no aceptados por cada 100 solicitudes aceptadas: cuántos remitidos rechazó el hospital frente a los que aceptó (aceptados = solicitudes sin causa de no aceptación). Entre más alto, más rechazos relativos. Unidad: no aceptados por cada 100 aceptados. Se usa en: CONSOLIDADO › Tarjeta «NO ACEPTADOS / 100 ACEPTADOS». Tipo de dato: Number Formato:",
     "exception": null,
-    "latency_s": 3.909
+    "latency_s": 0.228
    }
   ]
  },
@@ -822,9 +821,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**CONSULTAS** por estado:\n\n| ESTADO | CONSULTAS |\n| --- | --- |\n| PROFESIONAL 03 | 118 |\n| PROFESIONAL 02 | 115 |\n| PROFESIONAL 04 | 115 |\n| PROFESIONAL 05 | 112 |\n| PROFESIONAL 06 | 112 |\n| PROFESIONAL 07 | 108 |\n| PROFESIONAL 09 | 108 |\n| PROFESIONAL 08 | 106 |\n| PROFESIONAL 10 | 105 |\n| PROFESIONAL 11 | 103 |\n| PROFESIONAL 12 | 101 |\n| PROFESIONAL 13 | 100 |\n| PROFESIONAL 14 | 98 |\n| PROFESIONAL 15 | 98 |\n| PROFESIONAL 16 | 97 |\n| PROFESIONAL 17 | 96 |\n| PROFESIONAL 18 | 95 |\n| PROFESIONAL 19 | 95 |\n| PROFESIONAL 20 | 95 |\n| PROFESIONAL 24 | 93 |\n| PROFESIONAL 22 | 92 |\n| PROFESIONAL 23 | 92 |\n| PROFESIONAL 25 | 92 |\n| PROFESIONAL 21 | 91 |\n| PROFESIONAL 26 | 91 |\n| PROFESIONAL 27 | 90 |\n| PROFESIONAL 31 | 90 |\n| PROFESIONAL 30 | 89 |\n| PROFESIONAL 28 | 88 |\n| PROFESIONAL 29 | 88 |\n| PROFESIONAL 32 | 85 |\n| PROFESIONAL 33 | 83 |\n| PROFESIONAL 34 | 83 |\n| PROFESIONAL 35 | 81 |\n| PROFESIONAL 36 | 80 |\n| PROFESIONAL 37 | 80 |\n| PROFESIONAL 38 | 77 |\n| PROFESIONAL 39 | 76 |\n| PROFESIONAL 40 | 73 |\n| PROFESIONAL 01 | 72 |\n| **Total** | **3.763** |",
+    "answer": "**CONSULTAS** por estado:\n\n| ESTADO | CONSULTAS |\n| --- | --- |\n| PROFESIONAL 03 | 118 |\n| PROFESIONAL 02 | 115 |\n| PROFESIONAL 04 | 115 |\n| PROFESIONAL 05 | 113 |\n| PROFESIONAL 06 | 111 |\n| PROFESIONAL 07 | 108 |\n| PROFESIONAL 09 | 108 |\n| PROFESIONAL 08 | 107 |\n| PROFESIONAL 10 | 106 |\n| PROFESIONAL 11 | 103 |\n| PROFESIONAL 12 | 101 |\n| PROFESIONAL 13 | 100 |\n| PROFESIONAL 14 | 98 |\n| PROFESIONAL 15 | 98 |\n| PROFESIONAL 16 | 97 |\n| PROFESIONAL 17 | 96 |\n| PROFESIONAL 18 | 95 |\n| PROFESIONAL 19 | 94 |\n| PROFESIONAL 20 | 94 |\n| PROFESIONAL 21 | 92 |\n| PROFESIONAL 22 | 92 |\n| PROFESIONAL 23 | 92 |\n| PROFESIONAL 24 | 92 |\n| PROFESIONAL 25 | 91 |\n| PROFESIONAL 26 | 90 |\n| PROFESIONAL 27 | 90 |\n| PROFESIONAL 30 | 90 |\n| PROFESIONAL 31 | 90 |\n| PROFESIONAL 28 | 89 |\n| PROFESIONAL 29 | 89 |\n| PROFESIONAL 32 | 85 |\n| PROFESIONAL 33 | 83 |\n| PROFESIONAL 34 | 83 |\n| PROFESIONAL 35 | 82 |\n| PROFESIONAL 36 | 80 |\n| PROFESIONAL 37 | 80 |\n| PROFESIONAL 38 | 78 |\n| PROFESIONAL 39 | 76 |\n| PROFESIONAL 40 | 73 |\n| PROFESIONAL 01 | 72 |\n| **Total** | **3.766** |",
     "exception": null,
-    "latency_s": 1.541
+    "latency_s": 0.284
    }
   ]
  },
@@ -856,9 +855,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**Triages Gineco**: **1.841**\n\nCifra tal como la muestra la tarjeta de la página TRIAGES ATENDIDOS del TABLERO EPS (con su filtro).",
+    "answer": "**Triages Gineco**: **1.844**\n\nCifra tal como la muestra la tarjeta de la página TRIAGES ATENDIDOS del TABLERO EPS (con su filtro).",
     "exception": null,
-    "latency_s": 0.982
+    "latency_s": 0.289
    }
   ]
  },
@@ -893,7 +892,7 @@
     "prompt": null,
     "answer": "**MEDICAMENTOS EN VENCIMIENTO 30-120 DÍAS**: **3**\n\nNo pude aplicar: entre meses.\n\nCifra tal como la muestra la tarjeta de la página MEDICAMENTOS VENCIDOS del TABLERO FARMACIA (con su filtro).",
     "exception": null,
-    "latency_s": 9.094
+    "latency_s": 3.324
    }
   ]
  },
@@ -932,7 +931,7 @@
     "prompt": null,
     "answer": "**PENDIENTES1** por TIEMPO (HORAS):\n\n| TIEMPO (HORAS) | PENDIENTES1 |\n| --- | --- |\n| HORAS_SUMINISTRO 4 | 81 |\n| HORAS_SUMINISTRO 2 | 61 |\n| HORAS_SUMINISTRO 6 | 51 |\n| HORAS_SUMINISTRO 3 | 42 |\n| HORAS_SUMINISTRO 1 | 41 |\n| HORAS_SUMINISTRO 5 | 41 |\n| (sin dato) | 7 |\n\nCifra tal como la muestra el gráfico de la página INICIO del TABLERO FARMACIA (con su filtro). Las filas suman 324; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
     "exception": null,
-    "latency_s": 0.575
+    "latency_s": 0.366
    }
   ]
  },
@@ -964,7 +963,7 @@
     "prompt": null,
     "answer": "**TIEMPO GESTION FACTURACION**: **111,6 horas**\n\nCifra tal como la muestra el gráfico de la página RADICACION DE CUENTAS del TABLERO CONTROL FACTURACION (con sus 2 filtros).",
     "exception": null,
-    "latency_s": 1.171
+    "latency_s": 0.849
    }
   ]
  },
@@ -1001,9 +1000,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**VALOR ESTIMADO POR SERVICIO** por area servicio:\n\n| AREA SERVICIO | VALOR ESTIMADO POR SERVICIO |\n| --- | --- |\n| URGENCIAS | $ 1.367.027.101 |\n| IMAGENES | $ 858.472.333 |\n| UCI NEONATAL | $ 498.493.067 |\n| HOSPITALIZACION PARCIAL | $ 454.594.923 |\n| PEDIATRIA | $ 419.149.721 |\n| CIRUGIA | $ 294.892.631 |\n| OBSTETRICIA | $ 287.875.675 |\n| CONSULTA EXTERNA | $ 275.971.322 |\n| CUIDADO INTERMEDIO ADULTO | $ 193.903.342 |\n| UCI ADULTOS | $ 185.077.145 |\n| LABORATORIO CLINICO | $ 158.536.494 |\n| UNIDAD CARDIONEUROVASCULAR | $ 144.770.533 |\n| ATENCION DOMICILIARIA | $ 137.438.934 |\n| HOSPITALIZACION | $ 132.702.954 |\n| (sin area servicio) | $ 64.490.862 |\n| **Total** | **$ 5.473.397.037** |\n\nPara area_servicio se usa lo que pediste en lugar del filtro que trae la página.",
+    "answer": "**VALOR ESTIMADO POR SERVICIO** por area servicio:\n\n| AREA SERVICIO | VALOR ESTIMADO POR SERVICIO |\n| --- | --- |\n| URGENCIAS | $ 1.367.027.101 |\n| IMAGENES | $ 856.197.107 |\n| UCI NEONATAL | $ 498.493.067 |\n| HOSPITALIZACION PARCIAL | $ 456.169.964 |\n| PEDIATRIA | $ 419.149.721 |\n| CIRUGIA | $ 295.546.204 |\n| OBSTETRICIA | $ 289.351.140 |\n| CONSULTA EXTERNA | $ 275.971.322 |\n| CUIDADO INTERMEDIO ADULTO | $ 193.903.342 |\n| UCI ADULTOS | $ 185.077.145 |\n| LABORATORIO CLINICO | $ 160.866.767 |\n| UNIDAD CARDIONEUROVASCULAR | $ 144.770.533 |\n| ATENCION DOMICILIARIA | $ 137.438.934 |\n| HOSPITALIZACION | $ 132.702.954 |\n| (sin area servicio) | $ 64.490.862 |\n| **Total** | **$ 5.477.156.163** |\n\nPara area_servicio se usa lo que pediste en lugar del filtro que trae la página.",
     "exception": null,
-    "latency_s": 1.217
+    "latency_s": 0.616
    }
   ]
  },
@@ -1031,9 +1030,7 @@
       "value": "HOSPITALARIO"
      }
     ],
-    "unapplied_terms": [
-     "facturar"
-    ],
+    "unapplied_terms": [],
     "group_by": [],
     "dax": [
      "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(DISTINCTCOUNT('PENDIENTES_FACTURACION'[INGRESO]), KEEPFILTERS(FILTER(ALL('PENDIENTES_FACTURACION'[TIPO_INGRESO]), 'PENDIENTES_FACTURACION'[TIPO_INGRESO] IN {\"HOSPITALARIO\"}))), TREATAS({\"HOSPITALARIO\"}, 'DIM_TIPO_INGRESO'[TIPO_INGRESO]) ) )"
@@ -1049,9 +1046,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**PENDIENTES** con tipo_ingreso HOSPITALARIO: **7**\n\nFiltros: TIPO_INGRESO = HOSPITALARIO. No pude aplicar: facturar.\n\nCifra tal como la muestra la tarjeta de la página FACTURACION PENDIENTE del TABLERO CONTROL FACTURACION (con su filtro).",
+    "answer": "**PENDIENTES** con tipo_ingreso HOSPITALARIO: **7**\n\nFiltros: TIPO_INGRESO = HOSPITALARIO.\n\nCifra tal como la muestra la tarjeta de la página FACTURACION PENDIENTE del TABLERO CONTROL FACTURACION (con su filtro).",
     "exception": null,
-    "latency_s": 3.201
+    "latency_s": 1.611
    }
   ]
  },
@@ -1095,7 +1092,7 @@
     "prompt": null,
     "answer": "Identifiqué el indicador Remisiones, pero no entendí «no recibir» como un filtro de ese tablero. ¿Lo consulto sin ese filtro? También puedes reescribir la pregunta indicando el servicio, la especialidad u otro filtro.",
     "exception": null,
-    "latency_s": 3.619
+    "latency_s": 1.228
    },
    {
     "input": "[botón] Consultar Remisiones sin «no recibir»",
@@ -1112,7 +1109,7 @@
     "filters": [
      {
       "column": "FECHA_REMISION",
-      "end": "2026-11-04",
+      "end": "2026-11-05",
       "label": "2026 hasta hoy",
       "start": "2026-01-01",
       "table": "SEGUIMIENTO REMISIONES",
@@ -1125,16 +1122,16 @@
     ],
     "group_by": [],
     "dax": [
-     "EVALUATE ROW( \"__value\", CALCULATE( DISTINCTCOUNT('SEGUIMIENTO REMISIONES'[Ingreso]), FILTER(ALL('SEGUIMIENTO REMISIONES'[FECHA_REMISION]), 'SEGUIMIENTO REMISIONES'[FECHA_REMISION] >= DATE(2026, 1, 1) && 'SEGUIMIENTO REMISIONES'[FECHA_REMISION] < DATE(2026, 11, 4)) ) )"
+     "EVALUATE ROW( \"__value\", CALCULATE( DISTINCTCOUNT('SEGUIMIENTO REMISIONES'[Ingreso]), FILTER(ALL('SEGUIMIENTO REMISIONES'[FECHA_REMISION]), 'SEGUIMIENTO REMISIONES'[FECHA_REMISION] >= DATE(2026, 1, 1) && 'SEGUIMIENTO REMISIONES'[FECHA_REMISION] < DATE(2026, 11, 5)) ) )"
     ],
     "dax_log": [
-     "EVALUATE ROW( \"__value\", CALCULATE( DISTINCTCOUNT('SEGUIMIENTO REMISIONES'[Ingreso]), FILTER(ALL('SEGUIMIENTO REMISIONES'[FECHA_REMISION]), 'SEGUIMIENTO REMISIONES'[FECHA_REMISION] >= DATE(2026, 1, 1) && 'SEGUIMIENTO REMISIONES'[FECHA_REMISION] < DATE(2026, 11, 4)) ) )"
+     "EVALUATE ROW( \"__value\", CALCULATE( DISTINCTCOUNT('SEGUIMIENTO REMISIONES'[Ingreso]), FILTER(ALL('SEGUIMIENTO REMISIONES'[FECHA_REMISION]), 'SEGUIMIENTO REMISIONES'[FECHA_REMISION] >= DATE(2026, 1, 1) && 'SEGUIMIENTO REMISIONES'[FECHA_REMISION] < DATE(2026, 11, 5)) ) )"
     ],
     "options": [],
     "prompt": null,
     "answer": "**REMISIONES** en lo que va de 2026: **340**\n\nFiltros: 2026 hasta hoy. No pude aplicar: recibir.",
     "exception": null,
-    "latency_s": 0.664
+    "latency_s": 0.261
    }
   ]
  },
@@ -1179,7 +1176,7 @@
     "prompt": null,
     "answer": "No hay datos de **CIRUGÍAS** en octubre de 2026 (mes pasado). La fuente no tiene datos para ningún periodo con esos filtros.\n\nFiltros: octubre 2026 (mes pasado).",
     "exception": null,
-    "latency_s": 11.757
+    "latency_s": 3.468
    }
   ]
  },
@@ -1240,7 +1237,7 @@
     "prompt": null,
     "answer": "De agosto a septiembre de 2026, con especialidad CIRUGIA GENERAL, CIRUGIA PLASTICA o CIRUGIA VASCULAR, **CANCELADAS** por mes:\n\n| Mes | CANCELADAS |\n| --- | --- |\n| agosto 2026 |  |\n| septiembre 2026 |  |\n\nFiltros: ESPECIALIDAD = CIRUGIA GENERAL, CIRUGIA PLASTICA, CIRUGIA VASCULAR · agosto–septiembre 2026.\n\nCifra tal como la muestra la tabla de la página ASIGNADAS X ASESOR del tablero ASIGNACION DE CITAS (con su filtro).",
     "exception": null,
-    "latency_s": 2.192
+    "latency_s": 0.745
    }
   ]
  },
@@ -1262,7 +1259,7 @@
     "filters": [
      {
       "column": "Date",
-      "end": "2026-11-04",
+      "end": "2026-11-05",
       "label": "2026 hasta hoy",
       "start": "2026-01-01",
       "table": "CALENDARIO",
@@ -1280,16 +1277,16 @@
      "CITAS MEDICAS"
     ],
     "dax": [
-     "EVALUATE SUMMARIZECOLUMNS( 'CITAS MEDICAS'[CCCDESCRI], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 1, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 4)), \"__value\", DISTINCTCOUNT('CITAS MEDICAS'[OID]) ) ORDER BY [__value] DESC"
+     "EVALUATE SUMMARIZECOLUMNS( 'CITAS MEDICAS'[CCCDESCRI], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 1, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 5)), \"__value\", DISTINCTCOUNT('CITAS MEDICAS'[OID]) ) ORDER BY [__value] DESC"
     ],
     "dax_log": [
-     "EVALUATE SUMMARIZECOLUMNS( 'CITAS MEDICAS'[CCCDESCRI], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 1, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 4)), \"__value\", DISTINCTCOUNT('CITAS MEDICAS'[OID]) ) ORDER BY [__value] DESC"
+     "EVALUATE SUMMARIZECOLUMNS( 'CITAS MEDICAS'[CCCDESCRI], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 1, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 5)), \"__value\", DISTINCTCOUNT('CITAS MEDICAS'[OID]) ) ORDER BY [__value] DESC"
     ],
     "options": [],
     "prompt": null,
-    "answer": "En lo que va de 2026, **CITAS CANCELADAS** por causa:\n\n| CAUSA | CITAS CANCELADAS |\n| --- | --- |\n| FALTA DE INSUMOS | 293 |\n| MANTENIMIENTO DE EQUIPO | 171 |\n| CALAMIDAD DEL ESPECIALISTA | 104 |\n| ERROR EN HABILITACION DE AGENDA | 87 |\n| DAÑO DE EQUIPO | 59 |\n| (sin causa) | 16 |\n\nFiltros: 2026 hasta hoy.\n\nPara cccdescri se usa lo que pediste en lugar del filtro que trae la página. Las filas suman 730; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
+    "answer": "En lo que va de 2026, **CITAS CANCELADAS** por causa:\n\n| CAUSA | CITAS CANCELADAS |\n| --- | --- |\n| FALTA DE INSUMOS | 293 |\n| MANTENIMIENTO DE EQUIPO | 170 |\n| CALAMIDAD DEL ESPECIALISTA | 104 |\n| ERROR EN HABILITACION DE AGENDA | 87 |\n| DAÑO DE EQUIPO | 60 |\n| (sin causa) | 16 |\n\nFiltros: 2026 hasta hoy.\n\nPara cccdescri se usa lo que pediste en lugar del filtro que trae la página. Las filas suman 730; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
     "exception": null,
-    "latency_s": 2.49
+    "latency_s": 0.913
    }
   ]
  },
@@ -1326,9 +1323,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**PAC_ACT** por antibiotico:\n\n| ANTIBIOTICO | PAC_ACT |\n| --- | --- |\n| ANTIBIOTICO 2 | 501 |\n| ANTIBIOTICO 4 | 314 |\n| ANTIBIOTICO 1 | 231 |\n| ANTIBIOTICO 3 | 177 |\n| ANTIBIOTICO 5 | 153 |\n| ANTIBIOTICO 6 | 138 |\n| (sin antibiotico) | 21 |",
+    "answer": "**PAC_ACT** por antibiotico:\n\n| ANTIBIOTICO | PAC_ACT |\n| --- | --- |\n| ANTIBIOTICO 2 | 501 |\n| ANTIBIOTICO 4 | 315 |\n| ANTIBIOTICO 1 | 232 |\n| ANTIBIOTICO 3 | 177 |\n| ANTIBIOTICO 5 | 152 |\n| ANTIBIOTICO 6 | 138 |\n| (sin antibiotico) | 21 |",
     "exception": null,
-    "latency_s": 0.187
+    "latency_s": 0.096
    }
   ]
  },
@@ -1360,7 +1357,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: ANTIBIOTICOS Indicador documentado: Pacientes activos: Pacientes distintos (por documento) con algún antibiótico en estado ACTIVO; la tarjeta se rotula PACIENTE ACTIVOS. Medida PAC_ACT = CALCULATE(DISTINCTCOUNT(ANTIBIOTICOS[DOCUMENTO]), ANTIBIOTICOS[Suspension] = \"ACTIVO\"). Tablero: MONITOREO_ANTIBIOTICO Indicador documentado: Pacientes activos: Pacientes distintos (por documento) con algún antibiótico en estado ACTIVO. Medida PAC_ACT. Tablero: TABLERO ANTIBIOTICOS Definición: Paciente activo: Paciente con al menos un antibiótico en estado ACTIVO. Tablero: ANTIBIOTICOS Alias: Descripc",
     "exception": null,
-    "latency_s": 2.297
+    "latency_s": 1.241
    }
   ]
  },
@@ -1403,7 +1400,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en septiembre de 2026: **1.609,7**\n\nFiltros: septiembre 2026.",
     "exception": null,
-    "latency_s": 1.106
+    "latency_s": 0.735
    }
   ]
  },
@@ -1425,7 +1422,7 @@
     "filters": [
      {
       "column": "Fecha",
-      "end": "2026-11-04",
+      "end": "2026-11-05",
       "label": "desde el 02/11/2026 hasta hoy (esta semana)",
       "month": 11,
       "start": "2026-11-02",
@@ -1437,16 +1434,16 @@
     "unapplied_terms": [],
     "group_by": [],
     "dax": [
-     "EVALUATE ROW( \"__value\", CALCULATE( SUM('LAVANDERIA'[Peso]), FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 11, 2) && 'LAVANDERIA'[Fecha] < DATE(2026, 11, 4)) ) )"
+     "EVALUATE ROW( \"__value\", CALCULATE( SUM('LAVANDERIA'[Peso]), FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 11, 2) && 'LAVANDERIA'[Fecha] < DATE(2026, 11, 5)) ) )"
     ],
     "dax_log": [
-     "EVALUATE ROW( \"__value\", CALCULATE( SUM('LAVANDERIA'[Peso]), FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 11, 2) && 'LAVANDERIA'[Fecha] < DATE(2026, 11, 4)) ) )"
+     "EVALUATE ROW( \"__value\", CALCULATE( SUM('LAVANDERIA'[Peso]), FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 11, 2) && 'LAVANDERIA'[Fecha] < DATE(2026, 11, 5)) ) )"
     ],
     "options": [],
     "prompt": null,
-    "answer": "**PESO TOTAL por Mes** desde el 02/11/2026 hasta hoy (esta semana): **110,1**\n\nFiltros: desde el 02/11/2026 hasta hoy (esta semana).",
+    "answer": "**PESO TOTAL por Mes** desde el 02/11/2026 hasta hoy (esta semana): **183,9**\n\nFiltros: desde el 02/11/2026 hasta hoy (esta semana).",
     "exception": null,
-    "latency_s": 1.109
+    "latency_s": 0.661
    }
   ]
  },
@@ -1480,7 +1477,7 @@
     "prompt": null,
     "answer": "**91 pacientes** (indicador PACIENTES).\n\nCifra tal como la muestra la tarjeta de la página LISTADO del TABLERO NAOS (con su filtro: excluye servicio del paciente HOSPITALIZACION PARCIAL). La lista de 91 pacientes es demasiado larga para mostrarla aquí (más de 50). Indica un filtro (servicio, estado...) y te muestro el detalle.",
     "exception": null,
-    "latency_s": 0.583
+    "latency_s": 0.354
    }
   ]
  },
@@ -1514,9 +1511,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**CIRUGÍAS PENDIENTES**: **3.740**",
+    "answer": "**CIRUGÍAS PENDIENTES**: **3.747**",
     "exception": null,
-    "latency_s": 2.973
+    "latency_s": 1.304
    }
   ]
  },
@@ -1553,9 +1550,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**PACIENTES** por clasificación:\n\n| CLASIFICACIÓN | PACIENTES |\n| --- | --- |\n| (sin clasificación) | 57 |\n| PACIENTE SIMULADO 00243 | 8 |\n| PACIENTE SIMULADO 00244 | 8 |\n| PACIENTE SIMULADO 00245 | 8 |\n| PACIENTE SIMULADO 00246 | 8 |\n| PACIENTE SIMULADO 00247 | 8 |\n| PACIENTE SIMULADO 00248 | 8 |\n| PACIENTE SIMULADO 00249 | 8 |\n| PACIENTE SIMULADO 00250 | 8 |\n| PACIENTE SIMULADO 00251 | 8 |\n| PACIENTE SIMULADO 00302 | 8 |\n| PACIENTE SIMULADO 00303 | 8 |\n| PACIENTE SIMULADO 00304 | 8 |\n| PACIENTE SIMULADO 00398 | 8 |\n| PACIENTE SIMULADO 00085 | 7 |\n| PACIENTE SIMULADO 00086 | 7 |\n| PACIENTE SIMULADO 00087 | 7 |\n| PACIENTE SIMULADO 00088 | 7 |\n| PACIENTE SIMULADO 00089 | 7 |\n| PACIENTE SIMULADO 00090 | 7 |\n| PACIENTE SIMULADO 00092 | 7 |\n| PACIENTE SIMULADO 00093 | 7 |\n| PACIENTE SIMULADO 00094 | 7 |\n| PACIENTE SIMULADO 00095 | 7 |\n| PACIENTE SIMULADO 00097 | 7 |\n| PACIENTE SIMULADO 00098 | 7 |\n| PACIENTE SIMULADO 00099 | 7 |\n| PACIENTE SIMULADO 00100 | 7 |\n| PACIENTE SIMULADO 00101 | 7 |\n| PACIENTE SIMULADO 00122 | 7 |\n| PACIENTE SIMULADO 00123 | 7 |\n| PACIENTE SIMULADO 00124 | 7 |\n| PACIENTE SIMULADO 00125 | 7 |\n| PACIENTE SIMULADO 00126 | 7 |\n| PACIENTE SIMULADO 00127 | 7 |\n| PACIENTE SIMULADO 00129 | 7 |\n| PACIENTE SIMULADO 00130 | 7 |\n| PACIENTE SIMULADO 00131 | 7 |\n| PACIENTE SIMULADO 00132 | 7 |\n| PACIENTE SIMULADO 00133 | 7 |\n| PACIENTE SIMULADO 00134 | 7 |\n| PACIENTE SIMULADO 00152 | 7 |\n| PACIENTE SIMULADO 00153 | 7 |\n| PACIENTE SIMULADO 00154 | 7 |\n| PACIENTE SIMULADO 00155 | 7 |\n| PACIENTE SIMULADO 00182 | 7 |\n| PACIENTE SIMULADO 00183 | 7 |\n| PACIENTE SIMULADO 00184 | 7 |\n| PACIENTE SIMULADO 00185 | 7 |\n| PACIENTE SIMULADO 00186 | 7 |\n\nMostrando 50 de 998 filas.\n\nCifra tal como la muestra el gráfico de la página LISTADO del TABLERO NAOS (con su filtro: excluye servicio del paciente HOSPITALIZACION PARCIAL). Las filas suman 4.316; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
+    "answer": "**PACIENTES** por clasificación:\n\n| CLASIFICACIÓN | PACIENTES |\n| --- | --- |\n| (sin clasificación) | 57 |\n| PACIENTE SIMULADO 00243 | 8 |\n| PACIENTE SIMULADO 00244 | 8 |\n| PACIENTE SIMULADO 00245 | 8 |\n| PACIENTE SIMULADO 00246 | 8 |\n| PACIENTE SIMULADO 00247 | 8 |\n| PACIENTE SIMULADO 00248 | 8 |\n| PACIENTE SIMULADO 00249 | 8 |\n| PACIENTE SIMULADO 00250 | 8 |\n| PACIENTE SIMULADO 00251 | 8 |\n| PACIENTE SIMULADO 00302 | 8 |\n| PACIENTE SIMULADO 00303 | 8 |\n| PACIENTE SIMULADO 00304 | 8 |\n| PACIENTE SIMULADO 00085 | 7 |\n| PACIENTE SIMULADO 00086 | 7 |\n| PACIENTE SIMULADO 00087 | 7 |\n| PACIENTE SIMULADO 00088 | 7 |\n| PACIENTE SIMULADO 00089 | 7 |\n| PACIENTE SIMULADO 00090 | 7 |\n| PACIENTE SIMULADO 00092 | 7 |\n| PACIENTE SIMULADO 00093 | 7 |\n| PACIENTE SIMULADO 00094 | 7 |\n| PACIENTE SIMULADO 00095 | 7 |\n| PACIENTE SIMULADO 00097 | 7 |\n| PACIENTE SIMULADO 00098 | 7 |\n| PACIENTE SIMULADO 00099 | 7 |\n| PACIENTE SIMULADO 00100 | 7 |\n| PACIENTE SIMULADO 00101 | 7 |\n| PACIENTE SIMULADO 00122 | 7 |\n| PACIENTE SIMULADO 00123 | 7 |\n| PACIENTE SIMULADO 00124 | 7 |\n| PACIENTE SIMULADO 00125 | 7 |\n| PACIENTE SIMULADO 00126 | 7 |\n| PACIENTE SIMULADO 00127 | 7 |\n| PACIENTE SIMULADO 00129 | 7 |\n| PACIENTE SIMULADO 00130 | 7 |\n| PACIENTE SIMULADO 00131 | 7 |\n| PACIENTE SIMULADO 00132 | 7 |\n| PACIENTE SIMULADO 00133 | 7 |\n| PACIENTE SIMULADO 00134 | 7 |\n| PACIENTE SIMULADO 00152 | 7 |\n| PACIENTE SIMULADO 00153 | 7 |\n| PACIENTE SIMULADO 00154 | 7 |\n| PACIENTE SIMULADO 00155 | 7 |\n| PACIENTE SIMULADO 00182 | 7 |\n| PACIENTE SIMULADO 00183 | 7 |\n| PACIENTE SIMULADO 00184 | 7 |\n| PACIENTE SIMULADO 00185 | 7 |\n| PACIENTE SIMULADO 00186 | 7 |\n| PACIENTE SIMULADO 00187 | 7 |\n\nMostrando 50 de 998 filas.\n\nCifra tal como la muestra el gráfico de la página LISTADO del TABLERO NAOS (con su filtro: excluye servicio del paciente HOSPITALIZACION PARCIAL). Las filas suman 4.317; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
     "exception": null,
-    "latency_s": 14.687
+    "latency_s": 7.659
    }
   ]
  },
@@ -1577,10 +1574,10 @@
     "filters": [
      {
       "column": "FechaRegistro",
-      "end": "2026-11-04",
-      "label": "3 de noviembre de 2026 (hoy)",
+      "end": "2026-11-05",
+      "label": "4 de noviembre de 2026 (hoy)",
       "month": 11,
-      "start": "2026-11-03",
+      "start": "2026-11-04",
       "table": "TablaPedidosActuales",
       "type": "date_range",
       "year": 2026
@@ -1589,17 +1586,17 @@
     "unapplied_terms": [],
     "group_by": [],
     "dax": [
-     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(DISTINCTCOUNT('TablaPedidosActuales'[OidRTPedido]), KEEPFILTERS(FILTER(ALL('TablaPedidosActuales'[NomEstado]), NOT ('TablaPedidosActuales'[NomEstado] IN {\"Mercancia Almacenada\"})))), FILTER(ALL('TablaPedidosActuales'[FechaRegistro]), 'TablaPedidosActuales'[FechaRegistro] >= DATE(2026, 11, 3) && 'TablaPedidosActuales'[FechaRegistro] < DATE(2026, 11, 4)) ) )"
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(DISTINCTCOUNT('TablaPedidosActuales'[OidRTPedido]), KEEPFILTERS(FILTER(ALL('TablaPedidosActuales'[NomEstado]), NOT ('TablaPedidosActuales'[NomEstado] IN {\"Mercancia Almacenada\"})))), FILTER(ALL('TablaPedidosActuales'[FechaRegistro]), 'TablaPedidosActuales'[FechaRegistro] >= DATE(2026, 11, 4) && 'TablaPedidosActuales'[FechaRegistro] < DATE(2026, 11, 5)) ) )"
     ],
     "dax_log": [
-     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(DISTINCTCOUNT('TablaPedidosActuales'[OidRTPedido]), KEEPFILTERS(FILTER(ALL('TablaPedidosActuales'[NomEstado]), NOT ('TablaPedidosActuales'[NomEstado] IN {\"Mercancia Almacenada\"})))), FILTER(ALL('TablaPedidosActuales'[FechaRegistro]), 'TablaPedidosActuales'[FechaRegistro] >= DATE(2026, 11, 3) && 'TablaPedidosActuales'[FechaRegistro] < DATE(2026, 11, 4)) ) )",
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(DISTINCTCOUNT('TablaPedidosActuales'[OidRTPedido]), KEEPFILTERS(FILTER(ALL('TablaPedidosActuales'[NomEstado]), NOT ('TablaPedidosActuales'[NomEstado] IN {\"Mercancia Almacenada\"})))), FILTER(ALL('TablaPedidosActuales'[FechaRegistro]), 'TablaPedidosActuales'[FechaRegistro] >= DATE(2026, 11, 4) && 'TablaPedidosActuales'[FechaRegistro] < DATE(2026, 11, 5)) ) )",
      "EVALUATE ROW(\"__hasta\", MAXX(FILTER(ALL('TablaPedidosActuales'[FechaRegistro]), NOT ISBLANK(CALCULATE(CALCULATE(DISTINCTCOUNT('TablaPedidosActuales'[OidRTPedido]), KEEPFILTERS(FILTER(ALL('TablaPedidosActuales'[NomEstado]), NOT ('TablaPedidosActuales'[NomEstado] IN {\"Mercancia Almacenada\"}))))))), 'TablaPedidosActuales'[FechaRegistro]))"
     ],
     "options": [],
     "prompt": null,
-    "answer": "No hay datos de **PEDIDOS EN GESTIÓN** el 3 de noviembre de 2026 (hoy). La fuente tiene datos hasta el 02/11/2026.\n\nFiltros: 3 de noviembre de 2026 (hoy).",
+    "answer": "No hay datos de **PEDIDOS EN GESTIÓN** el 4 de noviembre de 2026 (hoy). La fuente tiene datos hasta el 03/11/2026.\n\nFiltros: 4 de noviembre de 2026 (hoy).",
     "exception": null,
-    "latency_s": 33.174
+    "latency_s": 20.039
    }
   ]
  },
@@ -1636,9 +1633,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**SOLICITUDES PENDIENTES** por area servicio:\n\n| AREA SERVICIO | SOLICITUDES PENDIENTES |\n| --- | --- |\n| PROFESIONAL 02 | 106 |\n| PROFESIONAL 03 | 105 |\n| PROFESIONAL 04 | 102 |\n| PROFESIONAL 05 | 102 |\n| PROFESIONAL 06 | 100 |\n| PROFESIONAL 09 | 98 |\n| PROFESIONAL 07 | 97 |\n| PROFESIONAL 08 | 96 |\n| PROFESIONAL 11 | 95 |\n| PROFESIONAL 10 | 94 |\n| PROFESIONAL 13 | 93 |\n| PROFESIONAL 15 | 93 |\n| PROFESIONAL 14 | 92 |\n| PROFESIONAL 17 | 91 |\n| PROFESIONAL 18 | 91 |\n| PROFESIONAL 19 | 91 |\n| PROFESIONAL 16 | 90 |\n| PROFESIONAL 20 | 89 |\n| PROFESIONAL 21 | 89 |\n| PROFESIONAL 12 | 88 |\n| PROFESIONAL 23 | 88 |\n| PROFESIONAL 24 | 88 |\n| PROFESIONAL 22 | 87 |\n| PROFESIONAL 25 | 85 |\n| PROFESIONAL 26 | 84 |\n| PROFESIONAL 27 | 83 |\n| PROFESIONAL 28 | 80 |\n| PROFESIONAL 29 | 80 |\n| PROFESIONAL 30 | 80 |\n| PROFESIONAL 31 | 76 |\n| PROFESIONAL 32 | 75 |\n| PROFESIONAL 33 | 74 |\n| PROFESIONAL 36 | 73 |\n| PROFESIONAL 34 | 72 |\n| PROFESIONAL 35 | 71 |\n| PROFESIONAL 37 | 71 |\n| PROFESIONAL 38 | 66 |\n| PROFESIONAL 39 | 65 |\n| PROFESIONAL 40 | 64 |\n| PROFESIONAL 01 | 62 |\n| (sin area servicio) | 59 |\n\nLas filas suman 3.485; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
+    "answer": "**SOLICITUDES PENDIENTES** por area servicio:\n\n| AREA SERVICIO | SOLICITUDES PENDIENTES |\n| --- | --- |\n| PROFESIONAL 02 | 106 |\n| PROFESIONAL 03 | 105 |\n| PROFESIONAL 04 | 103 |\n| PROFESIONAL 05 | 103 |\n| PROFESIONAL 06 | 100 |\n| PROFESIONAL 09 | 98 |\n| PROFESIONAL 07 | 97 |\n| PROFESIONAL 08 | 97 |\n| PROFESIONAL 11 | 96 |\n| PROFESIONAL 10 | 94 |\n| PROFESIONAL 13 | 93 |\n| PROFESIONAL 15 | 93 |\n| PROFESIONAL 14 | 92 |\n| PROFESIONAL 18 | 92 |\n| PROFESIONAL 17 | 91 |\n| PROFESIONAL 19 | 91 |\n| PROFESIONAL 16 | 90 |\n| PROFESIONAL 21 | 90 |\n| PROFESIONAL 20 | 89 |\n| PROFESIONAL 12 | 88 |\n| PROFESIONAL 23 | 88 |\n| PROFESIONAL 22 | 87 |\n| PROFESIONAL 24 | 87 |\n| PROFESIONAL 25 | 85 |\n| PROFESIONAL 26 | 84 |\n| PROFESIONAL 27 | 83 |\n| PROFESIONAL 28 | 80 |\n| PROFESIONAL 29 | 80 |\n| PROFESIONAL 30 | 80 |\n| PROFESIONAL 31 | 77 |\n| PROFESIONAL 32 | 75 |\n| PROFESIONAL 33 | 75 |\n| PROFESIONAL 36 | 74 |\n| PROFESIONAL 34 | 72 |\n| PROFESIONAL 35 | 71 |\n| PROFESIONAL 37 | 71 |\n| PROFESIONAL 38 | 67 |\n| PROFESIONAL 39 | 65 |\n| PROFESIONAL 40 | 64 |\n| PROFESIONAL 01 | 62 |\n| (sin area servicio) | 58 |\n\nLas filas suman 3.493; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
     "exception": null,
-    "latency_s": 0.829
+    "latency_s": 0.701
    }
   ]
  },
@@ -1666,7 +1663,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: TABLERO RECEPCION TECNICA Definición: Pedido: Pedido de mercancía en el proceso de recepción técnica (OidRTPedido); pasa por estados como Ingreso de Transportadora, Recepción Física, Verificación Registro Sanitario, Recepción Técnica, Mercancía Almacenada, Novedad, Novedad en Trámite, Respuesta Novedad, Devuelto a Proveedor y Factura devuelta a Recepción Técnica. Diccionario de variables del tablero: TABLERO RECEPCION TECNICA Sección del diccionario: Tablas Diccionario de variables del tablero: TABLERO RECEPCION TECNICA Fuente de datos: INGRESOS_DIA: Registros de cambio de estado de l",
     "exception": null,
-    "latency_s": 0.201
+    "latency_s": 0.246
    }
   ]
  },
@@ -1711,7 +1708,7 @@
     "prompt": null,
     "answer": "En octubre de 2026 (mes pasado), hubo **61** solicitudes.\n\nFiltros: octubre 2026 (mes pasado).",
     "exception": null,
-    "latency_s": 1.963
+    "latency_s": 0.984
    }
   ]
  },
@@ -1756,7 +1753,7 @@
     "prompt": null,
     "answer": "Identifiqué el indicador Referencia, pero no entendí «no aceptamos» como un filtro de ese tablero. ¿Lo consulto sin ese filtro? También puedes reescribir la pregunta indicando el servicio, la especialidad u otro filtro.",
     "exception": null,
-    "latency_s": 1.36
+    "latency_s": 0.669
    },
    {
     "input": "[botón] Consultar Referencia sin «no aceptamos»",
@@ -1785,7 +1782,7 @@
     "prompt": null,
     "answer": "No hay datos de **REFERENCIA** para esos filtros.\n\nNo pude aplicar: aceptamos.",
     "exception": null,
-    "latency_s": 0.087
+    "latency_s": 0.041
    }
   ]
  },
@@ -1824,7 +1821,7 @@
     "prompt": null,
     "answer": "En el tablero TABLERO REFERENCIA no encontré ese indicador. Lo encontré en otro tablero. ¿Es este?",
     "exception": null,
-    "latency_s": 0.358
+    "latency_s": 0.208
    },
    {
     "input": "[botón] REFERENCIA",
@@ -1849,16 +1846,16 @@
      "REFERENCIA"
     ],
     "dax": [
-     "EVALUATE TOPN( 5, SUMMARIZECOLUMNS( 'REFERENCIA'[GEEDESCRI], \"__value\", CALCULATE(DISTINCTCOUNT('REFERENCIA'[OID]), KEEPFILTERS(FILTER(ALL('REFERENCIA'[CAUSA]), NOT (('REFERENCIA'[CAUSA] IN {\"Aceptado por otra institución\", \"Es de menor complejidad\", \"No contratación\", \"NO HABILITACIÓN\"} || ISBLANK('REFERENCIA'[CAUSA])))))) ), [__value], DESC ) ORDER BY [__value] DESC"
+     "EVALUATE TOPN( 5, FILTER( SUMMARIZECOLUMNS( 'REFERENCIA'[GEEDESCRI], \"__value\", CALCULATE(DISTINCTCOUNT('REFERENCIA'[OID]), KEEPFILTERS(FILTER(ALL('REFERENCIA'[CAUSA]), NOT (('REFERENCIA'[CAUSA] IN {\"Aceptado por otra institución\", \"Es de menor complejidad\", \"No contratación\", \"NO HABILITACIÓN\"} || ISBLANK('REFERENCIA'[CAUSA])))))) ), NOT ISBLANK('REFERENCIA'[GEEDESCRI]) ), [__value], DESC ) ORDER BY [__value] DESC"
     ],
     "dax_log": [
-     "EVALUATE TOPN( 5, SUMMARIZECOLUMNS( 'REFERENCIA'[GEEDESCRI], \"__value\", CALCULATE(DISTINCTCOUNT('REFERENCIA'[OID]), KEEPFILTERS(FILTER(ALL('REFERENCIA'[CAUSA]), NOT (('REFERENCIA'[CAUSA] IN {\"Aceptado por otra institución\", \"Es de menor complejidad\", \"No contratación\", \"NO HABILITACIÓN\"} || ISBLANK('REFERENCIA'[CAUSA])))))) ), [__value], DESC ) ORDER BY [__value] DESC"
+     "EVALUATE TOPN( 5, FILTER( SUMMARIZECOLUMNS( 'REFERENCIA'[GEEDESCRI], \"__value\", CALCULATE(DISTINCTCOUNT('REFERENCIA'[OID]), KEEPFILTERS(FILTER(ALL('REFERENCIA'[CAUSA]), NOT (('REFERENCIA'[CAUSA] IN {\"Aceptado por otra institución\", \"Es de menor complejidad\", \"No contratación\", \"NO HABILITACIÓN\"} || ISBLANK('REFERENCIA'[CAUSA])))))) ), NOT ISBLANK('REFERENCIA'[GEEDESCRI]) ), [__value], DESC ) ORDER BY [__value] DESC"
     ],
     "options": [],
     "prompt": null,
     "answer": "No hay datos de **REFERENCIA** para esos filtros.",
     "exception": null,
-    "latency_s": 0.298
+    "latency_s": 0.214
    }
   ]
  },
@@ -1886,7 +1883,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Diccionario de variables del tablero: TABLERO REFERENCIA Sección del diccionario: Columnas calculadas Diccionario de variables del tablero: TABLERO REFERENCIA Columna calculada: TIEMPO_RESPUESTA Tabla: CONTRARREFERENCIA Descripción: Horas entre la fecha de remisión (FechaRemision) y la fecha de aceptación (FECHACEPTACION); si no hay aceptación posterior a la remisión, se cuenta hasta hoy. Tipo: entero. Se usa en: no aparece en visuales ni filtros del informe. Expresión DAX: DATEDIFF(CONTRARREFERENCIA[FechaRemision],IF(CONTRARREFERENCIA[FECHACEPTACION]>CONTRARREFERENCIA[FechaRemision],CONTRARRE",
     "exception": null,
-    "latency_s": 0.268
+    "latency_s": 0.175
    }
   ]
  },
@@ -1925,7 +1922,7 @@
     "prompt": null,
     "answer": "No identifiqué con certeza el indicador. ¿Te refieres a PRECIO VENTA?",
     "exception": null,
-    "latency_s": 8.434
+    "latency_s": 3.997
    },
    {
     "input": "[botón] PRECIO VENTA",
@@ -1951,7 +1948,7 @@
     "prompt": null,
     "answer": "Identifiqué la métrica, pero este tablero no tiene una fecha que permita aplicar el período «2026 hasta hoy». Prueba con un año o un mes.",
     "exception": null,
-    "latency_s": 0.081
+    "latency_s": 0.065
    }
   ]
  },
@@ -2030,7 +2027,7 @@
     "prompt": null,
     "answer": "La métrica se identificó, pero Power BI rechazó la consulta. Revisa Modo diagnóstico.",
     "exception": null,
-    "latency_s": 1.994
+    "latency_s": 1.173
    }
   ]
  },
@@ -2058,7 +2055,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: PERFIL DE MORBILIDAD Indicador documentado: % defunciones: Mortalidad del grupo. %DEFUNCIONES = SUM('MATRIZ 2024'[DEFUNCIONES])/COUNT('MATRIZ 2024'[Egreso_Cod_CIE10]). Tablero: PERFIL DE MORBILIDAD Alias: Descripción: Atenciones y mortalidad por mes, edad, sexo, CMD y GRD. Detalla los egresos por mes, rango de edad y sexo, y por CMD y GRD con sus defunciones y porcentaje de mortalidad. Tablero: PERFIL DE MORBILIDAD Regla de negocio: Denominador de mortalidad: %DEFUNCIONES divide por los egresos que tienen código CIE10 de egreso, no por todas las atenciones. Tablero: TABLERO PERFIL DE",
     "exception": null,
-    "latency_s": 0.389
+    "latency_s": 0.25
    }
   ]
  },
@@ -2086,7 +2083,7 @@
     "prompt": null,
     "answer": "No identifiqué un indicador para «oye», «dolar», «hoy» en los tableros disponibles. Escribe el nombre del indicador o del tablero donde lo ves. Por ejemplo: «AGENDA» (ASIGNACION DE CITAS) o «REPS» (BRIEFING HOSPITALARIO).",
     "exception": null,
-    "latency_s": 2.139
+    "latency_s": 1.393
    }
   ]
  },
@@ -2114,7 +2111,7 @@
     "prompt": null,
     "answer": "No encontré información relacionada con esa pregunta en la documentación de los tableros disponibles.",
     "exception": null,
-    "latency_s": 1.911
+    "latency_s": 1.349
    }
   ]
  },
@@ -2142,7 +2139,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: ANTIBIOTICOS Indicador documentado: Fecha fin: Última fecha de aplicación del antibiótico en el contexto. Medida Fecha Fin = MAX(ANTIBIOTICOS[HORA_APLICACION]). Tablero: ANTIBIOTICOS Sección: Historial de cambios Contenido: 2026-10-28 · v2: Diccionario y revisión contra el modelo y el informe. Tablero: TABLERO ANTIBIOTICOS Definición: Aplicación: Registro de administración del antibiótico en la hoja de enfermería con HCRESPUES = 0. Tablero: ANTIBIOTICOS Visualización documentada: Tarjetas: TOTAL DOSIS SUMINISTRADAS (suma de HCCANTIDAD) y PACIENTE ACTIVOS (PAC_ACT). Tablero: TABLERO AN",
     "exception": null,
-    "latency_s": 2.011
+    "latency_s": 1.021
    }
   ]
  }

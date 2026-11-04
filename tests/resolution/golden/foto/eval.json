@@ -27,9 +27,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**PESO TOTAL por Mes**: **63.679**",
+    "answer": "**PESO TOTAL por Mes**: **63.752,8**",
     "exception": null,
-    "latency_s": 2.936,
+    "latency_s": 2.646,
     "passed": true
    }
   ]
@@ -86,7 +86,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.806,
+    "latency_s": 0.906,
     "passed": false
    }
   ]
@@ -114,7 +114,12 @@
     "dax": [],
     "dax_log": [
      "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('CIRUGÍAS'[TERNOMCOM])), \"__card1\", COUNTROWS(VALUES('TERCEROS'[TERNOMCOM])) )",
-     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGÍAS'[TERNOMCOM]), \"Value\", 'CIRUGÍAS'[TERNOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('TERCEROS'[TERNOMCOM]), \"Value\", 'TERCEROS'[TERNOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )"
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGÍAS'[TERNOMCOM]), \"Value\", 'CIRUGÍAS'[TERNOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('TERCEROS'[TERNOMCOM]), \"Value\", 'TERCEROS'[TERNOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('CIRUGIAS'[Sexo])), \"__card1\", COUNTROWS(VALUES('CIRUGIAS'[CIRUJANO])), \"__card2\", COUNTROWS(VALUES('CIRUGIAS'[ESPECIALIDAD])), \"__card3\", COUNTROWS(VALUES('CIRUGIAS'[ASEGURADOR])), \"__card4\", COUNTROWS(VALUES('CIRUGIAS'[DIAGNOSTICO])), \"__card5\", COUNTROWS(VALUES('CIRUGIAS'[NOM_DIAGNOSTICO])), \"__card6\", COUNTROWS(VALUES('CIRUGIAS'[CIRUGIA])), \"__card7\", COUNTROWS(VALUES('CIRUGIAS'[CUPS])), \"__card8\", COUNTROWS(VALUES('CIRUGIAS'[TIPO])), \"__card9\", COUNTROWS(VALUES('CIRUGIAS'[TIPO_INGRESO])), \"__card10\", COUNTROWS(VALUES('CIRUGIAS'[EPS])), \"__card11\", COUNTROWS(VALUES('TERCERO'[TERNOMCOM])), \"__card12\", COUNTROWS(VALUES('CIRUGIAS'[TERPRINOM])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[Sexo]), \"Value\", 'CIRUGIAS'[Sexo]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[CIRUJANO]), \"Value\", 'CIRUGIAS'[CIRUJANO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[ESPECIALIDAD]), \"Value\", 'CIRUGIAS'[ESPECIALIDAD]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[ASEGURADOR]), \"Value\", 'CIRUGIAS'[ASEGURADOR]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[DIAGNOSTICO]), \"Value\", 'CIRUGIAS'[DIAGNOSTICO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[NOM_DIAGNOSTICO]), \"Value\", 'CIRUGIAS'[NOM_DIAGNOSTICO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[CIRUGIA]), \"Value\", 'CIRUGIAS'[CIRUGIA]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[CUPS]), \"Value\", 'CIRUGIAS'[CUPS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[TIPO]), \"Value\", 'CIRUGIAS'[TIPO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[TIPO_INGRESO]), \"Value\", 'CIRUGIAS'[TIPO_INGRESO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[EPS]), \"Value\", 'CIRUGIAS'[EPS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('TERCERO'[TERNOMCOM]), \"Value\", 'TERCERO'[TERNOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('CIRUGIAS'[TERPRINOM]), \"Value\", 'CIRUGIAS'[TERPRINOM] ), NOT ISBLANK([Value]) ), [Value], ASC )"
     ],
     "options": [
      {
@@ -128,11 +133,6 @@
       "caption": "[FakeLLM] Obtiene el valor de totalcirugias (medida TOTAL_CIRUGIAS)"
      },
      {
-      "id": "72697ee50954543d",
-      "label": "TOTAL CIRUGIAS — CONSOLIDADO DE ATENCIONES INSTITUCIONALES",
-      "caption": "[FakeLLM] Obtiene el valor de totalcirugias (medida TOTAL_CIRUGIAS)"
-     },
-     {
       "id": "__none__",
       "label": "Ninguna de las anteriores",
       "caption": "Buscar otros indicadores parecidos a la pregunta"
@@ -141,7 +141,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 1.594,
+    "latency_s": 1.953,
     "passed": false
    }
   ]
@@ -174,9 +174,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**total_triage**: **1.859**\n\nUsé el indicador de la página TRIAGE (TABLERO DE ATENCIONES INSTITUCIONALES): total_triage.",
+    "answer": "**total_triage**: **1.862**\n\nUsé el indicador de la página TRIAGE (TABLERO DE ATENCIONES INSTITUCIONALES): total_triage.",
     "exception": null,
-    "latency_s": 0.83,
+    "latency_s": 0.519,
     "passed": true
    }
   ]
@@ -211,7 +211,7 @@
     "prompt": null,
     "answer": "**101 suministros** (indicador NÚMERO DE SUMINISTROS PENDIENTES).\n\nCifra tal como la muestra la tarjeta de la página INICIO del TABLERO FARMACIA (con su filtro). La lista de 101 suministros es demasiado larga para mostrarla aquí (más de 50). Indica un servicio y te muestro el detalle.",
     "exception": null,
-    "latency_s": 0.776,
+    "latency_s": 0.466,
     "passed": true
    }
   ]
@@ -246,7 +246,7 @@
     "prompt": null,
     "answer": "**CANTIDAD**: **79**",
     "exception": null,
-    "latency_s": 0.811,
+    "latency_s": 0.409,
     "passed": true
    }
   ]
@@ -288,7 +288,7 @@
     "prompt": null,
     "answer": "**91 pacientes** (indicador PACIENTES).\n\nCifra tal como la muestra la tarjeta de la página LISTADO del TABLERO NAOS (con su filtro: excluye servicio del paciente HOSPITALIZACION PARCIAL). La lista de 91 pacientes es demasiado larga para mostrarla aquí (más de 50). Indica un filtro (servicio, estado...) y te muestro el detalle.",
     "exception": null,
-    "latency_s": 3.087,
+    "latency_s": 1.769,
     "passed": true
    }
   ]
@@ -324,7 +324,7 @@
     "prompt": null,
     "answer": "**45 camas** (indicador CAMAS OCUPADAS):\n\n| SERVICIO | CAMA |\n| --- | --- |\n| GINECOBSTETRICIA | 701 |\n| GINECOBSTETRICIA | 702 |\n| GINECOBSTETRICIA | 704 |\n| GINECOBSTETRICIA | 705 |\n| GINECOBSTETRICIA | 707 |\n| HOSPITALIZACIÓN GENERAL | 401 |\n| HOSPITALIZACIÓN GENERAL | 402 |\n| HOSPITALIZACIÓN GENERAL | 404 |\n| HOSPITALIZACIÓN GENERAL | 405 |\n| HOSPITALIZACIÓN GENERAL | 406 |\n| HOSPITALIZACIÓN GENERAL | 408 |\n| HOSPITALIZACIÓN GENERAL | 409 |\n| HOSPITALIZACIÓN GENERAL | 410 |\n| HOSPITALIZACIÓN GENERAL | 413 |\n| HOSPITALIZACIÓN GENERAL | 414 |\n| HOSPITALIZACIÓN GENERAL | 417 |\n| HOSPITALIZACIÓN GENERAL | 418 |\n| HOSPITALIZACIÓN GENERAL | 420 |\n| HOSPITALIZACIÓN GENERAL | 421 |\n| HOSPITALIZACIÓN GENERAL | 423 |\n| HOSPITALIZACIÓN GENERAL | 424 |\n| HOSPITALIZACIÓN INTERMEDIOS | 501 |\n| HOSPITALIZACIÓN INTERMEDIOS | 502 |\n| HOSPITALIZACIÓN INTERMEDIOS | 503 |\n| HOSPITALIZACIÓN INTERMEDIOS | 505 |\n| HOSPITALIZACIÓN INTERMEDIOS | 506 |\n| HOSPITALIZACIÓN INTERMEDIOS | 507 |\n| HOSPITALIZACIÓN INTERMEDIOS | 508 |\n| HOSPITALIZACIÓN INTERMEDIOS | 510 |\n| HOSPITALIZACIÓN INTERMEDIOS | 512 |\n| PEDIATRÍA | 601 |\n| PEDIATRÍA | 603 |\n| PEDIATRÍA | 604 |\n| PEDIATRÍA | 606 |\n| PEDIATRÍA | 608 |\n| UCI ADULTOS | UCI-01 |\n| UCI ADULTOS | UCI-02 |\n| UCI ADULTOS | UCI-03 |\n| UCI ADULTOS | UCI-04 |\n| UCI ADULTOS | UCI-05 |\n| UCI ADULTOS | UCI-07 |\n| UCI ADULTOS | UCI-08 |\n| UCI ADULTOS | UCI-09 |\n| URGENCIAS | EXP-01 |\n| URGENCIAS | EXP-02 |\n\nCifra tal como la muestra la tarjeta de la página GESTIÓN CAMAS del tablero BRIEFING HOSPITALARIO (con sus 6 filtros; p. ej., solo estado de la cama OCUPADA, CAMA SOLICITADA).",
     "exception": null,
-    "latency_s": 2.426,
+    "latency_s": 2.552,
     "passed": true
    }
   ]
@@ -359,7 +359,7 @@
     "prompt": null,
     "answer": "**351 interconsultas** (indicador INTERCONSULTAS SIN RESPUESTA).\n\nCifra tal como la muestra el gráfico de la página INTERCONSULTAS del tablero BRIEFING HOSPITALARIO (con su filtro: sin respuesta a la interconsulta). La lista de 351 interconsultas es demasiado larga para mostrarla aquí (más de 50). Indica un filtro (servicio, estado...) y te muestro el detalle.",
     "exception": null,
-    "latency_s": 0.626,
+    "latency_s": 0.881,
     "passed": true
    }
   ]
@@ -392,9 +392,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**SOLICITUDES PENDIENTES**: **3.485**\n\nEs el valor general; en la página CANTIDADES del TABLERO RECEPCION TECNICA se ve con filtros propios y puede ser distinto.",
+    "answer": "**SOLICITUDES PENDIENTES**: **3.493**\n\nEs el valor general; en la página CANTIDADES del TABLERO RECEPCION TECNICA se ve con filtros propios y puede ser distinto.",
     "exception": null,
-    "latency_s": 0.393,
+    "latency_s": 0.537,
     "passed": true
    }
   ]
@@ -428,9 +428,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**Aumento_Porcentaje**: **96,18 %**",
+    "answer": "**Aumento_Porcentaje**: **96,28 %**",
     "exception": null,
-    "latency_s": 0.757,
+    "latency_s": 0.815,
     "passed": true
    }
   ]
@@ -463,9 +463,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "Hay **10.228** dosis suministradas.",
+    "answer": "Hay **10.223** dosis suministradas.",
     "exception": null,
-    "latency_s": 0.509,
+    "latency_s": 0.372,
     "passed": true
    }
   ]
@@ -511,7 +511,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en junio de 2025: **1.347,4**\n\nFiltros: junio 2025.",
     "exception": null,
-    "latency_s": 0.609,
+    "latency_s": 0.39,
     "passed": true
    }
   ]
@@ -558,7 +558,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.672,
+    "latency_s": 0.943,
     "passed": false
    }
   ]
@@ -604,18 +604,13 @@
      "EVALUATE ROW( \"__value\", CALCULATE( [TOTAL_CIRUGIAS], TREATAS({\"PROGRAMADA\"}, 'CIRUGIAS'[TIPO]), FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2024, 1, 1) && 'Calendario'[Date] < DATE(2025, 1, 1)) ) )"
     ],
     "dax_log": [
-     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('CIRUGIAS'[Sexo])), \"__card1\", COUNTROWS(VALUES('CIRUGIAS'[CIRUJANO])), \"__card2\", COUNTROWS(VALUES('CIRUGIAS'[ESPECIALIDAD])), \"__card3\", COUNTROWS(VALUES('CIRUGIAS'[ASEGURADOR])), \"__card4\", COUNTROWS(VALUES('CIRUGIAS'[DIAGNOSTICO])), \"__card5\", COUNTROWS(VALUES('CIRUGIAS'[NOM_DIAGNOSTICO])), \"__card6\", COUNTROWS(VALUES('CIRUGIAS'[CIRUGIA])), \"__card7\", COUNTROWS(VALUES('CIRUGIAS'[CUPS])), \"__card8\", COUNTROWS(VALUES('CIRUGIAS'[TIPO])), \"__card9\", COUNTROWS(VALUES('CIRUGIAS'[TIPO_INGRESO])), \"__card10\", COUNTROWS(VALUES('CIRUGIAS'[EPS])), \"__card11\", COUNTROWS(VALUES('TERCERO'[TERNOMCOM])), \"__card12\", COUNTROWS(VALUES('CIRUGIAS'[TERPRINOM])) )",
-     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[Sexo]), \"Value\", 'CIRUGIAS'[Sexo]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[CIRUJANO]), \"Value\", 'CIRUGIAS'[CIRUJANO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[ESPECIALIDAD]), \"Value\", 'CIRUGIAS'[ESPECIALIDAD]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[ASEGURADOR]), \"Value\", 'CIRUGIAS'[ASEGURADOR]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
-     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[DIAGNOSTICO]), \"Value\", 'CIRUGIAS'[DIAGNOSTICO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[NOM_DIAGNOSTICO]), \"Value\", 'CIRUGIAS'[NOM_DIAGNOSTICO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[CIRUGIA]), \"Value\", 'CIRUGIAS'[CIRUGIA]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[CUPS]), \"Value\", 'CIRUGIAS'[CUPS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
-     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[TIPO]), \"Value\", 'CIRUGIAS'[TIPO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[TIPO_INGRESO]), \"Value\", 'CIRUGIAS'[TIPO_INGRESO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('CIRUGIAS'[EPS]), \"Value\", 'CIRUGIAS'[EPS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('TERCERO'[TERNOMCOM]), \"Value\", 'TERCERO'[TERNOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
-     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('CIRUGIAS'[TERPRINOM]), \"Value\", 'CIRUGIAS'[TERPRINOM] ), NOT ISBLANK([Value]) ), [Value], ASC )",
      "EVALUATE ROW( \"__value\", CALCULATE( [TOTAL_CIRUGIAS], TREATAS({\"PROGRAMADA\"}, 'CIRUGIAS'[TIPO]), FILTER(ALL('Calendario'[Date]), 'Calendario'[Date] >= DATE(2024, 1, 1) && 'Calendario'[Date] < DATE(2025, 1, 1)) ) )"
     ],
     "options": [],
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024, con tipo PROGRAMADA: **425**\n\nFiltros: TIPO = PROGRAMADA · 2024.",
     "exception": null,
-    "latency_s": 1.216,
+    "latency_s": 0.987,
     "passed": false
    }
   ]
@@ -661,7 +656,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en enero de 2026: **1.250,8**\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.169,
+    "latency_s": 0.214,
     "passed": true
    }
   ]
@@ -706,7 +701,7 @@
     "prompt": null,
     "answer": "**TRIAGES_PEDIATRICOS_2025** en 2025: **204**\n\nFiltros: 2025.",
     "exception": null,
-    "latency_s": 0.621,
+    "latency_s": 0.955,
     "passed": true
    }
   ]
@@ -768,7 +763,7 @@
     "prompt": null,
     "answer": "No identifiqué con certeza el indicador. ¿Es alguno de estos?",
     "exception": null,
-    "latency_s": 1.462,
+    "latency_s": 1.467,
     "passed": true
    }
   ]
@@ -828,7 +823,7 @@
     "prompt": null,
     "answer": "No hay datos de **CANCELADAS** en enero de 2025, con especialidad CIRUGIA GENERAL, CIRUGIA PLASTICA o CIRUGIA VASCULAR. La fuente no tiene datos para ningún periodo con esos filtros.\n\nFiltros: ESPECIALIDAD = CIRUGIA GENERAL, CIRUGIA PLASTICA, CIRUGIA VASCULAR · enero 2025.",
     "exception": null,
-    "latency_s": 10.02,
+    "latency_s": 11.33,
     "passed": true
    }
   ]
@@ -873,7 +868,7 @@
     "prompt": null,
     "answer": "¿Te refieres a Promedio Consulta AMB?",
     "exception": null,
-    "latency_s": 1.511,
+    "latency_s": 1.061,
     "passed": true
    }
   ]
@@ -921,7 +916,7 @@
     "prompt": null,
     "answer": "**IMAGENES** en 2024: **2.080**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.44,
+    "latency_s": 0.475,
     "passed": true
    }
   ]
@@ -976,7 +971,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores que pueden responder tu pregunta. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.918,
+    "latency_s": 1.446,
     "passed": true
    }
   ]
@@ -1021,7 +1016,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** de enero a marzo de 2025: **4.181,1**\n\nFiltros: enero–marzo 2025.",
     "exception": null,
-    "latency_s": 0.333,
+    "latency_s": 0.22,
     "passed": true
    }
   ]
@@ -1046,7 +1041,7 @@
     "filters": [
      {
       "column": "Fecha",
-      "end": "2026-11-04",
+      "end": "2026-11-05",
       "label": "2026 hasta hoy",
       "start": "2026-01-01",
       "table": "LAVANDERIA",
@@ -1057,16 +1052,16 @@
     "unapplied_terms": [],
     "group_by": [],
     "dax": [
-     "EVALUATE ROW( \"__value\", CALCULATE( SUM('LAVANDERIA'[Peso]), FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 1, 1) && 'LAVANDERIA'[Fecha] < DATE(2026, 11, 4)) ) )"
+     "EVALUATE ROW( \"__value\", CALCULATE( SUM('LAVANDERIA'[Peso]), FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 1, 1) && 'LAVANDERIA'[Fecha] < DATE(2026, 11, 5)) ) )"
     ],
     "dax_log": [
-     "EVALUATE ROW( \"__value\", CALCULATE( SUM('LAVANDERIA'[Peso]), FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 1, 1) && 'LAVANDERIA'[Fecha] < DATE(2026, 11, 4)) ) )"
+     "EVALUATE ROW( \"__value\", CALCULATE( SUM('LAVANDERIA'[Peso]), FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 1, 1) && 'LAVANDERIA'[Fecha] < DATE(2026, 11, 5)) ) )"
     ],
     "options": [],
     "prompt": null,
-    "answer": "**PESO TOTAL por Mes** en lo que va de 2026: **14.746,3**\n\nFiltros: 2026 hasta hoy.",
+    "answer": "**PESO TOTAL por Mes** en lo que va de 2026: **14.820,1**\n\nFiltros: 2026 hasta hoy.",
     "exception": null,
-    "latency_s": 0.219,
+    "latency_s": 0.209,
     "passed": true
    }
   ]
@@ -1111,7 +1106,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en 2025 (año pasado): **16.891,2**\n\nFiltros: 2025 (año pasado).",
     "exception": null,
-    "latency_s": 0.268,
+    "latency_s": 0.327,
     "passed": true
    }
   ]
@@ -1156,7 +1151,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** de enero a marzo de 2025 (1.er trimestre): **4.181,1**\n\nFiltros: enero–marzo 2025 (1.er trimestre).",
     "exception": null,
-    "latency_s": 0.312,
+    "latency_s": 0.413,
     "passed": false
    }
   ]
@@ -1201,7 +1196,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** de agosto a octubre de 2026 (últimos 3 meses): **4.644,1**\n\nFiltros: agosto–octubre 2026 (últimos 3 meses).",
     "exception": null,
-    "latency_s": 0.195,
+    "latency_s": 0.227,
     "passed": true
    }
   ]
@@ -1243,7 +1238,7 @@
     "prompt": null,
     "answer": "Identifiqué el indicador Peso total por mes, pero no entendí «antifluidos» como un filtro de ese tablero. ¿Lo consulto sin ese filtro? También puedes reescribir la pregunta indicando el servicio, la especialidad u otro filtro.",
     "exception": null,
-    "latency_s": 0.385,
+    "latency_s": 0.262,
     "passed": false
    }
   ]
@@ -1285,7 +1280,7 @@
     "prompt": null,
     "answer": "Identifiqué el indicador Peso total por mes, pero no entendí «antifluidos» como un filtro de ese tablero. ¿Lo consulto sin ese filtro? También puedes reescribir la pregunta indicando el servicio, la especialidad u otro filtro.",
     "exception": null,
-    "latency_s": 0.319,
+    "latency_s": 0.253,
     "passed": false
    }
   ]
@@ -1327,7 +1322,7 @@
     "prompt": null,
     "answer": "Identifiqué el indicador Peso total por mes, pero no entendí «antifluidos» como un filtro de ese tablero. ¿Lo consulto sin ese filtro? También puedes reescribir la pregunta indicando el servicio, la especialidad u otro filtro.",
     "exception": null,
-    "latency_s": 0.182,
+    "latency_s": 0.258,
     "passed": false
    }
   ]
@@ -1369,7 +1364,7 @@
     "prompt": null,
     "answer": "Identifiqué el indicador Peso total por mes, pero no entendí «mando urgencias» como un filtro de ese tablero. ¿Lo consulto sin ese filtro? También puedes reescribir la pregunta indicando el servicio, la especialidad u otro filtro.",
     "exception": null,
-    "latency_s": 0.213,
+    "latency_s": 0.246,
     "passed": false
    }
   ]
@@ -1402,7 +1397,7 @@
     "prompt": null,
     "answer": "Identifiqué la métrica, pero no pude verificar el valor del filtro solicitado.",
     "exception": null,
-    "latency_s": 0.343,
+    "latency_s": 0.391,
     "passed": true
    }
   ]
@@ -1461,7 +1456,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024, con especialidad UROLOGIA y tipo PROGRAMADA: **17**\n\nFiltros: ESPECIALIDAD = UROLOGIA · TIPO = PROGRAMADA · 2024.",
     "exception": null,
-    "latency_s": 0.738,
+    "latency_s": 0.987,
     "passed": false
    }
   ]
@@ -1489,7 +1484,11 @@
     "dax": [],
     "dax_log": [
      "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('ATENCIONES_SERVICIO'[SERVICIO])), \"__card1\", COUNTROWS(VALUES('ATENCIONES_SERVICIO'[ASEGURADOR])) )",
-     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('ATENCIONES_SERVICIO'[SERVICIO]), \"Value\", 'ATENCIONES_SERVICIO'[SERVICIO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('ATENCIONES_SERVICIO'[ASEGURADOR]), \"Value\", 'ATENCIONES_SERVICIO'[ASEGURADOR]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )"
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('ATENCIONES_SERVICIO'[SERVICIO]), \"Value\", 'ATENCIONES_SERVICIO'[SERVICIO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('ATENCIONES_SERVICIO'[ASEGURADOR]), \"Value\", 'ATENCIONES_SERVICIO'[ASEGURADOR]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[INGRESO])), \"__card1\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[ASEGURADOR])), \"__card2\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[servicio])), \"__card3\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[CUPS])), \"__card4\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[SERVICIO2])), \"__card5\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[TIPO_INGRESO])), \"__card6\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[MEDICO])), \"__card7\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[ESPECIALIDAD])), \"__card8\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[AGRUPA])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[INGRESO]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[INGRESO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[ASEGURADOR]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[ASEGURADOR]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[servicio]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[servicio]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[CUPS]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[CUPS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[SERVICIO2]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[SERVICIO2]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[TIPO_INGRESO]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[TIPO_INGRESO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[MEDICO]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[MEDICO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[ESPECIALIDAD]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[ESPECIALIDAD]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('UNIDAD_CARDIOVASCULAR'[AGRUPA]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[AGRUPA] ), NOT ISBLANK([Value]) ), [Value], ASC )"
     ],
     "options": [
      {
@@ -1521,7 +1520,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.554,
+    "latency_s": 1.475,
     "passed": false
    }
   ]
@@ -1573,7 +1572,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.748,
+    "latency_s": 1.079,
     "passed": false
    }
   ]
@@ -1599,7 +1598,10 @@
     "unapplied_terms": [],
     "group_by": [],
     "dax": [],
-    "dax_log": [],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('OPORTUNIDAD_TRIAGE'[ASEGURADORA])), \"__card1\", COUNTROWS(VALUES('OPORTUNIDAD_TRIAGE'[MENORES])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('OPORTUNIDAD_TRIAGE'[ASEGURADORA]), \"Value\", 'OPORTUNIDAD_TRIAGE'[ASEGURADORA]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('OPORTUNIDAD_TRIAGE'[MENORES]), \"Value\", 'OPORTUNIDAD_TRIAGE'[MENORES]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )"
+    ],
     "options": [
      {
       "id": "68003114f83fb31f",
@@ -1620,7 +1622,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.736,
+    "latency_s": 1.304,
     "passed": false
    }
   ]
@@ -1667,7 +1669,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.628,
+    "latency_s": 0.785,
     "passed": false
    }
   ]
@@ -1714,7 +1716,7 @@
     "prompt": null,
     "answer": "La página CIRUGIAS existe en varios tableros. Estos son sus indicadores principales. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.846,
+    "latency_s": 1.108,
     "passed": false
    }
   ]
@@ -1767,7 +1769,7 @@
     "prompt": null,
     "answer": "**TRIAGES_2025** en 2025, con menores MENORES DE EDAD: **204**\n\nFiltros: MENORES = MENORES DE EDAD · 2025.",
     "exception": null,
-    "latency_s": 0.407,
+    "latency_s": 0.565,
     "passed": true
    }
   ]
@@ -1809,7 +1811,7 @@
     "prompt": null,
     "answer": "¿Te refieres a Promedio Consulta AMB?",
     "exception": null,
-    "latency_s": 0.799,
+    "latency_s": 0.999,
     "passed": false
    }
   ]
@@ -1858,7 +1860,7 @@
     "prompt": null,
     "answer": "**215 pacientes** en UCI ADULTOS o UCI NEONATAL (indicador PAC_ACT).\n\nFiltros: SERVICIO = UCI ADULTOS, UCI NEONATAL.\n\nLa lista de 215 pacientes es demasiado larga para mostrarla aquí (más de 50). Indica un servicio y te muestro el detalle.",
     "exception": null,
-    "latency_s": 1.116,
+    "latency_s": 0.754,
     "passed": true
    }
   ]
@@ -1904,8 +1906,6 @@
      "EVALUATE ROW( \"__value\", CALCULATE( [%ATENCIONES], TREATAS({\"NUEVA EPS\"}, 'OPORTUNIDAD_TRIAGE'[ASEGURADORA]), FILTER(ALL('Calendario'[Fecha]), 'Calendario'[Fecha] >= DATE(2025, 1, 1) && 'Calendario'[Fecha] < DATE(2026, 1, 1)) ) )"
     ],
     "dax_log": [
-     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('OPORTUNIDAD_TRIAGE'[ASEGURADORA])), \"__card1\", COUNTROWS(VALUES('OPORTUNIDAD_TRIAGE'[MENORES])) )",
-     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('OPORTUNIDAD_TRIAGE'[ASEGURADORA]), \"Value\", 'OPORTUNIDAD_TRIAGE'[ASEGURADORA]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('OPORTUNIDAD_TRIAGE'[MENORES]), \"Value\", 'OPORTUNIDAD_TRIAGE'[MENORES]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )",
      "EVALUATE ROW( \"__value\", CALCULATE( [%ATENCIONES], TREATAS({\"NUEVA EPS\"}, 'OPORTUNIDAD_TRIAGE'[ASEGURADORA]), FILTER(ALL('Calendario'[Fecha]), 'Calendario'[Fecha] >= DATE(2025, 1, 1) && 'Calendario'[Fecha] < DATE(2026, 1, 1)) ) )",
      "EVALUATE ROW(\"__hasta\", CALCULATE(MAXX(FILTER(ALL('Calendario'[Fecha]), NOT ISBLANK(CALCULATE([%ATENCIONES]))), 'Calendario'[Fecha]), TREATAS({\"NUEVA EPS\"}, 'OPORTUNIDAD_TRIAGE'[ASEGURADORA])))"
     ],
@@ -1913,7 +1913,7 @@
     "prompt": null,
     "answer": "No hay datos de **%ATENCIONES** en 2025, con aseguradora NUEVA EPS. La fuente no tiene datos para ningún periodo con esos filtros.\n\nFiltros: ASEGURADORA = NUEVA EPS · 2025.",
     "exception": null,
-    "latency_s": 1.539,
+    "latency_s": 0.751,
     "passed": true
    }
   ]
@@ -1958,7 +1958,7 @@
     "prompt": null,
     "answer": "**INTERCONSULTAS SIN RESPUESTA** con especialidad PEDIATRIA: **30**\n\nFiltros: ESPECIALIDAD = PEDIATRIA.\n\nCifra tal como la muestra el gráfico de la página INTERCONSULTAS del tablero BRIEFING HOSPITALARIO (con su filtro: sin respuesta a la interconsulta).",
     "exception": null,
-    "latency_s": 0.984,
+    "latency_s": 0.835,
     "passed": true
    }
   ]
@@ -2005,7 +2005,7 @@
     "prompt": null,
     "answer": "No identifiqué con certeza el indicador. ¿Es alguno de estos?",
     "exception": null,
-    "latency_s": 2.102,
+    "latency_s": 1.105,
     "passed": true
    }
   ]
@@ -2045,9 +2045,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**PESO TOTAL por Mes** por servicio:\n\n| SERVICIO | PESO TOTAL por Mes |\n| --- | --- |\n| GINECOBSTETRICIA | 18.439,7 |\n| UCI NEONATAL | 10.737,2 |\n| HOSPITALIZACION | 7.746,8 |\n| ANTIFLUIDOS | 5.039,3 |\n| UCI ADULTOS | 5.009,2 |\n| CENTRAL DE ESTERILIZACION | 3.786,1 |\n| CIRUGIA | 3.621 |\n| URGENCIAS | 2.879,6 |\n| PEDIATRIA | 2.849,9 |\n| CONSULTA EXTERNA | 2.670 |\n| (sin servicio) | 900,2 |\n| **Total** | **63.679** |",
+    "answer": "**PESO TOTAL por Mes** por servicio:\n\n| SERVICIO | PESO TOTAL por Mes |\n| --- | --- |\n| GINECOBSTETRICIA | 18.455,5 |\n| UCI NEONATAL | 10.737,2 |\n| HOSPITALIZACION | 7.723,4 |\n| ANTIFLUIDOS | 5.039,3 |\n| UCI ADULTOS | 5.009,2 |\n| CENTRAL DE ESTERILIZACION | 3.828,8 |\n| CIRUGIA | 3.621 |\n| URGENCIAS | 2.879,6 |\n| PEDIATRIA | 2.849,9 |\n| CONSULTA EXTERNA | 2.708,7 |\n| (sin servicio) | 900,2 |\n| **Total** | **63.752,8** |",
     "exception": null,
-    "latency_s": 0.523,
+    "latency_s": 0.22,
     "passed": true
    }
   ]
@@ -2100,7 +2100,7 @@
     "prompt": null,
     "answer": "En enero de 2026, **PESO TOTAL por Mes** por turno ok:\n\n| TURNO OK | PESO TOTAL por Mes |\n| --- | --- |\n| NOCHE | 499,3 |\n| MAÑANA | 449,5 |\n| TARDE | 295,6 |\n| (sin turno ok) | 6,4 |\n| **Total** | **1.250,8** |\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.421,
+    "latency_s": 0.349,
     "passed": true
    }
   ]
@@ -2145,7 +2145,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en 2025: **16.891,2**\n\nFiltros: 2025.",
     "exception": null,
-    "latency_s": 0.21,
+    "latency_s": 0.15,
     "passed": false
    }
   ]
@@ -2197,7 +2197,7 @@
     "prompt": null,
     "answer": "En 2025, **PESO TOTAL por Mes** por trimestre:\n\n| Trimestre | PESO TOTAL por Mes |\n| --- | --- |\n| 1.er trimestre 2025 | 4.181,1 |\n| 2.º trimestre 2025 | 4.135,7 |\n| 3.er trimestre 2025 | 4.377,7 |\n| 4.º trimestre 2025 | 4.196,7 |\n| **Total** | **16.891,2** |\n\nFiltros: 2025.",
     "exception": null,
-    "latency_s": 0.341,
+    "latency_s": 0.289,
     "passed": true
    }
   ]
@@ -2243,7 +2243,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en enero de 2026: **1.250,8**\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.439,
+    "latency_s": 0.21,
     "passed": false
    }
   ]
@@ -2295,7 +2295,7 @@
     "prompt": null,
     "answer": "En el tablero TABLERO DE ATENCIONES INSTITUCIONALES no encontré ese indicador. Estos son los más parecidos de ese tablero. ¿Es alguno de estos?",
     "exception": null,
-    "latency_s": 1.009,
+    "latency_s": 0.345,
     "passed": false
    }
   ]
@@ -2347,7 +2347,7 @@
     "prompt": null,
     "answer": "En 2024, **ATENCIONES** por servicio:\n\n| servicio | ATENCIONES |\n| --- | --- |\n| UCI ADULTOS | 1.005 |\n| UCI NEONATAL | 467 |\n| PEDIATRIA | 286 |\n| CONSULTA EXTERNA | 258 |\n| LABORATORIO CLINICO | 218 |\n| CUIDADO INTERMEDIO ADULTO | 216 |\n| ATENCION DOMICILIARIA | 205 |\n| IMAGENES | 191 |\n| UNIDAD CARDIONEUROVASCULAR | 152 |\n| OBSTETRICIA | 143 |\n| URGENCIAS | 119 |\n| CIRUGIA | 113 |\n| HOSPITALIZACION | 103 |\n| HOSPITALIZACION PARCIAL | 88 |\n| (sin servicio) | 48 |\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 1.131,
+    "latency_s": 0.634,
     "passed": true
    }
   ]
@@ -2373,12 +2373,7 @@
     "unapplied_terms": [],
     "group_by": [],
     "dax": [],
-    "dax_log": [
-     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[INGRESO])), \"__card1\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[ASEGURADOR])), \"__card2\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[servicio])), \"__card3\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[CUPS])), \"__card4\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[SERVICIO2])), \"__card5\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[TIPO_INGRESO])), \"__card6\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[MEDICO])), \"__card7\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[ESPECIALIDAD])), \"__card8\", COUNTROWS(VALUES('UNIDAD_CARDIOVASCULAR'[AGRUPA])) )",
-     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[INGRESO]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[INGRESO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[ASEGURADOR]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[ASEGURADOR]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[servicio]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[servicio]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[CUPS]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[CUPS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
-     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[SERVICIO2]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[SERVICIO2]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[TIPO_INGRESO]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[TIPO_INGRESO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[MEDICO]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[MEDICO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('UNIDAD_CARDIOVASCULAR'[ESPECIALIDAD]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[ESPECIALIDAD]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
-     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('UNIDAD_CARDIOVASCULAR'[AGRUPA]), \"Value\", 'UNIDAD_CARDIOVASCULAR'[AGRUPA] ), NOT ISBLANK([Value]) ), [Value], ASC )"
-    ],
+    "dax_log": [],
     "options": [
      {
       "id": "9e9c4a46e9949ead",
@@ -2394,7 +2389,7 @@
     "prompt": null,
     "answer": "Identifiqué el indicador Total de atenciones, pero no entendí «sede» como un filtro de ese tablero. ¿Lo consulto sin ese filtro? También puedes reescribir la pregunta indicando el servicio, la especialidad u otro filtro.",
     "exception": null,
-    "latency_s": 0.982,
+    "latency_s": 0.674,
     "passed": false
    }
   ]
@@ -2438,16 +2433,16 @@
      "LAVANDERIA"
     ],
     "dax": [
-     "EVALUATE TOPN( 1, SUMMARIZECOLUMNS( 'LAVANDERIA'[SERVICIO], FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 1, 1) && 'LAVANDERIA'[Fecha] < DATE(2026, 2, 1)), \"__value\", SUM('LAVANDERIA'[Peso]) ), [__value], DESC ) ORDER BY [__value] DESC"
+     "EVALUATE TOPN( 1, FILTER( SUMMARIZECOLUMNS( 'LAVANDERIA'[SERVICIO], FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 1, 1) && 'LAVANDERIA'[Fecha] < DATE(2026, 2, 1)), \"__value\", SUM('LAVANDERIA'[Peso]) ), NOT ISBLANK('LAVANDERIA'[SERVICIO]) ), [__value], DESC ) ORDER BY [__value] DESC"
     ],
     "dax_log": [
-     "EVALUATE TOPN( 1, SUMMARIZECOLUMNS( 'LAVANDERIA'[SERVICIO], FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 1, 1) && 'LAVANDERIA'[Fecha] < DATE(2026, 2, 1)), \"__value\", SUM('LAVANDERIA'[Peso]) ), [__value], DESC ) ORDER BY [__value] DESC"
+     "EVALUATE TOPN( 1, FILTER( SUMMARIZECOLUMNS( 'LAVANDERIA'[SERVICIO], FILTER(ALL('LAVANDERIA'[Fecha]), 'LAVANDERIA'[Fecha] >= DATE(2026, 1, 1) && 'LAVANDERIA'[Fecha] < DATE(2026, 2, 1)), \"__value\", SUM('LAVANDERIA'[Peso]) ), NOT ISBLANK('LAVANDERIA'[SERVICIO]) ), [__value], DESC ) ORDER BY [__value] DESC"
     ],
     "options": [],
     "prompt": null,
     "answer": "En enero de 2026, **PESO TOTAL por Mes** por servicio (los primeros 1, de mayor a menor):\n\n| SERVICIO | PESO TOTAL por Mes |\n| --- | --- |\n| GINECOBSTETRICIA | 375,5 |\n\nFiltros: enero 2026.\n\nSe muestra solo el SERVICIO con mayor valor.",
     "exception": null,
-    "latency_s": 0.222,
+    "latency_s": 0.235,
     "passed": true
    }
   ]
@@ -2499,7 +2494,7 @@
     "prompt": null,
     "answer": "En 2025, **TRIAGES_2025** por clasificacion triage:\n\n| CLASIFICACION TRIAGE | TRIAGES_2025 |\n| --- | --- |\n| V | 189 |\n| III | 96 |\n| I | 87 |\n| IV | 64 |\n| II | 55 |\n| (sin clasificacion triage) | 7 |\n\nFiltros: 2025.",
     "exception": null,
-    "latency_s": 0.953,
+    "latency_s": 0.527,
     "passed": true
    }
   ]
@@ -2539,9 +2534,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**CITAS ASIGNADAS** por especialidad:\n\n| ESPECIALIDAD | CITAS ASIGNADAS |\n| --- | --- |\n| OFTALMOLOGIA | 3.733 |\n| CIRUGIA GENERAL | 1.902 |\n| ANESTESIOLOGIA | 1.497 |\n| CIRUGIA PLASTICA | 1.158 |\n| NEUROCIRUGIA | 970 |\n| UROLOGIA | 695 |\n| CARDIOLOGIA | 695 |\n| NEUROLOGIA | 626 |\n| GASTROENTEROLOGIA | 559 |\n| MEDICINA INTERNA | 527 |\n| DERMATOLOGIA | 498 |\n| PSIQUIATRIA | 448 |\n| CIRUGIA VASCULAR | 432 |\n| NEUMOLOGIA | 362 |\n| ORTOPEDIA Y TRAUMATOLOGIA | 350 |\n| GINECOLOGIA Y OBSTETRICIA | 332 |\n| OTORRINOLARINGOLOGIA | 251 |\n| PEDIATRIA | 239 |\n| **Total** | **15.274** |",
+    "answer": "**CITAS ASIGNADAS** por especialidad:\n\n| ESPECIALIDAD | CITAS ASIGNADAS |\n| --- | --- |\n| OFTALMOLOGIA | 3.739 |\n| CIRUGIA GENERAL | 1.896 |\n| ANESTESIOLOGIA | 1.505 |\n| CIRUGIA PLASTICA | 1.166 |\n| NEUROCIRUGIA | 970 |\n| UROLOGIA | 695 |\n| CARDIOLOGIA | 695 |\n| NEUROLOGIA | 628 |\n| GASTROENTEROLOGIA | 559 |\n| MEDICINA INTERNA | 527 |\n| DERMATOLOGIA | 498 |\n| PSIQUIATRIA | 448 |\n| CIRUGIA VASCULAR | 432 |\n| NEUMOLOGIA | 362 |\n| ORTOPEDIA Y TRAUMATOLOGIA | 361 |\n| GINECOLOGIA Y OBSTETRICIA | 332 |\n| OTORRINOLARINGOLOGIA | 251 |\n| PEDIATRIA | 239 |\n| **Total** | **15.303** |",
     "exception": null,
-    "latency_s": 0.739,
+    "latency_s": 0.734,
     "passed": true
    }
   ]
@@ -2581,9 +2576,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**PACIENTES** por servicio:\n\n| SERVICIO | PACIENTES |\n| --- | --- |\n| PROFESIONAL 05 | 129 |\n| PROFESIONAL 04 | 128 |\n| PROFESIONAL 02 | 127 |\n| PROFESIONAL 03 | 126 |\n| PROFESIONAL 06 | 125 |\n| PROFESIONAL 07 | 122 |\n| PROFESIONAL 09 | 121 |\n| PROFESIONAL 08 | 120 |\n| PROFESIONAL 11 | 117 |\n| PROFESIONAL 10 | 116 |\n| PROFESIONAL 12 | 116 |\n| PROFESIONAL 13 | 115 |\n| PROFESIONAL 14 | 111 |\n| PROFESIONAL 15 | 110 |\n| PROFESIONAL 17 | 110 |\n| PROFESIONAL 18 | 110 |\n| PROFESIONAL 16 | 109 |\n| PROFESIONAL 19 | 109 |\n| PROFESIONAL 20 | 105 |\n| PROFESIONAL 21 | 104 |\n| PROFESIONAL 23 | 104 |\n| PROFESIONAL 22 | 103 |\n| PROFESIONAL 24 | 103 |\n| PROFESIONAL 26 | 102 |\n| PROFESIONAL 29 | 99 |\n| PROFESIONAL 25 | 98 |\n| PROFESIONAL 28 | 97 |\n| PROFESIONAL 27 | 96 |\n| PROFESIONAL 31 | 95 |\n| PROFESIONAL 30 | 94 |\n| PROFESIONAL 35 | 94 |\n| PROFESIONAL 34 | 93 |\n| PROFESIONAL 33 | 92 |\n| PROFESIONAL 32 | 91 |\n| PROFESIONAL 36 | 90 |\n| PROFESIONAL 38 | 90 |\n| PROFESIONAL 39 | 89 |\n| PROFESIONAL 37 | 88 |\n| PROFESIONAL 40 | 86 |\n| PROFESIONAL 01 | 86 |\n| (sin servicio) | 64 |\n\nPara servicio del paciente se usa lo que pediste en lugar del filtro que trae la página. Las filas suman 4.284; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
+    "answer": "**PACIENTES** por servicio:\n\n| SERVICIO | PACIENTES |\n| --- | --- |\n| PROFESIONAL 04 | 129 |\n| PROFESIONAL 02 | 128 |\n| PROFESIONAL 05 | 127 |\n| PROFESIONAL 03 | 126 |\n| PROFESIONAL 06 | 125 |\n| PROFESIONAL 07 | 121 |\n| PROFESIONAL 09 | 121 |\n| PROFESIONAL 08 | 120 |\n| PROFESIONAL 11 | 117 |\n| PROFESIONAL 10 | 116 |\n| PROFESIONAL 12 | 116 |\n| PROFESIONAL 13 | 115 |\n| PROFESIONAL 14 | 112 |\n| PROFESIONAL 17 | 110 |\n| PROFESIONAL 18 | 110 |\n| PROFESIONAL 19 | 110 |\n| PROFESIONAL 15 | 109 |\n| PROFESIONAL 16 | 109 |\n| PROFESIONAL 20 | 106 |\n| PROFESIONAL 21 | 104 |\n| PROFESIONAL 22 | 103 |\n| PROFESIONAL 23 | 103 |\n| PROFESIONAL 24 | 102 |\n| PROFESIONAL 26 | 102 |\n| PROFESIONAL 29 | 99 |\n| PROFESIONAL 25 | 98 |\n| PROFESIONAL 28 | 98 |\n| PROFESIONAL 27 | 96 |\n| PROFESIONAL 30 | 95 |\n| PROFESIONAL 31 | 95 |\n| PROFESIONAL 35 | 95 |\n| PROFESIONAL 34 | 93 |\n| PROFESIONAL 33 | 92 |\n| PROFESIONAL 32 | 91 |\n| PROFESIONAL 36 | 90 |\n| PROFESIONAL 38 | 89 |\n| PROFESIONAL 39 | 89 |\n| PROFESIONAL 37 | 88 |\n| PROFESIONAL 40 | 86 |\n| PROFESIONAL 01 | 86 |\n| (sin servicio) | 64 |\n\nPara servicio del paciente se usa lo que pediste en lugar del filtro que trae la página. Las filas suman 4.285; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
     "exception": null,
-    "latency_s": 0.352,
+    "latency_s": 0.244,
     "passed": true
    }
   ]
@@ -2625,7 +2620,7 @@
     "prompt": null,
     "answer": "**REMISIONES** por eps:\n\n| EPS | REMISIONES |\n| --- | --- |\n| NUEVA EPS | 687 |\n| COMPENSAR EPS | 449 |\n| SURA EPS | 332 |\n| SALUD MIA EPS | 272 |\n| PARTICULAR | 206 |\n| ARL SURA | 198 |\n| FUERZAS MILITARES | 175 |\n| FAMISANAR EPS | 154 |\n| COOSALUD EPS | 128 |\n| ASMET SALUD EPS | 117 |\n| SOAT - SEGUROS DEL ESTADO | 114 |\n| POLICIA NACIONAL | 112 |\n| SANITAS EPS | 110 |\n| MUTUAL SER EPS | 108 |\n| MEDICINA PREPAGADA COLSANITAS | 107 |\n| ADRES | 96 |\n| SALUD TOTAL EPS | 90 |\n| EPS FAMILIAR DE COLOMBIA | 72 |\n| (sin eps) | 65 |\n\nLas filas suman 3.592; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
     "exception": null,
-    "latency_s": 0.445,
+    "latency_s": 0.383,
     "passed": true
    }
   ]
@@ -2689,7 +2684,7 @@
     "prompt": null,
     "answer": "No hay datos de **CANCELADAS** en 2025, con especialidad CIRUGIA GENERAL, CIRUGIA PLASTICA o CIRUGIA VASCULAR. La fuente no tiene datos para ningún periodo con esos filtros.\n\nFiltros: ESPECIALIDAD = CIRUGIA GENERAL, CIRUGIA PLASTICA, CIRUGIA VASCULAR · 2025.",
     "exception": null,
-    "latency_s": 10.468,
+    "latency_s": 8.176,
     "passed": false
    }
   ]
@@ -2734,7 +2729,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **700**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 1.646,
+    "latency_s": 0.713,
     "passed": false
    }
   ]
@@ -2786,7 +2781,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.869,
+    "latency_s": 0.504,
     "passed": true
    }
   ]
@@ -2843,7 +2838,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.816,
+    "latency_s": 0.528,
     "passed": true
    }
   ]
@@ -2890,7 +2885,7 @@
     "prompt": null,
     "answer": "Hay varios indicadores con un nombre casi igual y la pregunta no indica cuál. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.883,
+    "latency_s": 0.664,
     "passed": true
    }
   ]
@@ -2942,7 +2937,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 1.468,
+    "latency_s": 0.63,
     "passed": true
    }
   ]
@@ -2994,7 +2989,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.879,
+    "latency_s": 0.686,
     "passed": true
    }
   ]
@@ -3051,7 +3046,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.907,
+    "latency_s": 0.794,
     "passed": true
    }
   ]
@@ -3086,7 +3081,7 @@
     "prompt": null,
     "answer": "**TIEMPO PROMEDIO GESTION FACTURA**: **119,6 horas**",
     "exception": null,
-    "latency_s": 1.348,
+    "latency_s": 0.98,
     "passed": false
    }
   ]
@@ -3132,7 +3127,7 @@
     "prompt": null,
     "answer": "En febrero de 2026, hubo **77** egresos.\n\nFiltros: febrero 2026.",
     "exception": null,
-    "latency_s": 1.054,
+    "latency_s": 0.848,
     "passed": true
    }
   ]
@@ -3167,7 +3162,7 @@
     "prompt": null,
     "answer": "No hay datos de **SOLICITUDES** para esos filtros.",
     "exception": null,
-    "latency_s": 0.784,
+    "latency_s": 0.888,
     "passed": false
    }
   ]
@@ -3224,7 +3219,7 @@
     "prompt": null,
     "answer": "La página INTERCONSULTAS existe en varios tableros. Estos son sus indicadores principales. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.488,
+    "latency_s": 0.587,
     "passed": true
    }
   ]
@@ -3250,7 +3245,10 @@
     "unapplied_terms": [],
     "group_by": [],
     "dax": [],
-    "dax_log": [],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('IMAGENES_TOMADAS'[AREA_DE_SERVICIO])), \"__card1\", COUNTROWS(VALUES('IMAGENES_TOMADAS'[AMBITO_INGRESO])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('IMAGENES_TOMADAS'[AREA_DE_SERVICIO]), \"Value\", 'IMAGENES_TOMADAS'[AREA_DE_SERVICIO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('IMAGENES_TOMADAS'[AMBITO_INGRESO]), \"Value\", 'IMAGENES_TOMADAS'[AMBITO_INGRESO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )"
+    ],
     "options": [
      {
       "id": "f8bbf3e99b15c27b",
@@ -3271,7 +3269,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.477,
+    "latency_s": 0.808,
     "passed": true
    }
   ]
@@ -3338,7 +3336,7 @@
     "prompt": null,
     "answer": "No identifiqué con certeza el indicador. ¿Es alguno de estos?",
     "exception": null,
-    "latency_s": 0.987,
+    "latency_s": 1.13,
     "passed": true
    }
   ]
@@ -3385,7 +3383,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.381,
+    "latency_s": 0.487,
     "passed": true
    }
   ]
@@ -3416,7 +3414,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: TABLERO LAVANDERIA Alias: LAVANDERIA Descripción: Peso de ropa hospitalaria recibida en lavandería por servicio, turno y colaborador. Tablero de una página para el área de lavandería. Tablero: Página 1 Alias: Descripción: Peso mensual de ropa por servicio, colaborador y turno. Única página del tablero; en Power BI se llama «Página 1». Muestra por mes el peso de ropa recibido por servicio y su porcentaje de participación, el peso registrado por cada colaborador, la distribución… Tablero: TABLERO LAVANDERIA Definición: Pesaje: Registro de una cantidad de ropa pesada en lavandería, asoci",
     "exception": null,
-    "latency_s": 0.398,
+    "latency_s": 0.444,
     "passed": true
    }
   ]
@@ -3447,7 +3445,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: TABLERO LAVANDERIA Fuente de datos: LAVANDERIA: Pesajes de lavandería (Cp_PesajeLavanderia de PLANILLAUSUARIO) con peso, fecha de registro, usuario que registra, encabezado del pesaje (fecha y turno) y servicio de origen (Cp_Medicion). Trae todo el histórico, sin filtro de fechas. Diccionario de variables del tablero: TABLERO LAVANDERIA Sección del diccionario: Observaciones Diccionario de variables del tablero: TABLERO LAVANDERIA Nota u observación: Fecha de los filtros: No se sabe si los segmentadores de Año y Mes usan Fecha (encabezado) o FechaRegistro (pesaje). Por confirmar. Tabl",
     "exception": null,
-    "latency_s": 0.335,
+    "latency_s": 0.398,
     "passed": true
    }
   ]
@@ -3478,7 +3476,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Diccionario de variables del tablero: TABLERO LAVANDERIA Sección del diccionario: Columnas calculadas Diccionario de variables del tablero: TABLERO LAVANDERIA Columna calculada: TURNO_OK Tabla: LAVANDERIA Descripción: Turno laboral en texto: 1 es MAÑANA, 2 es TARDE y 3 es NOCHE. Cualquier otro valor o turno vacío queda en blanco y se ve como (En blanco) en el gráfico de turnos. Tipo: texto. Se usa en: la documentación del propietario lo usa en el gráfico PESO por TURNO; el PBIP local no trae visuales. Expresión DAX: IF(LAVANDERIA[Turno]=1, \"MAÑANA\", IF(LAVANDERIA[Turno]=2,\"TARDE\", IF(LAVANDERI",
     "exception": null,
-    "latency_s": 0.2,
+    "latency_s": 0.181,
     "passed": true
    }
   ]
@@ -3509,7 +3507,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: CIRUGÍAS Fuente de datos: OPORTUNIDAD CIRUGIA: Solicitudes de cirugía programada (TipoCirugiaOid = 1) planeadas desde 2025-01-01, con la primera fecha en que pasaron por cada estado quirúrgico. Por confirmar que es la fuente del indicador de oportunidad. Tablero: CIRUGIAS Alias: Descripción: Cirugías dentro de la demanda insatisfecha. Analiza las cirugías no oportunas que el tablero suma como demanda insatisfecha: las solicitudes de cirugía programada con más de 45 días de espera. Tablero: CIRUGIAS Fuente de datos: CIRUGÍAS: Solicitudes de cirugía programada (TipoCirugiaOid = 1) cuya",
     "exception": null,
-    "latency_s": 0.162,
+    "latency_s": 0.217,
     "passed": true
    }
   ]
@@ -3540,7 +3538,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: TRIAGE Alias: Descripción: Volumen mensual de triages y su clasificación. Muestra cuántos triages se hacen cada mes, compara los años, proyecta el año en curso y muestra la distribución por clasificación. Tablero: TRIAGES Alias: Descripción: Analiza los triages no atendidos: turnos de triage registrados en urgencias que nunca tuvieron triage realizado. Muestra el total, el promedio mensual, la tendencia por mes y los aseguradores con más casos. Es de análisis histórico; Tablero: TRIAGE Visualización documentada: Tarjetas de triages: «TRIAGES ANUALES», «PROMEDIO MENSUAL TRIAGES» y «PRO",
     "exception": null,
-    "latency_s": 0.33,
+    "latency_s": 0.391,
     "passed": true
    }
   ]
@@ -3571,7 +3569,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: DETALLE NEDOCS Fuente de datos: NEDOCS: Tabla GH_NEDOCS de PLANILLAUSUARIO con las variables A1, A2, B1, B2, C, D y E del momento. Tablero: DETALLE NEDOCS Alias: Descripción: Nivel de sobreocupación de urgencias con la escala NEDOCS. Muestra el valor actual del NEDOCS, su clasificación, las siete variables que lo componen y la fórmula con los valores reales reemplazados. Diccionario de variables del tablero: COLUMNAS BRIEFING HOSPITALARIO Sección del diccionario: Columnas calculadas Diccionario de variables del tablero: COLUMNAS BRIEFING HOSPITALARIO Columna calculada: total Tabla: NE",
     "exception": null,
-    "latency_s": 0.249,
+    "latency_s": 0.285,
     "passed": true
    }
   ]
@@ -3602,7 +3600,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: INICIO Regla de negocio: Título de la tarjeta NEDOCS: La clasificación que se muestra sobre el valor sigue los rangos definidos en DETALLE NEDOCS. Tablero: DETALLE NEDOCS Visualización documentada: Leyenda de rangos: Recuadro con NORMAL 0-60, OCUPADO 61-100, SOBREOCUPADO 101-140, SEVERAMENTE SOBREOCUPADO 141-180 y CRITICAMENTE SOBREOCUPADO >180, cada uno con su color. Tablero: DETALLE NEDOCS Nota u observación: Valores entre rangos: La columna etiqueta deja sin clasificación los valores negativos y los que caen entre 180,99 y 181. Tablero: DETALLE NEDOCS Indicador documentado: NEDOCS:",
     "exception": null,
-    "latency_s": 0.221,
+    "latency_s": 0.247,
     "passed": true
    }
   ]
@@ -3633,7 +3631,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Medida: % Ocupación Tablero: TABLERO GESTION CAMAS Medida Power BI: % Ocupación Tabla: OCUPACION_DIARIA Descripción: Porcentaje de camas ocupadas. Tipo de dato: Number Formato: 0.0% Expresión DAX oficial del modelo: DIVIDE(CALCULATE(COUNTROWS('OCUPACION_DIARIA'), OCUPACION_DIARIA[ESTADO_CAMA] = \"OCUPADA\"), COUNTROWS('OCUPACION_DIARIA')) Expresión documentada: DIVIDE(CALCULATE(COUNTROWS('OCUPACION_DIARIA'), OCUPACION_DIARIA[ESTADO_CAMA] = \"OCUPADA\"), COUNTROWS('OCUPACION_DIARIA')) Tablero: TABLERO GESTION CAMAS Indicador documentado: % Ocupación: Porcentaje de camas ocupadas. Medida: Solicitude",
     "exception": null,
-    "latency_s": 0.125,
+    "latency_s": 0.163,
     "passed": true
    }
   ]
@@ -3664,7 +3662,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Diccionario de variables del tablero: TABLERO DE ATENCIONES INSTITUCIONALES Sección del diccionario: Medidas Medida: Proyeccion_TRIAGES Diccionario de variables del tablero: TABLERO DE ATENCIONES INSTITUCIONALES Medida Power BI: Proyeccion_TRIAGES Tabla: OPORTUNIDAD_TRIAGE Descripción: Proyección de triages: valor del año anterior por (1 + crecimiento interanual del periodo). Unidad: triages. Se usa en: no aparece en visuales ni filtros del informe. Tipo de dato: Number Formato: Expresión DAX oficial del modelo: VAR TRIAnt = [Triages_Año_Anterior] VAR CrecAnt = CALCULATE ( [Crecimiento_TRIAGES",
     "exception": null,
-    "latency_s": 0.493,
+    "latency_s": 0.218,
     "passed": true
    }
   ]
@@ -3695,7 +3693,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: FACTURACION PENDIENTE Fuente de datos: FACTURACION: Tercero (NOMBRETERCERO) y valor a cargo de la entidad (VLRENTIDADORDEN) del filtro Top N de la torta. Tablero: FACTURACION PENDIENTE Nota u observación: Botón AMBULATORIO: La página filtra HOSPITALARIO, por lo que el botón AMBULATORIO del segmentador no muestra pendientes (el filtro de página y el segmentador se combinan). Por confirmar. Tablero: FACTURACION PENDIENTE Visualización documentada: Segmentador aseguradora: Lista desplegable ASEGURADORA (FACTURACION_PENDIENTE[TERCERO]) con selección múltiple. Tablero: FACTURACION PENDIENT",
     "exception": null,
-    "latency_s": 0.377,
+    "latency_s": 0.565,
     "passed": true
    }
   ]
@@ -3726,7 +3724,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: INICIO Alias: Descripción: Resumen de farmacia: oportunidad, pendientes, inventario mínimo y vencimientos. Página principal del tablero de farmacia. Resume con tarjetas la oportunidad de dispensación, los suministros pendientes, los productos bajo inventario mínimo y los medicamentos… Tablero: TABLERO FARMACIA Alias: FARMACIA Descripción: Suministros pendientes, inventario mínimo, vencimientos y oportunidad de dispensación en farmacia. Monitorea la operación de la farmacia hospitalaria: suministros de medicamentos pendientes de dispensar, productos por debajo del inventario mínimo,… T",
     "exception": null,
-    "latency_s": 0.155,
+    "latency_s": 0.183,
     "passed": true
    }
   ]
@@ -3757,7 +3755,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: TABLERO REFERENCIA Alias: REFERENCIA Descripción: Seguimiento del proceso de referencia (recepción y remisión de pacientes). Hace seguimiento al proceso de referencia de pacientes. La parte de recepción muestra las solicitudes de otras instituciones para enviar pacientes al hospital: volumen, tiempo de… Diccionario de variables del tablero: TABLERO REFERENCIA Sección del diccionario: Resumen Diccionario de variables del tablero: TABLERO REFERENCIA Alias: Descripción: Diccionario de variables del tablero TABLERO REFERENCIA: qué es cada tabla, medida y columna clave del modelo «TABLERO",
     "exception": null,
-    "latency_s": 0.148,
+    "latency_s": 0.188,
     "passed": true
    }
   ]
@@ -3788,7 +3786,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: AUDITORIA MEDICAMENTOS Nota u observación: Página EN PROCESO relacionada: Las cuentas de este perfil que siguen abiertas se ven en EN PROCESO AUDITORIA MEDICAMENTOS, con semáforo de días. Tablero: AUDITORIA MEDICAMENTOS Alias: Descripción: Tiempo de gestión en auditoría de medicamentos. Muestra cuánto tardan las cuentas en el perfil AUDITORIA MEDICAMENTOS, es decir en la auditoría de medicamentos: tiempo promedio, evolución por año y mes y comparación entre ingresos ambulatorios y… Tablero: AUDITORIA MEDICAMENTOS Visualización documentada: Botón PROCESO FACTURACION: Botón que lleva a",
     "exception": null,
-    "latency_s": 0.147,
+    "latency_s": 0.188,
     "passed": false
    }
   ]
@@ -3819,7 +3817,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: PERFIL DE MORBILIDAD Alias: Descripción: Atenciones y mortalidad por mes, edad, sexo, CMD y GRD. Detalla los egresos por mes, rango de edad y sexo, y por CMD y GRD con sus defunciones y porcentaje de mortalidad. Tablero: TABLERO PERFIL DE MORBILIDAD Alias: PERFIL DE MORBILIDAD Descripción: Perfil epidemiológico de los egresos hospitalarios. Describe el perfil de morbilidad de la población atendida: egresos por diagnóstico (CIE10), grupo relacionado por diagnóstico (GRD) y categoría diagnóstica mayor (CMD), con edad, sexo, servicio, mortalidad y… Tablero: INICIO Alias: Descripción: Res",
     "exception": null,
-    "latency_s": 0.146,
+    "latency_s": 0.175,
     "passed": true
    }
   ]
@@ -3850,7 +3848,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: TABLERO CVC Alias: CVC Descripción: Variación de costos de compra de medicamentos, dispositivos e insumos. Tablero de una página para monitorear el comportamiento de los precios de compra de medicamentos, dispositivos médicos, insumos y otros productos del almacén 062 desde enero de 2025. Diccionario de variables del tablero: TABLERO CVC Sección del diccionario: Resumen Diccionario de variables del tablero: TABLERO CVC Alias: Descripción: Diccionario de variables del tablero TABLERO CVC: qué es cada tabla, medida y columna clave del modelo «TABLERO CVC», con su cálculo y dónde se usa.",
     "exception": null,
-    "latency_s": 0.149,
+    "latency_s": 0.179,
     "passed": true
    }
   ]
@@ -3881,7 +3879,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: OPORTUNIDAD TRIAGE Alias: Descripción: Tiempo de espera para la clasificación de triage. Muestra el tiempo promedio, en minutos, entre la llegada del paciente y su clasificación de triage, mes a mes y comparando años. Se llega con el botón OPORTUNIDAD TRIAGE de la página TRIAGE. Tablero: OPORTUNIDAD TRIAGE Nota u observación: Dos documentos: La página está documentada en «Tablero Triage» y en «Oportunidad Triage»; solo el segundo, más reciente, trae la regla de 2 minutos para triage I. Por confirmar cuál está vigente. Tablero: OPORTUNIDAD TRIAGE Regla de negocio: Triage I: Los triages",
     "exception": null,
-    "latency_s": 0.149,
+    "latency_s": 0.175,
     "passed": true
    }
   ]
@@ -3912,7 +3910,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: TABLERO TIEMPOS URGENCIAS Nota u observación: Botón Azul: La documentación versión 1 describe un botón de medicina prepagada priorizada que no existe en el PBIP. Por confirmar si la versión publicada es más reciente. Tablero: RESUMEN DIA Alias: Descripción: Resumen día, versión alterna (página oculta). Versión alterna del resumen del día, titulada «TIEMPOS DE ATENCIÓN EN URGENCIAS». Tiene el mismo diagrama con botones y los mismos indicadores que RESUMEN_D, más el tiempo entre triage y admisión. Tablero: MAPA DE CALOR TRATAMIENTOS Visualización documentada: Botón de regreso: Lleva a I",
     "exception": null,
-    "latency_s": 0.188,
+    "latency_s": 0.211,
     "passed": true
    }
   ]
@@ -3943,7 +3941,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: REPS Alias: Descripción: Capacidad instalada habilitada según el REPS. Muestra la capacidad instalada habilitada del hospital según el Registro Especial de Prestadores de Servicios de Salud (REPS): camas, camillas, consultorios, salas y sillas por grupo, y su participación en el… Tablero: REPS Sección: Historial de cambios Contenido: 2026-10-28 · v2: Diccionario y revisión contra el modelo y el informe. Tablero: REPS Visualización documentada: Tabla de capacidad: GRUPO CAPACIDAD Y CONCEPTO y CAPACIDAD INSTALADA REPS, con fila de total. Tablero: REPS Visualización documentada: Tarjeta",
     "exception": null,
-    "latency_s": 0.353,
+    "latency_s": 0.447,
     "passed": true
    }
   ]
@@ -3974,7 +3972,7 @@
     "prompt": null,
     "answer": "No encontré información relacionada con esa pregunta en la documentación de los tableros disponibles.",
     "exception": null,
-    "latency_s": 2.918,
+    "latency_s": 1.994,
     "passed": true
    }
   ]
@@ -4005,7 +4003,7 @@
     "prompt": null,
     "answer": "No encontré información relacionada con esa pregunta en la documentación de los tableros disponibles.",
     "exception": null,
-    "latency_s": 2.018,
+    "latency_s": 1.77,
     "passed": true
    }
   ]
@@ -4036,7 +4034,7 @@
     "prompt": null,
     "answer": "Esa pregunta está fuera del alcance de los tableros disponibles: no corresponde a ninguno de sus indicadores ni a su documentación. Puedo ayudarte con indicadores de los tableros institucionales. Por ejemplo: «AGENDA» (ASIGNACION DE CITAS) o «REPS» (BRIEFING HOSPITALARIO).",
     "exception": null,
-    "latency_s": 1.651,
+    "latency_s": 1.274,
     "passed": true
    }
   ]
@@ -4062,12 +4060,18 @@
     "unapplied_terms": [],
     "group_by": [],
     "dax": [],
-    "dax_log": [],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[FILTRO_QX])), \"__card1\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[GPANOMCOM])), \"__card2\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[ESPECIALIDAD])), \"__card3\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[ORDEN_CAMAS])), \"__card4\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[TIEMPO_ESTANCIA])), \"__card5\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[TERNOMCOM])), \"__card6\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[HSUNOMBRE])), \"__card7\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[GDENOMBRE])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[FILTRO_QX]), \"Value\", 'PACIENTES X ASEGURADORA'[FILTRO_QX]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[GPANOMCOM]), \"Value\", 'PACIENTES X ASEGURADORA'[GPANOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[ESPECIALIDAD]), \"Value\", 'PACIENTES X ASEGURADORA'[ESPECIALIDAD]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[ORDEN_CAMAS]), \"Value\", 'PACIENTES X ASEGURADORA'[ORDEN_CAMAS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[TIEMPO_ESTANCIA]), \"Value\", 'PACIENTES X ASEGURADORA'[TIEMPO_ESTANCIA]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[TERNOMCOM]), \"Value\", 'PACIENTES X ASEGURADORA'[TERNOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[HSUNOMBRE]), \"Value\", 'PACIENTES X ASEGURADORA'[HSUNOMBRE]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[GDENOMBRE]), \"Value\", 'PACIENTES X ASEGURADORA'[GDENOMBRE]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('PACIENTES EMERGENCIA'[ASEGURADOR])), \"__card1\", COUNTROWS(VALUES('PACIENTES EMERGENCIA'[OBSERVACION])), \"__card2\", COUNTROWS(VALUES('PACIENTES EMERGENCIA'[RANGO_EDAD])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES EMERGENCIA'[ASEGURADOR]), \"Value\", 'PACIENTES EMERGENCIA'[ASEGURADOR]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES EMERGENCIA'[OBSERVACION]), \"Value\", 'PACIENTES EMERGENCIA'[OBSERVACION]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES EMERGENCIA'[RANGO_EDAD]), \"Value\", 'PACIENTES EMERGENCIA'[RANGO_EDAD]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ) )"
+    ],
     "options": [],
     "prompt": null,
     "answer": "No encontré información relacionada con esa pregunta en la documentación de los tableros disponibles.",
     "exception": null,
-    "latency_s": 1.658,
+    "latency_s": 3.359,
     "passed": true
    }
   ]
@@ -4098,7 +4102,7 @@
     "prompt": null,
     "answer": "No encontré información relacionada con esa pregunta en la documentación de los tableros disponibles.",
     "exception": null,
-    "latency_s": 1.737,
+    "latency_s": 1.846,
     "passed": true
    }
   ]
@@ -4124,12 +4128,14 @@
     "unapplied_terms": [],
     "group_by": [],
     "dax": [],
-    "dax_log": [],
+    "dax_log": [
+     "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('ALMACENES'[IALNOMBRE]), \"Value\", 'ALMACENES'[IALNOMBRE] ), NOT ISBLANK([Value]) ), [Value], ASC )"
+    ],
     "options": [],
     "prompt": null,
     "answer": "No encontré información relacionada con esa pregunta en la documentación de los tableros disponibles.",
     "exception": null,
-    "latency_s": 1.269,
+    "latency_s": 1.19,
     "passed": true
    }
   ]
@@ -4160,7 +4166,7 @@
     "prompt": null,
     "answer": "No encontré información relacionada con esa pregunta en la documentación de los tableros disponibles.",
     "exception": null,
-    "latency_s": 1.504,
+    "latency_s": 1.608,
     "passed": true
    }
   ]
@@ -4191,7 +4197,7 @@
     "prompt": null,
     "answer": "No identifiqué un indicador para «gana», «medico», «general», «colombia» en los tableros disponibles. Escribe el nombre del indicador o del tablero donde lo ves. Por ejemplo: «AGENDA» (ASIGNACION DE CITAS) o «REPS» (BRIEFING HOSPITALARIO).",
     "exception": null,
-    "latency_s": 1.61,
+    "latency_s": 1.594,
     "passed": true
    }
   ]
@@ -4222,7 +4228,7 @@
     "prompt": null,
     "answer": "No encontré información relacionada con esa pregunta en la documentación de los tableros disponibles.",
     "exception": null,
-    "latency_s": 1.473,
+    "latency_s": 1.557,
     "passed": true
    }
   ]
@@ -4278,7 +4284,7 @@
     "prompt": null,
     "answer": "En enero de 2026, con servicio ANTIFLUIDOS:\n\n- **PESO TOTAL por Mes**: 105,6\n- **Participación**: 8,44 %\n\nFiltros: SERVICIO = ANTIFLUIDOS · enero 2026.",
     "exception": null,
-    "latency_s": 0.447,
+    "latency_s": 0.18,
     "passed": false
    }
   ]
@@ -4334,7 +4340,7 @@
     "prompt": null,
     "answer": "En enero de 2026, con servicio URGENCIAS:\n\n- **PESO TOTAL por Mes**: 16\n- **Participación**: 1,28 %\n\nFiltros: SERVICIO = URGENCIAS · enero 2026.",
     "exception": null,
-    "latency_s": 0.56,
+    "latency_s": 0.195,
     "passed": true
    }
   ]
@@ -4391,7 +4397,7 @@
     "prompt": null,
     "answer": "En enero de 2026, **PESO TOTAL por Mes y Participación** por servicio:\n\n| SERVICIO | PESO TOTAL por Mes | Participación |\n| --- | --- | --- |\n| GINECOBSTETRICIA | 375,5 | 30,02 % |\n| UCI NEONATAL | 255,4 | 20,42 % |\n| HOSPITALIZACION | 156,6 | 12,52 % |\n| UCI ADULTOS | 117,5 | 9,39 % |\n| ANTIFLUIDOS | 105,6 | 8,44 % |\n| PEDIATRIA | 93,8 | 7,5 % |\n| CIRUGIA | 48,2 | 3,85 % |\n| CENTRAL DE ESTERILIZACION | 41,3 | 3,3 % |\n| CONSULTA EXTERNA | 40,9 | 3,27 % |\n| URGENCIAS | 16 | 1,28 % |\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.185,
+    "latency_s": 0.092,
     "passed": true
    }
   ]
@@ -4433,7 +4439,7 @@
     "prompt": null,
     "answer": "¿Te refieres a TOTAL CIRUGIAS?",
     "exception": null,
-    "latency_s": 1.509,
+    "latency_s": 1.325,
     "passed": false
    }
   ]
@@ -4484,7 +4490,7 @@
     "prompt": null,
     "answer": "En 2025:\n\n- **total_triage**: 498\n- **PROMEDIO_TRIAGE_2025**: 121,76\n\nFiltros: 2025.\n\nUsé el indicador de la página TRIAGE (TABLERO DE ATENCIONES INSTITUCIONALES): total_triage.",
     "exception": null,
-    "latency_s": 0.708,
+    "latency_s": 0.783,
     "passed": true
    }
   ]
@@ -4532,7 +4538,7 @@
     "prompt": null,
     "answer": "En 2025:\n\n- **INTERCONSULTAS SOLICITADAS**: 724\n- **INTERCONSULTAS RESPONDIDAS**: 724\n\nFiltros: 2025.\n\nInterpreté «respondidas» como «interconsultas respondidas».",
     "exception": null,
-    "latency_s": 0.932,
+    "latency_s": 1.096,
     "passed": true
    }
   ]
@@ -4579,7 +4585,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.96,
+    "latency_s": 1.064,
     "passed": false
    }
   ]
@@ -4635,7 +4641,7 @@
     "prompt": null,
     "answer": "En 2025, con asegurador NUEVA EPS:\n\n- **Participación**: 2,79 %\n\nFiltros: ASEGURADOR = NUEVA EPS · 2025.\n\nCifra tal como la muestra el gráfico de la página ATENCIONES POR ASEGURADOR del tablero BRIEFING HOSPITALARIO (con su filtro: excluye área de servicio BLOQUEADO). «ATENCIONES» existe en varios tableros; usé el de BRIEFING HOSPITALARIO, el único donde el valor pedido es un filtro válido para calcular la participación.",
     "exception": null,
-    "latency_s": 0.506,
+    "latency_s": 0.563,
     "passed": true
    }
   ]
@@ -4671,9 +4677,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "- **INGRESOS**: 101\n- **EGRESOS**: 1.274\n\nFiltros del tablero aplicados (tarjeta de la página INGRESOS Y EGRESOS): SERVICIO no es HOSPITALIZACION PARCIAL.",
+    "answer": "- **INGRESOS**: 101\n- **EGRESOS**: 1.275\n\nFiltros del tablero aplicados (tarjeta de la página INGRESOS Y EGRESOS): SERVICIO no es HOSPITALIZACION PARCIAL.",
     "exception": null,
-    "latency_s": 0.402,
+    "latency_s": 0.472,
     "passed": true
    }
   ]
@@ -4718,7 +4724,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **700**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.612,
+    "latency_s": 0.825,
     "passed": false
    },
    {
@@ -4742,7 +4748,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: Página 1 Alias: Descripción: Peso mensual de ropa por servicio, colaborador y turno. Única página del tablero; en Power BI se llama «Página 1». Muestra por mes el peso de ropa recibido por servicio y su porcentaje de participación, el peso registrado por cada colaborador, la distribución… Tablero: Página 1 Visualización documentada: Segmentadores: Año y Mes. Tablero: Página 1 Sección: Historial de cambios Contenido: 2026-10-28 · v2: Diccionario y revisión contra el modelo y el informe. Tablero: Página 1 Visualización documentada: PESO por TURNO: Torta con el peso y porcentaje de MAÑAN",
     "exception": null,
-    "latency_s": 0.425,
+    "latency_s": 0.403,
     "passed": false
    }
   ]
@@ -4787,7 +4793,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **700**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.592,
+    "latency_s": 0.883,
     "passed": false
    },
    {
@@ -4836,7 +4842,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **700**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.617,
+    "latency_s": 0.854,
     "passed": false
    },
    {
@@ -4860,7 +4866,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: CIRUGÍAS Fuente de datos: OPORTUNIDAD CIRUGIA: Solicitudes de cirugía programada (TipoCirugiaOid = 1) planeadas desde 2025-01-01, con la primera fecha en que pasaron por cada estado quirúrgico. Por confirmar que es la fuente del indicador de oportunidad. Tablero: PENDIENTES Fuente de datos: CIRUGIAS_PENDIENTES: Solicitudes de cirugía programada (TipoCirugiaOid = 1) planeadas desde 2025-01-01, con paciente, EPS, especialidad, procedimientos agrupados, médico, ESTADO ACTUAL y la primera fecha de cada estado quirúrgico. FECHA es la fecha en que se planeó. Tablero: CANCELACIONES Alias: De",
     "exception": null,
-    "latency_s": 0.405,
+    "latency_s": 0.798,
     "passed": false
    }
   ]
@@ -4905,7 +4911,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **700**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.621,
+    "latency_s": 0.845,
     "passed": false
    },
    {
@@ -4945,7 +4951,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **700**\n\nFiltros: 2024. No pude aplicar: atenciones.",
     "exception": null,
-    "latency_s": 0.086,
+    "latency_s": 0.104,
     "passed": true
    }
   ]
@@ -4990,7 +4996,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **700**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.581,
+    "latency_s": 0.706,
     "passed": false
    },
    {
@@ -5014,7 +5020,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Diccionario de variables del tablero: TABLERO DE ATENCIONES INSTITUCIONALES Sección del diccionario: Columnas clave Diccionario de variables del tablero: TABLERO DE ATENCIONES INSTITUCIONALES Sección: Columnas clave Contenido: CONSULTAS_AMBULATORIAS[PV_CONTROL]: Indica si la cita es de primera vez o de control. Los dos medidores de DETALLE ESPECIALIDADES filtran por este campo. Tipo: texto. Valores: primera vez o control (códigos exactos por confirmar). Se usa en: DETALLE ESPECIALIDADES › Medidor «OPORTUNIDAD CONSULTA CONTROL»; DETALLE ESPECIALIDADES › Medidor «OPORTUNIDAD CONSULTA PRIMERA VEZ",
     "exception": null,
-    "latency_s": 0.661,
+    "latency_s": 0.807,
     "passed": false
    }
   ]
@@ -5059,7 +5065,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **700**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.639,
+    "latency_s": 0.887,
     "passed": false
    },
    {
@@ -5112,7 +5118,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **700**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.575,
+    "latency_s": 0.677,
     "passed": false
    },
    {
@@ -5136,7 +5142,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: OBSERVACIONES OBSTETRICAS Nota u observación: Tarjeta año actual: Las medidas documentadas son de años fijos (2024 y 2025) o del año anterior cerrado; ninguna corresponde a «año actual». Por confirmar. Tablero: OFERTA ESPECIALIDADES Indicador documentado: Pendientes: Solicitudes en espera sin ninguna gestión. SUM(EN_ESPERA[PENDIENTES_CO]). Tablero: FACTURACION PENDIENTE Regla de negocio: Egreso pendiente: Egreso sin ningún registro en TFACTURACI, es decir, ninguna área ha recibido todavía la cuenta. Tablero: TRAZABILIDAD_H-A Nota u observación: Listas que pueden no coincidir: Las list",
     "exception": null,
-    "latency_s": 1.143,
+    "latency_s": 1.351,
     "passed": false
    }
   ]
@@ -5181,7 +5187,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **700**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.602,
+    "latency_s": 0.744,
     "passed": false
    },
    {
@@ -5236,7 +5242,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.478,
+    "latency_s": 0.586,
     "passed": true
    },
    {
@@ -5260,7 +5266,7 @@
     "prompt": null,
     "answer": "No encontré información relacionada con esa pregunta en la documentación de los tableros disponibles.",
     "exception": null,
-    "latency_s": 1.461,
+    "latency_s": 1.723,
     "passed": true
    }
   ]
@@ -5305,7 +5311,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **700**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.684,
+    "latency_s": 0.73,
     "passed": false
    },
    {
@@ -5340,7 +5346,7 @@
     "prompt": null,
     "answer": "Identifiqué el indicador Peso total por mes, pero no entendí «antifluidos» como un filtro de ese tablero. ¿Lo consulto sin ese filtro? También puedes reescribir la pregunta indicando el servicio, la especialidad u otro filtro.",
     "exception": null,
-    "latency_s": 0.527,
+    "latency_s": 0.269,
     "passed": false
    }
   ]
@@ -5387,7 +5393,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.512,
+    "latency_s": 0.715,
     "passed": false
    },
    {
@@ -5474,7 +5480,7 @@
     "prompt": null,
     "answer": "¿A qué tablero o servicio te refieres?",
     "exception": null,
-    "latency_s": 0.194,
+    "latency_s": 0.221,
     "passed": true
    },
    {
@@ -5525,7 +5531,7 @@
     "prompt": null,
     "answer": "¿A qué tablero o servicio te refieres?",
     "exception": null,
-    "latency_s": 0.187,
+    "latency_s": 0.255,
     "passed": true
    },
    {
@@ -5565,7 +5571,7 @@
     "prompt": null,
     "answer": "¿A qué tablero o servicio te refieres?",
     "exception": null,
-    "latency_s": 0.212,
+    "latency_s": 0.262,
     "passed": false
    }
   ]
@@ -5610,7 +5616,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **700**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.604,
+    "latency_s": 0.692,
     "passed": false
    },
    {
@@ -5634,7 +5640,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: TABLERO TIEMPOS URGENCIAS Definición: Día de la semana: Columnas DIA_SEMANA, DIA_SEMANA_CONSULTA y DIA_SEMANA_TRAT, numeradas de «1. LUNES» a «7. DOMINGO». Diccionario de variables del tablero: COLUMNAS BRIEFING HOSPITALARIO Sección del diccionario: Columnas clave Diccionario de variables del tablero: COLUMNAS BRIEFING HOSPITALARIO Sección: Columnas clave Contenido: TURNOS_AMBULATORIO[DIA_SEMANA]: Día de la semana del turno. Tipo: texto. Valores: 1. LUNES a 7. DOMINGO. Se usa en: CONSULTAS PROXIMA SEMANA › Matriz «HISTORICO DE DIGITURNOS ASIGNADOS POR TRAMO HORARIO». Diccionario de va",
     "exception": null,
-    "latency_s": 0.354,
+    "latency_s": 0.464,
     "passed": false
    },
    {
@@ -5658,7 +5664,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: TABLERO DE ATENCIONES INSTITUCIONALES Definición: Tipo de ingreso: AINTIPING 1 es ambulatorio y 2 hospitalario. Tablero: TRIAGES ATENDIDOS Nota u observación: Tipos de ingreso: Por confirmar que el tipo 1 sea observación y el 2 hospitalización. Tablero: CONSULTAS DIA Regla de negocio: Ingresos anulados: CONSULTAS_DIA solo trae triages de hoy con ingreso de estado distinto de 2 (AINESTADO). Tablero: QUIMIOTERAPIA Regla de negocio: Ingresos excluidos: Solo se excluye AINESTADO 2 (urgencias excluye además el 4). Tablero: TABLERO LAVANDERIA Definición: Turno: Turno laboral del encabezado",
     "exception": null,
-    "latency_s": 0.399,
+    "latency_s": 0.511,
     "passed": false
    }
   ]
@@ -5703,7 +5709,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **700**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.636,
+    "latency_s": 0.781,
     "passed": false
    },
    {
@@ -5727,7 +5733,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Diccionario de variables del tablero: COLUMNAS BRIEFING HOSPITALARIO Sección del diccionario: Columnas clave Diccionario de variables del tablero: COLUMNAS BRIEFING HOSPITALARIO Sección: Columnas clave Contenido: CONSULTAS URGENCIAS[CONSULTAS_REALIZADAS]: Marca por triage: 1 en los obstétricos (código con -G) y en muerto (M), 0 en los códigos I, II y III y vacío en el resto; alimenta la tarjeta CONSULTAS URGENCIAS. Tipo: entero. Se usa en: URGENCIAS › Tarjeta «CONSULTAS URGENCIAS». Diccionario de variables del tablero: TABLERO PERFIL DE MORBILIDAD Sección del diccionario: Columnas calculadas D",
     "exception": null,
-    "latency_s": 0.662,
+    "latency_s": 0.505,
     "passed": false
    }
   ]
@@ -5786,7 +5792,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024, con especialidad UROLOGIA y tipo PROGRAMADA: **17**\n\nFiltros: ESPECIALIDAD = UROLOGIA · TIPO = PROGRAMADA · 2024.",
     "exception": null,
-    "latency_s": 1.223,
+    "latency_s": 0.783,
     "passed": true
    },
    {
@@ -5838,7 +5844,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2025: **20**\n\nFiltros: ESPECIALIDAD = UROLOGIA · TIPO = PROGRAMADA · 2025.",
     "exception": null,
-    "latency_s": 0.15,
+    "latency_s": 0.064,
     "passed": true
    }
   ]
@@ -5897,7 +5903,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024, con especialidad UROLOGIA y tipo PROGRAMADA: **17**\n\nFiltros: ESPECIALIDAD = UROLOGIA · TIPO = PROGRAMADA · 2024.",
     "exception": null,
-    "latency_s": 0.913,
+    "latency_s": 0.829,
     "passed": true
    },
    {
@@ -5949,7 +5955,7 @@
     "prompt": null,
     "answer": "En 2024, **TOTAL_CIRUGIAS** por especialidad:\n\n| ESPECIALIDAD | TOTAL_CIRUGIAS |\n| --- | --- |\n| NEUMOLOGIA | 89 |\n| CIRUGIA VASCULAR | 54 |\n| PSIQUIATRIA | 37 |\n| ANESTESIOLOGIA | 30 |\n| ORTOPEDIA Y TRAUMATOLOGIA | 26 |\n| CIRUGIA PLASTICA | 24 |\n| GINECOLOGIA Y OBSTETRICIA | 21 |\n| CIRUGIA GENERAL | 21 |\n| CARDIOLOGIA | 18 |\n| UROLOGIA | 17 |\n| OFTALMOLOGIA | 15 |\n| NEUROCIRUGIA | 14 |\n| OTORRINOLARINGOLOGIA | 12 |\n| GASTROENTEROLOGIA | 11 |\n| NEUROLOGIA | 10 |\n| DERMATOLOGIA | 9 |\n| MEDICINA INTERNA | 7 |\n| PEDIATRIA | 5 |\n| (sin especialidad) | 5 |\n\nFiltros: TIPO = PROGRAMADA · 2024.\n\nDesglose por ESPECIALIDAD de la consulta anterior (17): las filas suman 425; puede diferir si un mismo registro aparece en más de un grupo o sin ESPECIALIDAD.",
     "exception": null,
-    "latency_s": 0.188,
+    "latency_s": 0.116,
     "passed": false
    }
   ]
@@ -6008,7 +6014,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024, con especialidad UROLOGIA y tipo PROGRAMADA: **17**\n\nFiltros: ESPECIALIDAD = UROLOGIA · TIPO = PROGRAMADA · 2024.",
     "exception": null,
-    "latency_s": 1.139,
+    "latency_s": 0.75,
     "passed": true
    },
    {
@@ -6032,7 +6038,7 @@
     "prompt": null,
     "answer": "No encontré información relacionada con esa pregunta en la documentación de los tableros disponibles.",
     "exception": null,
-    "latency_s": 1.401,
+    "latency_s": 1.688,
     "passed": true
    },
    {
@@ -6056,7 +6062,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: CONSULTAS OBSTÉTRICAS Nota u observación: Nombres de medidas: PRIORITARIAS_2025 y PRIORITARIAS_2024 se calculan con el año actual, no con 2025 ni 2024. Tablero: OPORTUNIDAD TRIAGE Nota u observación: Promedio 2024 del modelo: En el modelo PROMEDIO_TRIAGE_2024 filtra el año 2025, aunque la documentación dice 2024. Tablero: URGENCIAS Indicador documentado: Consultas por año: PRIORITARIAS_2023 cuenta 2023; PRIORITARIAS_2024 y PRIORITARIAS_2025 cuentan en realidad el año en curso (YEAR(TODAY()-1) y YEAR(TODAY())). Tablero: OBSERVACIONES OBSTETRICAS Nota u observación: Tarjeta año actual:",
     "exception": null,
-    "latency_s": 0.396,
+    "latency_s": 0.593,
     "passed": false
    }
   ]
@@ -6108,7 +6114,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.493,
+    "latency_s": 0.593,
     "passed": true
    },
    {
@@ -6158,7 +6164,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en enero de 2026: **1.250,8**\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.177,
+    "latency_s": 0.206,
     "passed": false
    }
   ]
@@ -6198,9 +6204,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**CITAS ASIGNADAS** por especialidad:\n\n| ESPECIALIDAD | CITAS ASIGNADAS |\n| --- | --- |\n| OFTALMOLOGIA | 3.733 |\n| CIRUGIA GENERAL | 1.902 |\n| ANESTESIOLOGIA | 1.497 |\n| CIRUGIA PLASTICA | 1.158 |\n| NEUROCIRUGIA | 970 |\n| UROLOGIA | 695 |\n| CARDIOLOGIA | 695 |\n| NEUROLOGIA | 626 |\n| GASTROENTEROLOGIA | 559 |\n| MEDICINA INTERNA | 527 |\n| DERMATOLOGIA | 498 |\n| PSIQUIATRIA | 448 |\n| CIRUGIA VASCULAR | 432 |\n| NEUMOLOGIA | 362 |\n| ORTOPEDIA Y TRAUMATOLOGIA | 350 |\n| GINECOLOGIA Y OBSTETRICIA | 332 |\n| OTORRINOLARINGOLOGIA | 251 |\n| PEDIATRIA | 239 |\n| **Total** | **15.274** |",
+    "answer": "**CITAS ASIGNADAS** por especialidad:\n\n| ESPECIALIDAD | CITAS ASIGNADAS |\n| --- | --- |\n| OFTALMOLOGIA | 3.739 |\n| CIRUGIA GENERAL | 1.896 |\n| ANESTESIOLOGIA | 1.505 |\n| CIRUGIA PLASTICA | 1.166 |\n| NEUROCIRUGIA | 970 |\n| UROLOGIA | 695 |\n| CARDIOLOGIA | 695 |\n| NEUROLOGIA | 628 |\n| GASTROENTEROLOGIA | 559 |\n| MEDICINA INTERNA | 527 |\n| DERMATOLOGIA | 498 |\n| PSIQUIATRIA | 448 |\n| CIRUGIA VASCULAR | 432 |\n| NEUMOLOGIA | 362 |\n| ORTOPEDIA Y TRAUMATOLOGIA | 361 |\n| GINECOLOGIA Y OBSTETRICIA | 332 |\n| OTORRINOLARINGOLOGIA | 251 |\n| PEDIATRIA | 239 |\n| **Total** | **15.303** |",
     "exception": null,
-    "latency_s": 0.917,
+    "latency_s": 0.546,
     "passed": false
    }
   ]
@@ -6267,7 +6273,7 @@
     "prompt": null,
     "answer": "No identifiqué con certeza el indicador. ¿Es alguno de estos?",
     "exception": null,
-    "latency_s": 0.902,
+    "latency_s": 1.081,
     "passed": false
    }
   ]
@@ -6314,7 +6320,7 @@
     "prompt": null,
     "answer": "Hay varios indicadores con un nombre casi igual y la pregunta no indica cuál. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.615,
+    "latency_s": 0.765,
     "passed": true
    },
    {
@@ -6352,7 +6358,7 @@
     "prompt": null,
     "answer": "**CONSULTAS** en 2025: **1**\n\nFiltros: 2025.",
     "exception": null,
-    "latency_s": 0.039,
+    "latency_s": 0.048,
     "passed": true
    }
   ]
@@ -6409,7 +6415,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.798,
+    "latency_s": 0.717,
     "passed": true
    },
    {
@@ -6459,7 +6465,7 @@
     "prompt": null,
     "answer": "Ninguna de las opciones es del TABLERO REFERENCIA. En ese tablero tampoco encontré un indicador para «tiempo promedio de respuesta». ¿Es alguna de estas?",
     "exception": null,
-    "latency_s": 0.358,
+    "latency_s": 0.329,
     "passed": true
    }
   ]
@@ -6511,7 +6517,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.496,
+    "latency_s": 0.606,
     "passed": true
    },
    {
@@ -6566,7 +6572,7 @@
     "prompt": null,
     "answer": "Busqué otros indicadores parecidos a tu pregunta. ¿Es alguno de estos?",
     "exception": null,
-    "latency_s": 0.195,
+    "latency_s": 0.17,
     "passed": true
    },
    {
@@ -6592,9 +6598,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "Hay **10.228** dosis suministradas.",
+    "answer": "Hay **10.223** dosis suministradas.",
     "exception": null,
-    "latency_s": 0.124,
+    "latency_s": 0.17,
     "passed": true
    }
   ]
@@ -6625,7 +6631,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Diccionario de variables del tablero: TABLERO DE ATENCIONES INSTITUCIONALES Sección del diccionario: Medidas Medida: 2024 Diccionario de variables del tablero: TABLERO DE ATENCIONES INSTITUCIONALES Medida Power BI: 2024 Tabla: CIRUGIAS_ARC Descripción: Cirugías de 2024 tomadas de la tabla histórica CIRUGIAS_ARC; repite a [QX2024]. Unidad: cirugías. Se usa en: no aparece en visuales ni filtros del informe. Tipo de dato: Integer Formato: Expresión DAX oficial del modelo: CALCULATE( SUM(CIRUGIAS_ARC[CIRUGIAS]), CIRUGIAS_ARC[AÑO]=2024) Expresión documentada: CALCULATE( SUM(CIRUGIAS_ARC[CIRUGIAS]),",
     "exception": null,
-    "latency_s": 0.771,
+    "latency_s": 0.824,
     "passed": false
    }
   ]
@@ -6656,7 +6662,7 @@
     "prompt": null,
     "answer": "No encontré el indicador de la página ABORTOS (TABLERO DE ATENCIONES INSTITUCIONALES) en los modelos de Power BI disponibles; esto es lo que dice su documentación:\n\n[FakeLLM] Tablero: ABORTOS Indicador documentado: Total abortos: Número de abortos del periodo. Medida por confirmar. Tablero: ABORTOS Alias: Descripción: Abortos e IVE registrados por mes. Muestra cuántos abortos se registran cada mes en los últimos tres años, separando la interrupción voluntaria del embarazo (IVE) del aborto no seguro. Tablero: ABORTOS Indicador documentado: Promedio mensual de abortos: Promedio de abortos por mes. Medida por confirmar. Tablero: ABORTOS Visualización documentada: Tabla de conteo de abortos: Matriz de abortos por año (filas) y mes (columnas). Tablero: ABORTOS Regla de",
     "exception": null,
-    "latency_s": 0.923,
+    "latency_s": 0.879,
     "passed": true
    }
   ]
@@ -6701,7 +6707,7 @@
     "prompt": null,
     "answer": "**Total_Partos_Dinamico** en 2024: **138**\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.302,
+    "latency_s": 0.407,
     "passed": false
    }
   ]
@@ -6748,7 +6754,7 @@
     "prompt": null,
     "answer": "La página CIRUGIAS existe en varios tableros. Estos son sus indicadores principales. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 1.1,
+    "latency_s": 1.052,
     "passed": true
    },
    {
@@ -6803,7 +6809,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2025, con especialidad ORTOPEDIA Y TRAUMATOLOGIA y asegurador ARL SURA o SURA EPS: **1 cirugía**\n\nFiltros: 2025 · ESPECIALIDAD = ORTOPEDIA Y TRAUMATOLOGIA · ASEGURADOR = ARL SURA, SURA EPS.",
     "exception": null,
-    "latency_s": 0.152,
+    "latency_s": 0.106,
     "passed": true
    }
   ]
@@ -6848,7 +6854,7 @@
     "prompt": null,
     "answer": "**TRIAGES NO ATENDIDOS** en 2025: **855**\n\nFiltros: 2025.\n\nCifra tal como la muestra la tarjeta de la página TRIAGES del tablero DEMANDA INSATISFECHA (con su filtro).",
     "exception": null,
-    "latency_s": 1.212,
+    "latency_s": 0.752,
     "passed": true
    }
   ]
@@ -6894,16 +6900,13 @@
      "EVALUATE SUMMARIZECOLUMNS( 'PACIENTES X ASEGURADORA'[ESPECIALIDAD], TREATAS({\"URGENCIAS\"}, 'PACIENTES X ASEGURADORA'[HSUNOMBRE]), \"__value\", DISTINCTCOUNT('PACIENTES X ASEGURADORA'[ADNINGRESO]) ) ORDER BY [__value] DESC"
     ],
     "dax_log": [
-     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[TIEMPO_ESTANCIA])), \"__card1\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[FILTRO_QX])), \"__card2\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[GPANOMCOM])), \"__card3\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[ORDEN_CAMAS])), \"__card4\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[TERNOMCOM])), \"__card5\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[HSUNOMBRE])), \"__card6\", COUNTROWS(VALUES('PACIENTES X ASEGURADORA'[GDENOMBRE])) )",
-     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[TIEMPO_ESTANCIA]), \"Value\", 'PACIENTES X ASEGURADORA'[TIEMPO_ESTANCIA]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[FILTRO_QX]), \"Value\", 'PACIENTES X ASEGURADORA'[FILTRO_QX]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[GPANOMCOM]), \"Value\", 'PACIENTES X ASEGURADORA'[GPANOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[ORDEN_CAMAS]), \"Value\", 'PACIENTES X ASEGURADORA'[ORDEN_CAMAS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
-     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[TERNOMCOM]), \"Value\", 'PACIENTES X ASEGURADORA'[TERNOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[HSUNOMBRE]), \"Value\", 'PACIENTES X ASEGURADORA'[HSUNOMBRE]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PACIENTES X ASEGURADORA'[GDENOMBRE]), \"Value\", 'PACIENTES X ASEGURADORA'[GDENOMBRE]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ) )",
      "EVALUATE SUMMARIZECOLUMNS( 'PACIENTES X ASEGURADORA'[ESPECIALIDAD], TREATAS({\"URGENCIAS\"}, 'PACIENTES X ASEGURADORA'[HSUNOMBRE]), \"__value\", DISTINCTCOUNT('PACIENTES X ASEGURADORA'[ADNINGRESO]) ) ORDER BY [__value] DESC"
     ],
     "options": [],
     "prompt": null,
     "answer": "Con servicio URGENCIAS, **CANTIDAD DE PACIENTES** por especialidad:\n\n| ESPECIALIDAD | CANTIDAD DE PACIENTES |\n| --- | --- |\n| MEDICINA DE URGENCIAS | 2 |\n\nFiltros: SERVICIO = URGENCIAS. No pude aplicar: hospitalizacion.\n\n«en este mes»: es la cifra actual que muestra el tablero.",
     "exception": null,
-    "latency_s": 1.293,
+    "latency_s": 1.005,
     "passed": true
    },
    {
@@ -6946,7 +6949,7 @@
     "prompt": null,
     "answer": "**CANTIDAD DE PACIENTES** por especialidad:\n\n| ESPECIALIDAD | CANTIDAD DE PACIENTES |\n| --- | --- |\n| MEDICINA DE URGENCIAS | 2 |\n\nFiltros: SERVICIO = URGENCIAS.",
     "exception": null,
-    "latency_s": 0.071,
+    "latency_s": 0.067,
     "passed": true
    },
    {
@@ -6989,7 +6992,7 @@
     "prompt": null,
     "answer": "**CANTIDAD DE PACIENTES** por especialidad:\n\n| ESPECIALIDAD | CANTIDAD DE PACIENTES |\n| --- | --- |\n| MEDICINA DE URGENCIAS | 2 |\n\nFiltros: SERVICIO = URGENCIAS.",
     "exception": null,
-    "latency_s": 0.061,
+    "latency_s": 0.043,
     "passed": true
    }
   ]
@@ -7041,7 +7044,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.869,
+    "latency_s": 0.669,
     "passed": false
    },
    {
@@ -7065,7 +7068,7 @@
     "prompt": null,
     "answer": "No identifiqué un indicador para «especialidad» en los tableros disponibles. Escribe el nombre del indicador o del tablero donde lo ves. Por ejemplo: «AGENDA» (ASIGNACION DE CITAS) o «REPS» (BRIEFING HOSPITALARIO).",
     "exception": null,
-    "latency_s": 0.882,
+    "latency_s": 0.58,
     "passed": false
    },
    {
@@ -7110,7 +7113,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.87,
+    "latency_s": 0.638,
     "passed": false
    },
    {
@@ -7202,7 +7205,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.632,
+    "latency_s": 0.73,
     "passed": true
    },
    {
@@ -7247,7 +7250,7 @@
     "prompt": null,
     "answer": "Busqué otros indicadores parecidos a tu pregunta. ¿Es alguno de estos?",
     "exception": null,
-    "latency_s": 0.155,
+    "latency_s": 0.14,
     "passed": true
    },
    {
@@ -7275,7 +7278,7 @@
     "prompt": null,
     "answer": "**101 suministros** (indicador NÚMERO DE SUMINISTROS PENDIENTES).\n\nCifra tal como la muestra la tarjeta de la página INICIO del TABLERO FARMACIA (con su filtro). La lista de 101 suministros es demasiado larga para mostrarla aquí (más de 50). Indica un servicio y te muestro el detalle.",
     "exception": null,
-    "latency_s": 0.43,
+    "latency_s": 0.497,
     "passed": true
    }
   ]
@@ -7317,7 +7320,7 @@
     "prompt": null,
     "answer": "En el tablero TABLERO LAVANDERIA no encontré ese indicador. Lo encontré en otro tablero. ¿Es este?",
     "exception": null,
-    "latency_s": 0.349,
+    "latency_s": 0.402,
     "passed": true
    },
    {
@@ -7341,7 +7344,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Medida: % Ocupación Tablero: CONSOLIDADO DE ATENCIONES INSTITUCIONALES Medida Power BI: % Ocupación Tabla: PORCENTAJE_OCUPACIONAL Descripción: Porcentaje de ocupación de camas. Tipo de dato: Number Formato: 0.00% Expresión DAX oficial del modelo: DIVIDE(SUM(PORCENTAJE_OCUPACIONAL[DIAS_CAMA_OCUPADA]), SUM(PORCENTAJE_OCUPACIONAL[CAMAS_HABILITADAS])) Expresión documentada: DIVIDE(SUM(PORCENTAJE_OCUPACIONAL[DIAS_CAMA_OCUPADA]), SUM(PORCENTAJE_OCUPACIONAL[CAMAS_HABILITADAS])) Medida: % Ocupación Tablero: INFORMES EJECUTIVOS 2026 Medida Power BI: % Ocupación Tabla: FACT_OCUPACION Descripción: Ocupac",
     "exception": null,
-    "latency_s": 0.229,
+    "latency_s": 0.336,
     "passed": true
    }
   ]
@@ -7383,7 +7386,7 @@
     "prompt": null,
     "answer": "¿Te refieres a TOTAL CIRUGIAS?",
     "exception": null,
-    "latency_s": 0.898,
+    "latency_s": 1.016,
     "passed": false
    },
    {
@@ -7442,7 +7445,7 @@
     "prompt": null,
     "answer": "No identifiqué un indicador para «especialidad» en los tableros disponibles. Escribe el nombre del indicador o del tablero donde lo ves. Por ejemplo: «AGENDA» (ASIGNACION DE CITAS) o «REPS» (BRIEFING HOSPITALARIO).",
     "exception": null,
-    "latency_s": 1.559,
+    "latency_s": 0.536,
     "passed": false
    },
    {
@@ -7487,7 +7490,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024, con tipo PROGRAMADA: **425**\n\nFiltros: TIPO = PROGRAMADA · 2024.",
     "exception": null,
-    "latency_s": 1.061,
+    "latency_s": 0.733,
     "passed": true
    },
    {
@@ -7539,7 +7542,7 @@
     "prompt": null,
     "answer": "En 2024, **TOTAL_CIRUGIAS** por especialidad:\n\n| ESPECIALIDAD | TOTAL_CIRUGIAS |\n| --- | --- |\n| NEUMOLOGIA | 89 |\n| CIRUGIA VASCULAR | 54 |\n| PSIQUIATRIA | 37 |\n| ANESTESIOLOGIA | 30 |\n| ORTOPEDIA Y TRAUMATOLOGIA | 26 |\n| CIRUGIA PLASTICA | 24 |\n| GINECOLOGIA Y OBSTETRICIA | 21 |\n| CIRUGIA GENERAL | 21 |\n| CARDIOLOGIA | 18 |\n| UROLOGIA | 17 |\n| OFTALMOLOGIA | 15 |\n| NEUROCIRUGIA | 14 |\n| OTORRINOLARINGOLOGIA | 12 |\n| GASTROENTEROLOGIA | 11 |\n| NEUROLOGIA | 10 |\n| DERMATOLOGIA | 9 |\n| MEDICINA INTERNA | 7 |\n| PEDIATRIA | 5 |\n| (sin especialidad) | 5 |\n\nFiltros: 2024 · TIPO = PROGRAMADA.\n\nDesglose por ESPECIALIDAD de los 425 de la consulta anterior (las filas suman 425).",
     "exception": null,
-    "latency_s": 0.214,
+    "latency_s": 0.152,
     "passed": false
    },
    {
@@ -7591,7 +7594,7 @@
     "prompt": null,
     "answer": "En 2024, **TOTAL_CIRUGIAS** por especialidad:\n\n| ESPECIALIDAD | TOTAL_CIRUGIAS |\n| --- | --- |\n| NEUMOLOGIA | 89 |\n| CIRUGIA VASCULAR | 54 |\n| PSIQUIATRIA | 37 |\n| ANESTESIOLOGIA | 30 |\n| ORTOPEDIA Y TRAUMATOLOGIA | 26 |\n| CIRUGIA PLASTICA | 24 |\n| GINECOLOGIA Y OBSTETRICIA | 21 |\n| CIRUGIA GENERAL | 21 |\n| CARDIOLOGIA | 18 |\n| UROLOGIA | 17 |\n| OFTALMOLOGIA | 15 |\n| NEUROCIRUGIA | 14 |\n| OTORRINOLARINGOLOGIA | 12 |\n| GASTROENTEROLOGIA | 11 |\n| NEUROLOGIA | 10 |\n| DERMATOLOGIA | 9 |\n| MEDICINA INTERNA | 7 |\n| PEDIATRIA | 5 |\n| (sin especialidad) | 5 |\n\nFiltros: 2024 · TIPO = PROGRAMADA.",
     "exception": null,
-    "latency_s": 0.11,
+    "latency_s": 0.106,
     "passed": false
    }
   ]
@@ -7643,7 +7646,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024, con tipo PROGRAMADA: **425**\n\nFiltros: TIPO = PROGRAMADA · 2024.",
     "exception": null,
-    "latency_s": 1.117,
+    "latency_s": 0.767,
     "passed": true
    },
    {
@@ -7682,7 +7685,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en enero de 2026: **1.250,8**\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.166,
+    "latency_s": 0.191,
     "passed": false
    }
   ]
@@ -7734,7 +7737,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.449,
+    "latency_s": 0.556,
     "passed": true
    },
    {
@@ -7773,7 +7776,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en enero de 2026: **1.250,8**\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.168,
+    "latency_s": 0.171,
     "passed": false
    },
    {
@@ -7818,7 +7821,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.462,
+    "latency_s": 0.571,
     "passed": true
    },
    {
@@ -7873,7 +7876,7 @@
     "prompt": null,
     "answer": "Busqué otros indicadores parecidos a tu pregunta. ¿Es alguno de estos?",
     "exception": null,
-    "latency_s": 0.135,
+    "latency_s": 0.147,
     "passed": false
    },
    {
@@ -7925,7 +7928,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024, con especialidad UROLOGIA y tipo PROGRAMADA: **17**\n\nFiltros: ESPECIALIDAD = UROLOGIA · TIPO = PROGRAMADA · 2024.",
     "exception": null,
-    "latency_s": 0.672,
+    "latency_s": 0.799,
     "passed": false
    }
   ]
@@ -7972,7 +7975,7 @@
     "prompt": null,
     "answer": "¿A qué tablero o servicio te refieres?",
     "exception": null,
-    "latency_s": 0.174,
+    "latency_s": 0.262,
     "passed": true
    },
    {
@@ -7996,7 +7999,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: TABLERO LAVANDERIA Alias: LAVANDERIA Descripción: Peso de ropa hospitalaria recibida en lavandería por servicio, turno y colaborador. Tablero de una página para el área de lavandería. Tablero: Página 1 Alias: Descripción: Peso mensual de ropa por servicio, colaborador y turno. Única página del tablero; en Power BI se llama «Página 1». Muestra por mes el peso de ropa recibido por servicio y su porcentaje de participación, el peso registrado por cada colaborador, la distribución… Tablero: TABLERO LAVANDERIA Definición: Pesaje: Registro de una cantidad de ropa pesada en lavandería, asoci",
     "exception": null,
-    "latency_s": 0.652,
+    "latency_s": 0.366,
     "passed": true
    }
   ]
@@ -8048,7 +8051,7 @@
     "prompt": null,
     "answer": "Con servicio URGENCIAS, **CANTIDAD DE PACIENTES** por especialidad:\n\n| ESPECIALIDAD | CANTIDAD DE PACIENTES |\n| --- | --- |\n| MEDICINA DE URGENCIAS | 2 |\n\nFiltros: SERVICIO = URGENCIAS. No pude aplicar: hospitalizacion.\n\n«en este mes»: es la cifra actual que muestra el tablero.",
     "exception": null,
-    "latency_s": 0.772,
+    "latency_s": 0.984,
     "passed": true
    },
    {
@@ -8075,7 +8078,7 @@
     "prompt": null,
     "answer": "CANTIDAD DE PACIENTES muestra el estado actual de PACIENTES X ASEGURADORA: no tiene una fecha con la que filtrar «el mes pasado».",
     "exception": null,
-    "latency_s": 0.041,
+    "latency_s": 0.05,
     "passed": true
    },
    {
@@ -8102,7 +8105,7 @@
     "prompt": null,
     "answer": "CANTIDAD DE PACIENTES muestra el estado actual de PACIENTES X ASEGURADORA: no tiene una fecha con la que filtrar «agosto».",
     "exception": null,
-    "latency_s": 0.013,
+    "latency_s": 0.018,
     "passed": true
    },
    {
@@ -8138,7 +8141,7 @@
     "prompt": null,
     "answer": "Hay **2** pacientes.\n\nFiltros: SERVICIO = URGENCIAS.",
     "exception": null,
-    "latency_s": 0.013,
+    "latency_s": 0.017,
     "passed": true
    }
   ]
@@ -8185,7 +8188,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.733,
+    "latency_s": 0.915,
     "passed": false
    },
    {
@@ -8203,7 +8206,7 @@
     "filters": [
      {
       "column": "Date",
-      "end": "2026-11-04",
+      "end": "2026-11-05",
       "label": "noviembre 2026 hasta hoy",
       "month": 11,
       "start": "2026-11-01",
@@ -8222,17 +8225,17 @@
      "CIRUGÍAS"
     ],
     "dax": [
-     "EVALUATE SUMMARIZECOLUMNS( 'CIRUGÍAS'[ESPECIALIDAD], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 11, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 4)), \"__value\", CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45))) ) ORDER BY [__value] DESC"
+     "EVALUATE SUMMARIZECOLUMNS( 'CIRUGÍAS'[ESPECIALIDAD], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 11, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 5)), \"__value\", CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45))) ) ORDER BY [__value] DESC"
     ],
     "dax_log": [
-     "EVALUATE SUMMARIZECOLUMNS( 'CIRUGÍAS'[ESPECIALIDAD], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 11, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 4)), \"__value\", CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45))) ) ORDER BY [__value] DESC",
+     "EVALUATE SUMMARIZECOLUMNS( 'CIRUGÍAS'[ESPECIALIDAD], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 11, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 5)), \"__value\", CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45))) ) ORDER BY [__value] DESC",
      "EVALUATE ROW(\"__hasta\", MAXX(FILTER(ALL('CALENDARIO'[Date]), NOT ISBLANK(CALCULATE(CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45)))))), 'CALENDARIO'[Date]))"
     ],
     "options": [],
     "prompt": null,
     "answer": "No hay datos de **CIRUGÍAS** en lo que va de noviembre de 2026. La fuente no tiene datos para ningún periodo con esos filtros.\n\nFiltros: noviembre 2026 hasta hoy.",
     "exception": null,
-    "latency_s": 1.479,
+    "latency_s": 1.662,
     "passed": false
    },
    {
@@ -8279,7 +8282,7 @@
     "prompt": null,
     "answer": "No hay datos de **CIRUGÍAS** en octubre de 2026 (mes pasado). La fuente no tiene datos para ningún periodo con esos filtros.\n\nFiltros: octubre 2026 (mes pasado).",
     "exception": null,
-    "latency_s": 5.034,
+    "latency_s": 3.373,
     "passed": false
    }
   ]
@@ -8326,7 +8329,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.723,
+    "latency_s": 0.943,
     "passed": false
    },
    {
@@ -8366,7 +8369,7 @@
     "prompt": null,
     "answer": "Para responder «Y en el mes pasado?» primero necesito saber cuál indicador de «la cantidad de cirugias realizadas en este mes por especialidad» necesitas:",
     "exception": null,
-    "latency_s": 0.061,
+    "latency_s": 0.071,
     "passed": false
    },
    {
@@ -8406,7 +8409,7 @@
      "EVALUATE SUMMARIZECOLUMNS( 'CIRUGÍAS'[ESPECIALIDAD], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 10, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 1)), \"__value\", CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[ESPECIALIDAD]), NOT ('CIRUGÍAS'[ESPECIALIDAD] IN {\"ANESTESIOLOGIA\", \"JUNTA MEDICA\"}))), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45))) ) ORDER BY [__value] DESC"
     ],
     "dax_log": [
-     "EVALUATE SUMMARIZECOLUMNS( 'CIRUGÍAS'[ESPECIALIDAD], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 11, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 4)), \"__value\", CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45))) ) ORDER BY [__value] DESC",
+     "EVALUATE SUMMARIZECOLUMNS( 'CIRUGÍAS'[ESPECIALIDAD], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 11, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 5)), \"__value\", CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45))) ) ORDER BY [__value] DESC",
      "EVALUATE ROW(\"__hasta\", MAXX(FILTER(ALL('CALENDARIO'[Date]), NOT ISBLANK(CALCULATE(CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45)))))), 'CALENDARIO'[Date]))",
      "EVALUATE SUMMARIZECOLUMNS( 'CIRUGÍAS'[ESPECIALIDAD], FILTER(ALL('CALENDARIO'[Date]), 'CALENDARIO'[Date] >= DATE(2026, 10, 1) && 'CALENDARIO'[Date] < DATE(2026, 11, 1)), \"__value\", CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[ESPECIALIDAD]), NOT ('CIRUGÍAS'[ESPECIALIDAD] IN {\"ANESTESIOLOGIA\", \"JUNTA MEDICA\"}))), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45))) ) ORDER BY [__value] DESC",
      "EVALUATE ROW(\"__hasta\", MAXX(FILTER(ALL('CALENDARIO'[Date]), NOT ISBLANK(CALCULATE(CALCULATE(COUNT('CIRUGÍAS'[PROCEDIMIENTO]), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[ESPECIALIDAD]), NOT ('CIRUGÍAS'[ESPECIALIDAD] IN {\"ANESTESIOLOGIA\", \"JUNTA MEDICA\"}))), KEEPFILTERS(FILTER(ALL('CIRUGÍAS'[TIEMPO_CIRUGÍA]), 'CIRUGÍAS'[TIEMPO_CIRUGÍA] > 45)))))), 'CALENDARIO'[Date]))"
@@ -8415,7 +8418,7 @@
     "prompt": null,
     "answer": "No hay datos de **CIRUGÍAS** en octubre de 2026 (mes pasado). La fuente no tiene datos para ningún periodo con esos filtros.\n\nFiltros: octubre 2026 (mes pasado).",
     "exception": null,
-    "latency_s": 5.011,
+    "latency_s": 5.239,
     "passed": false
    }
   ]
@@ -8461,7 +8464,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en enero de 2026: **1.250,8**\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.153,
+    "latency_s": 0.171,
     "passed": true
    },
    {
@@ -8524,7 +8527,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en febrero de 2026: **1.260,4**\n\nFiltros: febrero 2026.",
     "exception": null,
-    "latency_s": 0.048,
+    "latency_s": 0.051,
     "passed": true
    }
   ]
@@ -8570,7 +8573,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en enero de 2026: **1.250,8**\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.146,
+    "latency_s": 0.16,
     "passed": true
    },
    {
@@ -8594,7 +8597,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: Página 1 Indicador documentado: Peso total mensual: Suma de LAVANDERIA[Peso] por mes en las columnas de PESO TOTAL por Mes. Tablero: Página 1 Visualización documentada: PESO TOTAL por Mes: Columnas con el peso total de cada mes. Diccionario de variables del tablero: TABLERO LAVANDERIA Sección del diccionario: Columnas clave Diccionario de variables del tablero: TABLERO LAVANDERIA Sección: Columnas clave Contenido: LAVANDERIA[Peso]: Peso de ropa registrado en cada pesaje. Tipo: decimal. Valores: número positivo por pesaje; la unidad (kilogramos o libras) no está documentada. Se usa en:",
     "exception": null,
-    "latency_s": 0.159,
+    "latency_s": 0.183,
     "passed": true
    },
    {
@@ -8633,7 +8636,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en febrero de 2026: **1.260,4**\n\nFiltros: febrero 2026.",
     "exception": null,
-    "latency_s": 0.061,
+    "latency_s": 0.099,
     "passed": true
    }
   ]
@@ -8664,7 +8667,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: TABLERO LAVANDERIA Alias: LAVANDERIA Descripción: Peso de ropa hospitalaria recibida en lavandería por servicio, turno y colaborador. Tablero de una página para el área de lavandería. Tablero: Página 1 Alias: Descripción: Peso mensual de ropa por servicio, colaborador y turno. Única página del tablero; en Power BI se llama «Página 1». Muestra por mes el peso de ropa recibido por servicio y su porcentaje de participación, el peso registrado por cada colaborador, la distribución… Tablero: TABLERO LAVANDERIA Definición: Pesaje: Registro de una cantidad de ropa pesada en lavandería, asoci",
     "exception": null,
-    "latency_s": 0.344,
+    "latency_s": 0.395,
     "passed": true
    },
    {
@@ -8703,7 +8706,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en enero de 2026: **1.250,8**\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.189,
+    "latency_s": 0.255,
     "passed": true
    }
   ]
@@ -8749,7 +8752,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en enero de 2026: **1.250,8**\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.137,
+    "latency_s": 0.162,
     "passed": true
    },
    {
@@ -8773,7 +8776,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: Página 1 Indicador documentado: Peso total mensual: Suma de LAVANDERIA[Peso] por mes en las columnas de PESO TOTAL por Mes. Tablero: Página 1 Visualización documentada: PESO TOTAL por Mes: Columnas con el peso total de cada mes. Diccionario de variables del tablero: TABLERO LAVANDERIA Sección del diccionario: Columnas clave Diccionario de variables del tablero: TABLERO LAVANDERIA Sección: Columnas clave Contenido: LAVANDERIA[Peso]: Peso de ropa registrado en cada pesaje. Tipo: decimal. Valores: número positivo por pesaje; la unidad (kilogramos o libras) no está documentada. Se usa en:",
     "exception": null,
-    "latency_s": 0.143,
+    "latency_s": 0.17,
     "passed": true
    }
   ]
@@ -8819,7 +8822,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en enero de 2026: **1.250,8**\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.172,
+    "latency_s": 0.207,
     "passed": true
    },
    {
@@ -8843,7 +8846,7 @@
     "prompt": null,
     "answer": "[FakeLLM] Tablero: MEDICAMENTOS VENCIDOS Fuente de datos: ALMACENES: Lista de almacenes para el filtro. Diccionario de variables del tablero: TABLERO FARMACIA Sección del diccionario: Columnas clave Diccionario de variables del tablero: TABLERO FARMACIA Sección: Columnas clave Contenido: ALMACENES[IALNOMBRE]: Nombre del almacén de farmacia. Es el filtro ALMACEN de INICIO, STOCK MINIMO, MEDICAMENTOS VENCIDOS y de los filtros de página; la tarjeta de inventario mínimo excluye «STOCK URGENCIAS». Tipo: texto. Valores: nombres de los almacenes con código 002, 007, 075, 062 y 082 de Dinámica; los nombres exac",
     "exception": null,
-    "latency_s": 0.339,
+    "latency_s": 0.368,
     "passed": true
    },
    {
@@ -8882,7 +8885,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en marzo de 2026: **1.378,3**\n\nFiltros: marzo 2026.",
     "exception": null,
-    "latency_s": 0.073,
+    "latency_s": 0.091,
     "passed": true
    }
   ]
@@ -8928,7 +8931,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en enero de 2026: **1.250,8**\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.147,
+    "latency_s": 0.167,
     "passed": true
    },
    {
@@ -8968,7 +8971,7 @@
     "prompt": null,
     "answer": "¿A qué tablero o servicio te refieres?",
     "exception": null,
-    "latency_s": 0.195,
+    "latency_s": 0.221,
     "passed": false
    },
    {
@@ -9007,7 +9010,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en febrero de 2026: **1.260,4**\n\nFiltros: febrero 2026.",
     "exception": null,
-    "latency_s": 0.66,
+    "latency_s": 0.763,
     "passed": true
    }
   ]
@@ -9066,7 +9069,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024, con especialidad UROLOGIA y tipo PROGRAMADA: **17**\n\nFiltros: ESPECIALIDAD = UROLOGIA · TIPO = PROGRAMADA · 2024.",
     "exception": null,
-    "latency_s": 0.73,
+    "latency_s": 0.802,
     "passed": true
    },
    {
@@ -9118,7 +9121,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **26**\n\nFiltros: TIPO = PROGRAMADA · 2024 · ESPECIALIDAD = ORTOPEDIA Y TRAUMATOLOGIA.",
     "exception": null,
-    "latency_s": 0.083,
+    "latency_s": 0.097,
     "passed": false
    }
   ]
@@ -9177,7 +9180,7 @@
     "prompt": null,
     "answer": "En 2024, con tipo PROGRAMADA, **TOTAL_CIRUGIAS** por especialidad:\n\n| ESPECIALIDAD | TOTAL_CIRUGIAS |\n| --- | --- |\n| NEUMOLOGIA | 89 |\n| CIRUGIA VASCULAR | 54 |\n| PSIQUIATRIA | 37 |\n| ANESTESIOLOGIA | 30 |\n| ORTOPEDIA Y TRAUMATOLOGIA | 26 |\n| CIRUGIA PLASTICA | 24 |\n| GINECOLOGIA Y OBSTETRICIA | 21 |\n| CIRUGIA GENERAL | 21 |\n| CARDIOLOGIA | 18 |\n| UROLOGIA | 17 |\n| OFTALMOLOGIA | 15 |\n| NEUROCIRUGIA | 14 |\n| OTORRINOLARINGOLOGIA | 12 |\n| GASTROENTEROLOGIA | 11 |\n| NEUROLOGIA | 10 |\n| DERMATOLOGIA | 9 |\n| MEDICINA INTERNA | 7 |\n| PEDIATRIA | 5 |\n| (sin especialidad) | 5 |\n\nFiltros: TIPO = PROGRAMADA · 2024.",
     "exception": null,
-    "latency_s": 0.814,
+    "latency_s": 0.77,
     "passed": true
    },
    {
@@ -9229,7 +9232,7 @@
     "prompt": null,
     "answer": "**TOTAL_CIRUGIAS** en 2024: **17**\n\nFiltros: TIPO = PROGRAMADA · 2024 · ESPECIALIDAD = UROLOGIA.",
     "exception": null,
-    "latency_s": 0.094,
+    "latency_s": 0.153,
     "passed": false
    },
    {
@@ -9293,7 +9296,7 @@
     "prompt": null,
     "answer": "- **TOTAL_CIRUGIAS (2024)**: 17\n- **TOTAL_CIRUGIAS (2023)**: 10\n\nFiltros: TIPO = PROGRAMADA · ESPECIALIDAD = UROLOGIA.\n\nDiferencia: +7 (+70 %).",
     "exception": null,
-    "latency_s": 0.193,
+    "latency_s": 0.136,
     "passed": true
    }
   ]
@@ -9339,7 +9342,7 @@
     "prompt": null,
     "answer": "**PESO TOTAL por Mes** en enero de 2026: **1.250,8**\n\nFiltros: enero 2026.",
     "exception": null,
-    "latency_s": 0.164,
+    "latency_s": 0.17,
     "passed": true
    },
    {
@@ -9384,7 +9387,7 @@
     "prompt": null,
     "answer": "En 2024, **ATENCIONES** por servicio:\n\n| servicio | ATENCIONES |\n| --- | --- |\n| UCI ADULTOS | 1.005 |\n| UCI NEONATAL | 467 |\n| PEDIATRIA | 286 |\n| CONSULTA EXTERNA | 258 |\n| LABORATORIO CLINICO | 218 |\n| CUIDADO INTERMEDIO ADULTO | 216 |\n| ATENCION DOMICILIARIA | 205 |\n| IMAGENES | 191 |\n| UNIDAD CARDIONEUROVASCULAR | 152 |\n| OBSTETRICIA | 143 |\n| URGENCIAS | 119 |\n| CIRUGIA | 113 |\n| HOSPITALIZACION | 103 |\n| HOSPITALIZACION PARCIAL | 88 |\n| (sin servicio) | 48 |\n\nFiltros: 2024.",
     "exception": null,
-    "latency_s": 0.562,
+    "latency_s": 0.656,
     "passed": true
    }
   ]
@@ -9419,7 +9422,7 @@
     "prompt": null,
     "answer": "**%OCUPACION**: **72,58 %**\n\n«hoy»: es la cifra actual que muestra el tablero. Cifra tal como la muestra la tarjeta de la página GESTIÓN CAMAS del tablero BRIEFING HOSPITALARIO (con sus 5 filtros; p. ej., excluye servicio ATENCION DOMICILIARIA, BLOQUEAR y 18 más).",
     "exception": null,
-    "latency_s": 5.152,
+    "latency_s": 2.332,
     "passed": true
    }
   ]
@@ -9454,7 +9457,7 @@
     "prompt": null,
     "answer": "**%OCUPACION**: **72,58 %**\n\n«hoy»: es la cifra actual que muestra el tablero. Cifra tal como la muestra la tarjeta de la página GESTIÓN CAMAS del tablero BRIEFING HOSPITALARIO (con sus 5 filtros; p. ej., excluye servicio ATENCION DOMICILIARIA, BLOQUEAR y 18 más).",
     "exception": null,
-    "latency_s": 0.807,
+    "latency_s": 0.583,
     "passed": true
    },
    {
@@ -9500,7 +9503,7 @@
     "prompt": null,
     "answer": "**PACIENTES por ASEGURADORA** por asegurador:\n\n| ASEGURADOR | PACIENTES por ASEGURADORA |\n| --- | --- |\n| NUEVA EPS | 11 |\n| SANITAS EPS | 7 |\n| SURA EPS | 6 |\n| SALUD TOTAL EPS | 5 |\n| COOSALUD EPS | 4 |\n| FAMISANAR EPS | 3 |\n| COMPENSAR EPS | 2 |\n| MUTUAL SER EPS | 2 |\n| PARTICULAR | 1 |\n| POLICIA NACIONAL | 1 |\n| SOAT - SEGUROS DEL ESTADO | 1 |\n\n%OCUPACION, CamasFiltradas y %OCUPACIONALC no se pueden desglosar por aseguradores: sus tablas no tienen esa columna. Para ver «ocupación» por aseguradora se muestra PACIENTES por ASEGURADORA (BRIEFING HOSPITALARIO › página DETALLE OCUPACIÓN), que sí se desglosa por ASEGURADORA. Las filas suman 43; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
     "exception": null,
-    "latency_s": 0.8,
+    "latency_s": 0.686,
     "passed": true
    }
   ]
@@ -9542,7 +9545,7 @@
     "prompt": null,
     "answer": "**PACIENTES por ASEGURADORA** por asegurador:\n\n| ASEGURADOR | PACIENTES por ASEGURADORA |\n| --- | --- |\n| NUEVA EPS | 11 |\n| SANITAS EPS | 7 |\n| SURA EPS | 6 |\n| SALUD TOTAL EPS | 5 |\n| COOSALUD EPS | 4 |\n| FAMISANAR EPS | 3 |\n| COMPENSAR EPS | 2 |\n| MUTUAL SER EPS | 2 |\n| PARTICULAR | 1 |\n| POLICIA NACIONAL | 1 |\n| SOAT - SEGUROS DEL ESTADO | 1 |\n\n%OCUPACION, CamasFiltradas y %OCUPACIONALC no se pueden desglosar por aseguradores: sus tablas no tienen esa columna. Para ver «ocupación» por aseguradora se muestra PACIENTES por ASEGURADORA (BRIEFING HOSPITALARIO › página DETALLE OCUPACIÓN), que sí se desglosa por ASEGURADORA. Las filas suman 43; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
     "exception": null,
-    "latency_s": 0.8,
+    "latency_s": 0.59,
     "passed": true
    },
    {
@@ -9603,7 +9606,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 1.838,
+    "latency_s": 0.841,
     "passed": false
    }
   ]
@@ -9660,7 +9663,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.963,
+    "latency_s": 0.703,
     "passed": true
    },
    {
@@ -9706,7 +9709,7 @@
     "prompt": null,
     "answer": "**6 camas disponibles** en HOSPITALIZACIÓN GENERAL (indicador CAMAS):\n\n| SERVICIO | CAMA |\n| --- | --- |\n| HOSPITALIZACIÓN GENERAL | 403 |\n| HOSPITALIZACIÓN GENERAL | 407 |\n| HOSPITALIZACIÓN GENERAL | 411 |\n| HOSPITALIZACIÓN GENERAL | 415 |\n| HOSPITALIZACIÓN GENERAL | 419 |\n| HOSPITALIZACIÓN GENERAL | 422 |\n\nFiltros: SERVICIO = HOSPITALIZACIÓN GENERAL · ESTADO = DISPONIBLE.\n\nCifra tal como la muestra la tabla de la página GESTIÓN CAMAS del tablero BRIEFING HOSPITALARIO (con sus 5 filtros; p. ej., excluye servicio ATENCION DOMICILIARIA, BLOQUEAR y 18 más).",
     "exception": null,
-    "latency_s": 0.411,
+    "latency_s": 0.227,
     "passed": true
    }
   ]
@@ -9718,47 +9721,41 @@
   "turns": [
    {
     "input": "qué camas están disponibles en UCI",
-    "status": "needs_clarification",
-    "route": "clarification",
+    "status": "success",
+    "route": "powerbi",
     "stage": null,
-    "clarification_type": "query_plan_metric",
-    "metric": null,
-    "metric_id": null,
-    "semantic_model": null,
-    "report": null,
-    "dashboard": null,
-    "result_type": null,
-    "filters": [],
-    "unapplied_terms": [],
-    "group_by": [],
-    "dax": [],
-    "dax_log": [],
-    "options": [
+    "clarification_type": null,
+    "metric": "CAMAS DISPONIBLES",
+    "metric_id": "a335eb45579dd719",
+    "semantic_model": "BRIEFING HOSPITALARIO",
+    "report": "BRIEFING HOSPITALARIO",
+    "dashboard": "GESTIÓN CAMAS",
+    "result_type": "scalar",
+    "filters": [
      {
-      "id": "d61113156031eae1",
-      "label": "CAMAS",
-      "caption": "[FakeLLM] Obtiene el valor de camas (tabla SERVICIOS) · BRIEFING HOSPITALARIO › página GESTIÓN CAMAS"
-     },
-     {
-      "id": "a335eb45579dd719",
-      "label": "CAMAS DISPONIBLES",
-      "caption": "[FakeLLM] Obtiene el valor de camas disponibles (tabla CAMAS DISPONIBLES) · BRIEFING HOSPITALARIO › página GESTIÓN CAMAS"
-     },
-     {
-      "id": "9cdf357f18a1f749",
-      "label": "CamasFiltradas",
-      "caption": "[FakeLLM] Obtiene el valor de camasfiltradas (tabla SERVICIOS) · BRIEFING HOSPITALARIO › página INICIO"
-     },
-     {
-      "id": "__none__",
-      "label": "Ninguna de las anteriores",
-      "caption": "Buscar otros indicadores parecidos a la pregunta"
+      "column": "NOM_SERV",
+      "operator": "=",
+      "table": "SERVICIOS",
+      "type": "categorical",
+      "value": "UCI ADULTOS"
      }
     ],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[ESTADOS_CAM]), 'CAMAS DISPONIBLES'[ESTADOS_CAM] IN {\"DISPONIBLE\"})), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"EXP\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"OH\"))))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL \", \"BLOQUEAR - CUIDADO BASICO NEONATAL \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS \", \"BLOQUEAR - URGENCIAS OBS SALA 2 \", \"BLOQUEAR - URGENCIAS OBS SALA 3 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"})))), TREATAS({\"UCI ADULTOS\"}, 'SERVICIOS'[NOM_SERV]) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('PORCENTAJE_OCUPACIONAL'[servicio])), \"__card1\", COUNTROWS(VALUES('PORCENTAJE_OCUPACIONAL'[SERVICIO_HOMOLOGADO])), \"__card2\", COUNTROWS(VALUES('DIM_SERVICIO'[SERVICIO_HOMOLOGADO])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PORCENTAJE_OCUPACIONAL'[servicio]), \"Value\", 'PORCENTAJE_OCUPACIONAL'[servicio]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PORCENTAJE_OCUPACIONAL'[SERVICIO_HOMOLOGADO]), \"Value\", 'PORCENTAJE_OCUPACIONAL'[SERVICIO_HOMOLOGADO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('DIM_SERVICIO'[SERVICIO_HOMOLOGADO]), \"Value\", 'DIM_SERVICIO'[SERVICIO_HOMOLOGADO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE(DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[ESTADOS_CAM]), 'CAMAS DISPONIBLES'[ESTADOS_CAM] IN {\"DISPONIBLE\"})), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"EXP\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"OH\"))))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL \", \"BLOQUEAR - CUIDADO BASICO NEONATAL \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS \", \"BLOQUEAR - URGENCIAS OBS SALA 2 \", \"BLOQUEAR - URGENCIAS OBS SALA 3 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"})))), TREATAS({\"UCI ADULTOS\"}, 'SERVICIOS'[NOM_SERV]) ) )",
+     "EVALUATE TOPN( 51, SUMMARIZECOLUMNS( 'SERVICIOS'[NOM_SERV], 'CAMAS DISPONIBLES'[HCACODIGO], TREATAS({\"UCI ADULTOS\"}, 'SERVICIOS'[NOM_SERV]), \"__value\", CALCULATE(DISTINCTCOUNT('CAMAS DISPONIBLES'[HCACODIGO]), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[ESTADOS_CAM]), 'CAMAS DISPONIBLES'[ESTADOS_CAM] IN {\"DISPONIBLE\"})), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"EXP\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"OH\"))))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL \", \"BLOQUEAR - CUIDADO BASICO NEONATAL \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS \", \"BLOQUEAR - URGENCIAS OBS SALA 2 \", \"BLOQUEAR - URGENCIAS OBS SALA 3 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"})))) ), 'SERVICIOS'[NOM_SERV], ASC, 'CAMAS DISPONIBLES'[HCACODIGO], ASC ) ORDER BY 'SERVICIOS'[NOM_SERV] ASC, 'CAMAS DISPONIBLES'[HCACODIGO] ASC"
+    ],
+    "options": [],
     "prompt": null,
-    "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
+    "answer": "**1 cama** en UCI ADULTOS (indicador CAMAS DISPONIBLES):\n\n| SERVICIO | CAMA |\n| --- | --- |\n| UCI ADULTOS | UCI-06 |\n\nFiltros: SERVICIO = UCI ADULTOS.\n\nPara nom_serv se usa lo que pediste en lugar del filtro que trae la página. Cifra tal como la muestra la tarjeta de la página GESTIÓN CAMAS del tablero BRIEFING HOSPITALARIO (con sus 6 filtros; p. ej., solo estado de la cama DISPONIBLE).",
     "exception": null,
-    "latency_s": 1.29,
+    "latency_s": 1.152,
     "passed": false
    }
   ]
@@ -9805,7 +9802,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 1.194,
+    "latency_s": 0.559,
     "passed": false
    }
   ]
@@ -9817,42 +9814,39 @@
   "turns": [
    {
     "input": "lista de camas bloqueadas",
-    "status": "needs_clarification",
-    "route": "clarification",
+    "status": "success",
+    "route": "powerbi",
     "stage": null,
-    "clarification_type": "query_plan_metric",
-    "metric": null,
-    "metric_id": null,
-    "semantic_model": null,
-    "report": null,
-    "dashboard": null,
-    "result_type": null,
-    "filters": [],
-    "unapplied_terms": [],
-    "group_by": [],
-    "dax": [],
-    "dax_log": [],
-    "options": [
+    "clarification_type": null,
+    "metric": "CAMAS",
+    "metric_id": "d61113156031eae1",
+    "semantic_model": "BRIEFING HOSPITALARIO",
+    "report": "BRIEFING HOSPITALARIO",
+    "dashboard": "GESTIÓN CAMAS",
+    "result_type": "scalar",
+    "filters": [
      {
-      "id": "d61113156031eae1",
-      "label": "CAMAS — BRIEFING HOSPITALARIO",
-      "caption": "[FakeLLM] Obtiene el valor de camas (tabla SERVICIOS) · Página GESTIÓN CAMAS"
-     },
-     {
-      "id": "7de279903aaeaa55",
-      "label": "NUMERO CAMAS — TABLERO DE ATENCIONES INSTITUCIONALES",
-      "caption": "[FakeLLM] Obtiene el valor de numerocamas (medida NUMERO_CAMAS)"
-     },
-     {
-      "id": "__none__",
-      "label": "Ninguna de las anteriores",
-      "caption": "Buscar otros indicadores parecidos a la pregunta"
+      "column": "ESTADOS_CAM",
+      "operator": "=",
+      "table": "CAMAS DISPONIBLES",
+      "type": "categorical",
+      "value": "BLOQUEADA"
      }
     ],
+    "unapplied_terms": [],
+    "group_by": [],
+    "dax": [
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE([CAMAS], KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL \", \"BLOQUEAR - CUIDADO BASICO NEONATAL \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS \", \"BLOQUEAR - URGENCIAS OBS SALA 2 \", \"BLOQUEAR - URGENCIAS OBS SALA 3 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"})))), TREATAS({\"BLOQUEADA\"}, 'CAMAS DISPONIBLES'[ESTADOS_CAM]) ) )"
+    ],
+    "dax_log": [
+     "EVALUATE ROW( \"__value\", CALCULATE( CALCULATE([CAMAS], KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL \", \"BLOQUEAR - CUIDADO BASICO NEONATAL \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS \", \"BLOQUEAR - URGENCIAS OBS SALA 2 \", \"BLOQUEAR - URGENCIAS OBS SALA 3 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"})))), TREATAS({\"BLOQUEADA\"}, 'CAMAS DISPONIBLES'[ESTADOS_CAM]) ) )",
+     "EVALUATE TOPN( 51, SUMMARIZECOLUMNS( 'SERVICIOS'[NOM_SERV], 'CAMAS DISPONIBLES'[HCACODIGO], TREATAS({\"BLOQUEADA\"}, 'CAMAS DISPONIBLES'[ESTADOS_CAM]), \"__value\", CALCULATE([CAMAS], KEEPFILTERS(FILTER(ALL('SERVICIOS'[HSUNOMBRE]), NOT (('SERVICIOS'[HSUNOMBRE] IN {\"ATENCION DOMICILIARIA\", \"BLOQUEAR\", \"BLOQUEAR - AISLAMIENTO NEONATAL \", \"BLOQUEAR - CUIDADO BASICO NEONATAL \", \"BLOQUEAR - CUIDADO INTENSIVO NEONATAL \", \"BLOQUEAR - CUIDADO INTERMEDIO NEONATAL \", \"BLOQUEAR - MEDICINA PREPAGADA NORTE \", \"BLOQUEAR - UNIDAD DE CUIDADOS INTENSIVOS \", \"BLOQUEAR - URGENCIAS OBS SALA 2 \", \"BLOQUEAR - URGENCIAS OBS SALA 3 \", \"BLOQUEAR - URGENCIAS OBS SALA 4\", \"BLOQUEAR-CUIDADO INTERMEDIO ADULTO \", \"BLOQUEAR-UNIDAD POLIVALENTE\", \"CAMAS MAL CREADAS EN EL SISTEMA\", \"HOSPITALIZACION PARCIAL\", \"IMAGENES\", \"QUIROFANO\", \"SEGUNDO PISO SUR\", \"UNIDAD NEUROCARDIOVASCULAR\", \"SALA TUCAN\"} || ISBLANK('SERVICIOS'[HSUNOMBRE]))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR_6TO]), NOT ('CAMAS DISPONIBLES'[MOSTRAR_6TO] IN {0}))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[HCACODIGO]), (NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"321\")) && NOT (CONTAINSSTRING('CAMAS DISPONIBLES'[HCACODIGO], \"322\"))))), KEEPFILTERS(FILTER(ALL('CAMAS DISPONIBLES'[MOSTRAR]), NOT ('CAMAS DISPONIBLES'[MOSTRAR] IN {\"NO MOSTRAR\"}))), KEEPFILTERS(FILTER(ALL('SERVICIOS'[NOM_SERV]), NOT ('SERVICIOS'[NOM_SERV] IN {\"CUIDADO ESPECIAL\"})))) ), 'SERVICIOS'[NOM_SERV], ASC, 'CAMAS DISPONIBLES'[HCACODIGO], ASC ) ORDER BY 'SERVICIOS'[NOM_SERV] ASC, 'CAMAS DISPONIBLES'[HCACODIGO] ASC"
+    ],
+    "options": [],
     "prompt": null,
-    "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
+    "answer": "**3 camas bloqueadas** (indicador CAMAS):\n\n| SERVICIO | CAMA |\n| --- | --- |\n| GINECOBSTETRICIA | 708 |\n| HOSPITALIZACIÓN GENERAL | 412 |\n| UCI ADULTOS | UCI-10 |\n\nFiltros: ESTADO = BLOQUEADA.\n\nCifra tal como la muestra la tabla de la página GESTIÓN CAMAS del tablero BRIEFING HOSPITALARIO (con sus 5 filtros; p. ej., excluye servicio ATENCION DOMICILIARIA, BLOQUEAR y 18 más).",
     "exception": null,
-    "latency_s": 2.012,
+    "latency_s": 1.0,
     "passed": false
    }
   ]
@@ -9894,7 +9888,7 @@
     "prompt": null,
     "answer": "**PACIENTES por ASEGURADORA** por asegurador:\n\n| ASEGURADOR | PACIENTES por ASEGURADORA |\n| --- | --- |\n| NUEVA EPS | 11 |\n| SANITAS EPS | 7 |\n| SURA EPS | 6 |\n| SALUD TOTAL EPS | 5 |\n| COOSALUD EPS | 4 |\n| FAMISANAR EPS | 3 |\n| COMPENSAR EPS | 2 |\n| MUTUAL SER EPS | 2 |\n| PARTICULAR | 1 |\n| POLICIA NACIONAL | 1 |\n| SOAT - SEGUROS DEL ESTADO | 1 |\n\nLas filas suman 43; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
     "exception": null,
-    "latency_s": 2.02,
+    "latency_s": 0.684,
     "passed": true
    }
   ]
@@ -9936,7 +9930,7 @@
     "prompt": null,
     "answer": "**PACIENTES OBSERVADOS POR MES** por asegurador:\n\n| ASEGURADOR | PACIENTES OBSERVADOS POR MES |\n| --- | --- |\n| SOAT - SEGUROS DEL ESTADO | 588 |\n| MEDICINA PREPAGADA COLSANITAS | 345 |\n| ASMET SALUD EPS | 219 |\n| EPS FAMILIAR DE COLOMBIA | 166 |\n| SANITAS EPS | 141 |\n| FAMISANAR EPS | 115 |\n| ARL SURA | 108 |\n| SALUD MIA EPS | 92 |\n| FUERZAS MILITARES | 91 |\n| COMPENSAR EPS | 88 |\n| ADRES | 84 |\n| COOSALUD EPS | 69 |\n| SURA EPS | 58 |\n| PARTICULAR | 58 |\n| NUEVA EPS | 58 |\n| POLICIA NACIONAL | 57 |\n| SALUD TOTAL EPS | 55 |\n| MUTUAL SER EPS | 51 |\n| **Total** | **2.443** |",
     "exception": null,
-    "latency_s": 0.713,
+    "latency_s": 0.824,
     "passed": true
    },
    {
@@ -9975,7 +9969,7 @@
     "prompt": null,
     "answer": "**TIEMPO PROMEDIO PARA ATENCIÓN EN TRIAGE**: **122,1 minutos**",
     "exception": null,
-    "latency_s": 0.898,
+    "latency_s": 1.237,
     "passed": true
    }
   ]
@@ -10008,9 +10002,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "Hay **2.171** solicitudes.",
+    "answer": "Hay **2.175** solicitudes.",
     "exception": null,
-    "latency_s": 0.488,
+    "latency_s": 0.776,
     "passed": true
    }
   ]
@@ -10043,9 +10037,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**%INASISTENCIA**: **99,15 %**\n\nCifra tal como la muestra la tarjeta de la página OFERTA ESPECIALIDADES del tablero ASIGNACION DE CITAS (con su filtro).",
+    "answer": "**%INASISTENCIA**: **99,09 %**\n\nCifra tal como la muestra la tarjeta de la página OFERTA ESPECIALIDADES del tablero ASIGNACION DE CITAS (con su filtro).",
     "exception": null,
-    "latency_s": 0.554,
+    "latency_s": 0.976,
     "passed": true
    },
    {
@@ -10085,7 +10079,7 @@
     "prompt": null,
     "answer": "**43 pacientes** (indicador TOTAL PACIENTES):\n\n| SERVICIO | CANTIDAD |\n| --- | --- |\n| GINECOBSTETRICIA | 5 |\n| HOSPITALIZACIÓN GENERAL | 15 |\n| HOSPITALIZACIÓN INTERMEDIOS | 9 |\n| PEDIATRÍA | 4 |\n| UCI ADULTOS | 8 |\n| URGENCIAS | 2 |\n\nPor privacidad, la lista no incluye datos que identifican a personas (ADNINGRESO).",
     "exception": null,
-    "latency_s": 1.621,
+    "latency_s": 0.57,
     "passed": true
    }
   ]
@@ -10125,9 +10119,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**PAC_ACT** por servicio:\n\n| SERVICIO | PAC_ACT |\n| --- | --- |\n| CONSULTA EXTERNA | 350 |\n| HOSPITALIZACION | 219 |\n| UCI NEONATAL | 167 |\n| LABORATORIO CLINICO | 137 |\n| ATENCION DOMICILIARIA | 104 |\n| UNIDAD CARDIONEUROVASCULAR | 99 |\n| CUIDADO INTERMEDIO ADULTO | 87 |\n| OBSTETRICIA | 81 |\n| HOSPITALIZACION PARCIAL | 73 |\n| CIRUGIA | 67 |\n| UCI ADULTOS | 58 |\n| IMAGENES | 45 |\n| PEDIATRIA | 44 |\n| URGENCIAS | 43 |\n| (sin servicio) | 29 |",
+    "answer": "**PAC_ACT** por servicio:\n\n| SERVICIO | PAC_ACT |\n| --- | --- |\n| CONSULTA EXTERNA | 351 |\n| HOSPITALIZACION | 219 |\n| UCI NEONATAL | 167 |\n| LABORATORIO CLINICO | 137 |\n| ATENCION DOMICILIARIA | 103 |\n| UNIDAD CARDIONEUROVASCULAR | 100 |\n| CUIDADO INTERMEDIO ADULTO | 87 |\n| OBSTETRICIA | 81 |\n| HOSPITALIZACION PARCIAL | 73 |\n| CIRUGIA | 67 |\n| UCI ADULTOS | 58 |\n| IMAGENES | 45 |\n| PEDIATRIA | 44 |\n| URGENCIAS | 43 |\n| (sin servicio) | 29 |",
     "exception": null,
-    "latency_s": 0.714,
+    "latency_s": 0.83,
     "passed": true
    }
   ]
@@ -10167,9 +10161,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**MONTO FACTURADO POR ÁREA DE SERVICIO** por area servicio:\n\n| AREA SERVICIO | MONTO FACTURADO POR ÁREA DE SERVICIO |\n| --- | --- |\n| URGENCIAS | $ 1.367.027.101 |\n| IMAGENES | $ 858.472.333 |\n| UCI NEONATAL | $ 498.493.067 |\n| HOSPITALIZACION PARCIAL | $ 454.594.923 |\n| PEDIATRIA | $ 419.149.721 |\n| CIRUGIA | $ 294.892.631 |\n| OBSTETRICIA | $ 287.875.675 |\n| CONSULTA EXTERNA | $ 275.971.322 |\n| CUIDADO INTERMEDIO ADULTO | $ 193.903.342 |\n| UCI ADULTOS | $ 185.077.145 |\n| LABORATORIO CLINICO | $ 158.536.494 |\n| UNIDAD CARDIONEUROVASCULAR | $ 144.770.533 |\n| ATENCION DOMICILIARIA | $ 137.438.934 |\n| HOSPITALIZACION | $ 132.702.954 |\n| (sin area servicio) | $ 64.490.862 |\n| **Total** | **$ 5.473.397.037** |",
+    "answer": "**MONTO FACTURADO POR ÁREA DE SERVICIO** por area servicio:\n\n| AREA SERVICIO | MONTO FACTURADO POR ÁREA DE SERVICIO |\n| --- | --- |\n| URGENCIAS | $ 1.367.027.101 |\n| IMAGENES | $ 856.197.107 |\n| UCI NEONATAL | $ 498.493.067 |\n| HOSPITALIZACION PARCIAL | $ 456.169.964 |\n| PEDIATRIA | $ 419.149.721 |\n| CIRUGIA | $ 295.546.204 |\n| OBSTETRICIA | $ 289.351.140 |\n| CONSULTA EXTERNA | $ 275.971.322 |\n| CUIDADO INTERMEDIO ADULTO | $ 193.903.342 |\n| UCI ADULTOS | $ 185.077.145 |\n| LABORATORIO CLINICO | $ 160.866.767 |\n| UNIDAD CARDIONEUROVASCULAR | $ 144.770.533 |\n| ATENCION DOMICILIARIA | $ 137.438.934 |\n| HOSPITALIZACION | $ 132.702.954 |\n| (sin area servicio) | $ 64.490.862 |\n| **Total** | **$ 5.477.156.163** |",
     "exception": null,
-    "latency_s": 0.901,
+    "latency_s": 1.195,
     "passed": true
    }
   ]
@@ -10209,9 +10203,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**Cantidad de SOLICITUDES** por especialidad:\n\n| ESPECIALIDAD | Cantidad de SOLICITUDES |\n| --- | --- |\n| CIRUGIA PLASTICA | 413 |\n| CIRUGIA GENERAL | 313 |\n| ORTOPEDIA Y TRAUMATOLOGIA | 172 |\n| NEUMOLOGIA | 170 |\n| PSIQUIATRIA | 142 |\n| MEDICINA INTERNA | 136 |\n| ANESTESIOLOGIA | 114 |\n| GASTROENTEROLOGIA | 95 |\n| DERMATOLOGIA | 94 |\n| GINECOLOGIA Y OBSTETRICIA | 75 |\n| PEDIATRIA | 71 |\n| NEUROLOGIA | 69 |\n| UROLOGIA | 64 |\n| CARDIOLOGIA | 59 |\n| OFTALMOLOGIA | 50 |\n| NEUROCIRUGIA | 45 |\n| OTORRINOLARINGOLOGIA | 39 |\n| CIRUGIA VASCULAR | 36 |\n| (sin especialidad) | 14 |\n\nLas filas suman 2.171; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
+    "answer": "**Cantidad de SOLICITUDES** por especialidad:\n\n| ESPECIALIDAD | Cantidad de SOLICITUDES |\n| --- | --- |\n| CIRUGIA PLASTICA | 416 |\n| CIRUGIA GENERAL | 313 |\n| ORTOPEDIA Y TRAUMATOLOGIA | 172 |\n| NEUMOLOGIA | 170 |\n| PSIQUIATRIA | 142 |\n| MEDICINA INTERNA | 136 |\n| ANESTESIOLOGIA | 114 |\n| DERMATOLOGIA | 95 |\n| GASTROENTEROLOGIA | 95 |\n| GINECOLOGIA Y OBSTETRICIA | 75 |\n| PEDIATRIA | 72 |\n| NEUROLOGIA | 69 |\n| UROLOGIA | 63 |\n| CARDIOLOGIA | 59 |\n| OFTALMOLOGIA | 50 |\n| NEUROCIRUGIA | 45 |\n| OTORRINOLARINGOLOGIA | 39 |\n| CIRUGIA VASCULAR | 36 |\n| (sin especialidad) | 14 |\n\nLas filas suman 2.175; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
     "exception": null,
-    "latency_s": 0.316,
+    "latency_s": 0.267,
     "passed": true
    }
   ]
@@ -10253,7 +10247,7 @@
     "prompt": null,
     "answer": "**TOTAL PACIENTES** por especialidad:\n\n| ESPECIALIDAD | TOTAL PACIENTES |\n| --- | --- |\n| MEDICINA INTERNA | 9 |\n| MEDICINA CRÍTICA | 8 |\n| CIRUGÍA GENERAL | 5 |\n| ORTOPEDIA | 5 |\n| CARDIOLOGÍA | 5 |\n| GINECOLOGÍA Y OBSTETRICIA | 5 |\n| PEDIATRÍA | 4 |\n| MEDICINA DE URGENCIAS | 2 |\n\nLas filas suman 43; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
     "exception": null,
-    "latency_s": 2.097,
+    "latency_s": 0.632,
     "passed": true
    }
   ]
@@ -10310,7 +10304,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.94,
+    "latency_s": 0.611,
     "passed": true
    },
    {
@@ -10353,7 +10347,7 @@
     "prompt": null,
     "answer": "Con estados BLOQUEADA, **CamasFiltradas** por hsunombre:\n\n| HSUNOMBRE | CamasFiltradas |\n| --- | --- |\n| HOSPITALIZACIÓN GENERAL | 1 |\n| UCI ADULTOS | 1 |\n| GINECOBSTETRICIA | 1 |\n\nFiltros: ESTADOS = BLOQUEADA.\n\nPara servicio se usa lo que pediste en lugar del filtro que trae la página. Cifra tal como la muestra el gráfico de la página INICIO del tablero BRIEFING HOSPITALARIO (con sus 3 filtros).",
     "exception": null,
-    "latency_s": 0.139,
+    "latency_s": 0.063,
     "passed": false
    }
   ]
@@ -10400,7 +10394,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 1.415,
+    "latency_s": 0.705,
     "passed": false
    }
   ]
@@ -10440,9 +10434,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**CITAS EN ESPERA** por especialidad:\n\n| ESPECIALIDAD | CITAS EN ESPERA |\n| --- | --- |\n| CARDIOLOGIA | 346 |\n| GINECOLOGIA Y OBSTETRICIA | 173 |\n| GASTROENTEROLOGIA | 153 |\n| MEDICINA INTERNA | 98 |\n| NEUROLOGIA | 95 |\n| NEUROCIRUGIA | 81 |\n| ORTOPEDIA Y TRAUMATOLOGIA | 65 |\n| NEUMOLOGIA | 60 |\n| CIRUGIA PLASTICA | 56 |\n| PEDIATRIA | 53 |\n| OTORRINOLARINGOLOGIA | 51 |\n| ANESTESIOLOGIA | 45 |\n| DERMATOLOGIA | 41 |\n| OFTALMOLOGIA | 40 |\n| CIRUGIA VASCULAR | 35 |\n| UROLOGIA | 33 |\n| CIRUGIA GENERAL | 31 |\n| PSIQUIATRIA | 19 |\n| **Total** | **1.475** |",
+    "answer": "**CITAS EN ESPERA** por especialidad:\n\n| ESPECIALIDAD | CITAS EN ESPERA |\n| --- | --- |\n| CARDIOLOGIA | 346 |\n| GINECOLOGIA Y OBSTETRICIA | 171 |\n| GASTROENTEROLOGIA | 154 |\n| MEDICINA INTERNA | 97 |\n| NEUROLOGIA | 95 |\n| NEUROCIRUGIA | 82 |\n| ORTOPEDIA Y TRAUMATOLOGIA | 65 |\n| NEUMOLOGIA | 60 |\n| CIRUGIA PLASTICA | 56 |\n| PEDIATRIA | 54 |\n| OTORRINOLARINGOLOGIA | 51 |\n| ANESTESIOLOGIA | 45 |\n| DERMATOLOGIA | 41 |\n| OFTALMOLOGIA | 40 |\n| CIRUGIA VASCULAR | 35 |\n| UROLOGIA | 33 |\n| CIRUGIA GENERAL | 31 |\n| PSIQUIATRIA | 19 |\n| **Total** | **1.475** |",
     "exception": null,
-    "latency_s": 0.74,
+    "latency_s": 0.778,
     "passed": true
    }
   ]
@@ -10482,9 +10476,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**TRIAGES NO ATENDIDOS** por asegurador:\n\n| ASEGURADOR | TRIAGES NO ATENDIDOS |\n| --- | --- |\n| SOAT - SEGUROS DEL ESTADO | 754 |\n| FAMISANAR EPS | 396 |\n| ARL SURA | 311 |\n| SANITAS EPS | 211 |\n| FUERZAS MILITARES | 175 |\n| SALUD TOTAL EPS | 172 |\n| COMPENSAR EPS | 150 |\n| SALUD MIA EPS | 125 |\n| PARTICULAR | 107 |\n| MEDICINA PREPAGADA COLSANITAS | 104 |\n| SURA EPS | 99 |\n| POLICIA NACIONAL | 98 |\n| NUEVA EPS | 93 |\n| EPS FAMILIAR DE COLOMBIA | 86 |\n| ADRES | 84 |\n| MUTUAL SER EPS | 75 |\n| COOSALUD EPS | 61 |\n| ASMET SALUD EPS | 59 |\n| (sin asegurador) | 42 |\n\nCifra tal como la muestra la tarjeta de la página TRIAGES del tablero DEMANDA INSATISFECHA (con su filtro). Las filas suman 3.202; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
+    "answer": "**TRIAGES NO ATENDIDOS** por asegurador:\n\n| ASEGURADOR | TRIAGES NO ATENDIDOS |\n| --- | --- |\n| SOAT - SEGUROS DEL ESTADO | 754 |\n| FAMISANAR EPS | 395 |\n| ARL SURA | 311 |\n| SANITAS EPS | 210 |\n| FUERZAS MILITARES | 175 |\n| SALUD TOTAL EPS | 172 |\n| COMPENSAR EPS | 150 |\n| SALUD MIA EPS | 125 |\n| PARTICULAR | 107 |\n| MEDICINA PREPAGADA COLSANITAS | 104 |\n| SURA EPS | 99 |\n| POLICIA NACIONAL | 98 |\n| NUEVA EPS | 93 |\n| EPS FAMILIAR DE COLOMBIA | 86 |\n| ADRES | 85 |\n| MUTUAL SER EPS | 76 |\n| COOSALUD EPS | 61 |\n| ASMET SALUD EPS | 59 |\n| (sin asegurador) | 42 |\n\nCifra tal como la muestra la tarjeta de la página TRIAGES del tablero DEMANDA INSATISFECHA (con su filtro). Las filas suman 3.202; la suma puede diferir del total porque un mismo registro puede contarse en más de un grupo.",
     "exception": null,
-    "latency_s": 0.716,
+    "latency_s": 0.762,
     "passed": true
    }
   ]
@@ -10536,7 +10530,7 @@
     "prompt": null,
     "answer": "En 2025, **Total Egresos** por asegurador:\n\n| ASEGURADOR | Total Egresos |\n| --- | --- |\n| ASMET SALUD EPS | 204 |\n| SANITAS EPS | 124 |\n| COOSALUD EPS | 81 |\n| SOAT - SEGUROS DEL ESTADO | 64 |\n| MEDICINA PREPAGADA COLSANITAS | 56 |\n| NUEVA EPS | 41 |\n| ADRES | 39 |\n| FUERZAS MILITARES | 37 |\n| SALUD MIA EPS | 35 |\n| EPS FAMILIAR DE COLOMBIA | 34 |\n| ARL SURA | 29 |\n| SURA EPS | 28 |\n| PARTICULAR | 26 |\n| COMPENSAR EPS | 25 |\n| FAMISANAR EPS | 20 |\n| MUTUAL SER EPS | 20 |\n| SALUD TOTAL EPS | 16 |\n| POLICIA NACIONAL | 15 |\n\nFiltros: 2025.",
     "exception": null,
-    "latency_s": 1.277,
+    "latency_s": 1.028,
     "passed": true
    },
    {
@@ -10571,7 +10565,7 @@
     "prompt": null,
     "answer": "PESO TOTAL por Mes no se puede desglosar por aseguradora: su tabla LAVANDERIA no tiene esa columna ni se relaciona con una que la tenga.",
     "exception": null,
-    "latency_s": 0.21,
+    "latency_s": 0.126,
     "passed": true
    }
   ]
@@ -10602,7 +10596,7 @@
     "prompt": null,
     "answer": "PENDIENTES1 no se puede desglosar por servicio: su tabla PENDIENTES_FARMACIA no tiene esa columna ni se relaciona con una que la tenga.",
     "exception": null,
-    "latency_s": 0.27,
+    "latency_s": 0.153,
     "passed": true
    }
   ]
@@ -10649,7 +10643,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.505,
+    "latency_s": 0.605,
     "passed": true
    },
    {
@@ -10689,7 +10683,7 @@
     "prompt": null,
     "answer": "**CANTIDAD**: **79**\n\n| CODIGO | PRODUCTO | FECHA VENCIMIENTO | CANTIDAD |\n| --- | --- | --- | --- |\n| MV-1001 | ACETAMINOFEN 500 MG TABLETA | 2026-08-31 | 12 |\n| MV-1002 | AMOXICILINA 500 MG CAPSULA | 2026-09-15 | 30 |\n| MV-1003 | DIPIRONA 2.5 G/5 ML AMPOLLA | 2026-09-30 | 8 |\n| MV-1004 | OMEPRAZOL 20 MG CAPSULA | 2026-10-05 | 25 |\n| MV-1005 | CEFTRIAXONA 1 G VIAL | 2026-10-10 | 4 |",
     "exception": null,
-    "latency_s": 0.546,
+    "latency_s": 0.744,
     "passed": true
    }
   ]
@@ -10718,8 +10712,8 @@
      "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('VENCIMIENTO_PRODUCTOS'[IPRCODIGO]), KEEPFILTERS(FILTER(ALL('VENCIMIENTO_PRODUCTOS'[mes]), 'VENCIMIENTO_PRODUCTOS'[mes] <= 1))) )"
     ],
     "dax_log": [
-     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('VENCIMIENTO_PRODUCTOS'[IPRDESCOR])), \"__card1\", COUNTROWS(VALUES('ALMACENES'[IALNOMBRE])), \"__card2\", COUNTROWS(VALUES('VENCIMIENTO_PRODUCTOS'[NombreZona])) )",
-     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('VENCIMIENTO_PRODUCTOS'[IPRDESCOR]), \"Value\", 'VENCIMIENTO_PRODUCTOS'[IPRDESCOR]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('ALMACENES'[IALNOMBRE]), \"Value\", 'ALMACENES'[IALNOMBRE]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('VENCIMIENTO_PRODUCTOS'[NombreZona]), \"Value\", 'VENCIMIENTO_PRODUCTOS'[NombreZona]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('VENCIMIENTO_PRODUCTOS'[IPRDESCOR])), \"__card1\", COUNTROWS(VALUES('VENCIMIENTO_PRODUCTOS'[NombreZona])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('VENCIMIENTO_PRODUCTOS'[IPRDESCOR]), \"Value\", 'VENCIMIENTO_PRODUCTOS'[IPRDESCOR]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('VENCIMIENTO_PRODUCTOS'[NombreZona]), \"Value\", 'VENCIMIENTO_PRODUCTOS'[NombreZona]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )",
      "EVALUATE ROW( \"__value\", CALCULATE(DISTINCTCOUNT('VENCIMIENTO_PRODUCTOS'[IPRCODIGO]), KEEPFILTERS(FILTER(ALL('VENCIMIENTO_PRODUCTOS'[mes]), 'VENCIMIENTO_PRODUCTOS'[mes] <= 1))) )",
      "EVALUATE TOPN( 51, SUMMARIZECOLUMNS( 'VENCIMIENTO_PRODUCTOS'[IPRCODIGO], 'VENCIMIENTO_PRODUCTOS'[IPRDESCOR], 'VENCIMIENTO_PRODUCTOS'[ilsfecven], 'VENCIMIENTO_PRODUCTOS'[mes], 'VENCIMIENTO_PRODUCTOS'[ILSCODIGO], 'VENCIMIENTO_PRODUCTOS'[NombreZona], \"__value\", CALCULATE(DISTINCTCOUNT('VENCIMIENTO_PRODUCTOS'[IPRCODIGO]), KEEPFILTERS(FILTER(ALL('VENCIMIENTO_PRODUCTOS'[mes]), 'VENCIMIENTO_PRODUCTOS'[mes] <= 1))) ), 'VENCIMIENTO_PRODUCTOS'[IPRCODIGO], ASC, 'VENCIMIENTO_PRODUCTOS'[IPRDESCOR], ASC, 'VENCIMIENTO_PRODUCTOS'[ilsfecven], ASC, 'VENCIMIENTO_PRODUCTOS'[mes], ASC, 'VENCIMIENTO_PRODUCTOS'[ILSCODIGO], ASC, 'VENCIMIENTO_PRODUCTOS'[NombreZona], ASC ) ORDER BY 'VENCIMIENTO_PRODUCTOS'[IPRCODIGO] ASC, 'VENCIMIENTO_PRODUCTOS'[IPRDESCOR] ASC, 'VENCIMIENTO_PRODUCTOS'[ilsfecven] ASC, 'VENCIMIENTO_PRODUCTOS'[mes] ASC, 'VENCIMIENTO_PRODUCTOS'[ILSCODIGO] ASC, 'VENCIMIENTO_PRODUCTOS'[NombreZona] ASC"
     ],
@@ -10727,7 +10721,7 @@
     "prompt": null,
     "answer": "**3 medicamentos** (indicador MEDICAMENTOS EN VENCIMIENTO 0-30 DÍAS):\n\n| CODIGO | PRODUCTO | FECHA VENCIMIENTO | mes | LOTE | ZONA |\n| --- | --- | --- | --- | --- | --- |\n| PV-2001 | SALBUTAMOL INHALADOR 100 MCG | 2026-10-25 | 0 | L-5501 | BODEGA CENTRAL |\n| PV-2002 | ENOXAPARINA 40 MG JERINGA | 2026-11-08 | 1 | L-5502 | STOCK URGENCIAS |\n| PV-2003 | METOCLOPRAMIDA 10 MG AMPOLLA | 2026-11-12 | 1 | L-5503 | BODEGA CENTRAL |\n\nCifra tal como la muestra la tarjeta de la página MEDICAMENTOS VENCIDOS del TABLERO FARMACIA (con su filtro).",
     "exception": null,
-    "latency_s": 0.401,
+    "latency_s": 0.482,
     "passed": true
    },
    {
@@ -10771,13 +10765,21 @@
     ],
     "dax_log": [
      "EVALUATE TOPN( 2500, FILTER( SELECTCOLUMNS( VALUES('INTERCONSULTA'[GEEDESCRI]), \"Value\", 'INTERCONSULTA'[GEEDESCRI] ), NOT ISBLANK([Value]) ), [Value], ASC )",
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('ESPECIALIDADES'[GEEDESCRI])), \"__card1\", COUNTROWS(VALUES('ASEGURADORA'[TERNOMCOM])), \"__card2\", COUNTROWS(VALUES('EN_ESPERA'[GEEDESCRI])), \"__card3\", COUNTROWS(VALUES('ASEGURADORA'[ASEGURADORA_HM])), \"__card4\", COUNTROWS(VALUES('EN_ESPERA'[NOM_TERCERO])), \"__card5\", COUNTROWS(VALUES('EN_ESPERA'[ASESOR])), \"__card6\", COUNTROWS(VALUES('EN_ESPERA'[MAESTROS])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('ESPECIALIDADES'[GEEDESCRI]), \"Value\", 'ESPECIALIDADES'[GEEDESCRI]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('ASEGURADORA'[TERNOMCOM]), \"Value\", 'ASEGURADORA'[TERNOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('EN_ESPERA'[GEEDESCRI]), \"Value\", 'EN_ESPERA'[GEEDESCRI]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('ASEGURADORA'[ASEGURADORA_HM]), \"Value\", 'ASEGURADORA'[ASEGURADORA_HM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('EN_ESPERA'[NOM_TERCERO]), \"Value\", 'EN_ESPERA'[NOM_TERCERO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('EN_ESPERA'[ASESOR]), \"Value\", 'EN_ESPERA'[ASESOR]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('EN_ESPERA'[MAESTROS]), \"Value\", 'EN_ESPERA'[MAESTROS]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('EN_ESPERA'[Existe])), \"__card1\", COUNTROWS(VALUES('EN_ESPERA'[NOMBRE_USUARIO])), \"__card2\", COUNTROWS(VALUES('ASESORES'[ASESOR])), \"__card3\", COUNTROWS(VALUES('EN_ESPERA'[gpanomcom])), \"__card4\", COUNTROWS(VALUES('EN_ESPERA'[MEDICO])), \"__card5\", COUNTROWS(VALUES('EN_ESPERA'[USUDESCRI])), \"__card6\", COUNTROWS(VALUES('EN_ESPERA'[GMENOMCOM])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('EN_ESPERA'[Existe]), \"Value\", 'EN_ESPERA'[Existe]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('EN_ESPERA'[NOMBRE_USUARIO]), \"Value\", 'EN_ESPERA'[NOMBRE_USUARIO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('ASESORES'[ASESOR]), \"Value\", 'ASESORES'[ASESOR]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('EN_ESPERA'[gpanomcom]), \"Value\", 'EN_ESPERA'[gpanomcom]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 3, \"Value\", [Value] ) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('EN_ESPERA'[MEDICO]), \"Value\", 'EN_ESPERA'[MEDICO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('EN_ESPERA'[USUDESCRI]), \"Value\", 'EN_ESPERA'[USUDESCRI]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(501, FILTER(SELECTCOLUMNS(VALUES('EN_ESPERA'[GMENOMCOM]), \"Value\", 'EN_ESPERA'[GMENOMCOM]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 2, \"Value\", [Value] ) )",
+     "EVALUATE ROW( \"__card0\", COUNTROWS(VALUES('PENDIENTES_FARMACIA'[HORAS_SUMINISTRO])), \"__card1\", COUNTROWS(VALUES('ALMACENES'[IALNOMBRE])) )",
+     "EVALUATE UNION( SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('PENDIENTES_FARMACIA'[HORAS_SUMINISTRO]), \"Value\", 'PENDIENTES_FARMACIA'[HORAS_SUMINISTRO]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 0, \"Value\", [Value] ), SELECTCOLUMNS( TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('ALMACENES'[IALNOMBRE]), \"Value\", 'ALMACENES'[IALNOMBRE]), NOT ISBLANK([Value])), [Value], ASC), \"__columna\", 1, \"Value\", [Value] ) )",
      "EVALUATE ROW( \"__value\", CALCULATE( DISTINCTCOUNT('INTERCONSULTA'[OID_SOLICITUD]), TREATAS({\"MEDICINA INTERNA\"}, 'INTERCONSULTA'[GEEDESCRI]) ) )"
     ],
     "options": [],
     "prompt": null,
     "answer": "**INTERCONSULTAS SOLICITDAS** con especialidad MEDICINA INTERNA: **71**\n\nFiltros: ESPECIALIDAD = MEDICINA INTERNA. No pude aplicar: pendientes.\n\nINTERCONSULTAS SOLICITDAS no cuenta registros identificables, así que no puedo listar el detalle; te doy el total.",
     "exception": null,
-    "latency_s": 1.752,
+    "latency_s": 3.283,
     "passed": false
    }
   ]
@@ -10821,7 +10823,7 @@
     "prompt": null,
     "answer": "**8 camas** en UCI ADULTOS (indicador CAMAS OCUPADAS):\n\n| SERVICIO | CAMA |\n| --- | --- |\n| UCI ADULTOS | UCI-01 |\n| UCI ADULTOS | UCI-02 |\n| UCI ADULTOS | UCI-03 |\n| UCI ADULTOS | UCI-04 |\n| UCI ADULTOS | UCI-05 |\n| UCI ADULTOS | UCI-07 |\n| UCI ADULTOS | UCI-08 |\n| UCI ADULTOS | UCI-09 |\n\nFiltros: SERVICIO = UCI ADULTOS.\n\nPara nom_serv se usa lo que pediste en lugar del filtro que trae la página. Cifra tal como la muestra la tarjeta de la página GESTIÓN CAMAS del tablero BRIEFING HOSPITALARIO (con sus 5 filtros; p. ej., solo estado de la cama OCUPADA, CAMA SOLICITADA).",
     "exception": null,
-    "latency_s": 0.785,
+    "latency_s": 0.562,
     "passed": false
    }
   ]
@@ -10861,7 +10863,7 @@
     "prompt": null,
     "answer": "**PACIENTES HOSPITALIZADOS**: **43**\n\nCifra tal como la muestra la tarjeta de la página URGENCIAS del tablero BRIEFING HOSPITALARIO (con su filtro). PACIENTES HOSPITALIZADOS no cuenta registros identificables, así que no puedo listar el detalle; te doy el total.",
     "exception": null,
-    "latency_s": 2.768,
+    "latency_s": 1.637,
     "passed": false
    }
   ]
@@ -10907,9 +10909,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**CITAS EN ESPERA** con especialidad CARDIOLOGIA: **346**\n\n| FECHA1 | ASESOR | ESPECIALIDAD1 | DIAS_ESPERA | FECHA DE CITA ASIGNADA | MEDICO SOLICITADO | CITAS EN ESPERA |\n| --- | --- | --- | --- | --- | --- | --- |\n| 2023-01-03 08:23:00 | PROFESIONAL 31 | NEUROCIRUGIA | 1400 | 2023-01-05 | PROFESIONAL 31 | 0 |\n| 2023-01-05 14:53:00 | PROFESIONAL 29 | UROLOGIA | 1398 | 2023-01-06 | PROFESIONAL 29 | 0 |\n| 2023-01-07 09:53:00 | PROFESIONAL 19 | NEUROCIRUGIA | 1396 | 2023-01-09 | PROFESIONAL 19 | 1 |\n| 2023-01-08 12:25:00 | PROFESIONAL 11 | CIRUGIA VASCULAR | 1395 | 2023-01-10 | PROFESIONAL 11 | 0 |\n| 2023-01-09 11:48:00 | PROFESIONAL 02 | CIRUGIA VASCULAR | 1394 | 2023-01-09 | PROFESIONAL 02 | 0 |\n| 2023-01-17 09:08:00 | PROFESIONAL 10 | NEUROCIRUGIA | 1386 | 2023-01-18 | PROFESIONAL 10 | 1 |\n| 2023-01-18 22:37:00 | PROFESIONAL 08 | CIRUGIA PLASTICA | 1385 | 2023-01-18 | PROFESIONAL 08 | 1 |\n| 2023-01-19 00:03:00 | PROFESIONAL 17 | OFTALMOLOGIA | 1384 | 2023-01-21 | PROFESIONAL 17 | 0 |\n| 2023-01-19 10:47:00 | PROFESIONAL 20 | PSIQUIATRIA | 1384 | 2023-01-21 | PROFESIONAL 20 | 0 |\n| 2023-01-24 09:37:00 | PROFESIONAL 08 | GASTROENTEROLOGIA | 1379 | 2023-01-24 | PROFESIONAL 08 | 1 |\n| 2023-01-28 01:38:00 | PROFESIONAL 33 | NEUROCIRUGIA | 1375 | 2023-01-30 | PROFESIONAL 33 | 1 |\n| 2023-02-01 03:49:00 | PROFESIONAL 16 | NEUROCIRUGIA | 1371 | 2023-02-03 | PROFESIONAL 16 | 1 |\n| 2023-02-02 07:29:00 | PROFESIONAL 04 | MEDICINA INTERNA | 1370 | 2023-02-04 | PROFESIONAL 04 | 0 |\n| 2023-02-02 13:12:00 | PROFESIONAL 34 | NEUROCIRUGIA | 1370 | 2023-02-03 | PROFESIONAL 34 | 0 |\n| 2023-02-05 19:26:00 | PROFESIONAL 31 | CIRUGIA PLASTICA | 1367 | 2023-02-07 | PROFESIONAL 31 | 0 |\n| 2023-02-07 07:11:00 | PROFESIONAL 20 | CIRUGIA PLASTICA | 1365 | 2023-02-07 | PROFESIONAL 20 | 0 |\n| 2023-02-10 23:41:00 | (sin dato) | GINECOLOGIA Y OBSTETRICIA | 1362 | 2023-02-11 | PROFESIONAL 09 | 0 |\n| 2023-02-11 17:11:00 | PROFESIONAL 04 | NEUROCIRUGIA | 1361 | 2023-02-12 | PROFESIONAL 04 | 0 |\n| 2023-02-12 08:33:00 | PROFESIONAL 19 | CIRUGIA PLASTICA | 1360 | 2023-02-14 | PROFESIONAL 19 | 1 |\n| 2023-02-12 10:53:00 | PROFESIONAL 11 | CIRUGIA PLASTICA | 1360 | 2023-02-13 | PROFESIONAL 11 | 0 |\n| 2023-02-14 08:16:00 | PROFESIONAL 10 | CIRUGIA VASCULAR | 1358 | 2023-02-15 | PROFESIONAL 10 | 0 |\n| 2023-02-15 12:38:00 | PROFESIONAL 08 | UROLOGIA | 1357 | 2023-02-17 | PROFESIONAL 08 | 1 |\n| 2023-02-15 18:30:00 | PROFESIONAL 12 | NEUROCIRUGIA | 1357 | 2023-02-15 | PROFESIONAL 12 | 0 |\n| 2023-02-16 13:09:00 | PROFESIONAL 17 | CIRUGIA VASCULAR | 1356 | 2023-02-18 | PROFESIONAL 17 | 1 |\n| 2023-02-16 16:20:00 | PROFESIONAL 03 | MEDICINA INTERNA | 1356 | 2023-02-17 | PROFESIONAL 03 | 1 |\n| 2023-02-20 09:31:00 | PROFESIONAL 06 | CIRUGIA PLASTICA | 1352 | 2023-02-22 | PROFESIONAL 06 | 0 |\n| 2023-02-22 02:14:00 | PROFESIONAL 23 | CARDIOLOGIA | 1350 | 2023-02-24 | PROFESIONAL 23 | 1 |\n| 2023-02-22 11:58:00 | PROFESIONAL 38 | CIRUGIA VASCULAR | 1350 | 2023-02-22 | PROFESIONAL 38 | 1 |\n| 2023-02-22 19:17:00 | PROFESIONAL 22 | DERMATOLOGIA | 1350 | 2023-02-23 | PROFESIONAL 22 | 0 |\n| 2023-02-24 22:23:00 | PROFESIONAL 24 | NEUROLOGIA | 1348 | 2023-02-26 | PROFESIONAL 24 | 0 |\n| 2023-02-26 11:19:00 | PROFESIONAL 22 | PSIQUIATRIA | 1346 | 2023-02-27 | PROFESIONAL 22 | 0 |\n| 2023-03-01 08:29:00 | PROFESIONAL 18 | UROLOGIA | 1343 | 2023-03-03 | PROFESIONAL 18 | 0 |\n| 2023-03-01 22:58:00 | PROFESIONAL 39 | CIRUGIA VASCULAR | 1343 | 2023-03-01 | PROFESIONAL 39 | 0 |\n| 2023-03-02 00:34:00 | PROFESIONAL 34 | NEUROCIRUGIA | 1342 | 2023-03-03 | PROFESIONAL 34 | 1 |\n| 2023-03-02 03:30:00 | PROFESIONAL 23 | CIRUGIA VASCULAR | 1342 | 2023-03-03 | PROFESIONAL 23 | 0 |\n| 2023-03-03 11:48:00 | PROFESIONAL 02 | PEDIATRIA | 1341 | 2023-03-03 | PROFESIONAL 02 | 0 |\n| 2023-03-06 01:19:00 | PROFESIONAL 01 | CARDIOLOGIA | 1338 | 2023-03-07 | PROFESIONAL 01 | 1 |\n| 2023-03-07 04:09:00 | PROFESIONAL 22 | NEUROLOGIA | 1337 | 2023-03-08 | PROFESIONAL 22 | 0 |\n| 2023-03-08 02:05:00 | PROFESIONAL 38 | CIRUGIA PLASTICA | 1336 | 2023-03-09 | PROFESIONAL 38 | 0 |\n| 2023-03-11 03:34:00 | PROFESIONAL 15 | CIRUGIA PLASTICA | 1333 | 2023-03-13 | PROFESIONAL 15 | 1 |\n| 2023-03-12 08:02:00 | PROFESIONAL 08 | PEDIATRIA | 1332 | 2023-03-12 | PROFESIONAL 08 | 1 |\n| 2023-03-12 22:52:00 | PROFESIONAL 18 | CARDIOLOGIA | 1332 | 2023-03-14 | PROFESIONAL 18 | 1 |\n| 2023-03-13 06:56:00 | PROFESIONAL 33 | NEUROCIRUGIA | 1331 | 2023-03-15 | PROFESIONAL 33 | 0 |\n| 2023-03-13 11:46:00 | PROFESIONAL 07 | MEDICINA INTERNA | 1331 | 2023-03-13 | PROFESIONAL 07 | 0 |\n| 2023-03-18 19:59:00 | PROFESIONAL 26 | ANESTESIOLOGIA | 1326 | 2023-03-19 | PROFESIONAL 26 | 0 |\n| 2023-03-19 23:36:00 | PROFESIONAL 12 | NEUROLOGIA | 1325 | 2023-03-20 | PROFESIONAL 12 | 1 |\n| 2023-03-20 04:09:00 | PROFESIONAL 25 | CIRUGIA PLASTICA | 1324 | 2023-03-20 | PROFESIONAL 25 | 0 |\n| 2023-03-23 12:15:00 | PROFESIONAL 37 | NEUROCIRUGIA | 1321 | 2023-03-25 | PROFESIONAL 37 | 1 |\n| 2023-03-24 08:39:00 | PROFESIONAL 21 | NEUROCIRUGIA | 1320 | 2023-03-26 | PROFESIONAL 21 | 0 |\n| 2023-03-28 20:25:00 | PROFESIONAL 34 | ORTOPEDIA Y TRAUMATOLOGIA | 1316 | 2023-03-30 | PROFESIONAL 34 | 1 |\n\nFiltros: ESPECIALIDAD = CARDIOLOGIA.\n\nMuestro las primeras 50 filas de 346 pacientes: la lista es más larga. Indica un filtro (servicio, estado...) para acotarla. Por privacidad, la lista no incluye datos que identifican a personas (DOCUMENTO PACIENTE1, NOMBRE PACIENTE1, TELEFONO1).",
+    "answer": "**CITAS EN ESPERA** con especialidad CARDIOLOGIA: **346**\n\n| FECHA1 | ASESOR | ESPECIALIDAD1 | DIAS_ESPERA | FECHA DE CITA ASIGNADA | MEDICO SOLICITADO | CITAS EN ESPERA |\n| --- | --- | --- | --- | --- | --- | --- |\n| 2023-01-03 08:23:00 | PROFESIONAL 31 | NEUROCIRUGIA | 1401 | 2023-01-05 | PROFESIONAL 31 | 0 |\n| 2023-01-05 14:53:00 | PROFESIONAL 29 | UROLOGIA | 1399 | 2023-01-06 | PROFESIONAL 29 | 0 |\n| 2023-01-07 09:53:00 | PROFESIONAL 19 | NEUROCIRUGIA | 1397 | 2023-01-09 | PROFESIONAL 19 | 1 |\n| 2023-01-08 12:25:00 | PROFESIONAL 11 | CIRUGIA VASCULAR | 1396 | 2023-01-10 | PROFESIONAL 11 | 0 |\n| 2023-01-09 11:48:00 | PROFESIONAL 02 | CIRUGIA VASCULAR | 1395 | 2023-01-09 | PROFESIONAL 02 | 0 |\n| 2023-01-17 09:08:00 | PROFESIONAL 10 | NEUROCIRUGIA | 1387 | 2023-01-18 | PROFESIONAL 10 | 1 |\n| 2023-01-18 22:37:00 | PROFESIONAL 08 | CIRUGIA PLASTICA | 1386 | 2023-01-18 | PROFESIONAL 08 | 1 |\n| 2023-01-19 00:03:00 | PROFESIONAL 17 | OFTALMOLOGIA | 1385 | 2023-01-21 | PROFESIONAL 17 | 0 |\n| 2023-01-19 10:47:00 | PROFESIONAL 20 | PSIQUIATRIA | 1385 | 2023-01-21 | PROFESIONAL 20 | 0 |\n| 2023-01-24 09:37:00 | PROFESIONAL 08 | GASTROENTEROLOGIA | 1380 | 2023-01-24 | PROFESIONAL 08 | 1 |\n| 2023-01-28 01:38:00 | PROFESIONAL 33 | NEUROCIRUGIA | 1376 | 2023-01-30 | PROFESIONAL 33 | 1 |\n| 2023-02-01 03:49:00 | PROFESIONAL 16 | NEUROCIRUGIA | 1372 | 2023-02-03 | PROFESIONAL 16 | 1 |\n| 2023-02-02 07:29:00 | PROFESIONAL 04 | MEDICINA INTERNA | 1371 | 2023-02-04 | PROFESIONAL 04 | 0 |\n| 2023-02-02 13:12:00 | PROFESIONAL 34 | NEUROCIRUGIA | 1371 | 2023-02-03 | PROFESIONAL 34 | 0 |\n| 2023-02-05 19:26:00 | PROFESIONAL 31 | CIRUGIA PLASTICA | 1368 | 2023-02-07 | PROFESIONAL 31 | 0 |\n| 2023-02-07 07:11:00 | PROFESIONAL 20 | CIRUGIA PLASTICA | 1366 | 2023-02-07 | PROFESIONAL 20 | 0 |\n| 2023-02-10 23:41:00 | (sin dato) | GINECOLOGIA Y OBSTETRICIA | 1363 | 2023-02-11 | PROFESIONAL 09 | 0 |\n| 2023-02-11 17:11:00 | PROFESIONAL 04 | NEUROCIRUGIA | 1362 | 2023-02-12 | PROFESIONAL 04 | 0 |\n| 2023-02-12 08:33:00 | PROFESIONAL 19 | CIRUGIA PLASTICA | 1361 | 2023-02-14 | PROFESIONAL 19 | 1 |\n| 2023-02-12 10:53:00 | PROFESIONAL 11 | CIRUGIA PLASTICA | 1361 | 2023-02-13 | PROFESIONAL 11 | 0 |\n| 2023-02-14 08:16:00 | PROFESIONAL 10 | CIRUGIA VASCULAR | 1359 | 2023-02-15 | PROFESIONAL 10 | 0 |\n| 2023-02-15 12:38:00 | PROFESIONAL 08 | UROLOGIA | 1358 | 2023-02-17 | PROFESIONAL 08 | 1 |\n| 2023-02-15 18:30:00 | PROFESIONAL 12 | NEUROCIRUGIA | 1358 | 2023-02-15 | PROFESIONAL 12 | 0 |\n| 2023-02-16 13:09:00 | PROFESIONAL 17 | CIRUGIA VASCULAR | 1357 | 2023-02-18 | PROFESIONAL 17 | 1 |\n| 2023-02-16 16:20:00 | PROFESIONAL 03 | MEDICINA INTERNA | 1357 | 2023-02-17 | PROFESIONAL 03 | 1 |\n| 2023-02-20 09:31:00 | PROFESIONAL 06 | CIRUGIA PLASTICA | 1353 | 2023-02-22 | PROFESIONAL 06 | 0 |\n| 2023-02-22 02:14:00 | PROFESIONAL 23 | CARDIOLOGIA | 1351 | 2023-02-24 | PROFESIONAL 23 | 1 |\n| 2023-02-22 11:58:00 | PROFESIONAL 38 | CIRUGIA VASCULAR | 1351 | 2023-02-22 | PROFESIONAL 38 | 1 |\n| 2023-02-22 19:17:00 | PROFESIONAL 22 | DERMATOLOGIA | 1351 | 2023-02-23 | PROFESIONAL 22 | 0 |\n| 2023-02-24 22:23:00 | PROFESIONAL 24 | NEUROLOGIA | 1349 | 2023-02-26 | PROFESIONAL 24 | 0 |\n| 2023-02-26 11:19:00 | PROFESIONAL 22 | PSIQUIATRIA | 1347 | 2023-02-27 | PROFESIONAL 22 | 0 |\n| 2023-03-01 08:29:00 | PROFESIONAL 18 | UROLOGIA | 1344 | 2023-03-03 | PROFESIONAL 18 | 0 |\n| 2023-03-01 22:58:00 | PROFESIONAL 39 | CIRUGIA VASCULAR | 1344 | 2023-03-01 | PROFESIONAL 39 | 0 |\n| 2023-03-02 00:34:00 | PROFESIONAL 34 | NEUROCIRUGIA | 1343 | 2023-03-03 | PROFESIONAL 34 | 1 |\n| 2023-03-02 03:30:00 | PROFESIONAL 23 | CIRUGIA VASCULAR | 1343 | 2023-03-03 | PROFESIONAL 23 | 0 |\n| 2023-03-03 11:48:00 | PROFESIONAL 02 | PEDIATRIA | 1342 | 2023-03-03 | PROFESIONAL 02 | 0 |\n| 2023-03-06 01:19:00 | PROFESIONAL 01 | CARDIOLOGIA | 1339 | 2023-03-07 | PROFESIONAL 01 | 1 |\n| 2023-03-07 04:09:00 | PROFESIONAL 22 | NEUROLOGIA | 1338 | 2023-03-08 | PROFESIONAL 22 | 0 |\n| 2023-03-08 02:05:00 | PROFESIONAL 38 | CIRUGIA PLASTICA | 1337 | 2023-03-09 | PROFESIONAL 38 | 0 |\n| 2023-03-11 03:34:00 | PROFESIONAL 15 | CIRUGIA PLASTICA | 1334 | 2023-03-13 | PROFESIONAL 15 | 1 |\n| 2023-03-12 08:02:00 | PROFESIONAL 08 | PEDIATRIA | 1333 | 2023-03-12 | PROFESIONAL 08 | 1 |\n| 2023-03-12 22:52:00 | PROFESIONAL 18 | CARDIOLOGIA | 1333 | 2023-03-14 | PROFESIONAL 18 | 1 |\n| 2023-03-13 06:56:00 | PROFESIONAL 33 | NEUROCIRUGIA | 1332 | 2023-03-15 | PROFESIONAL 33 | 0 |\n| 2023-03-13 11:46:00 | PROFESIONAL 07 | MEDICINA INTERNA | 1332 | 2023-03-13 | PROFESIONAL 07 | 0 |\n| 2023-03-18 19:59:00 | PROFESIONAL 26 | ANESTESIOLOGIA | 1327 | 2023-03-19 | PROFESIONAL 26 | 0 |\n| 2023-03-19 23:36:00 | PROFESIONAL 12 | NEUROLOGIA | 1326 | 2023-03-20 | PROFESIONAL 12 | 1 |\n| 2023-03-20 04:09:00 | PROFESIONAL 25 | CIRUGIA PLASTICA | 1325 | 2023-03-20 | PROFESIONAL 25 | 0 |\n| 2023-03-23 12:15:00 | PROFESIONAL 37 | NEUROCIRUGIA | 1322 | 2023-03-25 | PROFESIONAL 37 | 1 |\n| 2023-03-24 08:39:00 | PROFESIONAL 21 | NEUROCIRUGIA | 1321 | 2023-03-26 | PROFESIONAL 21 | 0 |\n| 2023-03-28 20:25:00 | PROFESIONAL 34 | ORTOPEDIA Y TRAUMATOLOGIA | 1317 | 2023-03-30 | PROFESIONAL 34 | 1 |\n\nFiltros: ESPECIALIDAD = CARDIOLOGIA.\n\nMuestro las primeras 50 filas de 346 pacientes: la lista es más larga. Indica un filtro (servicio, estado...) para acotarla. Por privacidad, la lista no incluye datos que identifican a personas (DOCUMENTO PACIENTE1, NOMBRE PACIENTE1, TELEFONO1).",
     "exception": null,
-    "latency_s": 17.331,
+    "latency_s": 20.255,
     "passed": true
    }
   ]
@@ -10944,7 +10946,7 @@
     "prompt": null,
     "answer": "Hay **43** pacientes.",
     "exception": null,
-    "latency_s": 0.541,
+    "latency_s": 0.532,
     "passed": true
    }
   ]
@@ -10979,9 +10981,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**2.997 casos** (indicador CASOS TOTALES).\n\nLa lista de 2.997 casos es demasiado larga para mostrarla aquí (más de 50). Indica un filtro (servicio, estado...) y te muestro el detalle.",
+    "answer": "**3.002 casos** (indicador CASOS TOTALES).\n\nLa lista de 3.002 casos es demasiado larga para mostrarla aquí (más de 50). Indica un filtro (servicio, estado...) y te muestro el detalle.",
     "exception": null,
-    "latency_s": 0.918,
+    "latency_s": 1.033,
     "passed": true
    }
   ]
@@ -11028,7 +11030,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.405,
+    "latency_s": 0.577,
     "passed": true
    },
    {
@@ -11056,7 +11058,7 @@
     "prompt": null,
     "answer": "**1.528 consultas** (indicador CONSULTAS EN ESPERA).\n\nCifra tal como la muestra la tarjeta de la página EN ESPERA X ESPECIALIDAD del tablero ASIGNACION DE CITAS (con su filtro). La lista de 1.528 consultas es demasiado larga para mostrarla aquí (más de 50). Indica un filtro (servicio, estado...) y te muestro el detalle.",
     "exception": null,
-    "latency_s": 0.062,
+    "latency_s": 0.026,
     "passed": true
    }
   ]
@@ -11091,7 +11093,7 @@
     "prompt": null,
     "answer": "**MEDICAMENTOS EN VENCIMIENTO 0-30 DÍAS**: **3**\n\nCifra tal como la muestra la tarjeta de la página MEDICAMENTOS VENCIDOS del TABLERO FARMACIA (con su filtro).",
     "exception": null,
-    "latency_s": 0.456,
+    "latency_s": 0.558,
     "passed": true
    }
   ]
@@ -11131,9 +11133,9 @@
     ],
     "options": [],
     "prompt": null,
-    "answer": "**TIEMPO PROMEDIO PARA TRIAGE** por aseguradora:\n\n| ASEGURADORA | TIEMPO PROMEDIO PARA TRIAGE |\n| --- | --- |\n| SURA EPS | -923,78 |\n| SALUD MIA EPS | -924,94 |\n| ADRES | -926,61 |\n| ARL SURA | -944,48 |\n| FAMISANAR EPS | -945,08 |\n| SOAT - SEGUROS DEL ESTADO | -951,24 |\n| COOSALUD EPS | -952,84 |\n| POLICIA NACIONAL | -954,31 |\n| COMPENSAR EPS | -958,81 |\n| SANITAS EPS | -959,76 |\n| MEDICINA PREPAGADA COLSANITAS | -960,97 |\n| FUERZAS MILITARES | -961,59 |\n| ASMET SALUD EPS | -963,44 |\n| EPS FAMILIAR DE COLOMBIA | -965,89 |\n| MUTUAL SER EPS | -967,08 |\n| SALUD TOTAL EPS | -971,24 |\n| (sin aseguradora) | -976,36 |\n| PARTICULAR | -987,44 |\n| NUEVA EPS | -993,73 |\n\nLa métrica no existe en el informe mencionado; se usó TABLERO TIEMPOS URGENCIAS.",
+    "answer": "**TIEMPO PROMEDIO PARA TRIAGE** por aseguradora:\n\n| ASEGURADORA | TIEMPO PROMEDIO PARA TRIAGE |\n| --- | --- |\n| SURA EPS | -923,78 |\n| SALUD MIA EPS | -924,94 |\n| ADRES | -926,47 |\n| FAMISANAR EPS | -940,09 |\n| ARL SURA | -944,48 |\n| SOAT - SEGUROS DEL ESTADO | -951,24 |\n| COOSALUD EPS | -952,29 |\n| COMPENSAR EPS | -958,81 |\n| POLICIA NACIONAL | -958,88 |\n| SANITAS EPS | -959,76 |\n| MEDICINA PREPAGADA COLSANITAS | -960,37 |\n| FUERZAS MILITARES | -961,59 |\n| ASMET SALUD EPS | -963,44 |\n| MUTUAL SER EPS | -965,19 |\n| EPS FAMILIAR DE COLOMBIA | -966,22 |\n| SALUD TOTAL EPS | -971,24 |\n| (sin aseguradora) | -976,36 |\n| PARTICULAR | -989,95 |\n| NUEVA EPS | -993,73 |\n\nLa métrica no existe en el informe mencionado; se usó TABLERO TIEMPOS URGENCIAS.",
     "exception": null,
-    "latency_s": 0.742,
+    "latency_s": 0.903,
     "passed": true
    }
   ]
@@ -11180,7 +11182,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.401,
+    "latency_s": 0.657,
     "passed": true
    },
    {
@@ -11208,7 +11210,7 @@
     "prompt": null,
     "answer": "**CONSULTAS EN ESPERA**: **1.528**\n\nEs el valor general; en la página COMPARATIVO ASIGNADAS del tablero ASIGNACION DE CITAS se ve con filtros propios y puede ser distinto.",
     "exception": null,
-    "latency_s": 0.052,
+    "latency_s": 0.026,
     "passed": true
    }
   ]
@@ -11275,7 +11277,7 @@
     "prompt": null,
     "answer": "Encontré varios indicadores. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.483,
+    "latency_s": 0.705,
     "passed": false
    }
   ]
@@ -11310,7 +11312,7 @@
     "prompt": null,
     "answer": "**CANTIDAD**: **79**",
     "exception": null,
-    "latency_s": 0.576,
+    "latency_s": 0.702,
     "passed": true
    }
   ]
@@ -11357,7 +11359,7 @@
     "prompt": null,
     "answer": "En el tablero TABLERO PERFIL DE MORBILIDAD no encontré ese indicador. Estos son los más parecidos de otros tableros. ¿Es alguno de estos?",
     "exception": null,
-    "latency_s": 0.263,
+    "latency_s": 0.325,
     "passed": true
    }
   ]
@@ -11404,7 +11406,7 @@
     "prompt": null,
     "answer": "Ese indicador existe en varios tableros. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 0.554,
+    "latency_s": 0.557,
     "passed": false
    }
   ]
@@ -11429,10 +11431,10 @@
     "filters": [
      {
       "column": "Date",
-      "end": "2026-11-03",
-      "label": "2 de noviembre de 2026 (ayer)",
+      "end": "2026-11-04",
+      "label": "3 de noviembre de 2026 (ayer)",
       "month": 11,
-      "start": "2026-11-02",
+      "start": "2026-11-03",
       "table": "Calendario",
       "type": "date_range",
       "year": 2026
@@ -11441,17 +11443,17 @@
     "unapplied_terms": [],
     "group_by": [],
     "dax": [
-     "EVALUATE ROW( \"__value\", CALCULATE( SUM('INTERCONSULTA'[RESPUESTAS]), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 2) && 'Calendario'[FECHA] < DATE(2026, 11, 3)) ) )"
+     "EVALUATE ROW( \"__value\", CALCULATE( SUM('INTERCONSULTA'[RESPUESTAS]), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 3) && 'Calendario'[FECHA] < DATE(2026, 11, 4)) ) )"
     ],
     "dax_log": [
-     "EVALUATE ROW( \"__value\", CALCULATE( SUM('INTERCONSULTA'[RESPUESTAS]), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 2) && 'Calendario'[FECHA] < DATE(2026, 11, 3)) ) )",
+     "EVALUATE ROW( \"__value\", CALCULATE( SUM('INTERCONSULTA'[RESPUESTAS]), FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 3) && 'Calendario'[FECHA] < DATE(2026, 11, 4)) ) )",
      "EVALUATE ROW(\"__hasta\", MAXX(FILTER(ALL('Calendario'[FECHA]), NOT ISBLANK(CALCULATE(SUM('INTERCONSULTA'[RESPUESTAS])))), 'Calendario'[FECHA]))"
     ],
     "options": [],
     "prompt": null,
-    "answer": "No hay datos de **INTERCONSULTAS RESPONDIDAS** el 2 de noviembre de 2026 (ayer). La fuente tiene datos hasta el 20/06/2026.\n\nFiltros: 2 de noviembre de 2026 (ayer).",
+    "answer": "No hay datos de **INTERCONSULTAS RESPONDIDAS** el 3 de noviembre de 2026 (ayer). La fuente tiene datos hasta el 20/06/2026.\n\nFiltros: 3 de noviembre de 2026 (ayer).",
     "exception": null,
-    "latency_s": 0.486,
+    "latency_s": 0.548,
     "passed": false
    }
   ]
@@ -11484,7 +11486,7 @@
     "prompt": null,
     "answer": "Power BI registra 14 áreas (fuente: columna ULT_GESTION[AREA_SERVICIO] del tablero «Tablero Control Facturacion» (segmentador «AREA_SERVICIO» de la página INICIO)):\n\n- ATENCION DOMICILIARIA\n- CIRUGIA\n- CONSULTA EXTERNA\n- CUIDADO INTERMEDIO ADULTO\n- HOSPITALIZACION\n- HOSPITALIZACION PARCIAL\n- IMAGENES\n- LABORATORIO CLINICO\n- OBSTETRICIA\n- PEDIATRIA\n- UCI ADULTOS\n- UCI NEONATAL\n- UNIDAD CARDIONEUROVASCULAR\n- URGENCIAS\n\nOtros tableros también tienen áreas, con sus propios nombres: «TABLERO RECEPCION TECNICA» (PENDIENTES_RT[GASNOMBRE]); «BRIEFING HOSPITALARIO» (IMAGENES_TOMADAS[AREA_DE_SERVICIO]); «TABLERO DE ATENCIONES INSTITUCIONALES» (DIM_SERVICIO[SERVICIO_HOMOLOGADO]); «TABLERO NAOS» (PACIENTES[HSUNOMBRE]). Si quieres la lista de uno de ellos, nómbralo en la pregunta.",
     "exception": null,
-    "latency_s": 0.044,
+    "latency_s": 0.094,
     "passed": true
    }
   ]
@@ -11515,7 +11517,7 @@
     "prompt": null,
     "answer": "Power BI registra 18 especialidades (fuente: columna ESPECIALIDADES[GEEDESCRI] del tablero «ASIGNACION DE CITAS» (segmentador «ESPECIALIDAD» de la página DISPO X ESPECIALIDAD)):\n\n- ANESTESIOLOGIA\n- CARDIOLOGIA\n- CIRUGIA GENERAL\n- CIRUGIA PLASTICA\n- CIRUGIA VASCULAR\n- DERMATOLOGIA\n- GASTROENTEROLOGIA\n- GINECOLOGIA Y OBSTETRICIA\n- MEDICINA INTERNA\n- NEUMOLOGIA\n- NEUROCIRUGIA\n- NEUROLOGIA\n- OFTALMOLOGIA\n- ORTOPEDIA Y TRAUMATOLOGIA\n- OTORRINOLARINGOLOGIA\n- PEDIATRIA\n- PSIQUIATRIA\n- UROLOGIA\n\nOtros tableros también tienen especialidades, con sus propios nombres: «BRIEFING HOSPITALARIO» (AMBULATORIO_SS[ESPECIALIDAD]); «TABLERO NAOS» (CIRUGÍAS PENDIENTES[ESPECIALIDAD]); «Demanda Insatisfecha» (CITAS MEDICAS[GEEDESCRI]); «TABLERO TIEMPOS URGENCIAS» (INTERCONSULTA[GEEDESCRI]). Si quieres la lista de uno de ellos, nómbralo en la pregunta.",
     "exception": null,
-    "latency_s": 0.024,
+    "latency_s": 0.046,
     "passed": true
    }
   ]
@@ -11550,7 +11552,7 @@
     "prompt": null,
     "answer": "**%OCUPACION**: **72,58 %**\n\nCifra tal como la muestra la tarjeta de la página GESTIÓN CAMAS del tablero BRIEFING HOSPITALARIO (con sus 5 filtros; p. ej., excluye servicio ATENCION DOMICILIARIA, BLOQUEAR y 18 más).",
     "exception": null,
-    "latency_s": 0.521,
+    "latency_s": 0.67,
     "passed": true
    }
   ]
@@ -11600,7 +11602,7 @@
     "prompt": null,
     "answer": "Con servicio URGENCIAS, **CANTIDAD DE PACIENTES** por especialidad:\n\n| ESPECIALIDAD | CANTIDAD DE PACIENTES |\n| --- | --- |\n| MEDICINA DE URGENCIAS | 2 |\n\nFiltros: SERVICIO = URGENCIAS.",
     "exception": null,
-    "latency_s": 3.254,
+    "latency_s": 2.365,
     "passed": true
    }
   ]
@@ -11657,7 +11659,7 @@
     "prompt": null,
     "answer": "La página INTERCONSULTAS existe en varios tableros. Estos son sus indicadores principales. ¿Cuál necesitas?",
     "exception": null,
-    "latency_s": 1.042,
+    "latency_s": 0.747,
     "passed": true
    },
    {
@@ -11675,10 +11677,10 @@
     "filters": [
      {
       "column": "Date",
-      "end": "2026-11-03",
-      "label": "2 de noviembre de 2026 (ayer)",
+      "end": "2026-11-04",
+      "label": "3 de noviembre de 2026 (ayer)",
       "month": 11,
-      "start": "2026-11-02",
+      "start": "2026-11-03",
       "table": "Calendario",
       "type": "date_range",
       "year": 2026
@@ -11694,17 +11696,17 @@
      "INTERCONSULTA"
     ],
     "dax": [
-     "EVALUATE SUMMARIZECOLUMNS( 'INTERCONSULTA'[GEEDESCRI], FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 2) && 'Calendario'[FECHA] < DATE(2026, 11, 3)), \"__value\", SUM('INTERCONSULTA'[SOLICITUDES]) ) ORDER BY [__value] DESC"
+     "EVALUATE SUMMARIZECOLUMNS( 'INTERCONSULTA'[GEEDESCRI], FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 3) && 'Calendario'[FECHA] < DATE(2026, 11, 4)), \"__value\", SUM('INTERCONSULTA'[SOLICITUDES]) ) ORDER BY [__value] DESC"
     ],
     "dax_log": [
-     "EVALUATE SUMMARIZECOLUMNS( 'INTERCONSULTA'[GEEDESCRI], FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 2) && 'Calendario'[FECHA] < DATE(2026, 11, 3)), \"__value\", SUM('INTERCONSULTA'[SOLICITUDES]) ) ORDER BY [__value] DESC",
+     "EVALUATE SUMMARIZECOLUMNS( 'INTERCONSULTA'[GEEDESCRI], FILTER(ALL('Calendario'[FECHA]), 'Calendario'[FECHA] >= DATE(2026, 11, 3) && 'Calendario'[FECHA] < DATE(2026, 11, 4)), \"__value\", SUM('INTERCONSULTA'[SOLICITUDES]) ) ORDER BY [__value] DESC",
      "EVALUATE ROW(\"__hasta\", MAXX(FILTER(ALL('Calendario'[FECHA]), NOT ISBLANK(CALCULATE(SUM('INTERCONSULTA'[SOLICITUDES])))), 'Calendario'[FECHA]))"
     ],
     "options": [],
     "prompt": null,
-    "answer": "No hay datos de **INTERCONSULTAS SOLICITADAS** el 2 de noviembre de 2026 (ayer). La fuente tiene datos hasta el 20/06/2026.\n\nFiltros: 2 de noviembre de 2026 (ayer).",
+    "answer": "No hay datos de **INTERCONSULTAS SOLICITADAS** el 3 de noviembre de 2026 (ayer). La fuente tiene datos hasta el 20/06/2026.\n\nFiltros: 3 de noviembre de 2026 (ayer).",
     "exception": null,
-    "latency_s": 0.113,
+    "latency_s": 0.093,
     "passed": true
    }
   ]
