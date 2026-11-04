@@ -275,7 +275,7 @@ class ContrapreguntaMixin:
     def _filter_feasible_options(self, question, candidates):
         """Opciones que, armadas con la pregunta tal como está, quedan listas y sin palabras sin
         aplicar; None si no descarta nada (todas o ninguna responden por completo)."""
-        full, exact = [], []
+        full, exact, filtering = [], [], False
         for item in candidates:
             metric = item.get("metric") or {}
             forced = {
@@ -293,18 +293,22 @@ class ContrapreguntaMixin:
             finally:
                 if self.__dict__.get("_resolution_notes") is not None:
                     self._resolution_notes[:] = notes
-            if (
-                isinstance(built, dict) and built.get("status") == "ready"
-                and not built.get("unapplied_terms")
-                and any(f.get("type") == "categorical" and f.get("source") != "query_plan_temporal"
-                        for f in built.get("filters") or [])
-            ):
+            # Responde por completo: plan listo sin palabras sin aplicar (el filtro
+            # puede venir de un valor o del propio tablero: «urgencias» en TIEMPOS URGENCIAS).
+            if isinstance(built, dict) and built.get("status") == "ready" and not built.get("unapplied_terms"):
                 full.append(item)
+                filtering = filtering or any(
+                    f.get("type") == "categorical" and f.get("source") not in (
+                        "query_plan_temporal", "query_plan_approximate_value")
+                    for f in built.get("filters") or []
+                )
                 # Un valor aproximado (otro género o raíz, en otra columna:
                 # SERVICIO = BLOQUEADO para «bloqueadas») pesa menos que el valor
                 # que la pregunta nombra (ESTADO = BLOQUEADA).
                 if not any(f.get("source") == "query_plan_approximate_value" for f in built.get("filters") or []):
                     exact.append(item)
+        if not filtering:
+            return None   # la pregunta no pide un filtro de valor: nada que descartar
         if exact and len(exact) < len(full):
             full = exact
         if not full or len(full) == len(candidates):
