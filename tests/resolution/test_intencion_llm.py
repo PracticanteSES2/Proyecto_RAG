@@ -65,22 +65,30 @@ class GuionLLM:
         self.calls = []
 
     @staticmethod
-    def _ids(prompt):
-        metrics = {name.strip(): key for key, name in re.findall(r"^(I\d+) \| ([^|]+?) \|", prompt, re.M)}
-        columns = {name.strip(): key for key, name in re.findall(r"^(C\d+) \| ([^|(]+?\[[^\]]+\])", prompt, re.M)}
+    def _ids(prompt, indicador):
+        """({nombre: I#}, {columna: C#} de la línea del indicador elegido)."""
+        metrics, columns = {}, {}
+        for line in prompt.splitlines():
+            match = re.match(r"^(I\d+) \| ([^|]+?) \|", line)
+            if not match:
+                continue
+            metrics.setdefault(match.group(2).strip(), match.group(1))
+            if match.group(2).strip() == indicador and "col: " in line:
+                for key, label in re.findall(r"(C\d+)=([^,]+)", line.split("col: ", 1)[1]):
+                    columns.setdefault(label.split(" (")[0].strip(), key)
         return metrics, columns
 
     def chat(self, messages, temperature=0.1, max_tokens=450, think=False, format=None):
         prompt = messages[-1]["content"] if messages else ""
-        if "INDICADORES:" not in prompt:
-            prompt = next((m["content"] for m in messages if "INDICADORES:" in m.get("content", "")), prompt)
+        if "PREGUNTA:" not in prompt:
+            prompt = next((m["content"] for m in messages if "PREGUNTA:" in m.get("content", "")), prompt)
         self.calls.append({"prompt": prompt, "temperature": temperature, "format": format, "messages": messages})
         if self.status != "success":
             return {"status": self.status, "answer": None, "error": "falla simulada"}
         if self.respuestas is not None:
             answer = self.respuestas.pop(0) if self.respuestas else "OK"
             return {"status": "success", "answer": answer}
-        metrics, columns = self._ids(prompt)
+        metrics, columns = self._ids(prompt, self.spec["indicador"])
         spec = self.spec
         payload = {
             "indicador_id": metrics.get(spec["indicador"], spec["indicador"]) if spec["indicador"] else None,
@@ -160,7 +168,7 @@ def test_retry_once_on_invalid_json_with_temperature_zero():
     result = IL.extraer_intencion(llm, "pregunta", _catalogo_vacio(), call=_call_direct)
     assert result["status"] == "ok" and result["llamadas"] == 2, result
     assert all(call["temperature"] == 0.0 for call in llm.calls)
-    assert llm.calls[0]["format"] == IL.ESQUEMA and llm.calls[1]["format"] == "json"
+    assert llm.calls[0]["format"] == "json" and llm.calls[1]["format"] == "json"
     llm = GuionLLM(respuestas=["nada", "tampoco"])
     result = IL.extraer_intencion(llm, "pregunta", _catalogo_vacio(), call=_call_direct)
     assert result["status"] == "invalid" and result["intencion"] is None and result["llamadas"] == 2, result
@@ -168,8 +176,56 @@ def test_retry_once_on_invalid_json_with_temperature_zero():
 
 def test_llm_error_and_missing_provider():
     assert IL.extraer_intencion(None, "x", _catalogo_vacio())["status"] == "sin_llm"
+    IL.cerrar_disyuntor()
     result = IL.extraer_intencion(GuionLLM(status="llm_timeout"), "x", _catalogo_vacio(), call=_call_direct)
     assert result["status"] == "llm_error" and result["llamadas"] == 1, result
+    IL.cerrar_disyuntor()
+
+
+def test_server_failure_opens_breaker_and_never_retries():
+    IL.cerrar_disyuntor()
+    try:
+        failing = GuionLLM(status="ollama_error")
+        result = IL.extraer_intencion(failing, "x", _catalogo_vacio(), call=_call_direct)
+        assert result["status"] == "llm_error" and len(failing.calls) == 1, result   # sin reintento
+        assert IL.disyuntor_abierto(), "el disyuntor no se abrió"
+        later = GuionLLM(indicador="I1")
+        result = IL.extraer_intencion(later, "x", _catalogo_vacio(), call=_call_direct)
+        assert result["status"] == "pausado" and not later.calls, result             # en pausa: ni se llama
+        with _env(INTENCION_LLM_PAUSA_S="0"):
+            IL.abrir_disyuntor("prueba")
+            assert not IL.disyuntor_abierto()
+    finally:
+        IL.cerrar_disyuntor()
+    assert IL.falla_del_servidor("Error occurred while trying to proxy (status code: 504)")
+    assert IL.falla_del_servidor("model runner has unexpectedly stopped")
+
+
+def test_output_is_short_and_plain_json_by_default():
+    llm = GuionLLM(respuestas=['{"indicador_id": "I1", "confianza": 0.8}'])
+    result = IL.extraer_intencion(llm, "x", _catalogo_vacio(), call=_call_direct)
+    assert result["status"] == "ok" and result["intencion"]["filtros"] == [], result   # campos omitidos = vacíos
+    call = llm.calls[0]
+    assert call["format"] == "json", call["format"]
+    assert len(IL.SISTEMA) < 1100, len(IL.SISTEMA)
+    with _env(INTENCION_LLM_FORMATO="esquema"):
+        assert IL.formato_salida() == IL.ESQUEMA
+
+
+def test_prompt_fits_budget():
+    system = _system()
+    if system is None:
+        print("  (omitido: sin data/ real)")
+        return
+    builder = system["engine"].query_plan_builder
+    for question in (Q_TOP, "los kilos de ropa lavada subieron o bajaron de mayo a junio de 2025",
+                     "en que servicios hay mas pacientes esperando cama de hospitalizacion"):
+        plan = builder.build(question)
+        catalog = IL.armar_catalogo(builder, question, plan, encoder=system["engine"]._intent_encoder())
+        size = sum(len(m["content"]) for m in IL.mensajes(question, catalog))
+        assert size <= IL.MAX_PROMPT and len(catalog.indicadores) <= IL.MAX_INDICADORES, (question, size)
+        for item in catalog.indicadores:
+            assert len(item["columnas"]) <= IL.MAX_COLUMNAS_POR_INDICADOR, item
 
 
 def test_prompt_lists_only_catalog_ids_and_no_bank_questions():
@@ -236,6 +292,11 @@ def _system():
             _SYSTEM["error"] = str(error)
         else:
             _SYSTEM.update(engine=engine, cm=cm, formatter=formatter, harness=harness)
+            # El arnés reimporta src/: el módulo que usa el motor es el de sys.modules ahora (su
+            # índice y su disyuntor son los que cuentan).
+            global IL
+            import importlib
+            IL = importlib.import_module("src.semantic.intencion_llm")
             # Índice de embeddings de los indicadores listo antes de preguntar (la primera vez
             # tarda ~20 s; luego se lee de disco): las pruebas no dependen de la carrera.
             index = IL.indice_semantico(engine.query_plan_builder, engine._intent_encoder())
@@ -252,6 +313,7 @@ def _ask(question, llm=None, mode="respaldo"):
     engine, harness = system["engine"], system["harness"]
     previous = engine.context_llm
     engine.context_llm = llm
+    IL.cerrar_disyuntor()
     try:
         with _env(INTENCION_LLM=mode):
             harness.new_conversation(engine, system["cm"])
@@ -276,7 +338,7 @@ Q_TOP = "las 4 especialidades quirurgicas que mas intervinieron pacientes en ago
 
 
 def test_e2e_valid_intent_replaces_unresolved_rules():
-    llm = GuionLLM(indicador="TOTAL_CIRUGIAS", agrupacion=["CIRUGIAS[ESPECIALIDAD]"], periodos=["agosto 2026"],
+    llm = GuionLLM(indicador="TOTAL_CIRUGIAS", agrupacion=["ESPECIALIDAD"], periodos=["agosto 2026"],
                    top_n=4, orden="mayor")
     asked = _ask(Q_TOP, llm)
     if asked is None:
@@ -296,9 +358,9 @@ def test_e2e_invented_indicator_is_rejected_and_rules_stay():
         print("  (omitido: sin data/ real)")
         return
     for llm in (
-        GuionLLM(indicador="I99", agrupacion=["CIRUGIAS[ESPECIALIDAD]"]),                 # id inventado
-        GuionLLM(indicador="TOTAL_CIRUGIAS", agrupacion=["CIRUGIAS[NO_EXISTE]"]),          # columna inventada
-        GuionLLM(indicador="TOTAL_CIRUGIAS", filtros=[("CIRUGIAS[ESPECIALIDAD]", "ASTROLOGIA")]),  # valor inventado
+        GuionLLM(indicador="I99", agrupacion=["ESPECIALIDAD"]),                 # id inventado
+        GuionLLM(indicador="TOTAL_CIRUGIAS", agrupacion=["NO_EXISTE"]),          # columna inventada
+        GuionLLM(indicador="TOTAL_CIRUGIAS", filtros=[("ESPECIALIDAD", "ASTROLOGIA")]),  # valor inventado
         GuionLLM(indicador="TOTAL_CIRUGIAS", confianza=0.2),                               # confianza baja
         GuionLLM(respuestas=["no es json", "tampoco"]),                                    # JSON inválido 2 veces
     ):
@@ -326,7 +388,7 @@ def test_e2e_comparison_two_periods_and_change_sentence():
 
 def test_e2e_invented_period_is_not_applied():
     # La pregunta no dice periodo: «este año» del LLM se descarta (no se inventan periodos).
-    llm = GuionLLM(indicador="PESO TOTAL por Mes", filtros=[("LAVANDERIA[TURNO_OK]", "noche")],
+    llm = GuionLLM(indicador="PESO TOTAL por Mes", filtros=[("TURNO_OK", "noche")],
                    periodos=["este año"])
     asked = _ask("cuantos kilos de ropa se lavaron en el turno de la noche", llm, mode="siempre")
     if asked is None:
@@ -338,6 +400,40 @@ def test_e2e_invented_period_is_not_applied():
     assert "periodo «este año» descartado" in lines, lines
     assert result.get("status") == "success" and "DATE(" not in str(result.get("dax") or ""), (result.get("dax"), ui)
     assert "NOCHE" in str(result.get("dax") or ""), result.get("dax")
+
+
+def test_e2e_filter_naming_the_column_groups_and_period_words_are_dropped():
+    llm = GuionLLM(indicador="PESO TOTAL por Mes",
+                   filtros=[("TURNO_OK", "turno"), ("TURNO_OK", "junio 2025"), ("TURNO_OK", "hoy")],
+                   periodos=["junio 2025"])
+    asked = _ask("cuantos kilos de ropa se lavaron segun el turno en junio de 2025", llm, mode="siempre")
+    if asked is None:
+        print("  (omitido: sin data/ real)")
+        return
+    result, ui = asked
+    lines = " ".join(" ".join(step.get("lines") or []) for step in _steps(result))
+    assert "nombra la columna" in lines and "es un periodo" in lines, lines
+    dax = str(result.get("dax") or "")
+    assert result.get("status") == "success" and "TURNO_OK" in dax and "DATE(2025, 6, 1)" in dax, (dax, ui)
+    assert "TREATAS" not in dax, dax   # ningún filtro por «turno», «junio 2025» ni «hoy»
+
+
+def test_e2e_ambiguity_only_allows_rule_options():
+    system = _system()
+    if system is None:
+        print("  (omitido: sin data/ real)")
+        return
+    builder = system["engine"].query_plan_builder
+    question = "cuantos kilos de ropa se lavaron en junio de 2025"
+    catalog = IL.armar_catalogo(builder, question, builder.build(question))
+    intent = {"indicador_id": "I1", "filtros": [], "agrupacion": [], "periodos": [], "comparacion": "ninguna",
+              "top_n": None, "orden": "ninguno", "confianza": 0.9, "dudas": ""}
+    other = {("otro",)}
+    rejected = IL.validar_intencion(builder, question, intent, catalog, permitidos=other)
+    assert rejected["status"] == "rejected" and "opciones de la contrapregunta" in rejected["motivo"], rejected
+    allowed = {builder._logical_key(catalog.indicadores[0]["metric"])}
+    assert IL.validar_intencion(builder, question, intent, catalog, permitidos=allowed)["status"] == "valid"
+    assert IL.opciones_permitidas(builder, {"status": "not_found"}) is None
 
 
 def test_e2e_off_mode_never_calls_llm_and_rules_resolved_questions_untouched():

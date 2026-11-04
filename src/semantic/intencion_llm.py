@@ -69,11 +69,16 @@ def confianza_min():
     return min(1.0, max(0.0, _env_float("INTENCION_LLM_CONFIANZA_MIN", 0.6)))
 
 
-MAX_INDICADORES = 14
-MAX_COLUMNAS = 24
+MAX_INDICADORES = 8
+MAX_REGLAS = 3
+MAX_COLUMNAS_POR_INDICADOR = 3
 MAX_PERIODOS = 4
-MAX_DESCRIPCION = 130
-MAX_POR_TABLERO = 5
+MAX_DESCRIPCION = 55
+MAX_POR_TABLERO = 3
+# Tamaño máximo del prompt (sistema + catálogo + pregunta): el servidor de MedGemma es compartido.
+MAX_PROMPT = 2000
+# Tokens de salida: el JSON sin campos vacíos cabe holgado.
+MAX_TOKENS_SALIDA = 160
 
 # ===================================================================== cuándo llamar
 
@@ -148,6 +153,7 @@ class Catalogo:
         self.columnas = columnas         # [{"id", "field", "nombre", "alias", "de": [ids]}]
         self.periodos = periodos         # [{"texto", "desde", "hasta"}]
         self.hoy = hoy
+        self.caracteres = 0   # tamaño del prompt (sistema + catálogo + pregunta)
 
     def indicador(self, item_id):
         key = str(item_id or "").strip().upper()
@@ -371,7 +377,8 @@ class IndiceSemantico:
         try:
             vector = self.encoder.encode(pregunta, normalize_embeddings=True)
             scores = self.matrix @ vector
-        except Exception:
+        except Exception as error:
+            self.error = f"búsqueda: {type(error).__name__}: {error}"
             return []
         order = sorted(range(len(self.metrics)), key=lambda i: -float(scores[i]))[:limit]
         return [self.metrics[i] for i in order]
@@ -504,9 +511,24 @@ def _private(builder, field):
     return identifier_column(field.get("column"))
 
 
-def armar_catalogo(builder, pregunta, plan=None, encoder=None, limit=MAX_INDICADORES, esperar_indice_s=0.0):
+def _column_label(field):
+    """Nombre corto de una columna para el prompt: el nombre si es legible; si es técnico
+    (HSUNOMBRE, GEEDESCRI) se agrega su primer alias legible."""
+    column = str(field.get("column") or "")
+    aliases = [
+        str(a).strip() for a in field.get("aliases") or []
+        if a and "." not in str(a) and normalize_text(a) != normalize_text(column)
+    ]
+    readable = bool(re.search(r"[_ ]", column)) or len(column) <= 8 or not column.isupper()
+    if aliases and not readable:
+        return f"{column} ({aliases[0].lower()})"
+    return column
+
+
+def armar_catalogo(builder, pregunta, plan=None, encoder=None, limit=None, esperar_indice_s=0.0):
     """Catálogo acotado para el LLM: los mejores indicadores (reglas primero, luego embeddings y
-    léxico), las dimensiones de sus tablas y los periodos detectados en la pregunta."""
+    léxico) con sus columnas más pertinentes, y los periodos detectados en la pregunta."""
+    limit = limit or MAX_INDICADORES
     ordered, seen, per_model = [], set(), {}
 
     def push(metric, origin):
@@ -523,70 +545,86 @@ def armar_catalogo(builder, pregunta, plan=None, encoder=None, limit=MAX_INDICAD
         per_model[model] = per_model.get(model, 0) + 1
         ordered.append((metric, origin))
 
-    # Las reglas aportan a lo sumo un tercio: si no, sus candidatos (que ya fallaron) llenan la lista.
-    rule_limit = max(1, limit // 3)
+    # Las reglas aportan a lo sumo MAX_REGLAS: si no, sus candidatos (que ya fallaron) llenan la lista.
     for metric in _rule_candidates(plan):
-        if len(ordered) >= rule_limit:
+        if len(ordered) >= MAX_REGLAS:
             break
         push(metric, "reglas")
     semantic = indice_semantico(builder, encoder)
     if semantic is not None and not semantic.listo() and esperar_indice_s > 0:
         semantic.esperar(esperar_indice_s)
     # Se intercalan embeddings y léxico para que ninguno llene solo la lista.
-    vector = semantic.buscar(pregunta, 3 * limit) if semantic is not None else []
-    lexical = _lexical_candidates(builder, pregunta, 3 * limit)
-    for pair in zip(vector + [None] * max(0, len(lexical) - len(vector)),
-                    lexical + [None] * max(0, len(vector) - len(lexical))):
-        for metric, origin in zip(pair, ("embeddings", "palabras")):
+    vector = semantic.buscar(pregunta, 4 * limit) if semantic is not None else []
+    lexical = _lexical_candidates(builder, pregunta, 4 * limit)
+    # Dos de embeddings por cada una léxica: el léxico solo ve palabras sueltas (más ruido).
+    vector_iter, lexical_iter = iter(vector), iter(lexical)
+    while len(ordered) < limit:
+        batch = [(next(vector_iter, None), "embeddings"), (next(vector_iter, None), "embeddings"),
+                 (next(lexical_iter, None), "palabras")]
+        if all(metric is None for metric, _ in batch):
+            break
+        for metric, origin in batch:
             if metric is not None:
                 push(metric, origin)
 
-    indicadores = []
+    q_tokens = set(_question_tokens(pregunta))
+    by_key, columnas, indicadores = {}, [], []
     for number, (metric, origin) in enumerate(ordered, 1):
         description = _description(builder, metric)
-        pages = builder._metric_pages(metric)
-        indicadores.append({
-            "id": f"I{number}", "metric": metric, "nombre": str(metric.get("label") or metric.get("measure")),
-            "tablero": str(metric.get("semantic_model") or ""), "pagina": ", ".join(pages[:2]),
-            "descripcion": description[:MAX_DESCRIPCION], "unidad": _unit(metric, description), "origen": origin,
-        })
-
-    # Columnas: las de los indicadores (sin identificadores ni datos de personas), primero las que
-    # comparten palabras con la pregunta, y las de los primeros indicadores.
-    q_tokens = set(_question_tokens(pregunta))
-    by_key = {}
-    for position, item in enumerate(indicadores):
+        # Una línea: la primera oración, corta.
+        description = re.split(r"(?<=[a-z0-9áéíóúñ)])\.\s", description, maxsplit=1)[0][:MAX_DESCRIPCION]
         try:
-            fields = builder._metric_dimensions(item["metric"])
+            fields = builder._metric_dimensions(metric)
         except Exception:
             fields = []
-        for field in fields:
+        # Solo las columnas pertinentes: las que comparten palabras con la pregunta primero.
+        ranked = []
+        for position, field in enumerate(fields):
             if not field.get("table") or not field.get("column") or _private(builder, field):
                 continue
             if _date_field(builder, field):
-                continue  # los periodos van aparte (PERIODOS EN LA PREGUNTA)
+                continue  # los periodos van aparte
+            words = {t for name in [field["column"], *(field.get("aliases") or [])] for t in canonical_tokens(name)}
+            ranked.append((0 if words & q_tokens else 1, position, field))
+        ranked.sort(key=lambda item: item[:2])
+        own, seen_labels = [], set()
+        for rank, _, field in ranked:
+            # Las que la pregunta nombra (hasta 3); si ninguna, solo la principal del indicador.
+            if len(own) >= MAX_COLUMNAS_POR_INDICADOR or (rank == 1 and own):
+                break
             key = _column_key(field)
             entry = by_key.get(key)
             if entry is None:
-                aliases = [
-                    str(a).strip() for a in field.get("aliases") or []
-                    if a and normalize_text(a) != normalize_text(field["column"]) and "." not in str(a)
-                ]
-                words = {t for name in [field["column"], *aliases] for t in canonical_tokens(name)}
-                entry = {"field": field, "alias": list(dict.fromkeys(aliases))[:3], "de": [],
-                         "rank": (0 if words & q_tokens else 1, position)}
+                label = _column_label(field)
+                if normalize_text(label) in seen_labels:
+                    continue
+                entry = {"id": f"C{len(columnas) + 1}", "field": field,
+                         "nombre": f"{field['table']}[{field['column']}]", "etiqueta": label, "alias": [], "de": []}
                 by_key[key] = entry
-            if item["id"] not in entry["de"]:
-                entry["de"].append(item["id"])
-    chosen = sorted(by_key.values(), key=lambda entry: entry["rank"])[:MAX_COLUMNAS]
-    columnas = []
-    for number, entry in enumerate(chosen, 1):
-        field = entry["field"]
-        columnas.append({
-            "id": f"C{number}", "field": field, "nombre": f"{field['table']}[{field['column']}]",
-            "alias": entry["alias"], "de": entry["de"],
+                columnas.append(entry)
+            if normalize_text(entry["etiqueta"]) in seen_labels:
+                continue
+            seen_labels.add(normalize_text(entry["etiqueta"]))
+            entry["de"].append(f"I{number}")
+            own.append(entry["id"])
+        indicadores.append({
+            "id": f"I{number}", "metric": metric, "nombre": str(metric.get("label") or metric.get("measure")),
+            "tablero": re.sub(r"^(?:tablero|dashboard)[ _]+(?:de\s+)?", "", str(metric.get("semantic_model") or ""),
+                              flags=re.I)[:24],
+            "pagina": ", ".join(builder._metric_pages(metric)[:1]),
+            "descripcion": description, "unidad": _unit(metric, description), "origen": origin,
+            "columnas": own,
         })
-    return Catalogo(indicadores, columnas, _periods_in_question(builder, pregunta), builder._today())
+    catalogo = Catalogo(indicadores, columnas, _periods_in_question(builder, pregunta), builder._today())
+    # Presupuesto del prompt: se quitan indicadores del final hasta que quepa.
+    while len(catalogo.indicadores) > 3 and _prompt_chars(pregunta, catalogo) > MAX_PROMPT:
+        dropped = catalogo.indicadores.pop()
+        keep = {cid for item in catalogo.indicadores for cid in item["columnas"]}
+        catalogo.columnas = [c for c in catalogo.columnas if c["id"] in keep]
+        for column in catalogo.columnas:
+            column["de"] = [i for i in column["de"] if i != dropped["id"]]
+    catalogo.caracteres = _prompt_chars(pregunta, catalogo)
+    return catalogo
 
 
 # ===================================================================== prompt y esquema
@@ -615,52 +653,36 @@ ESQUEMA = {
         "confianza": {"type": "number"},
         "dudas": {"type": "string"},
     },
-    "required": ["indicador_id", "filtros", "agrupacion", "periodos", "comparacion", "top_n", "orden",
-                 "confianza", "dudas"],
+    "required": ["indicador_id", "confianza"],
 }
 
-SISTEMA = """Eres el extractor de intención de un asistente administrativo de un hospital que consulta tableros de Power BI.
-NO respondes la pregunta ni das cifras: devuelves SOLO un objeto JSON con la intención, usando ÚNICAMENTE los ids del catálogo.
+SISTEMA = """Extrae la intención de una pregunta sobre tableros de un hospital. Responde solo JSON.
+indicador_id: I# que mide lo pedido (null si ninguno). filtros: [{columna_id:C#,valor_texto,excluir}] solo valores concretos (un servicio, una EPS, un estado); excluir=true con «sin contar/excepto». agrupacion: [C#] para «por X», «en qué X», «cuál X más». periodos: los que dice la pregunta. comparacion:"periodos" si compara dos. top_n y orden:"mayor"|"menor" si es ranking. confianza 0-1. Omite campos vacíos. Un periodo o el nombre de una columna no es un filtro.
+Ej.: «3 sedes con más visitas en marzo sin contar urgencias» -> {"indicador_id":"I1","filtros":[{"columna_id":"C2","valor_texto":"urgencias","excluir":true}],"agrupacion":["C1"],"periodos":["marzo"],"top_n":3,"orden":"mayor","confianza":0.8}"""
 
-Campos:
-- indicador_id: id (I1, I2...) del indicador que mide lo que se pregunta; null si ninguno lo mide.
-- filtros: valores concretos que pide la pregunta (un servicio, una EPS, un estado, un tipo). columna_id = id (C1, C2...) de la columna que contiene ese valor; valor_texto = el valor con las palabras de la pregunta. excluir = true si la pregunta lo excluye («sin contar», «excepto»).
-- agrupacion: ids de columnas por las que se pide repartir o desglosar («por servicio», «en qué servicios», «cuál especialidad más»).
-- periodos: cada periodo que dice la pregunta, como texto corto («septiembre 2026», «este año», «la semana pasada», «ayer»). Los periodos NUNCA son filtros ni agrupaciones. No inventes periodos.
-- comparacion: "periodos" si compara dos periodos («subió o bajó de A a B», «más en A o en B»); si no, "ninguna".
-- top_n y orden: «los 5 que más» -> top_n 5, orden "mayor"; «cuál tiene menos» -> top_n 1, orden "menor"; sin ranking -> top_n null, orden "ninguno".
-- confianza: de 0 a 1. dudas: texto corto si algo no encaja ("" si nada).
 
-Ejemplo (catálogo de ejemplo, no es el real):
-I1 | VISITAS TECNICAS | tablero MANTENIMIENTO | visitas de mantenimiento a equipos | conteo
-C1 | VISITAS[SEDE] (sede) | de: I1
-C2 | VISITAS[TIPO_EQUIPO] (tipo de equipo) | de: I1
-Pregunta: «las visitas a la sede norte crecieron de marzo a abril?»
-{"indicador_id":"I1","filtros":[{"columna_id":"C1","valor_texto":"norte","excluir":false}],"agrupacion":[],"periodos":["marzo 2026","abril 2026"],"comparacion":"periodos","top_n":null,"orden":"ninguno","confianza":0.9,"dudas":""}
-Pregunta: «qué 3 tipos de equipo se dañaron más este año, sin contar la sede sur»
-{"indicador_id":"I1","filtros":[{"columna_id":"C1","valor_texto":"sur","excluir":true}],"agrupacion":["C2"],"periodos":["este año"],"comparacion":"ninguna","top_n":3,"orden":"mayor","confianza":0.8,"dudas":""}"""
+def _user_message(pregunta, catalogo):
+    lines = [f"HOY {catalogo.hoy.isoformat()}"]
+    labels = {column["id"]: column["etiqueta"] for column in catalogo.columnas}
+    for item in catalogo.indicadores:
+        parts = [item["id"], item["nombre"], item["tablero"]]
+        if item["descripcion"]:
+            parts.append(item["descripcion"])
+        if item["columnas"]:
+            parts.append("col: " + ", ".join(f"{cid}={labels[cid]}" for cid in item["columnas"] if cid in labels))
+        lines.append(" | ".join(parts))
+    if catalogo.periodos:
+        lines.append("PERIODOS: " + "; ".join(p["texto"] for p in catalogo.periodos))
+    lines.append(f"PREGUNTA: «{pregunta}»")
+    return "\n".join(lines)
+
+
+def _prompt_chars(pregunta, catalogo):
+    return len(SISTEMA) + len(_user_message(pregunta, catalogo))
 
 
 def mensajes(pregunta, catalogo):
-    lines = [f"HOY: {catalogo.hoy.isoformat()}", "", "INDICADORES:"]
-    for item in catalogo.indicadores:
-        where = item["tablero"] + (f" (página {item['pagina']})" if item["pagina"] else "")
-        lines.append(" | ".join(part for part in (
-            item["id"], item["nombre"], f"tablero {where}", item["descripcion"] or "-", item["unidad"],
-        )))
-    lines.append("")
-    lines.append("COLUMNAS:")
-    for column in catalogo.columnas:
-        alias = f" ({', '.join(column['alias'])})" if column["alias"] else ""
-        lines.append(f"{column['id']} | {column['nombre']}{alias} | de: {', '.join(column['de'])}")
-    if catalogo.periodos:
-        lines.append("")
-        lines.append("PERIODOS EN LA PREGUNTA: " + "; ".join(
-            f"{p['texto']} ({p['desde']} a {p['hasta']})" for p in catalogo.periodos))
-    lines.append("")
-    lines.append(f"Pregunta: «{pregunta}»")
-    lines.append("Responde solo el JSON.")
-    return [{"role": "system", "content": SISTEMA}, {"role": "user", "content": "\n".join(lines)}]
+    return [{"role": "system", "content": SISTEMA}, {"role": "user", "content": _user_message(pregunta, catalogo)}]
 
 
 # ===================================================================== parseo robusto
@@ -758,6 +780,8 @@ def normalizar_intencion(obj):
     if orden not in ("ninguno", "mayor", "menor"):
         orden = "ninguno"
     confianza = obj.get("confianza")
+    if confianza is None:
+        confianza = 0.6   # campo omitido: confianza neutra (el prompt pide omitir lo vacío)
     if isinstance(confianza, str):
         confianza = {"alta": 0.9, "media": 0.6, "baja": 0.3}.get(confianza.strip().lower(), confianza)
     try:
@@ -776,9 +800,58 @@ def normalizar_intencion(obj):
 
 # ===================================================================== llamada al LLM
 
-def extraer_intencion(provider, pregunta, catalogo, tiempo_total=None, call=None):
-    """Llama al LLM (temperatura 0, JSON con esquema) y parsea su salida; un reintento si el JSON
-    sale inválido y queda tiempo. Devuelve {"status": "ok"|"invalid"|"llm_error"|"sin_llm",
+def formato_salida():
+    """`json` (por defecto: JSON simple y validación propia, lo más liviano para el servidor) o
+    `esquema` (decodificación restringida con el esquema completo; más carga en Ollama)."""
+    value = str(os.getenv("INTENCION_LLM_FORMATO") or "").strip().lower()
+    return ESQUEMA if value == "esquema" else "json"
+
+
+def pausa_disyuntor_s():
+    """Minutos sin llamar al extractor tras una falla de MedGemma (INTENCION_LLM_PAUSA_S, 300 s)."""
+    return max(0.0, _env_float("INTENCION_LLM_PAUSA_S", 300.0))
+
+
+# Disyuntor (circuit breaker) del proceso: si MedGemma falla (504 del proxy, tiempo agotado, runner
+# caído, saturado), el extractor se apaga unos minutos y quedan las reglas. Así nunca se insiste
+# contra un servidor compartido que está en problemas.
+_DISYUNTOR = {"hasta": 0.0, "motivo": None, "fallas": 0}
+_DISYUNTOR_LOCK = threading.Lock()
+
+
+def disyuntor_abierto():
+    """Motivo si el extractor está en pausa; None si se puede llamar."""
+    with _DISYUNTOR_LOCK:
+        if time.monotonic() < _DISYUNTOR["hasta"]:
+            return _DISYUNTOR["motivo"]
+        return None
+
+
+def abrir_disyuntor(motivo, segundos=None):
+    with _DISYUNTOR_LOCK:
+        _DISYUNTOR["fallas"] += 1
+        _DISYUNTOR["motivo"] = motivo
+        _DISYUNTOR["hasta"] = time.monotonic() + (pausa_disyuntor_s() if segundos is None else float(segundos))
+
+
+def cerrar_disyuntor():
+    with _DISYUNTOR_LOCK:
+        _DISYUNTOR.update(hasta=0.0, motivo=None, fallas=0)
+
+
+def falla_del_servidor(texto):
+    """¿El error indica un servidor sobrecargado (504, runner caído, tiempo agotado)?"""
+    text = str(texto or "").lower()
+    return any(marker in text for marker in (
+        "504", "502", "503", "runner has unexpectedly stopped", "resource limitations", "timed out",
+        "timeout", "saturad", "llm_saturated", "llm_timeout",
+    ))
+
+
+def extraer_intencion(provider, pregunta, catalogo, tiempo_total=None, call=None, disyuntor=True):
+    """Llama al LLM (temperatura 0, JSON simple, salida corta) y parsea su salida; un reintento
+    SOLO si el JSON sale inválido y queda tiempo (nunca tras un error del servidor). Si MedGemma
+    falla, abre el disyuntor. Devuelve {"status": "ok"|"invalid"|"llm_error"|"sin_llm"|"pausado",
     "intencion", "crudo": [textos], "errores", "segundos", "llamadas"}."""
     if call is None:
         from src.llm.llm_gate import call_llm as call
@@ -787,30 +860,35 @@ def extraer_intencion(provider, pregunta, catalogo, tiempo_total=None, call=None
     result = {"status": "sin_llm", "intencion": None, "crudo": [], "errores": [], "segundos": 0.0, "llamadas": 0}
     if provider is None:
         return result
+    paused = disyuntor_abierto() if disyuntor else None
+    if paused:
+        result.update(status="pausado")
+        result["errores"].append(f"extractor en pausa tras una falla de MedGemma: {paused}")
+        return result
     messages = mensajes(pregunta, catalogo)
-    formats = [ESQUEMA, "json"]
     for attempt in range(2):
         remaining = budget - (time.perf_counter() - started)
-        if remaining < 0.4:
-            result["errores"].append("sin tiempo para otro intento")
+        if remaining < (0.4 if attempt == 0 else 1.5):
+            if attempt:
+                result["errores"].append("sin tiempo para reintentar")
             break
         attempt_messages = messages
         if attempt and result["crudo"]:
-            attempt_messages = [*messages, {"role": "assistant", "content": str(result["crudo"][-1])[:600]},
-                                {"role": "user", "content": "Eso no es un JSON válido con el esquema pedido. "
-                                                            "Responde SOLO el objeto JSON."}]
-        response = call(provider, attempt_messages, purpose="intención", timeout=remaining, queue_wait=min(1.0, remaining),
-                        temperature=0.0, max_tokens=300, think=False, format=formats[min(attempt, 1)])
+            attempt_messages = [*messages, {"role": "assistant", "content": str(result["crudo"][-1])[:300]},
+                                {"role": "user", "content": "Responde SOLO el objeto JSON."}]
+        response = call(provider, attempt_messages, purpose="intención", timeout=remaining,
+                        queue_wait=min(1.0, remaining), temperature=0.0, max_tokens=MAX_TOKENS_SALIDA,
+                        think=False, format=formato_salida())
         result["llamadas"] += 1
         status = (response or {}).get("status")
         answer = (response or {}).get("answer")
         if status != "success" or not answer:
+            error = f"LLM: {status} {str((response or {}).get('error') or '')[:160]}".strip()
             result["status"] = "llm_error"
-            result["errores"].append(f"LLM: {status} {str((response or {}).get('error') or '')[:120]}".strip())
-            # Un esquema que el servidor no acepta: se reintenta con "json" simple.
-            if status in ("ollama_error",) and attempt == 0:
-                continue
-            break
+            result["errores"].append(error)
+            if disyuntor and status != "empty_response":
+                abrir_disyuntor(error)
+            break   # nunca se insiste tras un error del servidor
         result["crudo"].append(answer)
         intencion, errores = normalizar_intencion(parsear_json(answer))
         if intencion is not None and not errores:
@@ -906,17 +984,27 @@ def _field_in(fields, column_item):
     return next((field for field in fields if _column_key(field) == key), None)
 
 
-def validar_intencion(builder, pregunta, intencion, catalogo):
+def opciones_permitidas(builder, plan):
+    """Claves lógicas de los indicadores que las reglas ofrecerían en una contrapregunta (plan
+    `ambiguous`); None si el plan no es una ambigüedad (no se restringe)."""
+    if not isinstance(plan, dict) or plan.get("status") != "ambiguous":
+        return None
+    keys = {builder._logical_key(metric) for metric in _rule_candidates(plan) if _approved(metric)}
+    return keys or None
+
+
+def validar_intencion(builder, pregunta, intencion, catalogo, permitidos=None):
     """Valida la intención con el motor y arma el plan. Devuelve {"status": "valid"|"rejected",
     "plan", "motivo", "aceptado": [líneas], "descartado": [líneas]}. Cualquier parte que no valide
-    rechaza el plan completo (no se consulta a medias)."""
+    rechaza el plan completo (no se consulta a medias), salvo periodos inventados y «filtros» que no
+    son valores (se descartan). `permitidos`: claves lógicas a las que se limita el indicador."""
     aceptado, descartado = [], []
     notes_box = []
     previous_notes = builder.__dict__.get("_resolution_notes")
     previous_date_metric = builder.__dict__.get("_date_metric")
     builder._resolution_notes = notes_box
     try:
-        plan = _armar_plan(builder, pregunta, intencion, catalogo, aceptado, descartado)
+        plan = _armar_plan(builder, pregunta, intencion, catalogo, aceptado, descartado, permitidos)
         if notes_box:
             plan["resolution_notes"] = list(dict.fromkeys([*(plan.get("resolution_notes") or []), *notes_box]))
         return {"status": "valid", "plan": plan, "motivo": None, "aceptado": aceptado, "descartado": descartado}
@@ -933,7 +1021,42 @@ def validar_intencion(builder, pregunta, intencion, catalogo):
         builder._date_metric = previous_date_metric
 
 
-def _armar_plan(builder, pregunta, intencion, catalogo, aceptado, descartado):
+_NOT_VALUE_WORDS = {
+    "hoy", "ayer", "anteayer", "ahora", "ahorita", "actual", "actuales", "semana", "mes", "ano", "anio", "dia",
+    "total", "todos", "todas", "cantidad", "numero", "promedio",
+}
+
+
+def _not_a_value(builder, texto, metric, nombre):
+    """Motivo si el texto no puede ser un valor de filtro (periodo, palabra genérica o el nombre del
+    propio indicador); None si puede serlo."""
+    text = normalize_text(texto)
+    if not text:
+        return "vacío"
+    words = text.split()
+    if all(w in _NOT_VALUE_WORDS or w in PERIOD_MONTHS or re.fullmatch(r"(?:19|20)\d{2}|\d{1,2}", w)
+           or w in STOPWORDS for w in words):
+        return "es un periodo o una palabra genérica"
+    try:
+        if builder._period_parser().parse(text):
+            return "es un periodo (se toma de la pregunta)"
+    except Exception:
+        pass
+    tokens = {canonical_token(w) for w in words if len(w) >= 3}
+    name_tokens = {t for name in (nombre, metric.get("label"), metric.get("measure"), metric.get("table"))
+                   if name for t in canonical_tokens(name)}
+    if tokens and tokens <= name_tokens:
+        return "es el nombre del indicador, no un valor"
+    return None
+
+
+def _names_column(texto, field):
+    tokens = {canonical_token(w) for w in normalize_text(texto).split() if len(w) >= 3}
+    names = {t for name in [field.get("column"), *(field.get("aliases") or [])] if name for t in canonical_tokens(name)}
+    return bool(tokens) and tokens <= names
+
+
+def _armar_plan(builder, pregunta, intencion, catalogo, aceptado, descartado, permitidos=None):
     if not isinstance(intencion, dict):
         raise _Rechazo("sin intención válida")
     item = catalogo.indicador(intencion.get("indicador_id"))
@@ -943,6 +1066,11 @@ def _armar_plan(builder, pregunta, intencion, catalogo, aceptado, descartado):
             else f"indicador «{intencion.get('indicador_id')}» no está en la lista mostrada"
         )
     metric = item["metric"]
+    if permitidos is not None and builder._logical_key(metric) not in permitidos:
+        raise _Rechazo(
+            f"{metric.get('label')} no es una de las opciones de la contrapregunta de las reglas: ante una "
+            "ambigüedad MedGemma solo puede elegir entre ellas"
+        )
     if not _approved(metric):
         raise _Rechazo(f"{metric.get('label')} no es un indicador aprobado con expresión DAX")
     confianza = float(intencion.get("confianza") or 0.0)
@@ -969,12 +1097,24 @@ def _armar_plan(builder, pregunta, intencion, catalogo, aceptado, descartado):
     filters = []
     for spec in intencion.get("filtros") or []:
         column = catalogo.columna(spec.get("columna_id"))
+        texto = spec.get("valor_texto")
+        # Lo que no es un valor (un periodo, el nombre del indicador) no es un filtro: se descarta.
+        not_value = _not_a_value(builder, texto, metric, item["nombre"])
+        if not_value:
+            descartado.append(f"filtro «{texto}» descartado: {not_value}")
+            continue
         if column is None:
             raise _Rechazo(f"columna de filtro «{spec.get('columna_id')}» no está en la lista mostrada")
         field = _field_in(dims, column)
         if field is None or builder._dimension_relation(metric, field) == "unrelated":
             raise _Rechazo(f"{column['nombre']} no filtra {metric.get('label')}")
-        resolved = _resolve_filter_value(builder, field, semantic_model, spec.get("valor_texto"))
+        if _names_column(texto, field):
+            # «según el ÁREA», «qué TIPO de cama»: nombra la columna, no un valor -> se agrupa.
+            if _column_key(field) not in {_column_key(f) for f in group_fields}:
+                group_fields.append(field)
+            descartado.append(f"filtro «{texto}» nombra la columna {column['nombre']}: se agrupa por ella")
+            continue
+        resolved = _resolve_filter_value(builder, field, semantic_model, texto)
         if not resolved:
             raise _Rechazo(f"«{spec.get('valor_texto')}» no es un valor de {column['nombre']} (dominio real)")
         item_filter = builder._categorical_filter(field, resolved, "intencion_llm", semantic_model)

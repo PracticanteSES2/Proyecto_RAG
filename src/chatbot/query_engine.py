@@ -4753,6 +4753,19 @@ class QueryEngine:
         reason = intencion_llm.motivo_llamada(mode, plan, question)
         if not reason:
             return None
+        builder = self.query_plan_builder
+        try:
+            # Una pregunta descriptiva («qué mide», «cómo se calcula») pide una explicación, no un
+            # indicador: el LLM no la convierte en consulta.
+            if builder.is_descriptive(question):
+                return None
+        except Exception:
+            pass
+        paused = intencion_llm.disyuntor_abierto()
+        if paused:
+            self._think("Intención con MedGemma", f"motivo: {reason}",
+                        f"extractor en pausa tras una falla reciente de MedGemma ({short(paused, 160)}): se siguen las reglas")
+            return None
         # Una sola consulta por turno (el Query Plan puede correr dos veces: temprano y tras el
         # analizador de intención): el LLM no suma más de INTENCION_LLM_TIEMPO_S por turno.
         previous = getattr(self, "_intent_llm_turn", None)
@@ -4763,9 +4776,10 @@ class QueryEngine:
         if provider is None:
             self._think("Intención con MedGemma", f"motivo: {reason}", "MedGemma no está disponible: se siguen las reglas")
             return None
-        builder = self.query_plan_builder
         try:
-            catalog = intencion_llm.armar_catalogo(builder, question, plan, encoder=self._intent_encoder())
+            # Hasta 1,5 s esperando el índice de embeddings la primera vez (desde disco tarda poco).
+            catalog = intencion_llm.armar_catalogo(builder, question, plan, encoder=self._intent_encoder(),
+                                                   esperar_indice_s=1.5)
         except Exception as error:
             self._think("Intención con MedGemma", f"motivo: {reason}",
                         f"no se pudo armar el catálogo de candidatos: {type(error).__name__}: {error}")
@@ -4778,16 +4792,22 @@ class QueryEngine:
         lines = [
             f"motivo: {reason}",
             f"candidatos mostrados: {len(catalog.indicadores)} indicadores ("
-            + ", ".join(f"{i['id']} {i['nombre']}" for i in catalog.indicadores[:6])
-            + (" ..." if len(catalog.indicadores) > 6 else "") + f"), {len(catalog.columnas)} columnas",
+            + ", ".join(f"{i['id']} {i['nombre']} [{i['origen']}]" for i in catalog.indicadores)
+            + f"), {len(catalog.columnas)} columnas, prompt de {catalog.caracteres} caracteres",
             f"MedGemma: {extraction['status']} en {extraction['segundos']:.2f} s ({extraction['llamadas']} llamada(s))",
             *[f"salida: {short(' '.join(str(raw).split()), 300)}" for raw in extraction["crudo"][-1:]],
             *[f"error: {error}" for error in extraction["errores"][:3]],
+            f"falla de MedGemma: el extractor queda en pausa {intencion_llm.pausa_disyuntor_s():.0f} s "
+            "(INTENCION_LLM_PAUSA_S) para no cargar el servidor; mientras tanto, solo reglas"
+            if extraction["status"] == "llm_error" and intencion_llm.disyuntor_abierto() else None,
         ]
         if extraction.get("intencion") is None:
             self._think("Intención con MedGemma", *lines, "sin intención utilizable: se siguen las reglas")
             return None
-        validation = intencion_llm.validar_intencion(builder, question, extraction["intencion"], catalog)
+        validation = intencion_llm.validar_intencion(
+            builder, question, extraction["intencion"], catalog,
+            permitidos=intencion_llm.opciones_permitidas(builder, plan),
+        )
         lines += [f"validado: {line}" for line in validation["aceptado"]]
         lines += [f"descartado: {line}" for line in validation["descartado"]]
         if validation["status"] != "valid":
