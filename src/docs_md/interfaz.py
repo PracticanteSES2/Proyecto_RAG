@@ -730,7 +730,7 @@ def pagina(servicios: Servicios | None = None):
         st.error(f"No se pudieron cargar los servicios de documentación: {exc}")
         return
 
-    st.title("📚 Documentación de tableros")
+    st.title("Documentación de tableros")
     st.caption("Consulta la documentación de cada página y propone cambios en lenguaje sencillo. "
                "Un cambio solo se guarda cuando lo apruebas.")
     with st.sidebar:

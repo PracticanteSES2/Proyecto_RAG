@@ -14,6 +14,7 @@ except ImportError:
 
 import streamlit as st
 
+from src.ui.estilo import LOGO_PATH, aplicar_estilo
 from src.rag.retriever import HybridRetriever
 from src.chatbot.intent_parser import IntentParser
 from src.chatbot.conversation_manager import ConversationManager
@@ -356,9 +357,14 @@ def reset_if_finished(result, engine, conversation_manager):
     if callable(reset_method):
         reset_method()
 
-st.set_page_config(page_title="Asistente de Gestión Clínica", page_icon="📊", layout="centered")
-st.title("📊 Asistente de Gestión Clínica")
-st.caption("Consultas sobre tableros institucionales con RAG, Power BI y Qwen local.")
+st.set_page_config(
+    page_title="Asistente de Gestión Clínica",
+    page_icon=str(LOGO_PATH) if LOGO_PATH.exists() else "📊",
+    layout="centered",
+)
+aplicar_estilo()
+st.title("Asistente de Gestión Clínica")
+st.caption("RAG para consultas sobre tableros institucionales con Power BI y MEDGemma local.")
 
 engine, conversation_manager, formatter, medgemma_status, powerbi_connection = build_system()
 

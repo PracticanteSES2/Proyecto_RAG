@@ -14,6 +14,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.docs_md.interfaz import pagina  # noqa: E402
+from src.ui.estilo import LOGO_PATH, aplicar_estilo  # noqa: E402
 
-st.set_page_config(page_title="Documentación de tableros", page_icon="📚", layout="wide")
+st.set_page_config(page_title="Documentación de tableros", page_icon=str(LOGO_PATH) if LOGO_PATH.exists() else "📚", layout="wide")
+aplicar_estilo()
 pagina()
