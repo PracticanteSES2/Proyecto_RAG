@@ -187,3 +187,16 @@ las reglas 1–8 en rondas propias.
 
 Golden master: la foto depende del día (periodos relativos, datos del simulador hasta ayer). Si se
 compara otro día, primero se toma una foto nueva con el código de referencia y luego se compara.
+
+## Ronda r9 (rama `agente/r9`): generalización con preguntas nuevas
+
+Reglas generales añadidas (pruebas con preguntas nuevas en `tests/resolution/test_r9.py`):
+
+| Causa | Regla | Dónde |
+| --- | --- | --- |
+| 1. RAG inventa cifras | Toda cifra, tendencia («subió») o viñeta de lista de la respuesta documental debe estar en lo recuperado; si no, se quita y, si no queda contenido, «sin evidencia» | `src/rag/grounding.py`; `AnswerSynthesizer.synthesize_rag`; `RAGAnswerEngine._build_context_response` (también el respaldo extractivo) |
+| 1. Ruta datos ↔ RAG | Comparación de periodos, top N, «agrupados/separados por», «por X» (no complemento agente), «en qué X están» = datos; con plan fallido NO se cae al RAG (salvo página solo documentada) | `TipoPreguntaMixin.data_shape_reason`, `looks_numeric`, `QueryEngine._process` |
+| 2. Indicador | Verbo conjugado o con clítico ↔ sustantivo -ción/-sión (asignarle/ASIGNACIÓN, admitieron/ADMISIÓN; sin participios: ocupadas ≠ OCUPACIÓN); tardar/demorar/durar = TIEMPO | `texto._action_noun_match`, `_TIME_VERB_RE` |
+| 3. Contrapregunta | Solo compiten las opciones (y homónimos) que aplican el filtro pedido; un valor aproximado de otra columna pierde frente al nombrado; una sola restante se responde | `ContrapreguntaMixin._filter_feasible_options` (capa del motor; la capa de `query_engine` no cambió) |
+| 4. Filtros | Complemento agente («confirmadas por el paciente») no es desglose; «sin contar/excepto/salvo X» = NOT IN | `texto.AGENT_COMPLEMENT_RE` en `canonical_phrases`; `QueryPlanBuilder._apply_negations`; DAX `KEEPFILTERS(FILTER(ALL(c), NOT (c IN {...})))` |
+| 5. Multiturno | Mensaje corto sin «y» tras datos se intenta primero como seguimiento (todo debe aplicarse); un RAG en medio no borra el último turno de datos; «el mes/año anterior (a ese)» desde el periodo anterior; «¿y el de X?» = indicador hermano con otro calificativo; «¿cuál … más/menos?» tras una tabla = primero de esa agrupación (sin la porción en blanco); la memoria no lleva rótulos «Filtros:» | `QueryEngine._followup_plan`, `_shift_from_previous_period`, `_qualifier_swap_plan`, `_top_of_previous_group`, `_remember_success`, `conversation_memory.summarize_result`, `LLMContextRewriter.validate` |
