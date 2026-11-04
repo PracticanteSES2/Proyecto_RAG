@@ -226,3 +226,21 @@ plan de reglas. Variable `INTENCION_LLM=off|respaldo|siempre` (por defecto `resp
   cifras del DAX (`frase_comparacion`, `comparison_text` en el resultado).
 - Pruebas: `tests/resolution/test_intencion_llm.py` (LLM falso). Sondeo con MedGemma real:
   `tests/real/sondeo_intencion.py`.
+
+### Ciclo 2 (rama `agente/llm-intencion-2`): carga sobre el servidor y validación
+
+El sondeo real tumbó el proxy de MedGemma (504, tiempos agotados, «model runner has unexpectedly stopped»)
+tras ~20 extracciones seguidas con prompts de ~6.000 caracteres y `format` con esquema. Cambios:
+
+- Prompt <= 2.000 caracteres (`MAX_PROMPT`): 8 indicadores (3 de las reglas, 2 de embeddings por cada
+  léxico, máx. 3 por tablero), descripción de una línea, solo las columnas que la pregunta nombra (o la
+  principal), sistema compacto con un ejemplo. `format: "json"` simple con validación propia
+  (`INTENCION_LLM_FORMATO=esquema` para la decodificación restringida) y `num_predict` 160.
+- Nunca se reintenta tras un error del servidor; **disyuntor**: tras una falla el extractor queda en pausa
+  `INTENCION_LLM_PAUSA_S` (300 s) y responden solo las reglas (queda en la traza).
+- Validación: un «filtro» que es un periodo, una palabra genérica o el nombre del indicador se descarta;
+  uno que nombra la columna («según el área») se vuelve agrupación; ante una ambigüedad de las reglas el LLM
+  solo puede elegir entre sus opciones (`opciones_permitidas`); las preguntas descriptivas no van al LLM.
+- Sondeo: en serie con `--pausa` (2 s), backoff ante fallas del servidor y corte tras `--max-fallas`;
+  solo llama donde la app lo haría (`--todas` para todas), `--sin-llm` cuenta disparos, `--banco` otro
+  banco y compara el plan con `verdad_dax` (aproximado).
