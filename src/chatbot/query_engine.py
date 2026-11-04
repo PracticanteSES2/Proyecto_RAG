@@ -4753,6 +4753,12 @@ class QueryEngine:
         reason = intencion_llm.motivo_llamada(mode, plan, question)
         if not reason:
             return None
+        # Una sola consulta por turno (el Query Plan puede correr dos veces: temprano y tras el
+        # analizador de intención): el LLM no suma más de INTENCION_LLM_TIEMPO_S por turno.
+        previous = getattr(self, "_intent_llm_turn", None)
+        if self._trace is not None and previous and previous[0] is self._trace and previous[1] == question:
+            return None
+        self._intent_llm_turn = (self._trace, question)
         provider = self._context_llm_provider()
         if provider is None:
             self._think("Intención con MedGemma", f"motivo: {reason}", "MedGemma no está disponible: se siguen las reglas")
