@@ -2126,8 +2126,19 @@ class QueryEngine:
         if mode == "grouped":
             rows = self._apply_ranking(plan, rows)
         total_rows = len(rows)
+        comparison_text = None
         if mode == "grouped":
             answer = self._format_grouped_answer(plan, rows)
+            if plan.get("comparison"):
+                # «subió/bajó X % de A a B» con las cifras del DAX (nunca del LLM).
+                from src.semantic.intencion_llm import frase_comparacion
+
+                comparison_text = frase_comparacion(
+                    plan, rows, self._row_value, self._group_cell,
+                    format_value=format_value_es, format_number=format_number_es,
+                )
+                if comparison_text:
+                    self._think("Comparación de periodos", comparison_text)
         elif rows:
             value = self._row_value(rows[0])
 
@@ -2164,6 +2175,7 @@ class QueryEngine:
             "query_plan": plan,
             "source_context": plan.get("source_context"),
             **({"detail": detail} if detail else {}),
+            **({"comparison_text": comparison_text} if comparison_text else {}),
         }
 
     # ========================================================
@@ -4710,10 +4722,76 @@ class QueryEngine:
                 "status": "error", "route": "powerbi", "stage": stage,
                 "error": f"{type(error).__name__}: {error}",
             }, "error"
+        # Intención con MedGemma validada por el motor (INTENCION_LLM): solo cuando las reglas no
+        # resuelven, contrapreguntarían o no saben armar una comparación de periodos.
+        llm_plan = self._intent_llm_plan(question, plan, stage)
+        if llm_plan is not None:
+            plan = llm_plan
+            self._trace_plan(plan, "Query Plan con la intención de MedGemma (validada)")
         if plan.get("status") == "ready":
             self._note_same_measure_pages(plan)
             return self._execute_query_plan(plan), "ready"
         return self._query_plan_failure(plan), plan.get("status")
+
+    # Etapas del turno en que se puede consultar la intención al LLM (no en botones ni respaldos).
+    _INTENT_LLM_STAGES = ("query_plan_early", "query_plan")
+
+    def _intent_encoder(self):
+        """Modelo de embeddings del RAG (para elegir candidatos por significado) o None."""
+        retriever = getattr(getattr(self, "rag_answer_engine", None), "retriever", None)
+        encoder = getattr(retriever, "model", None)
+        return encoder if callable(getattr(encoder, "encode", None)) else None
+
+    def _intent_llm_plan(self, question, plan, stage):
+        """Plan listo armado con la intención que extrae MedGemma y que el motor validó contra el
+        catálogo real (src/semantic/intencion_llm.py); None para seguir con el plan de reglas."""
+        from src.semantic import intencion_llm
+
+        mode = intencion_llm.modo()
+        if mode == "off" or stage not in self._INTENT_LLM_STAGES or self.query_plan_builder is None:
+            return None
+        reason = intencion_llm.motivo_llamada(mode, plan, question)
+        if not reason:
+            return None
+        provider = self._context_llm_provider()
+        if provider is None:
+            self._think("Intención con MedGemma", f"motivo: {reason}", "MedGemma no está disponible: se siguen las reglas")
+            return None
+        builder = self.query_plan_builder
+        try:
+            catalog = intencion_llm.armar_catalogo(builder, question, plan, encoder=self._intent_encoder())
+        except Exception as error:
+            self._think("Intención con MedGemma", f"motivo: {reason}",
+                        f"no se pudo armar el catálogo de candidatos: {type(error).__name__}: {error}")
+            return None
+        if not catalog.indicadores:
+            self._think("Intención con MedGemma", f"motivo: {reason}", "sin indicadores candidatos: se siguen las reglas")
+            return None
+        self._activity("Interpretando la pregunta con MedGemma (intención estructurada)")
+        extraction = intencion_llm.extraer_intencion(provider, question, catalog)
+        lines = [
+            f"motivo: {reason}",
+            f"candidatos mostrados: {len(catalog.indicadores)} indicadores ("
+            + ", ".join(f"{i['id']} {i['nombre']}" for i in catalog.indicadores[:6])
+            + (" ..." if len(catalog.indicadores) > 6 else "") + f"), {len(catalog.columnas)} columnas",
+            f"MedGemma: {extraction['status']} en {extraction['segundos']:.2f} s ({extraction['llamadas']} llamada(s))",
+            *[f"salida: {short(' '.join(str(raw).split()), 300)}" for raw in extraction["crudo"][-1:]],
+            *[f"error: {error}" for error in extraction["errores"][:3]],
+        ]
+        if extraction.get("intencion") is None:
+            self._think("Intención con MedGemma", *lines, "sin intención utilizable: se siguen las reglas")
+            return None
+        validation = intencion_llm.validar_intencion(builder, question, extraction["intencion"], catalog)
+        lines += [f"validado: {line}" for line in validation["aceptado"]]
+        lines += [f"descartado: {line}" for line in validation["descartado"]]
+        if validation["status"] != "valid":
+            self._think("Intención con MedGemma", *lines,
+                        "la intención no pasó la validación completa: se mantiene el resultado de las reglas")
+            return None
+        self._think("Intención con MedGemma", *lines,
+                    f"plan validado contra el catálogo y los dominios reales: reemplaza al de las reglas "
+                    f"(que era {plan.get('status')})")
+        return validation["plan"]
 
     _PAGES_IN_NOTE = 8
 

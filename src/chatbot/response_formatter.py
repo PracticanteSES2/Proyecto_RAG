@@ -988,13 +988,16 @@ def format_query_plan_answer(result, followup=None):
         subject = f"**{label}**" + (f" por {groups_text}" if groups_text else "")
         subject += _ranking_text(plan)
         lead = f"{_capitalize(scope)}, {subject}:" if scope else f"{subject}:"
+        if result.get("comparison_text"):
+            # Comparación de periodos: primero la respuesta («subió 12 % de A a B»), luego la tabla.
+            lines.append(str(result["comparison_text"]))
         lines.append(lead)
 
         total_text = None
         total_note = None
         rows = result.get("rows") or []
         limited = bool((plan.get("ranking") or {}).get("limit"))
-        if not result.get("composite") and not limited:
+        if not result.get("composite") and not limited and not plan.get("comparison"):
             kind = _measure_kind(result, plan)
             total = _rows_total(rows) if kind in ("additive", "distinct") else None
             if total is not None:
