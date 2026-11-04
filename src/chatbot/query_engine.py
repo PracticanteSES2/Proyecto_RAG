@@ -4788,6 +4788,11 @@ class QueryEngine:
             self._think("Intención con MedGemma", *lines,
                         "la intención no pasó la validación completa: se mantiene el resultado de las reglas")
             return None
+        if mode == "respaldo" and plan.get("status") == "ready" and not validation["plan"].get("comparison"):
+            # Se llamó por la comparación de periodos: sin comparación, el plan de reglas se queda.
+            self._think("Intención con MedGemma", *lines,
+                        "MedGemma no armó la comparación de periodos: se mantiene el plan de las reglas")
+            return None
         self._think("Intención con MedGemma", *lines,
                     f"plan validado contra el catálogo y los dominios reales: reemplaza al de las reglas "
                     f"(que era {plan.get('status')})")

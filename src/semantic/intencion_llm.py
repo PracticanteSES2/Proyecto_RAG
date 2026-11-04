@@ -435,6 +435,20 @@ def _month_year(builder, month_text, pregunta):
     return side
 
 
+def _question_months(builder, pregunta):
+    """Un periodo por cada mes que nombra la pregunta (en su orden y sin repetir), con su año."""
+    parser = builder._period_parser()
+    text = normalize_text(pregunta)
+    periods, seen = [], set()
+    for match in re.finditer(r"(?<![a-z0-9])(" + "|".join(PERIOD_MONTHS) + r")(?:\s+(?:de|del)\s+(20\d{2}))?(?![a-z0-9])", text):
+        side = _month_year(builder, match.group(0), pregunta)
+        if side and side not in seen:
+            seen.add(side)
+            year, month = side
+            periods.append(parser._month_range(year, month, year, month, match.group(0)))
+    return periods[:MAX_PERIODOS]
+
+
 def _periods_in_question(builder, pregunta):
     """Periodos que el parser reconoce en la pregunta: el principal y cada mes/año suelto."""
     parser = builder._period_parser()
@@ -990,6 +1004,13 @@ def _armar_plan(builder, pregunta, intencion, catalogo, aceptado, descartado):
     buckets, group = [], None
     comparison = None
     if intencion.get("comparacion") == "periodos" or (pide_comparacion_periodos(pregunta) and len(llm_periods) >= 2):
+        if len(llm_periods) < 2 and pide_comparacion_periodos(pregunta):
+            # El LLM vio la comparación pero no dio los dos periodos: los meses que nombra la pregunta.
+            months = _question_months(builder, pregunta)
+            if len(months) >= 2:
+                llm_periods = months
+                aceptado.append("periodos de la comparación tomados de la pregunta: "
+                                + ", ".join(p.get("label") for p in months))
         if len(llm_periods) < 2:
             raise _Rechazo("comparación de periodos sin dos periodos válidos")
         if group_fields:

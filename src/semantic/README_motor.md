@@ -200,3 +200,29 @@ Reglas generales añadidas (pruebas con preguntas nuevas en `tests/resolution/te
 | 3. Contrapregunta | Solo compiten las opciones (y homónimos) que aplican el filtro pedido; un valor aproximado de otra columna pierde frente al nombrado; una sola restante se responde | `ContrapreguntaMixin._filter_feasible_options` (capa del motor; la capa de `query_engine` no cambió) |
 | 4. Filtros | Complemento agente («confirmadas por el paciente») no es desglose; «sin contar/excepto/salvo X» = NOT IN | `texto.AGENT_COMPLEMENT_RE` en `canonical_phrases`; `QueryPlanBuilder._apply_negations`; DAX `KEEPFILTERS(FILTER(ALL(c), NOT (c IN {...})))` |
 | 5. Multiturno | Mensaje corto sin «y» tras datos se intenta primero como seguimiento (todo debe aplicarse); un RAG en medio no borra el último turno de datos; «el mes/año anterior (a ese)» desde el periodo anterior; «¿y el de X?» = indicador hermano con otro calificativo; «¿cuál … más/menos?» tras una tabla = primero de esa agrupación (sin la porción en blanco); la memoria no lleva rótulos «Filtros:» | `QueryEngine._followup_plan`, `_shift_from_previous_period`, `_qualifier_swap_plan`, `_top_of_previous_group`, `_remember_success`, `conversation_memory.summarize_result`, `LLMContextRewriter.validate` |
+
+## Intención con MedGemma validada por el motor (rama `agente/llm-intencion`)
+
+`src/semantic/intencion_llm.py`, enganchado en `QueryEngine._run_query_plan` (`_intent_llm_plan`) después del
+plan de reglas. Variable `INTENCION_LLM=off|respaldo|siempre` (por defecto `respaldo`):
+
+- **Cuándo** (`motivo_llamada`): en `respaldo`, solo si las reglas dan `not_found`, `ambiguous`,
+  `unsupported_filter` que acabaría en contrapregunta, o un plan listo para una pregunta que compara periodos
+  (`pide_comparacion_periodos`) sin buckets. Solo en las etapas `query_plan_early` y `query_plan` (no botones).
+- **Catálogo acotado** (`armar_catalogo`): hasta 14 indicadores (un tercio de las reglas; el resto, embeddings
+  del RAG sobre nombre + diccionario + página, intercalados con un índice léxico; máx. 5 por tablero), sus
+  dimensiones (sin identificadores, datos de personas ni fechas) y los periodos que reconoce `PeriodParser`.
+  El índice de embeddings se arma en segundo plano la primera vez (~20 s) y se guarda en
+  `%TEMP%/proyecto_rag_intencion/`.
+- **LLM** (`extraer_intencion`): prompt corto en español con ejemplos inventados, `format` = esquema JSON,
+  temperatura 0, un reintento si el JSON es inválido; todo dentro de `INTENCION_LLM_TIEMPO_S` (3 s) por
+  `llm_gate.call_llm`.
+- **Validación** (`validar_intencion`): indicador de la lista, columnas de la lista y entre las dimensiones del
+  indicador, valores con `_resolve_value` (o su familia) sobre el dominio real, periodos anclados en la
+  pregunta, confianza ≥ `INTENCION_LLM_CONFIANZA_MIN` (0,6). Un periodo que la pregunta no dice se descarta;
+  cualquier otra cosa que no valide rechaza el plan entero y se queda el resultado de las reglas.
+- **Comparación de periodos**: plan agrupado con `temporal_buckets` (uno por periodo) → DAX con un
+  `CALCULATE` por periodo (`_temporal_grouped`) y la frase «De A a B, X subió/bajó N %» calculada con las
+  cifras del DAX (`frase_comparacion`, `comparison_text` en el resultado).
+- Pruebas: `tests/resolution/test_intencion_llm.py` (LLM falso). Sondeo con MedGemma real:
+  `tests/real/sondeo_intencion.py`.
