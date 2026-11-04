@@ -44,11 +44,14 @@ from src.semantic.resolucion.texto import (
 )
 
 MODOS = ("off", "respaldo", "siempre")
-MODO_POR_DEFECTO = "respaldo"
+# Apagado por defecto: en el sondeo real (2026-11-04) MedGemma eligió el
+# indicador correcto en solo 2 de 9 extracciones que pasaron la validación;
+# activarlo empeoraría respuestas. Se activa a mano con INTENCION_LLM=respaldo.
+MODO_POR_DEFECTO = "off"
 
 
 def modo():
-    """off | respaldo | siempre (INTENCION_LLM; un valor desconocido = respaldo)."""
+    """off | respaldo | siempre (INTENCION_LLM; un valor desconocido = off)."""
     value = str(os.getenv("INTENCION_LLM") or "").strip().lower()
     return value if value in MODOS else MODO_POR_DEFECTO
 

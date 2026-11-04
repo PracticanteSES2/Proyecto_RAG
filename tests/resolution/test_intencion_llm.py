@@ -147,9 +147,12 @@ def test_when_to_call_the_llm():
     assert IL.motivo_llamada("siempre", {"status": "ready"}, "cuantas camas hay")
     with _env(INTENCION_LLM="off"):
         assert IL.modo() == "off"
+    # Apagado por defecto hasta que el sondeo real muestre que ayuda.
     with _env(INTENCION_LLM=None):
-        assert IL.modo() == "respaldo"
+        assert IL.modo() == "off"
     with _env(INTENCION_LLM="cualquiera"):
+        assert IL.modo() == "off"
+    with _env(INTENCION_LLM="respaldo"):
         assert IL.modo() == "respaldo"
 
 
