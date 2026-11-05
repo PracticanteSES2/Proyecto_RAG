@@ -13,9 +13,9 @@ def cargar_calificaciones(ruta: Path | None = None) -> list[dict]:
     with open(ruta, "rb") as origen:
         for linea in origen:
             try:
-                registro = json.loads(linea.decode("utf-8"))
-            except ValueError:  # JSON roto o UTF-8 inválido: se omite
+                registro = json.loads(linea.decode("utf-8-sig"))
+            except (ValueError, RecursionError):  # JSON roto, UTF-8 inválido o anidamiento extremo
                 continue
-            if isinstance(registro, dict) and registro.get("id_turno"):
+            if isinstance(registro, dict) and isinstance(registro.get("id_turno"), str) and registro["id_turno"]:
                 ultimas[registro["id_turno"]] = registro
     return list(ultimas.values())
