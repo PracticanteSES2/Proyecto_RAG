@@ -49,11 +49,12 @@ MAX_OPCIONES = 20
 MAX_ESPERADO = 2000
 MAX_TEXTO_HISTORIAL = 1500
 MAX_IDENTIFICADOR = 200
+MAX_CANDIDATOS_INDICADOR = 8
 CLAVES_SNAPSHOT = (
     "pregunta", "pregunta_reescrita", "via", "estado", "ruta", "etapa", "informe", "tablero",
     "modelo_semantico", "metrica", "plan_consulta", "contexto_fuentes", "modo_sintesis",
     "retrieval_mode", "not_found_reason", "fuentes", "opciones_contrapregunta", "respuesta", "error",
-    "fecha_turno", "tablero_esperado",
+    "fecha_turno", "tablero_esperado", "candidatos_indicador", "periodo",
 )
 
 
@@ -191,6 +192,28 @@ def _plan_consulta(plan) -> dict | None:
     }
 
 
+def _candidatos_indicador(plan) -> list[dict]:
+    """Candidatos que consideró el resolvedor de indicador: solo id, etiqueta y puntaje."""
+    resolucion = _dict(_dict(plan).get("metric_resolution"))
+    salida = []
+    for c in _lista(resolucion.get("candidates"))[:MAX_CANDIDATOS_INDICADOR]:
+        c = _dict(c)
+        metrica = _dict(c.get("metric"))
+        salida.append({"id": _texto_corto(metrica.get("metric_id")),
+                       "label": _texto_corto(metrica.get("label")),
+                       "score": _numero(c.get("score"))})
+    return salida
+
+
+def _periodo(plan) -> dict | None:
+    """Periodo interpretado: tipo, etiqueta y rango (sin valores de filtros)."""
+    periodo = _dict(_dict(plan).get("period"))
+    if not periodo:
+        return None
+    return {"tipo": _texto_corto(periodo.get("kind")), "etiqueta": _texto_corto(periodo.get("label")),
+            "inicio": _texto_corto(periodo.get("start")), "fin": _texto_corto(periodo.get("end"))}
+
+
 def _contexto_fuentes(contexto) -> dict | None:
     contexto = _dict(contexto)
     if not contexto:
@@ -232,7 +255,9 @@ def _respuesta(result: dict, respuesta) -> str:
         result.get("result_type") == "table" or bool(result.get("detail")))
     if es_tabla:
         return _primera_linea(respuesta, MAX_RESPUESTA_TABLA)
-    return _limpiar(respuesta, MAX_RESPUESTA, estricto=True)
+    # En la ruta RAG el texto sale de la documentación de los tableros: solo se quitan
+    # tablas y números largos. En las demás rutas, viñetas y pasos pueden ser filas.
+    return _limpiar(respuesta, MAX_RESPUESTA, estricto=result.get("route") != "rag")
 
 
 def _error(error) -> str | None:
@@ -265,12 +290,14 @@ def snapshot_turno(result: dict, respuesta: str, pregunta: str, via: str, opcion
         "modo_sintesis": _texto_corto(result.get("synthesis_mode")),
         "retrieval_mode": _texto_corto(result.get("retrieval_mode")),
         "not_found_reason": _texto_corto(result.get("not_found_reason")),
-        "fuentes": _fuentes(result.get("sources")),
+        "fuentes": _fuentes(result.get("sources") or result.get("rag_sources")),
         "opciones_contrapregunta": [_limpiar(o, MAX_OPCION) for o in _lista(opciones)[:MAX_OPCIONES] if isinstance(o, str)],
         "respuesta": _respuesta(result, respuesta),
         "error": _error(result.get("error")),
         "fecha_turno": datetime.now().isoformat(timespec="seconds"),
         "tablero_esperado": None,  # reservado para una fase 2; sin UI
+        "candidatos_indicador": _candidatos_indicador(result.get("query_plan")),
+        "periodo": _periodo(result.get("query_plan")),
     }
 
 

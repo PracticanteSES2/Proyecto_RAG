@@ -240,6 +240,9 @@ class Secuencias(Base):
         at.get("feedback")[0].set_value(0).run()
         self.boton(at)[0].click().run()
         self.assertEqual(self.registros()[0]["calificacion"], "mala")
+        self.assertEqual(self.registros()[0]["esperado"], "Nota")
+        self.assertEqual(len(at.warning), 0)
+        self.assertTrue(self.hay_guardado(at))
 
     def test_mala_guardada_buena_y_de_nuevo_mala_sin_pulsar_guardar_no_queda_buena_obsoleta(self):
         # El usuario deja el pulgar en 👎 pero el registro vigente dice «buena».

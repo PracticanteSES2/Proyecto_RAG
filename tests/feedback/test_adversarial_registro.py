@@ -356,7 +356,6 @@ class IdTurno(Base):
 
     def test_fechas_orden_cronologico(self):
         registro.guardar(self.reg("s", 1), self.ruta)
-        time.sleep(1.1)
         registro.guardar(self.reg("s", 1, "mala", "x"), self.ruta)
         got = lector.cargar_calificaciones(self.ruta)
         self.assertEqual(got[0]["calificacion"], "mala")
@@ -641,7 +640,7 @@ class Contrato(Base):
         esperadas = {"pregunta", "pregunta_reescrita", "via", "estado", "ruta", "etapa", "informe", "tablero",
                      "modelo_semantico", "metrica", "plan_consulta", "contexto_fuentes", "modo_sintesis",
                      "retrieval_mode", "not_found_reason", "fuentes", "opciones_contrapregunta", "respuesta",
-                     "error", "fecha_turno", "tablero_esperado"}
+                     "error", "fecha_turno", "tablero_esperado", "candidatos_indicador", "periodo"}
         self.assertEqual(set(registro.snapshot_turno({}, "r", "p", "t", [])), esperadas)
 
     def test_claves_del_registro_segun_brief(self):
@@ -738,7 +737,7 @@ class Ronda1(Base):
 
     def test_lineas_con_pipes_y_vinetas_se_descartan_de_respuesta_en_cualquier_ruta(self):
         texto = "Total\n* Ana: 1\n• Luis: 2\n1. Eva: 3\n2) Pepe: 4\na | b | c\nfin"
-        for res in ({}, {"route": "rag"}, {"route": "clarification"}):
+        for res in ({}, {"route": "powerbi"}, {"route": "clarification"}):
             out = registro.snapshot_turno(res, texto, "p", "t", [])["respuesta"]
             self.assertEqual(out, "Total\nfin")
 
@@ -759,13 +758,89 @@ class Ronda1(Base):
         registro.guardar(_rec("a:3"), self.ruta)
         self.assertEqual({r["id_turno"] for r in lector.cargar_calificaciones(self.ruta)}, {"a:1", "a:3"})
 
+    def _msvcrt_con_desbloqueo_roto(self):
+        from unittest import mock
+        real = registro.msvcrt
+
+        def locking(fd, modo, n):
+            if modo == real.LK_UNLCK:
+                raise OSError("fallo simulado al desbloquear")
+            return real.locking(fd, modo, n)
+        return mock.patch.object(registro, "msvcrt", mock.Mock(
+            LK_NBLCK=real.LK_NBLCK, LK_UNLCK=real.LK_UNLCK, locking=locking))
+
     def test_error_al_desbloquear_no_enmascara_la_excepcion_original(self):
         from unittest import mock
-        with mock.patch.object(registro, "_escribir", side_effect=PermissionError("original")), \
+        with self._msvcrt_con_desbloqueo_roto(), \
+                mock.patch.object(registro, "_escribir", side_effect=PermissionError("original")), \
                 mock.patch.object(registro.time, "sleep"):
             with self.assertRaises(PermissionError) as cm:
                 registro.guardar(_rec("a:1"), self.ruta)
         self.assertEqual(str(cm.exception), "original")
+
+    def test_error_al_desbloquear_no_hace_fallar_un_guardado_correcto(self):
+        with self._msvcrt_con_desbloqueo_roto():
+            registro.guardar(_rec("a:1"), self.ruta)
+        self.assertEqual(len(lector.cargar_calificaciones(self.ruta)), 1)
+
+
+# ------------------------------------------ ola final: RAG, candidatos y periodo
+class OlaFinal(Base):
+    def test_respuesta_rag_conserva_vinetas_y_pasos_pero_no_tablas_ni_numeros(self):
+        texto = ("El tablero muestra:\n- Kilos procesados\n* Rechazos\n1. Filtre por mes\n"
+                 "| a | b |\nA | B\nCodigo 1234567")
+        out = registro.snapshot_turno({"route": "rag"}, texto, "p", "t", [])["respuesta"]
+        self.assertEqual(out, "El tablero muestra:\n- Kilos procesados\n* Rechazos\n1. Filtre por mes\n"
+                              "A | B\nCodigo [NUM]")
+        largo = registro.snapshot_turno({"route": "rag"}, "x" * 3000, "p", "t", [])["respuesta"]
+        self.assertEqual(len(largo), 1500)
+
+    def test_otras_rutas_siguen_descartando_vinetas_por_paciente(self):
+        for ruta in ("powerbi", "clarification", "out_of_scope", None):
+            out = registro.snapshot_turno({"route": ruta}, "Total 2\n- Ana Perez: 1\n1. Luis: 2", "p", "t", [])
+            self.assertEqual(out["respuesta"], "Total 2", ruta)
+
+    def test_fuera_de_alcance_usa_rag_sources_y_campos_de_recuperacion(self):
+        r = {"route": "out_of_scope", "sources": [], "retrieval_mode": "open", "not_found_reason": "llm_no_evidence",
+             "rag_sources": [{"collection": "c", "dashboard": "D", "chunk_type": "visual", "score": 0.5,
+                              "text": "TEXTO_SECRETO"}]}
+        snap = registro.snapshot_turno(r, "r", "p", "t", [])
+        self.assertEqual(snap["retrieval_mode"], "open")
+        self.assertEqual(snap["not_found_reason"], "llm_no_evidence")
+        self.assertEqual(snap["fuentes"][0]["tablero"], "D")
+        self.assertNotIn("TEXTO_SECRETO", json.dumps(snap))
+
+    def test_candidatos_de_indicador_y_periodo_con_lista_blanca(self):
+        plan = {
+            "metric_resolution": {"candidates": [
+                {"metric": {"metric_id": "m1", "label": "CIRUGIAS cc 1234567890", "dax": "SECRETO_DAX",
+                            "description": "SECRETO_DESC"}, "score": 1.234567, "business_score": 9,
+                 "rows": ["SECRETO_FILA"]},
+                None, {"metric": "x", "score": float("nan")}] + [{"metric": {"metric_id": f"x{i}"}} for i in range(20)],
+                "chosen": "SECRETO_ELEGIDO"},
+            "period": {"kind": "month", "label": "enero de 2026", "start": "2026-01-01", "end": "2026-01-31",
+                       "phrase": "SECRETO_FRASE", "months": [1]},
+            "filters": [{"type": "c", "table": "T", "column": "C", "values": ["SECRETO_VALOR"]}],
+        }
+        snap = registro.snapshot_turno({"query_plan": plan}, "r", "p", "t", [])
+        cands = snap["candidatos_indicador"]
+        self.assertEqual(len(cands), 8)
+        self.assertEqual(cands[0], {"id": "m1", "label": "CIRUGIAS cc [NUM]", "score": 1.2346})
+        self.assertIsNone(cands[2]["score"])
+        self.assertEqual(snap["periodo"], {"tipo": "month", "etiqueta": "enero de 2026",
+                                           "inicio": "2026-01-01", "fin": "2026-01-31"})
+        dump = json.dumps(snap, ensure_ascii=False)
+        for secreto in ("SECRETO", "1234567890"):
+            self.assertNotIn(secreto, dump)
+        vacio = registro.snapshot_turno({}, "r", "p", "t", [])
+        self.assertEqual(vacio["candidatos_indicador"], [])
+        self.assertIsNone(vacio["periodo"])
+
+    def test_los_campos_nuevos_llegan_al_registro(self):
+        snap = registro.snapshot_turno({"query_plan": {"period": {"kind": "year"}}}, "r", "p", "t", [])
+        reg = registro.construir_registro(snap, [], "buena", "", "s", 1)
+        self.assertEqual(reg["periodo"]["tipo"], "year")
+        self.assertEqual(reg["candidatos_indicador"], [])
 
 
 if __name__ == "__main__":

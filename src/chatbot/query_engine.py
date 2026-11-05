@@ -7048,6 +7048,14 @@ class QueryEngine:
                         [],
                     "synthesis_mode":
                         "none",
+                    # Solo para el registro de calificaciones: la decisión del
+                    # recuperador y las fuentes consultadas que no se muestran.
+                    "retrieval_mode":
+                        rag_result.get("retrieval_mode"),
+                    "not_found_reason":
+                        rag_result.get("not_found_reason"),
+                    "rag_sources":
+                        rag_result.get("sources") or [],
                 }
 
             answer = rag_result.get("answer")
@@ -7087,6 +7095,14 @@ class QueryEngine:
                 "synthesis_mode":
                     rag_result.get(
                         "synthesis_mode"
+                    ),
+                "retrieval_mode":
+                    rag_result.get(
+                        "retrieval_mode"
+                    ),
+                "not_found_reason":
+                    rag_result.get(
+                        "not_found_reason"
                     ),
             }
 
