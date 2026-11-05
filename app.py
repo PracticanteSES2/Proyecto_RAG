@@ -15,6 +15,8 @@ except ImportError:
 import streamlit as st
 
 from src.ui.estilo import LOGO_PATH, aplicar_estilo
+from src.feedback.panel import mostrar_calificacion
+from src.feedback.registro import snapshot_turno
 from src.rag.retriever import HybridRetriever
 from src.chatbot.intent_parser import IntentParser
 from src.chatbot.conversation_manager import ConversationManager
@@ -750,13 +752,24 @@ def execute_turn(user_text, runner, via="texto"):
                     language="text",
                 )
 
-    st.session_state.messages.append({
-        "role": "assistant", "content": answer,
-        "buttons": buttons, "clarification_id": clarification_id,
-        "reasoning": reasoning_text,
-        "status": result.get("status"), "route": result.get("route"),
-        "powerbi_link": powerbi_link,
-    })
+        mensaje = {
+            "role": "assistant", "content": answer,
+            "buttons": buttons, "clarification_id": clarification_id,
+            "reasoning": reasoning_text,
+            "status": result.get("status"), "route": result.get("route"),
+            "powerbi_link": powerbi_link,
+        }
+        # Snapshot para calificar el turno (barato, no se muestra); si falla,
+        # el mensaje queda sin snapshot y sin panel.
+        try:
+            mensaje["snapshot"] = snapshot_turno(
+                result, answer, user_text, via, [b["label"] for b in buttons or []])
+        except Exception:
+            pass
+        st.session_state.messages.append(mensaje)
+        if debug_mode and mensaje.get("snapshot"):
+            # Mismas claves que el bucle del historial: tras un rerun no se duplica.
+            mostrar_calificacion(len(st.session_state.messages) - 1, st.session_state.messages)
 
 
 with st.sidebar:
@@ -805,6 +818,8 @@ with st.sidebar:
             )
 
         st.session_state.messages = []
+        # Los índices de mensajes se reinician: sesión nueva para no chocar id_turno.
+        st.session_state.pop("id_sesion", None)
         clear_pending_clarification()
         st.rerun()
 
@@ -835,6 +850,8 @@ for message_index, message in enumerate(st.session_state.messages):
             else:
                 render_past_options(message["buttons"])
         render_reasoning(message.get("reasoning"))
+        if debug_mode and message.get("snapshot"):
+            mostrar_calificacion(message_index, st.session_state.messages)
 
 if prompt:
     execute_turn(prompt, lambda: engine.process(prompt))
