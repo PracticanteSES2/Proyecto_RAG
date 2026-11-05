@@ -765,7 +765,7 @@ def execute_turn(user_text, runner, via="texto"):
             mensaje["snapshot"] = snapshot_turno(
                 result, answer, user_text, via, [b["label"] for b in buttons or []])
         except Exception:
-            pass
+            traceback.print_exc()
         st.session_state.messages.append(mensaje)
         if debug_mode and mensaje.get("snapshot"):
             # Mismas claves que el bucle del historial: tras un rerun no se duplica.

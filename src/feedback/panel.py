@@ -38,9 +38,14 @@ def _guardar(snapshot, mensajes, indice, id_sesion, id_turno, calificacion, espe
 
 def mostrar_calificacion(indice: int, mensajes: list[dict]) -> None:
     """👍/👎 para el mensaje `indice`; 👎 pide qué se esperaba antes de guardar."""
-    if not (0 <= indice < len(mensajes)):
+    if not isinstance(indice, int) or isinstance(indice, bool):
         return
-    snapshot = mensajes[indice].get("snapshot")
+    if not isinstance(mensajes, list) or not (0 <= indice < len(mensajes)):
+        return
+    mensaje = mensajes[indice]
+    if not isinstance(mensaje, dict):
+        return
+    snapshot = mensaje.get("snapshot")
     if not snapshot:
         return
     id_sesion = _id_sesion()
@@ -54,10 +59,16 @@ def mostrar_calificacion(indice: int, mensajes: list[dict]) -> None:
         if st.session_state.get(clave) == ("buena", ""):
             st.caption("Guardado ✔")
         return
-    esperado = st.text_area(
+    # Streamlit descarta el estado del cuadro cuando deja de dibujarse (al pasar a 👍);
+    # el texto se respalda por turno para recuperarlo al volver a 👎.
+    respaldo = f"texto_esperado_{id_turno}"
+    texto = st.text_area(
         "¿Qué esperabas que respondiera? (no incluyas datos de pacientes)",
+        value=st.session_state.get(respaldo, ""),
         key=f"esperado_{id_turno}",
-    ).strip()
+    )
+    st.session_state[respaldo] = texto
+    esperado = texto.strip()
     if st.button("Guardar", key=f"guardar_{id_turno}"):
         if not esperado:
             st.warning("Cuéntanos qué esperabas para poder guardar la calificación.")
