@@ -47,11 +47,6 @@
    "esperado": "charla/saludo"
   },
   {
-   "id": "C10",
-   "texto": "q mas",
-   "esperado": "charla/saludo"
-  },
-  {
    "id": "C11",
    "texto": "¿qué más?",
    "esperado": "charla/saludo"
@@ -829,6 +824,116 @@
   {
    "id": "D69",
    "texto": "okk",
+   "esperado": null
+  },
+  {
+   "id": "C98",
+   "texto": "hola buenas tardes",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C99",
+   "texto": "chao gracias",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C100",
+   "texto": "hola como estas",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C101",
+   "texto": "gracias chao",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C102",
+   "texto": "hasta mañana",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C103",
+   "texto": "buenos días a todos",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C104",
+   "texto": "hola a todos",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C105",
+   "texto": "buenas tardes a todos",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C106",
+   "texto": "gracias parce",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C107",
+   "texto": "quiubo parce",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C108",
+   "texto": "q hubo",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C109",
+   "texto": "qué hubo",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C110",
+   "texto": "necesito ayuda",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "C111",
+   "texto": "qué opciones hay",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "C112",
+   "texto": "cuál es tu nombre",
+   "esperado": "identidad/identidad"
+  },
+  {
+   "id": "C113",
+   "texto": "hola, ¿qué más?",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C114",
+   "texto": "qué más, ¿cómo vas?",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "D70",
+   "texto": "q mas",
+   "esperado": null
+  },
+  {
+   "id": "D71",
+   "texto": "que mas",
+   "esperado": null
+  },
+  {
+   "id": "D72",
+   "texto": "¿qué más?",
+   "esperado": null
+  },
+  {
+   "id": "D73",
+   "texto": "k mas",
+   "esperado": null
+  },
+  {
+   "id": "D74",
+   "texto": "gracias, ¿qué más?",
    "esperado": null
   }
  ]

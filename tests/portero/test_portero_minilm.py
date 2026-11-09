@@ -16,14 +16,15 @@ from src.chatbot.portero import (
 from tests.portero.test_portero import BANCO, PROJECT_ROOT, _json
 
 VOCAB = vocabulario_dominio(PROJECT_ROOT)
+MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"  # = src.rag.retriever
 
 
 def _cargar_modelo():
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     from sentence_transformers import SentenceTransformer
 
-    from src.rag.retriever import MODEL_NAME
-
+    # Sin importar src.rag.retriever: dejaría el qdrant_client real en
+    # sys.modules y rompería las pruebas del arnés (tests/sim) del mismo proceso.
     try:
         return SentenceTransformer(MODEL_NAME, local_files_only=True)
     except TypeError:

@@ -15,6 +15,10 @@ Cifras (2026-11-09, MiniLM real, 24 a 26 ejemplos por subtipo):
   - barrido ciego (banco_real + holdout + holdout2 + multiturno, 243 textos): 0;
   - latencia media por clasificar: ~37 ms (vectores precalculados).
 Los 8 casos C restantes son de 1 a 2 palabras o los bloquea una guarda de dominio.
+Tras la revisión (frases unidas, «qué más» solo -> None, frases nuevas; banco con
+113 casos C y 74 D): reglas solas 101/113, con similitud 105/113; 0 falsos
+positivos; barrido ciego de 243 textos: 0. Las referencias de dominio viven en
+portero_referencias.json (producción no lee tests/).
 El menor margen de un nulo sin guarda fue 0.199 («hola hola cuantas consultas hay»,
 que la guarda de dominio ya bloquea): subir el margen no es necesario, pero bajarlo
 si lo seria problematico.
@@ -81,11 +85,36 @@ _MULETILLAS = frozenset({"oye", "bueno", "porfa", "pues"})
 _MULETILLAS_FRASE = ("por favor",)
 
 # Palabras que nunca cuentan como dominio aunque el catálogo las contenga.
+# Se calcula con las frases de D6 (antes de _FRASES_EXTRA): las palabras nuevas
+# («todos», «manana», «nombre», «opciones»...) siguen siendo dominio para la
+# similitud; las frases completas no las necesitan (ver clasificar).
 _PALABRAS_CONVERSACIONALES = frozenset(
     {w for lista in _FRASES.values() for f in lista for w in f.split()}
     | _MULETILLAS
     | {"hoy", "bien", "ayuda", "gracias", "hola", "buenas"}
 )
+
+# Frases añadidas tras la revisión adversarial (charla colombiana frecuente).
+_FRASES_EXTRA = {
+    "saludo": ["buenos dias a todos", "hola a todos", "buenas tardes a todos",
+               "quiubo parce", "q hubo", "que hubo"],
+    "agradecimiento": ["gracias parce"],
+    "despedida": ["hasta manana"],
+    "identidad": ["cual es tu nombre"],
+    "capacidades": ["necesito ayuda", "que opciones hay"],
+}
+for _sub, _lista in _FRASES_EXTRA.items():
+    _FRASES[_sub] = _FRASES[_sub] + _lista
+
+# «¿qué más?» a solas, tras una respuesta, pide más datos: solo es saludo
+# combinado con otra frase de saludo o estado («hola, ¿qué más?»).
+_SOLO_COMBINADAS = frozenset({"que mas", "q mas", "k mas"})
+_COMPANERAS_SOLO_COMBINADAS = frozenset({"saludo", "estado"})
+
+# Prioridad del subtipo cuando el mensaje une dos frases («hola, ¿cómo estás?»).
+_PRIORIDAD = ("identidad", "capacidades", "estado", "despedida", "agradecimiento", "saludo")
+
+MAX_CARACTERES = 200
 
 _PERIODOS = frozenset({
     "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
@@ -98,7 +127,7 @@ _PERIODOS = frozenset({
 _SOLOS_FLUJO_NORMAL = frozenset({
     "listo", "ok", "si", "no", "ninguna", "dale", "perfecto", "resumen",
     "novedades", "como vamos", "como estamos", "como va", "que hay de nuevo",
-})
+}) | _SOLO_COMBINADAS
 
 
 @dataclass(frozen=True)
@@ -197,33 +226,81 @@ def _en_lista_bloqueo(tokens: list[str]) -> bool:
 
 
 _TABLA = [(f.split(), sub) for sub, lista in _FRASES.items() for f in lista]
-_EXACTAS = {" ".join(t): sub for t, sub in _TABLA}
 
 
-def _coincidencia_aproximada(tokens: list[str]) -> str | None:
+def _ediciones_frase(tokens: list[str], frase: list[str]) -> int | None:
+    """Ediciones totales para que tokens case con frase (misma longitud)."""
+    if len(tokens) != len(frase):
+        return None
+    total = 0
+    for a, b in zip(tokens, frase):
+        e = _ediciones(a, b)
+        if e is None:
+            return None
+        total += e
+    return total
+
+
+def _frase_regla(tokens: list[str]) -> tuple[str, str, int] | None:
+    """(frase, subtipo, ediciones) de la frase de regla que mejor casa, o None."""
+    mejor = None
     for frase, sub in _TABLA:
-        if _casa(tokens, frase):
-            return sub
-    return None
+        e = _ediciones_frase(tokens, frase)
+        if e is not None and e <= 1 and (mejor is None or e < mejor[2]):
+            mejor = (" ".join(frase), sub, e)
+            if e == 0:
+                break
+    return mejor
+
+
+def _por_reglas(tokens: list[str]) -> tuple[str, int] | None:
+    """(subtipo, ediciones) si el mensaje es ENTERO una frase de regla o la unión
+    de dos («hola buenas tardes», «gracias, chao»), con a lo sumo una edición."""
+    sola = _frase_regla(tokens)
+    if sola is not None and sola[0] not in _SOLO_COMBINADAS:
+        return sola[1], sola[2]
+    mejor = None
+    for i in range(1, len(tokens)):
+        a, b = _frase_regla(tokens[:i]), _frase_regla(tokens[i:])
+        if a is None or b is None or a[2] + b[2] > 1:
+            continue
+        if (a[0] in _SOLO_COMBINADAS and b[1] not in _COMPANERAS_SOLO_COMBINADAS) or (
+                b[0] in _SOLO_COMBINADAS and a[1] not in _COMPANERAS_SOLO_COMBINADAS):
+            continue
+        sub = min((a[1], b[1]), key=_PRIORIDAD.index)
+        candidato = (sub, a[2] + b[2])
+        if mejor is None or candidato[1] < mejor[1]:
+            mejor = candidato
+    return mejor
 
 
 def clasificar(texto: str, vocabulario_dominio: frozenset[str] = frozenset(),
                similitud: "SimilitudPortero | None" = None) -> Clasificacion | None:
-    """Clasifica charla/identidad/capacidades o devuelve None (flujo normal)."""
-    if bloqueado_por_guardas(texto, vocabulario_dominio):
+    """Clasifica charla/identidad/capacidades o devuelve None (flujo normal).
+
+    Orden: tope de longitud, guarda de número, lista de bloqueo, reglas (frase
+    completa o unión de dos), guardas de periodo/dominio/largo y similitud. Una
+    frase de regla completa SIN ediciones no pasa por las guardas de periodo,
+    dominio ni largo («hasta mañana», «buenos días a todos»); con una edición sí.
+    """
+    if len(texto or "") > MAX_CARACTERES:
+        return None  # ninguna frase conversacional es tan larga (y acota el coste)
+    norm = normalizar(texto)
+    if any(c.isdigit() for c in norm):
         return None
-    tokens = _sin_muletillas(normalizar(texto))
+    tokens = _sin_muletillas(norm)
     if not tokens or _en_lista_bloqueo(tokens):
         return None
-    frase = " ".join(tokens)
-    sub = _EXACTAS.get(frase)
-    confianza = 1.0
-    if sub is None:
-        sub = _coincidencia_aproximada(tokens)
-        confianza = 0.9
-    if sub is not None:
-        return Clasificacion(_TIPO_POR_SUBTIPO[sub], sub, confianza, "regla")
-    return _por_similitud(frase, similitud)
+    regla = _por_reglas(tokens)
+    if regla is not None:
+        sub, ediciones = regla
+        if ediciones == 0 or not bloqueado_por_guardas(texto, vocabulario_dominio):
+            return Clasificacion(_TIPO_POR_SUBTIPO[sub], sub,
+                                 1.0 if ediciones == 0 else 0.9, "regla")
+        return None
+    if bloqueado_por_guardas(texto, vocabulario_dominio):
+        return None
+    return _por_similitud(" ".join(tokens), similitud)
 
 
 def _por_similitud(frase: str, similitud) -> Clasificacion | None:
@@ -396,41 +473,113 @@ class SimilitudPortero:
             return None
 
 
+REFERENCIAS_PATH = Path(__file__).with_name("portero_referencias.json")
+
+
 def referencias_dominio_defecto() -> list[str]:
-    """Preguntas de dominio de referencia: base fija + banco_real + nulos del banco
-    del portero (si están en el repositorio). Nunca holdouts ni multi-turno."""
-    refs = list(_DOMINIO_BASE)
-    raiz = Path(__file__).resolve().parents[2] / "tests"
+    """Preguntas de dominio de referencia para el margen de la similitud.
+
+    Se leen de ``portero_referencias.json`` (junto a este módulo; producción no
+    lee ``tests/``). Se generó una vez con la base fija ``_DOMINIO_BASE``, las
+    preguntas de ``tests/real/banco_real.json`` y los nulos de
+    ``tests/portero/banco_portero.json`` de la calibración; nunca holdouts ni
+    multi-turno. Si falta el archivo, solo la base fija."""
     try:
-        banco = json.loads((raiz / "real" / "banco_real.json").read_text(encoding="utf-8"))
-        refs += [c["pregunta"] for c in banco.get("casos", []) if c.get("pregunta")]
-    except Exception:
-        pass
-    try:
-        banco = json.loads(
-            (raiz / "portero" / "banco_portero.json").read_text(encoding="utf-8"))
-        refs += [c["texto"] for c in banco.get("casos", []) if c.get("esperado") is None]
-    except Exception:
-        pass
-    return refs
+        datos = json.loads(REFERENCIAS_PATH.read_text(encoding="utf-8"))
+        refs = [r for r in datos.get("referencias", []) if isinstance(r, str) and r.strip()]
+        return refs or list(_DOMINIO_BASE)
+    except Exception as exc:
+        logging.getLogger(__name__).warning("referencias del portero no disponibles: %s", exc)
+        return list(_DOMINIO_BASE)
+
+
+# Palabras que no distinguen un tablero de otro al deduplicar nombres.
+_VACIAS_NOMBRE = frozenset({"de", "del", "la", "el", "los", "las", "tablero", "tableros"})
+# En minúscula dentro del nombre y nunca tratadas como siglas.
+_MINUSCULAS_NOMBRE = frozenset({"de", "del", "la", "el", "los", "las", "y", "e", "o", "u",
+                                "en", "por", "para", "con", "sin", "al", "a"})
+
+
+def _nombre_tablero(nombre) -> str:
+    """Nombre legible: «_» -> espacio, formato título, siglas (palabras en
+    mayúsculas de hasta 4 letras en el original: ABC, NAOS, CVC, UCI) intactas."""
+    partes = []
+    for i, palabra in enumerate(str(nombre or "").replace("_", " ").split()):
+        baja = palabra.lower()
+        if i and baja in _MINUSCULAS_NOMBRE:
+            partes.append(baja)
+        elif (palabra.isalpha() and palabra.isupper() and len(palabra) <= 4
+              and baja not in _MINUSCULAS_NOMBRE):
+            partes.append(palabra)
+        else:
+            partes.append(palabra[:1].upper() + palabra[1:].lower())
+    return " ".join(partes)
+
+
+def _clave_tablero(nombre) -> str:
+    """Clave de deduplicación: normalizada, sin palabras vacías ni plural final
+    («Gestión De Camas» = «Gestion Camas», «Remisiones» = «Remision»)."""
+    claves = []
+    for t in normalizar(str(nombre or "").replace("_", " ")).split():
+        if t in _VACIAS_NOMBRE:
+            continue
+        if len(t) > 4 and t.endswith("es"):
+            t = t[:-2]
+        elif len(t) > 3 and t.endswith("s"):
+            t = t[:-1]
+        claves.append(t)
+    return " ".join(claves)
+
+
+def _agregar(grupo: dict, nombre: str) -> None:
+    """Un nombre por clave: el más corto (y luego alfabético)."""
+    clave = _clave_tablero(nombre)
+    if not clave:
+        return
+    actual = grupo.get(clave)
+    if actual is None or (len(nombre), nombre) < (len(actual), actual):
+        grupo[clave] = nombre
+
+
+def _paginas_de_modelos(router, modelos) -> set[str]:
+    """Claves de las páginas (catálogo visual) de los modelos consultables."""
+    claves = set()
+    paginas_de = getattr(router, "pages_for_model", None)
+    if not callable(paginas_de):
+        return claves
+    for m in modelos:
+        try:
+            for ctx in paginas_de(m.get("semantic_model")) or []:
+                nombre = ctx.get("dashboard") if isinstance(ctx, dict) else ctx
+                clave = _clave_tablero(nombre)
+                if clave:
+                    claves.add(clave)
+        except Exception:
+            continue
+    return claves
 
 
 def catalogo_tableros(router) -> tuple[list[str], list[str]]:
-    """(datos, documentacion): tableros con datos y tableros solo documentados."""
+    """(datos, documentacion): tableros con datos y tableros solo documentados.
+
+    Nombres legibles y deduplicados; en documentación no van los que ya están en
+    datos, ni las páginas de un modelo consultable, ni los «DICCIONARIO»."""
     try:
         if router is None:
             return [], []
-        modelos = getattr(router, "models", None) or []
-        datos, claves = set(), set()
+        modelos = [m for m in (getattr(router, "models", None) or []) if isinstance(m, dict)]
+        datos, claves = {}, set()
         for m in modelos:
             nombre = str(m.get("semantic_model") or "").strip()
             if nombre:
-                datos.add(nombre.title())
-                claves.add(normalizar(nombre))
-            clave = normalizar(m.get("semantic_model_key") or "")
+                _agregar(datos, _nombre_tablero(nombre))
+                claves.add(_clave_tablero(nombre))
+            clave = _clave_tablero(m.get("semantic_model_key") or "")
             if clave:
                 claves.add(clave)
-        docs = set()
+        claves |= _paginas_de_modelos(router, modelos)
+        claves.discard("")
+        docs = {}
         for entrada in getattr(router, "_documentation_dashboards", None) or []:
             try:
                 nombre, grupo = entrada  # una entrada malformada se salta sola
@@ -439,10 +588,10 @@ def catalogo_tableros(router) -> tuple[list[str], list[str]]:
             nombre = str(nombre or "").strip()
             if not nombre or nombre.upper().startswith("DICCIONARIO"):
                 continue
-            if normalizar(nombre) in claves or normalizar(grupo) in claves:
+            if _clave_tablero(nombre) in claves or _clave_tablero(grupo) in claves:
                 continue
-            docs.add(nombre.title())
-        return sorted(datos), sorted(docs)
+            _agregar(docs, _nombre_tablero(nombre))
+        return sorted(datos.values()), sorted(docs.values())
     except Exception as exc:
         logging.getLogger(__name__).warning("catalogo_tableros fallo: %s", exc)
         return [], []

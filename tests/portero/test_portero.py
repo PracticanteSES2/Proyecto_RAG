@@ -1,4 +1,5 @@
 import json
+import time
 import unittest
 from pathlib import Path
 
@@ -247,6 +248,111 @@ class TestSimilitudFalsa(unittest.TestCase):
                               ("agradecimiento", "Con gusto"), ("despedida", "Hasta pronto")):
             c = Clasificacion("charla", sub, 1.0, "regla")
             self.assertIn(esperado, responder(c, [], []))
+
+
+class _RouterConPaginas(_Router):
+    def __init__(self, models, docs, paginas):
+        super().__init__(models, docs)
+        self._paginas = paginas
+
+    def pages_for_model(self, modelo):
+        return [{"dashboard": p} for p in self._paginas.get(modelo, [])]
+
+
+class TestRevisionPortero(unittest.TestCase):
+    """Correcciones de la revisión (F1, F3, F4, F5, F6)."""
+
+    def test_que_mas_solo_no_es_saludo(self):
+        for texto in ("que mas", "q mas", "k mas", "¿qué más?", "Qué más", "gracias, ¿qué más?"):
+            with self.subTest(texto=texto):
+                self.assertIsNone(clasificar(texto, VOCAB))
+        self.assertEqual(clasificar("hola, ¿qué más?", VOCAB).subtipo, "saludo")
+        self.assertEqual(clasificar("que mas como vas", VOCAB).subtipo, "estado")
+        self.assertEqual(clasificar("qué más, ¿cómo vas?", VOCAB).subtipo, "estado")
+
+    def test_texto_enorme_sale_rapido(self):
+        for texto in ("a" * 1_000_000, "ﷺ" * 100_000, "h" + "o" * 500_000 + "la"):
+            t0 = time.perf_counter()
+            self.assertIsNone(clasificar(texto, VOCAB))
+            self.assertLess(time.perf_counter() - t0, 0.2)
+        self.assertIsNone(clasificar("hola " + "a" * 200, VOCAB))
+
+    def test_dos_frases_unidas_con_prioridad(self):
+        casos = {
+            "hola buenas tardes": "saludo", "chao gracias": "despedida",
+            "gracias chao": "despedida", "hola como estas": "estado",
+            "hola quien eres": "identidad", "gracias que puedes hacer": "capacidades",
+            "buenas noches gracias": "agradecimiento",
+        }
+        for texto, sub in casos.items():
+            with self.subTest(texto=texto):
+                c = clasificar(texto, VOCAB)
+                self.assertIsNotNone(c)
+                self.assertEqual((c.subtipo, c.motivo), (sub, "regla"))
+        for texto in ("hola hola hola hola hola", "gracias ninguna", "ok", "listo",
+                      "gracias por las cirugias", "hola de nuevo"):
+            with self.subTest(texto=texto):
+                self.assertIsNone(clasificar(texto, VOCAB))
+
+    def test_frase_exacta_no_la_bloquean_dominio_ni_periodo(self):
+        vocab = frozenset({"todos", "manana", "nombre", "opciones"})
+        casos = {
+            "hasta mañana": "despedida", "buenos días a todos": "saludo",
+            "hola a todos": "saludo", "buenas tardes a todos": "saludo",
+            "gracias parce": "agradecimiento", "quiubo parce": "saludo",
+            "q hubo": "saludo", "qué hubo": "saludo", "necesito ayuda": "capacidades",
+            "qué opciones hay": "capacidades", "cuál es tu nombre": "identidad",
+        }
+        for texto, sub in casos.items():
+            with self.subTest(texto=texto):
+                self.assertEqual(clasificar(texto, vocab).subtipo, sub)
+        # Con un número siempre se bloquea; con una edición, las guardas valen.
+        self.assertIsNone(clasificar("hasta mañana 2", vocab))
+        self.assertEqual(clasificar("buenas tarde a todos").subtipo, "saludo")
+        self.assertIsNone(clasificar("buenas tarde a todos", frozenset({"todos"})))
+        self.assertIsNone(clasificar("buenas tardes a todo", frozenset({"todo"})))
+
+    def test_referencias_sin_leer_tests(self):
+        from unittest import mock
+        from src.chatbot import portero
+
+        self.assertEqual(portero.REFERENCIAS_PATH.parent.name, "chatbot")
+        original = Path.read_text
+
+        def sin_tests(self_path, *a, **k):
+            if "tests" in Path(self_path).parts:
+                raise AssertionError(f"produccion leyo {self_path}")
+            return original(self_path, *a, **k)
+
+        with mock.patch.object(Path, "read_text", sin_tests):
+            refs = portero.referencias_dominio_defecto()
+        self.assertGreater(len(refs), 100)
+        self.assertIn("cuantas camas hay disponibles", refs)
+        holdouts = {c["pregunta"] for n in ("banco_holdout.json", "banco_holdout2.json")
+                    for c in _json(n)["casos"] if c.get("pregunta")} - {
+            c["pregunta"] for c in _json("banco_real.json")["casos"]}
+        self.assertFalse(holdouts & set(refs))
+
+    def test_nombres_de_tablero_legibles(self):
+        router = _Router(
+            [{"semantic_model": "Tablero_Cvc"}, {"semantic_model": "TABLERO COSTOS ABC"},
+             {"semantic_model": "NAOS"}, {"semantic_model": "GESTIÓN DE CAMAS"},
+             {"semantic_model": "Gestión Camas"}, {"semantic_model": "UCI ADULTOS"}],
+            [])
+        datos, _ = catalogo_tableros(router)
+        self.assertEqual(datos, ["Gestión Camas", "NAOS", "Tablero Costos ABC", "Tablero Cvc",
+                                 "UCI Adultos"])
+
+    def test_documentacion_sin_duplicados_ni_paginas(self):
+        router = _RouterConPaginas(
+            [{"semantic_model": "Lavanderia"}, {"semantic_model": "Referencia"}],
+            [("TABLERO LAVANDERIA", "lav"), ("SEGUIMIENTO REMISION", "rem"),
+             ("SEGUIMIENTO REMISIONES", "rem"), ("INICIO", "ref"), ("REPS", "ref"),
+             ("Tablero_Tiempos_Egreso", "egr"), ("TABLERO DE TIEMPOS EGRESO", "egr")],
+            {"Referencia": ["INICIO", "REPS"]})
+        datos, docs = catalogo_tableros(router)
+        self.assertEqual(datos, ["Lavanderia", "Referencia"])
+        self.assertEqual(docs, ["Seguimiento Remision", "Tablero Tiempos Egreso"])
 
 
 if __name__ == "__main__":

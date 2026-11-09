@@ -266,6 +266,14 @@ def build_system():
         "MODELOS SEMÁNTICOS ENRUTABLES:",
         source_router.semantic_models()
     )
+    # Portero conversacional precalentado (similitud MiniLM y catálogo): el
+    # primer «hola» no paga su construcción. Un fallo no impide arrancar.
+    try:
+        warm_up = getattr(engine, "warm_up_portero", None)
+        if callable(warm_up):
+            warm_up()
+    except Exception:
+        traceback.print_exc()
     return engine, conversation_manager, ResponseFormatter(), medgemma_status, powerbi_connection
 
 def get_display_answer(result, formatter):

@@ -96,6 +96,21 @@ class MotorPorteroTests(unittest.TestCase):
         self.assertEqual(tercero["query_plan"]["metric"]["metric_id"],
                          primero["query_plan"]["metric"]["metric_id"])
         self.assertIn("como seguimiento", _razonamiento(tercero))
+        periodo = tercero["query_plan"]["period"]
+        self.assertEqual((periodo["kind"], periodo["start"], periodo["end"]),
+                         ("month", "2024-10-01", "2024-11-01"))
+
+    def test_que_mas_tras_respuesta_no_es_saludo(self):
+        self.ask("cirugias programadas de urologia en 2024")
+        result, ui = self.ask("¿qué más?")
+        self.assertNotEqual(result["route"], "conversacion", ui)
+
+    def test_portero_precalentado_al_construir_el_sistema(self):
+        engine, *_ = harness.build_engine()
+        vocabulario, similitud, datos, _ = engine._portero_recursos
+        self.assertTrue(vocabulario)
+        self.assertIsNotNone(similitud)
+        self.assertIn("Lavanderia", datos)
 
     def test_saludo_mas_pregunta_va_a_datos(self):
         result, ui = self.ask("hola, cirugias programadas de urologia en 2024")

@@ -6588,7 +6588,9 @@ class QueryEngine:
         text = normalized.text if normalized is not None and normalized.text else message
         if top_level:
             # Portero: charla, identidad o capacidades se responden sin tocar
-            # memoria, seguimiento ni el mensaje aplazado del turno anterior.
+            # memoria ni seguimiento. El mensaje aplazado no corre peligro: el
+            # portero nunca actúa con una contrapregunta pendiente (ver
+            # _portero_turn), y solo entonces hay mensaje aplazado que proteger.
             conversational = self._portero_turn(message, text, root)
             if conversational is not None:
                 return conversational
@@ -6610,6 +6612,16 @@ class QueryEngine:
             # normalizado: así un seguimiento no vuelve a traer «x» o «q».
             self._record_turn(text, result, via="texto")
         return result
+
+    def warm_up_portero(self):
+        """Arma ya los recursos del portero (vocabulario, similitud MiniLM y
+        catálogo) para que el primer «hola» no pague su construcción. Nunca lanza."""
+        try:
+            root = getattr(getattr(self, "query_plan_builder", None), "project_root", None)
+            self._portero_resources(root)
+            return True
+        except Exception:
+            return False
 
     def _portero_resources(self, root):
         """(vocabulario, similitud, datos, documentacion) del portero, armados una
