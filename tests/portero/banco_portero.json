@@ -760,6 +760,76 @@
    "id": "D55",
    "texto": "y los medicamentos?",
    "esperado": null
+  },
+  {
+   "id": "D56",
+   "texto": "cola",
+   "esperado": null
+  },
+  {
+   "id": "D57",
+   "texto": "sola",
+   "esperado": null
+  },
+  {
+   "id": "D58",
+   "texto": "bola",
+   "esperado": null
+  },
+  {
+   "id": "D59",
+   "texto": "mola",
+   "esperado": null
+  },
+  {
+   "id": "D60",
+   "texto": "ayudo",
+   "esperado": null
+  },
+  {
+   "id": "D61",
+   "texto": "ayudas",
+   "esperado": null
+  },
+  {
+   "id": "D62",
+   "texto": "ayudar",
+   "esperado": null
+  },
+  {
+   "id": "D63",
+   "texto": "que eras",
+   "esperado": null
+  },
+  {
+   "id": "D64",
+   "texto": "nos vamos",
+   "esperado": null
+  },
+  {
+   "id": "D65",
+   "texto": "nos vimos",
+   "esperado": null
+  },
+  {
+   "id": "D66",
+   "texto": "como estan",
+   "esperado": null
+  },
+  {
+   "id": "D67",
+   "texto": "holas",
+   "esperado": null
+  },
+  {
+   "id": "D68",
+   "texto": "sii",
+   "esperado": null
+  },
+  {
+   "id": "D69",
+   "texto": "okk",
+   "esperado": null
   }
  ]
 }

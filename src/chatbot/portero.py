@@ -8,6 +8,7 @@ muletillas, debe ser ENTERO una frase conversacional conocida (no contenerla).
 
 from __future__ import annotations
 
+import logging
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -120,63 +121,76 @@ def bloqueado_por_guardas(texto: str, vocabulario_dominio: frozenset[str]) -> st
     return None
 
 
-def _en_lista_bloqueo(tokens: list[str]) -> bool:
-    frase = " ".join(tokens)
-    if frase in _SOLOS_FLUJO_NORMAL:
-        return True
-    if frase.startswith(("como vamos ", "como estamos ", "como va ", "ayuda con ",
-                         "ayuda para ", "que hay de nuevo ")):
-        return True
-    # «como esta X» con más palabras: pregunta por X (no es saludo de estado).
-    if len(tokens) > 2 and tokens[:2] == ["como", "esta"]:
-        return True
-    return False
+_PREFIJOS_BLOQUEO = (
+    "como vamos", "como estamos", "como va", "ayuda con", "ayuda para",
+    "que hay de nuevo",
+)
 
 
-def _distancia_maxima_uno(a: str, b: str) -> bool:
-    """True si a y b difieren en como mucho una edición (Damerau)."""
-    if a == b:
-        return True
-    if abs(len(a) - len(b)) > 1:
+def _colapsar(palabra: str) -> str:
+    """Reduce letras repetidas (holaa, graciass) a una sola."""
+    return re.sub(r"(.)\1+", r"\1", palabra)
+
+
+def _una_letra(a: str, b: str) -> bool:
+    """True si a y b difieren por omitir o insertar exactamente una letra."""
+    if abs(len(a) - len(b)) != 1:
         return False
-    if len(a) == len(b):
-        difs = [i for i in range(len(a)) if a[i] != b[i]]
-        if len(difs) == 1:
-            return True
-        return (len(difs) == 2 and difs[1] == difs[0] + 1
-                and a[difs[0]] == b[difs[1]] and a[difs[1]] == b[difs[0]])
     corta, larga = (a, b) if len(a) < len(b) else (b, a)
     return any(larga[:i] + larga[i + 1:] == corta for i in range(len(larga)))
 
 
-def _tabla():
-    return [(f.split(), sub) for sub, lista in _FRASES.items() for f in lista]
+def _ediciones(token: str, base: str) -> int | None:
+    """Ediciones para que token case con base (None si no casa).
+
+    Sin coste: letras repetidas. Coste 1: omitir o insertar una letra, solo
+    si la palabra base tiene 6 o más letras. Nunca sustituciones.
+    """
+    if token == base or _colapsar(token) == _colapsar(base):
+        return 0
+    if (len(base) >= 6 and len(token) >= 5
+            and _una_letra(_colapsar(token), _colapsar(base))):
+        return 1
+    return None
 
 
-_TABLA = _tabla()
+def _casa(tokens: list[str], frase: list[str]) -> bool:
+    """tokens casa con frase (misma longitud) con a lo sumo una edición."""
+    if len(tokens) != len(frase):
+        return False
+    total = 0
+    for a, b in zip(tokens, frase):
+        e = _ediciones(a, b)
+        if e is None:
+            return False
+        total += e
+    return total <= 1
+
+
+def _en_lista_bloqueo(tokens: list[str]) -> bool:
+    if any(_casa(tokens, solo.split()) for solo in _SOLOS_FLUJO_NORMAL):
+        return True
+    for prefijo in _PREFIJOS_BLOQUEO:
+        p = prefijo.split()
+        if len(tokens) > len(p) and _casa(tokens[:len(p)], p):
+            return True
+    # «como esta X» con más palabras: pregunta por X (no es saludo de estado).
+    return len(tokens) > 2 and tokens[:2] == ["como", "esta"]
+
+
+_TABLA = [(f.split(), sub) for sub, lista in _FRASES.items() for f in lista]
 _EXACTAS = {" ".join(t): sub for t, sub in _TABLA}
 
 
 def _coincidencia_aproximada(tokens: list[str]) -> str | None:
-    """Una sola edición permitida, y solo en palabras de 4+ letras."""
     for frase, sub in _TABLA:
-        if len(frase) != len(tokens):
-            continue
-        ediciones = 0
-        for a, b in zip(tokens, frase):
-            if a == b:
-                continue
-            if len(a) < 4 or len(b) < 4 or not _distancia_maxima_uno(a, b):
-                ediciones = 99
-                break
-            ediciones += 1
-        if ediciones == 1:
+        if _casa(tokens, frase):
             return sub
     return None
 
 
 def clasificar(texto: str, vocabulario_dominio: frozenset[str] = frozenset(),
-               similitud=None) -> Clasificacion | None:
+               similitud: "SimilitudPortero | None" = None) -> Clasificacion | None:
     """Clasifica charla/identidad/capacidades o devuelve None (flujo normal)."""
     if bloqueado_por_guardas(texto, vocabulario_dominio):
         return None
@@ -202,5 +216,6 @@ def vocabulario_dominio(project_root) -> frozenset[str]:
         palabras = {normalizar(k) for k in vocabulary_for(Path(project_root)).targets}
         palabras = {p for p in palabras if p and " " not in p}
         return frozenset(palabras - _PALABRAS_CONVERSACIONALES)
-    except Exception:
+    except Exception as exc:
+        logging.getLogger(__name__).warning("vocabulario_dominio fallo: %s", exc)
         return frozenset()

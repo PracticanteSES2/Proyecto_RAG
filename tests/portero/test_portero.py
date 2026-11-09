@@ -33,6 +33,9 @@ def _textos_reales():
 
 
 class TestPortero(unittest.TestCase):
+    def test_vocabulario_dominio_no_vacio(self):
+        self.assertGreater(len(VOCAB), 100)
+
     def test_normalizar(self):
         self.assertEqual(normalizar("¿Cómo   estás HOY?!"), "como estas hoy")
 
@@ -77,7 +80,17 @@ class TestPortero(unittest.TestCase):
 
     def test_tipeo_solo_en_palabras_largas(self):
         self.assertEqual(clasificar("holaa").subtipo, "saludo")
-        self.assertIsNone(clasificar("q tel"))  # palabras de <4 letras: exactas
+        self.assertEqual(clasificar("graciass").subtipo, "agradecimiento")
+        self.assertEqual(clasificar("buenos diass").subtipo, "saludo")
+        self.assertEqual(clasificar("muchisima gracias").subtipo, "agradecimiento")
+
+    def test_palabras_reales_parecidas_no_se_interceptan(self):
+        for texto in ("sola", "cola", "mola", "rola", "bola", "holas", "ayudo",
+                      "ayudas", "ayudar", "ayudan", "que eras", "que seres",
+                      "nos vamos", "nos vimos", "como estan", "buenos diaz",
+                      "muchas gracios"):
+            with self.subTest(texto=texto):
+                self.assertIsNone(clasificar(texto))
 
     def test_banco_portero_sin_falsos_positivos(self):
         casos = json.loads(BANCO.read_text(encoding="utf-8"))["casos"]
