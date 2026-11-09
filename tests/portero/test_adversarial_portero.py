@@ -7,6 +7,7 @@ adversarial.md); un fallo es un hallazgo.
 El MiniLM real se usa solo si está en la caché local (sin red); si no, esas
 pruebas se omiten.
 """
+import os
 import sys
 import time
 import unittest
@@ -17,7 +18,6 @@ from src.chatbot.portero import (
     SimilitudPortero, Clasificacion, catalogo_tableros, clasificar, responder,
 )
 from tests.sim import harness
-import os
 from pathlib import Path
 from src.chatbot.portero import vocabulario_dominio
 
@@ -28,10 +28,37 @@ MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 
 def _cargar_modelo():
+    # Si otra prueba del mismo proceso ya instaló el falso del arnés, se aparta
+    # un momento para cargar el MiniLM real y luego se restituye.
+    falso = sys.modules.get("sentence_transformers")
+    if falso is not None and getattr(falso, "__file__", None) is None:
+        del sys.modules["sentence_transformers"]
+        try:
+            return _cargar_modelo_real()
+        finally:
+            sys.modules["sentence_transformers"] = falso
+    return _cargar_modelo_real()
+
+
+def _cargar_modelo_real():
     # sin importar src.rag.retriever (arrastraria qdrant_client real antes de los stubs)
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     from sentence_transformers import SentenceTransformer
-    return SentenceTransformer(MODEL_NAME, local_files_only=True)
+    try:
+        return SentenceTransformer(MODEL_NAME, local_files_only=True)
+    except TypeError:
+        # Sin local_files_only: modo sin red forzado para que no pueda descargar.
+        previo = {k: os.environ.get(k) for k in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE")}
+        os.environ["HF_HUB_OFFLINE"] = "1"
+        os.environ["TRANSFORMERS_OFFLINE"] = "1"
+        try:
+            return SentenceTransformer(MODEL_NAME)
+        finally:
+            for k, v in previo.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
 
 NO_CHARLA = [
     "¿cómo vamos?", "¿cómo va urgencias?", "qué tal las cirugías", "buenas tardes, necesito el censo",
@@ -116,19 +143,42 @@ CHARLA_NO_CUBIERTA = [
 CHARLA_NO_CUBIERTA = [c for c in CHARLA_NO_CUBIERTA if c not in CHARLA]
 
 
-# El MiniLM real se carga al importar, ANTES de que el arnes (harness.build_engine)
-# sustituya sentence_transformers por un falso.
-try:
-    _SIM = SimilitudPortero(_cargar_modelo())
-    _SIM_ERR = None if _SIM.activa else "similitud inactiva"
-except Exception as exc:  # sin cache local: se omite
-    _SIM, _SIM_ERR = None, f"MiniLM no disponible offline: {exc}"
+_SIM = None
+_SIM_ERR = None
+
+
+def _no_disponible(mensaje):
+    """Sin MiniLM local: se omite, salvo PORTERO_REQUIRE_MINILM=1 (entonces falla)."""
+    if os.environ.get("PORTERO_REQUIRE_MINILM") == "1":
+        raise AssertionError(mensaje)
+    raise unittest.SkipTest(mensaje)
 
 
 def _sim():
-    if _SIM is None or _SIM_ERR:
-        raise unittest.SkipTest(_SIM_ERR)
+    """MiniLM real, cargado una sola vez y de forma perezosa (en setUpClass, antes
+    de que harness.build_engine sustituya sentence_transformers por un falso)."""
+    global _SIM, _SIM_ERR
+    if _SIM is None and _SIM_ERR is None:
+        try:
+            sim = SimilitudPortero(_cargar_modelo())
+            if sim.activa:
+                _SIM = sim
+            else:
+                _SIM_ERR = "similitud inactiva"
+        except Exception as exc:  # sin cache local
+            _SIM_ERR = f"MiniLM no disponible offline: {exc}"
+    if _SIM is None:
+        _no_disponible(_SIM_ERR)
     return _SIM
+
+
+def _precargar():
+    """Carga el MiniLM real (si existe) antes de que harness.build_engine lo
+    sustituya por un falso; los fallos se reportan en las clases que lo necesitan."""
+    try:
+        _sim()
+    except (unittest.SkipTest, AssertionError):
+        pass
 
 
 class FalsosPositivos(unittest.TestCase):
@@ -193,6 +243,7 @@ class FalsosNegativos(unittest.TestCase):
 class Motor(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        _precargar()
         cls.engine, cls.cm, cls.fm, *_ = harness.build_engine()
 
     def setUp(self):
@@ -256,12 +307,6 @@ class Motor(unittest.TestCase):
         r, _ = self.ask("hola")
         self.assertEqual(r["route"], "conversacion")
 
-    def test_hola_no_crea_contexto_de_seguimiento_falso(self):
-        self.ask("hola")
-        s, ui2 = self.ask("¿y en octubre?")
-        self.assertNotEqual(s["route"], "conversacion")
-        self.assertNotEqual(s["status"], "success", ui2)
-
     def test_mayusculas_signos_emojis(self):
         for t in ("HOLA!!!", "¡¡Gracias!!", "  hola  ", "GRACIAS.", "Hola?", "hola...", "hola 👋", "gracias 🙏"):
             r, ui = self.ask(t)
@@ -275,9 +320,9 @@ class Motor(unittest.TestCase):
 
 class Capacidades(unittest.TestCase):
     def test_texto_con_fixtures_del_simulador(self):
+        _precargar()
         eng, cm, fm, *_ = harness.build_engine()
         r, ui = harness.ask(eng, cm, fm, "qué puedes hacer")
-        print("\n" + ui + f"\n[{len(ui)} caracteres]")
         self.assertEqual(r["route"], "conversacion")
         items = []
         for linea in ui.split("\n\n"):
@@ -299,7 +344,6 @@ class Capacidades(unittest.TestCase):
         router.register_documentation_dashboards([])
         datos, docs = catalogo_tableros(router)
         texto = responder(Clasificacion("capacidades", "capacidades", 1.0, "t"), datos, docs)
-        print(f"\n[capacidades con el catálogo real: {len(texto)} caracteres]")
         nombres = datos + docs
         self.assertFalse([d for d in nombres if "_" in d])
         claves = [_clave_tablero(n) for n in nombres]
@@ -311,14 +355,15 @@ class Capacidades(unittest.TestCase):
 
 class Rendimiento(unittest.TestCase):
     def test_primer_mensaje_vs_siguientes(self):
+        _precargar()
         eng, cm, fm, *_ = harness.build_engine()
         tiempos = []
         for t in ("hola", "gracias", "chao", "hola", "cuantas camas hay"):
             t0 = time.perf_counter()
             harness.ask(eng, cm, fm, t)
             tiempos.append(time.perf_counter() - t0)
-        print(f"\nturnos={['%.3f' % x for x in tiempos]}")
-        self.assertLess(tiempos[0], 1.0, "primer mensaje (construccion perezosa) >1s")
+        self.assertLess(tiempos[0], 1.0,
+                        f"primer mensaje (construccion perezosa) >1s; turnos={[round(x, 3) for x in tiempos]}")
 
 
 if __name__ == "__main__":

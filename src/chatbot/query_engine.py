@@ -1,4 +1,5 @@
 import inspect
+import logging
 import re
 import unicodedata
 from datetime import date
@@ -6620,7 +6621,10 @@ class QueryEngine:
             root = getattr(getattr(self, "query_plan_builder", None), "project_root", None)
             self._portero_resources(root)
             return True
-        except Exception:
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "Portero: no se pudo precalentar (%s: %s); se usa el flujo normal",
+                type(exc).__name__, exc, exc_info=False)
             return False
 
     def _portero_resources(self, root):
@@ -6677,7 +6681,11 @@ class QueryEngine:
                         "conversation_kind": kind, "question": message}
 
             return self._traced("question", message, run)
-        except Exception:
+        except Exception as exc:
+            # Solo tipo y mensaje de la excepción: nunca el texto del usuario.
+            logging.getLogger(__name__).warning(
+                "Portero desactivado en este turno (%s: %s); sigue el flujo normal",
+                type(exc).__name__, exc, exc_info=False)
             return None  # el portero nunca tumba el turno
 
     def _discard_stale_dashboard_clarification(self, message):

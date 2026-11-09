@@ -6,22 +6,15 @@ mensaje sigue el flujo normal. Regla de oro: el mensaje normalizado, sin
 muletillas, debe ser ENTERO una frase conversacional conocida (no contenerla).
 
 Similitud MiniLM (tras reglas, lista de bloqueo y guardas; solo 3 a 8 palabras):
-UMBRAL = 0.80 y MARGEN = 0.20 (valores iniciales de research D2, confirmados por
-barrido umbral 0.70-0.85 x margen 0.10-0.30 sobre banco_portero + banco_real).
-Cifras (2026-11-09, MiniLM real, 24 a 26 ejemplos por subtipo):
-  - cobertura de casos C del banco del portero: 89/97 = 91.8 % (reglas solas 85/97);
-  - falsos positivos: 0 (tambien en leave-one-out, sin la propia pregunta como
-    referencia de dominio);
-  - barrido ciego (banco_real + holdout + holdout2 + multiturno, 243 textos): 0;
-  - latencia media por clasificar: ~37 ms (vectores precalculados).
-Los 8 casos C restantes son de 1 a 2 palabras o los bloquea una guarda de dominio.
-Tras la revisión (frases unidas, «qué más» solo -> None, frases nuevas; banco con
-113 casos C y 74 D): reglas solas 101/113, con similitud 105/113; 0 falsos
-positivos; barrido ciego de 243 textos: 0. Las referencias de dominio viven en
-portero_referencias.json (producción no lee tests/).
-El menor margen de un nulo sin guarda fue 0.199 («hola hola cuantas consultas hay»,
-que la guarda de dominio ya bloquea): subir el margen no es necesario, pero bajarlo
-si lo seria problematico.
+UMBRAL = 0.80 y MARGEN = 0.20 (research D2, confirmados por barrido umbral
+0.70-0.85 x margen 0.10-0.30 sobre banco_portero + banco_real).
+Cifras vigentes (banco con 113 casos C y 74 D, MiniLM real): reglas solas
+101/113, con similitud 105/113; falsos positivos 0/74 (tambien en leave-one-out);
+barrido ciego de 243 textos (banco_real + holdout + holdout2 + multiturno): 0.
+Las preguntas de banco_real tambien son referencias de dominio, asi que la
+evidencia ciega honesta son holdout, holdout2 y multi-turno, mas leave-one-out.
+Las referencias de dominio viven en portero_referencias.json (produccion no lee
+tests/).
 """
 
 from __future__ import annotations
@@ -600,7 +593,9 @@ def catalogo_tableros(router) -> tuple[list[str], list[str]]:
 _EJEMPLO_PREGUNTA = "«¿Cuál es el nivel de ocupación?»"
 
 _TEXTOS = {
-    "saludo": ("¡Hola! Estoy bien y listo para ayudarte. Puedes preguntarme por los "
+    "saludo": ("¡Hola! Puedes preguntarme por los indicadores de los tableros "
+               "institucionales, por ejemplo: «¿Cuántas cirugías se realizaron el mes pasado?»."),
+    "estado": ("¡Hola! Estoy bien y listo para ayudarte. Puedes preguntarme por los "
                "indicadores de los tableros institucionales, por ejemplo: "
                "«¿Cuántas cirugías se realizaron el mes pasado?»."),
     "agradecimiento": "Con gusto. Si necesitas otro dato, aquí estoy.",
@@ -609,7 +604,6 @@ _TEXTOS = {
                   "Hospital Universitario de Caldas. Respondo con datos de Power BI y "
                   "con la documentación de los tableros. No doy recomendaciones clínicas."),
 }
-_TEXTOS["estado"] = _TEXTOS["saludo"]
 
 
 def responder(c: Clasificacion, datos: list[str], documentacion: list[str]) -> str:

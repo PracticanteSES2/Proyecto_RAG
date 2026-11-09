@@ -86,7 +86,7 @@ banco nuevo de preguntas cortas/ambiguas; ninguna recibe respuesta conversaciona
 
 - **FR-001**: El sistema MUST reconocer y responder sin consultar documentación ni datos los mensajes de tipo saludo, agradecimiento, despedida, estado («¿cómo estás?»), identidad («¿quién eres?») y capacidades («¿qué puedes hacer?», «ayuda»).
 - **FR-002**: El sistema MUST NOT dar respuesta conversacional cuando hay una contrapregunta abierta o se está aplicando la elección de una opción.
-- **FR-003**: El sistema MUST NOT dar respuesta conversacional si el mensaje contiene números, referencias a periodos, palabras del catálogo de tableros/indicadores o más de 8 palabras tras quitar el saludo. «hoy» por sí solo no cuenta como periodo («¿cómo estás hoy?» sí es charla).
+- **FR-003**: El sistema MUST NOT dar respuesta conversacional si el mensaje contiene números, referencias a periodos, palabras del catálogo de tableros/indicadores o más de 8 palabras tras quitar el saludo. «hoy» por sí solo no cuenta como periodo («¿cómo estás hoy?» sí es charla), salvo que el mensaje sea entero una o dos frases de regla sin ediciones (p. ej. «buenos días a todos», «hasta mañana»); la guarda de número, la lista de bloqueo y el estado pendiente siempre aplican.
 - **FR-004**: Ante cualquier duda o fallo interno, el mensaje MUST seguir el flujo actual sin cambios.
 - **FR-005**: La respuesta de capacidades MUST construirse desde el catálogo vigente en dos grupos: «Datos» (tableros consultables) y «Documentación» (solo documentados), sin duplicados; un grupo vacío no se muestra; sin catálogo, texto genérico.
 - **FR-006**: La respuesta de identidad MUST indicar que el asistente no da recomendaciones clínicas.

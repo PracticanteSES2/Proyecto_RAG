@@ -243,6 +243,13 @@ class TestSimilitudFalsa(unittest.TestCase):
         texto = responder(c, [], [])
         self.assertIn("No doy recomendaciones clínicas", texto)
 
+    def test_saludo_no_dice_estoy_bien_pero_estado_si(self):
+        saludo = responder(Clasificacion("charla", "saludo", 1.0, "regla"), [], [])
+        estado = responder(Clasificacion("charla", "estado", 1.0, "regla"), [], [])
+        self.assertTrue(saludo.startswith("¡Hola! Puedes preguntarme"), saludo)
+        self.assertNotIn("Estoy bien", saludo)
+        self.assertTrue(estado.startswith("¡Hola! Estoy bien y listo para ayudarte."), estado)
+
     def test_respuestas_charla(self):
         for sub, esperado in (("saludo", "Hola"), ("estado", "Hola"),
                               ("agradecimiento", "Con gusto"), ("despedida", "Hasta pronto")):

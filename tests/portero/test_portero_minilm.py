@@ -28,7 +28,26 @@ def _cargar_modelo():
     try:
         return SentenceTransformer(MODEL_NAME, local_files_only=True)
     except TypeError:
-        return SentenceTransformer(MODEL_NAME)
+        # Versión sin local_files_only: se fuerza el modo sin red para que
+        # el respaldo nunca pueda descargar nada; luego se restauran los valores.
+        previo = {k: os.environ.get(k) for k in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE")}
+        os.environ["HF_HUB_OFFLINE"] = "1"
+        os.environ["TRANSFORMERS_OFFLINE"] = "1"
+        try:
+            return SentenceTransformer(MODEL_NAME)
+        finally:
+            for k, v in previo.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+
+def _no_disponible(mensaje):
+    """Sin MiniLM local: se omite, salvo PORTERO_REQUIRE_MINILM=1 (entonces falla)."""
+    if os.environ.get("PORTERO_REQUIRE_MINILM") == "1":
+        raise AssertionError(mensaje)
+    raise unittest.SkipTest(mensaje)
 
 
 def _textos_banco_real():
@@ -41,10 +60,10 @@ class TestPorteroMiniLM(unittest.TestCase):
         try:
             cls.modelo = _cargar_modelo()
         except Exception as exc:  # sin caché local: se omite, nunca se descarga
-            raise unittest.SkipTest(f"MiniLM no disponible offline: {exc}")
+            _no_disponible(f"MiniLM no disponible offline: {exc}")
         cls.sim = SimilitudPortero(cls.modelo)
         if not cls.sim.activa:
-            raise unittest.SkipTest("SimilitudPortero inactiva")
+            _no_disponible("SimilitudPortero inactiva")
 
     def _casos(self):
         return json.loads(BANCO.read_text(encoding="utf-8"))["casos"]

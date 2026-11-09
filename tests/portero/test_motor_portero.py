@@ -124,6 +124,21 @@ class MotorPorteroTests(unittest.TestCase):
         self.assertIsNone(result["_sim"]["exception"])
         self.assertNotEqual(result["route"], "conversacion")
 
+    def test_fallo_del_portero_se_registra_sin_el_texto_del_usuario(self):
+        secreto = "hola texto-privado-xyz"
+        with mock.patch("src.chatbot.portero.clasificar", side_effect=RuntimeError("boom")):
+            with self.assertLogs("src.chatbot.query_engine", level="WARNING") as cap:
+                self.ask(secreto)
+        salida = "|".join(cap.output)
+        self.assertIn("RuntimeError", salida)
+        self.assertNotIn("texto-privado-xyz", salida)
+
+    def test_fallo_del_precalentado_se_registra(self):
+        with mock.patch.object(type(self.engine), "_portero_resources", side_effect=ValueError("mal")):
+            with self.assertLogs("src.chatbot.query_engine", level="WARNING") as cap:
+                self.assertFalse(self.engine.warm_up_portero())
+        self.assertIn("ValueError", "|".join(cap.output))
+
     def test_recursos_armados_una_vez_con_similitud(self):
         self.ask("hola")
         recursos = self.engine._portero_recursos

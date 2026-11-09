@@ -52,4 +52,10 @@ Fuente: agente investigador (2026-11-09), con fuentes web y medición local con 
 - capacidades: que puedes hacer, que sabes hacer, en que me ayudas, para que sirves, que tableros hay, ayuda
 - Tipeos: distancia de edición ≤1 permitida solo dentro de las reglas (palabras ≥4 letras). No validado contra corpus: el probador adversarial debe ampliarlo.
 
+### D7. Excepción de FR-003 para frases de regla completas (ruling F4, revisión final)
+- **Decisión:** si el mensaje normalizado es ENTERO una o dos frases de regla, sin ediciones (tipeos), las guardas de dominio, periodo y largo no lo bloquean. La guarda de número, la lista de bloqueo (D4) y el estado pendiente siempre aplican.
+- **Motivo:** el probador adversarial halló saludos exactos bloqueados por palabras de dominio del catálogo («todos» en «buenos días a todos», «mañana»/«manana» en «hasta mañana», «nombre» en «cuál es tu nombre»).
+- **Riesgo acotado:** solo pasan frases completas curadas (nunca texto libre); una pregunta de datos no es una frase de regla. Verificado con barrido ciego de 243 textos: 0 intercepciones.
+- **Alternatives:** quitar «todos», «manana» y «nombre» del vocabulario de dominio (descartado: afecta preguntas reales).
+
 ## Sin NEEDS CLARIFICATION pendientes.

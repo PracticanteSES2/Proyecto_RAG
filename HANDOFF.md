@@ -110,6 +110,12 @@ Pendiente de esa rama (ver `tests/real/RETOMAR.md`):
   «más rápido en junio o en julio»). El motor de reglas llega a su límite ahí; ver propuesta de usar el LLM para
   extraer la intención estructurada (indicador, filtros, periodos, comparación) y validarla con el catálogo.
 
+## Portero conversacional (2026-11-09)
+- Saludo, agradecimiento, despedida, estado, identidad y capacidades se responden con textos fijos por la ruta `conversacion`, sin buscar en la documentación ni en Power BI. Módulo `src/chatbot/portero.py`; pruebas en `tests/portero/`; spec en `specs/001-portero-conversacional/`.
+- Nunca actúa con una contrapregunta o un plan pendiente; ante cualquier duda o fallo se desactiva solo (log de advertencia sin el texto del usuario) y el mensaje sigue el flujo normal.
+- `build_system` precalienta el portero (MiniLM + catálogo): suma ~4–6 s al arranque en frío; el primer «hola» ya no paga ese costo.
+- Pendiente (permiso del usuario): bancos reales y golden master (T028).
+
 ## Pendiente (en orden)
 1. Rama `agente/qa-real`: auditoría de la verdad y del comparador del banco real (ver `tests/real/RETOMAR.md`
    en esa rama). Integrarla cuando esté.
