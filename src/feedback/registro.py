@@ -255,9 +255,11 @@ def _respuesta(result: dict, respuesta) -> str:
         result.get("result_type") == "table" or bool(result.get("detail")))
     if es_tabla:
         return _primera_linea(respuesta, MAX_RESPUESTA_TABLA)
-    # En la ruta RAG el texto sale de la documentación de los tableros: solo se quitan
-    # tablas y números largos. En las demás rutas, viñetas y pasos pueden ser filas.
-    return _limpiar(respuesta, MAX_RESPUESTA, estricto=result.get("route") != "rag")
+    # En la ruta RAG el texto sale de la documentación de los tableros y en la
+    # conversacional es un texto fijo (lista de tableros): solo se quitan tablas y
+    # números largos. En las demás rutas, viñetas y pasos pueden ser filas.
+    return _limpiar(respuesta, MAX_RESPUESTA,
+                    estricto=result.get("route") not in ("rag", "conversacion"))
 
 
 def _error(error) -> str | None:

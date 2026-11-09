@@ -6577,19 +6577,24 @@ class QueryEngine:
         from src.semantic.question_normalizer import normalize_question, vocabulary_for
 
         top_level = getattr(self, "_trace", None) is None
-        if top_level:
-            self._turn_interpretation = None
-            # Un mensaje aplazado vale solo hasta el botón siguiente.
-            self._deferred_context_message = None
         # Lenguaje de chat normalizado UNA vez al entrar («x servicio», «q»,
         # «pa», «d», tipeos contra el catálogo): el resto del turno recibe el
         # texto normalizado; la traza guarda el original y el normalizado.
+        root = getattr(getattr(self, "query_plan_builder", None), "project_root", None)
         try:
-            root = getattr(getattr(self, "query_plan_builder", None), "project_root", None)
             normalized = normalize_question(message, vocabulary_for(root))
         except Exception:
             normalized = None  # la normalización nunca tumba el turno
         text = normalized.text if normalized is not None and normalized.text else message
+        if top_level:
+            # Portero: charla, identidad o capacidades se responden sin tocar
+            # memoria, seguimiento ni el mensaje aplazado del turno anterior.
+            conversational = self._portero_turn(message, text, root)
+            if conversational is not None:
+                return conversational
+            self._turn_interpretation = None
+            # Un mensaje aplazado vale solo hasta el botón siguiente.
+            self._deferred_context_message = None
 
         def run():
             if normalized is not None and normalized.changed:
@@ -6605,6 +6610,63 @@ class QueryEngine:
             # normalizado: así un seguimiento no vuelve a traer «x» o «q».
             self._record_turn(text, result, via="texto")
         return result
+
+    def _portero_resources(self, root):
+        """(vocabulario, similitud, datos, documentacion) del portero, armados una
+        sola vez por motor (también si fallan: no se reintenta en cada turno).
+        La similitud MiniLM solo con vocabulario de dominio (su guarda)."""
+        cached = getattr(self, "_portero_recursos", None)
+        if cached is not None:
+            return cached
+        from src.chatbot import portero
+
+        if root is None:
+            from src.semantic.question_normalizer import PROJECT_ROOT as root
+        vocabulary = portero.vocabulario_dominio(root)
+        similarity = None
+        model = getattr(getattr(getattr(self, "rag_answer_engine", None), "retriever", None), "model", None)
+        if vocabulary and model is not None:
+            similarity = portero.SimilitudPortero(model)
+            if not similarity.activa:
+                similarity = None
+        datos, documentacion = portero.catalogo_tableros(getattr(self, "source_router", None))
+        self._portero_recursos = (vocabulary, similarity, datos, documentacion)
+        return self._portero_recursos
+
+    def _portero_turn(self, message, text, root):
+        """Respuesta fija del portero conversacional, o None (flujo normal).
+        No corre con una contrapregunta o un plan pendientes; cualquier fallo
+        deja el turno en el flujo normal."""
+        state = getattr(getattr(self, "conversation_manager", None), "state", None)
+        if (
+            getattr(self, "_pending_query_plan", None) is not None
+            or getattr(self, "_pending_dashboard_clarification", None) is not None
+            or getattr(self, "_pending_master_metric", None) is not None
+            or bool(getattr(state, "awaiting_clarification", False))
+            or getattr(self, "_applying_deferred", None)
+        ):
+            return None
+        try:
+            from src.chatbot import portero
+
+            vocabulary, similarity, datos, documentacion = self._portero_resources(root)
+            found = portero.clasificar(text, vocabulary, similarity)
+            if found is None:
+                return None
+            answer = portero.responder(found, datos, documentacion)
+            kind = f"{found.tipo}/{found.subtipo}"
+
+            def run():
+                self._think(
+                    "Mensaje conversacional",
+                    f"{kind} ({found.motivo}): respondido sin buscar en la documentación ni en Power BI",
+                )
+                return {"status": "success", "route": "conversacion", "answer": answer,
+                        "conversation_kind": kind, "question": message}
+
+            return self._traced("question", message, run)
+        except Exception:
+            return None  # el portero nunca tumba el turno
 
     def _discard_stale_dashboard_clarification(self, message):
         """«¿A qué tablero te refieres?» pendiente y llega una pregunta nueva

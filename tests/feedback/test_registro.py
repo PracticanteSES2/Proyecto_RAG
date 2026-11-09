@@ -103,6 +103,11 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(len(snap["respuesta"]), 400)
         self.assertNotIn("segunda", snap["respuesta"])
 
+    def test_ruta_conversacion_conserva_lista(self):
+        respuesta = "Puedo ayudarte con:\n- Lavanderia\n- Gestion Quirurgica\n* Triage"
+        snap = registro.snapshot_turno({"route": "conversacion"}, respuesta, "que puedes hacer", "texto", [])
+        self.assertEqual(snap["respuesta"], respuesta)
+
     def test_error_recortado_a_200(self):
         snap = registro.snapshot_turno({"error": "e" * 500}, "r", "p", "texto", [])
         self.assertEqual(len(snap["error"]), 200)

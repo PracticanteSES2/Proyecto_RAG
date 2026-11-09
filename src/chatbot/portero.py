@@ -371,11 +371,12 @@ class SimilitudPortero:
         return self._matriz is not None
 
     def mejor(self, texto: str, excluir_igual: bool = False):
-        """(clave, sim_conversacional, sim_dominio_max) o None si inactiva/falla.
+        """(clave, sim_conversacional, sim_dominio_max) o None si inactiva/falla
+        o sin referencias de dominio (sin ellas el margen no protege nada).
 
         ``excluir_igual`` ignora la referencia de dominio idéntica al texto
         (evaluación leave-one-out en calibración)."""
-        if self._matriz is None:
+        if self._matriz is None or self._dominio is None or not len(self._dominio):
             return None
         try:
             norm = normalizar(texto)
@@ -386,7 +387,9 @@ class SimilitudPortero:
             if excluir_igual:
                 dom = self._np.array(
                     [d for d, t in zip(dom, self._textos_dominio) if t != norm])
-            sim_dom = float(dom.max()) if dom.size else 0.0
+            if not dom.size:
+                return None
+            sim_dom = float(dom.max())
             return self._claves[i], float(sims[i]), sim_dom
         except Exception as exc:
             logging.getLogger(__name__).warning("SimilitudPortero.mejor fallo: %s", exc)
@@ -428,7 +431,11 @@ def catalogo_tableros(router) -> tuple[list[str], list[str]]:
             if clave:
                 claves.add(clave)
         docs = set()
-        for nombre, grupo in getattr(router, "_documentation_dashboards", None) or []:
+        for entrada in getattr(router, "_documentation_dashboards", None) or []:
+            try:
+                nombre, grupo = entrada  # una entrada malformada se salta sola
+            except (TypeError, ValueError):
+                continue
             nombre = str(nombre or "").strip()
             if not nombre or nombre.upper().startswith("DICCIONARIO"):
                 continue

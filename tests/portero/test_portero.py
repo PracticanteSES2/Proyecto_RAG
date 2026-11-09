@@ -198,6 +198,28 @@ class TestSimilitudFalsa(unittest.TestCase):
              ("DICCIONARIO X", "x"), ("TRIAGE", "atenciones")])
         self.assertEqual(catalogo_tableros(router), (["Cirugias"], ["Triage"]))
 
+    def test_catalogo_entrada_malformada_no_descarta_el_resto(self):
+        router = _Router(
+            [{"semantic_model": "CIRUGIAS", "semantic_model_key": "cirugias"}],
+            [("TRIAGE", "atenciones"), None, ("solo-uno",), 42, ("CAMAS", "camas")])
+        self.assertEqual(catalogo_tableros(router), (["Cirugias"], ["Camas", "Triage"]))
+
+    def test_similitud_sin_referencias_de_dominio_no_clasifica(self):
+        class _ModeloVacio(_ModeloFalso):
+            def encode(self, textos, **kwargs):
+                if not textos:
+                    return np.zeros((0, 3))
+                return super().encode(textos, **kwargs)
+
+        s = SimilitudPortero(_ModeloVacio({"mensaje alto con margen": (1, 0, 0)}),
+                             referencias_dominio=[])
+        self.assertTrue(s.activa)
+        self.assertIsNone(s.mejor("mensaje alto con margen"))
+        self.assertIsNone(clasificar("mensaje alto con margen", similitud=s))
+        # Sin referencias tras excluir la idéntica (leave-one-out): tampoco hay margen.
+        s = SimilitudPortero(self.modelo, referencias_dominio=["mensaje alto con margen"])
+        self.assertIsNone(s.mejor("mensaje alto con margen", excluir_igual=True))
+
     def test_catalogo_sin_router(self):
         self.assertEqual(catalogo_tableros(None), ([], []))
         self.assertEqual(catalogo_tableros(object()), ([], []))

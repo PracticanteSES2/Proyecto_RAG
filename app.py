@@ -277,6 +277,9 @@ def get_display_answer(result, formatter):
         return result.get("answer") or "No encontré información relacionada con esa pregunta."
     if route == "rag":
         return result.get("answer") or "No encontré información suficiente."
+    if route == "conversacion":
+        # Portero conversacional: texto fijo, sin informe ni métrica.
+        return result.get("answer") or ""
     if route == "powerbi" and status == "success":
         # Query Plan conoce exactamente la métrica y el modelo. Evitar
         # presentar resultados con textos/periodos heredados de otra ruta.
@@ -665,7 +668,7 @@ def execute_turn(user_text, runner, via="texto"):
             }
             render_clarification_buttons(st.session_state.pending_clarification)
 
-        if result.get("status") == "success":
+        if result.get("status") == "success" and result.get("route") != "conversacion":
             with st.expander("Detalles de la consulta", expanded=False):
                 st.write("**Ruta:**", result.get("route", "sin ruta"))
                 if result.get("report"):
