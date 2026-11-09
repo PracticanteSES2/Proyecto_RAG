@@ -2,10 +2,17 @@ import json
 import unittest
 from pathlib import Path
 
+import numpy as np
+
 from src.chatbot.portero import (
+    Clasificacion,
+    EJEMPLOS,
+    SimilitudPortero,
     bloqueado_por_guardas,
+    catalogo_tableros,
     clasificar,
     normalizar,
+    responder,
     vocabulario_dominio,
 )
 
@@ -113,6 +120,111 @@ class TestPortero(unittest.TestCase):
         self.assertGreater(len(textos), 100)
         interceptados = [t for t in textos if clasificar(t, VOCAB) is not None]
         self.assertEqual(interceptados, [])
+
+
+class _ModeloFalso:
+    """encode devuelve vectores fijos: ejemplos de charla en el eje 0,
+    referencias de dominio en un vector cercano a la charla, consultas por mapa."""
+
+    CHARLA = (1.0, 0.0, 0.0)
+    DOMINIO = (0.6, 0.8, 0.0)
+
+    def __init__(self, consultas):
+        self.consultas = {normalizar(k): v for k, v in consultas.items()}
+        self.ejemplos = {normalizar(t) for lista in EJEMPLOS.values() for t in lista}
+
+    def encode(self, textos, **kwargs):
+        filas = []
+        for t in textos:
+            n = normalizar(t)
+            if n in self.consultas:
+                v = self.consultas[n]
+            elif n in self.ejemplos:
+                v = self.CHARLA
+            else:
+                v = self.DOMINIO
+            v = np.array(v, dtype=float)
+            filas.append(v / np.linalg.norm(v))
+        return np.array(filas)
+
+
+class _ModeloQueFalla:
+    def encode(self, textos, **kwargs):
+        raise RuntimeError("sin modelo")
+
+
+class _Router:
+    def __init__(self, models, docs):
+        self.models = models
+        self._documentation_dashboards = docs
+
+
+class TestSimilitudFalsa(unittest.TestCase):
+    def setUp(self):
+        self.modelo = _ModeloFalso({
+            "mensaje alto con margen": (1, 0, 0),
+            "mensaje alto sin margen": (0.8, 0.6, 0),
+            "mensaje bajo": (0, 0, 1),
+            "buenas cirugias hoy": (1, 0, 0),
+            "todo tranquilo por alla": (1, 0, 0),
+        })
+        self.sim = SimilitudPortero(self.modelo)
+
+    def test_similitud_intercepta_solo_sobre_umbral_y_margen(self):
+        c = clasificar("mensaje alto con margen", similitud=self.sim)
+        self.assertIsNotNone(c)
+        self.assertEqual(c.motivo, "similitud")
+        self.assertIsNone(clasificar("mensaje alto sin margen", similitud=self.sim))
+        self.assertIsNone(clasificar("mensaje bajo", similitud=self.sim))
+
+    def test_similitud_no_aplica_a_una_o_dos_palabras(self):
+        modelo = _ModeloFalso({"mensaje alto": (1, 0, 0)})
+        self.assertIsNone(clasificar("mensaje alto", similitud=SimilitudPortero(modelo)))
+
+    def test_similitud_no_salta_guardas(self):
+        self.assertIsNone(
+            clasificar("buenas cirugias hoy", frozenset({"cirugias"}), similitud=self.sim))
+
+    def test_modelo_que_falla_deja_solo_reglas(self):
+        s = SimilitudPortero(_ModeloQueFalla())
+        self.assertIsNone(s.mejor("todo tranquilo por alla"))
+        self.assertEqual(clasificar("hola", similitud=s).motivo, "regla")
+        self.assertIsNone(clasificar("todo tranquilo por alla", similitud=s))
+
+    def test_catalogo_dos_grupos(self):
+        router = _Router(
+            [{"semantic_model": "CIRUGIAS", "semantic_model_key": "cirugias"}],
+            [("CIRUGIAS", "cirugias"), ("TRIAGE", "atenciones"),
+             ("DICCIONARIO X", "x"), ("TRIAGE", "atenciones")])
+        self.assertEqual(catalogo_tableros(router), (["Cirugias"], ["Triage"]))
+
+    def test_catalogo_sin_router(self):
+        self.assertEqual(catalogo_tableros(None), ([], []))
+        self.assertEqual(catalogo_tableros(object()), ([], []))
+
+    def test_respuesta_capacidades(self):
+        c = Clasificacion("capacidades", "capacidades", 1.0, "regla")
+        texto = responder(c, ["Cirugias", "Camas"], ["Triage"])
+        self.assertIn("**Datos**", texto)
+        self.assertIn("Cirugias, Camas", texto)
+        self.assertIn("**Documentación**", texto)
+        self.assertIn("Triage", texto)
+        solo_datos = responder(c, ["Camas"], [])
+        self.assertNotIn("**Documentación**", solo_datos)
+        vacio = responder(c, [], [])
+        self.assertNotIn("**Datos**", vacio)
+        self.assertIn("indicadores", vacio)
+
+    def test_respuesta_identidad_dice_no_clinico(self):
+        c = Clasificacion("identidad", "identidad", 1.0, "regla")
+        texto = responder(c, [], [])
+        self.assertIn("No doy recomendaciones clínicas", texto)
+
+    def test_respuestas_charla(self):
+        for sub, esperado in (("saludo", "Hola"), ("estado", "Hola"),
+                              ("agradecimiento", "Con gusto"), ("despedida", "Hasta pronto")):
+            c = Clasificacion("charla", sub, 1.0, "regla")
+            self.assertIn(esperado, responder(c, [], []))
 
 
 if __name__ == "__main__":
