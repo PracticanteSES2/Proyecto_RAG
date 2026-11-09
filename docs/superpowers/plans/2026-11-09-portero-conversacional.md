@@ -70,7 +70,9 @@
   - `test_barrido_bancos_reales_sin_intercepciones`: todas las `pregunta` de `banco_real`, `banco_holdout`, `banco_holdout2` y todas las `entrada` de los `turnos` de `banco_multiturno` (más `turnos_extra` si traen texto) → `clasificar(...) is None`. Holdouts/multi-turno no se usan para ajustar reglas; si fallan, se corrige la regla general, no se añade la frase.
 - [ ] **Step 2: Correr** `.venv\Scripts\python.exe -X utf8 -m unittest tests.portero.test_portero` → FAIL (módulo inexistente).
 - [ ] **Step 3: Implementar** `normalizar`, `bloqueado_por_guardas`, `clasificar` (sin similitud aún) en `src/chatbot/portero.py`.
-  - Reglas: el mensaje normalizado, sin muletillas («oye», «por favor», «ok», «bueno»), debe ser ENTERO una frase conversacional (coincidencia completa contra patrones por subtipo), no contenerla.
+  - Reglas: el mensaje normalizado, sin muletillas («oye», «por favor», «bueno»), debe ser ENTERO una frase conversacional (coincidencia completa contra las frases de `research.md` D6), no contenerla. Tipeos: distancia de edición ≤1 solo en palabras de ≥4 letras.
+  - Lista de bloqueo (research D4): «como vamos», «como estamos…», «como va/esta X», «que hay de nuevo», «resumen», «novedades», «ayuda con/para X» → `None`. «listo», «ok», «si», «no», «ninguna», «dale», «perfecto» SOLOS → `None` (son respuestas a contrapregunta). «ayuda» sola → capacidades.
+  - Añadir al banco (`null`): todas las frases de la lista de bloqueo y «listo», «ok», «sí», «dale», «perfecto».
   - Guardas en orden: dígitos → `"numero"`; periodos (nombres de mes, «semana», «trimestre», «año», «ayer», «mes pasado», «anterior») → `"periodo"`; cualquier token en `vocabulario_dominio` → `"dominio"`; más de 8 palabras → `"largo"`. «hoy» solo NO bloquea («¿cómo estás hoy?»).
   - Exponer `def vocabulario_dominio(project_root) -> frozenset[str]` en `portero.py`: claves de `vocabulary_for(project_root).targets` (`src/semantic/question_normalizer.py:280`; son palabras del catálogo, NO usar `.known`, que incluye prosa y palabras comunes), normalizadas, menos las palabras conversacionales y muletillas («hola», «ayuda», «gracias», «buenas», «bien», «hoy»…). Devuelve `frozenset()` si falla. `VOCAB` de las pruebas = `vocabulario_dominio(PROJECT_ROOT)`.
   - Barrido: `turnos_extra` de `banco_real` viene como `["texto: y en agosto?"]`; quitar el prefijo `texto: `.
@@ -88,7 +90,8 @@
 - Consumes: `Clasificacion`, `clasificar`, `normalizar` (Task 1).
 - Produces:
   - `class SimilitudPortero: def __init__(self, modelo, umbral: float = UMBRAL, margen: float = MARGEN)`; `def mejor(self, texto: str) -> tuple[str, float, float] | None` → `(f"{tipo}/{subtipo}", sim_conversacional, sim_dominio_max)`. Vectores de `EJEMPLOS` (20–30 por subtipo) y `REFERENCIAS_DOMINIO` (preguntas de `banco_real` + `null` del banco del portero, normalizadas) calculados una vez en `__init__` con `modelo.encode(..., normalize_embeddings=True)`. Si `encode` lanza, la instancia queda inactiva (`mejor` → `None`).
-  - `clasificar(..., similitud=s)`: tras reglas y guardas, intercepta solo si `sim ≥ umbral` y `sim − sim_dominio ≥ margen`; `motivo="similitud"`.
+  - `clasificar(..., similitud=s)`: tras reglas y guardas, y SOLO si el mensaje normalizado tiene 3–8 palabras (≤2 palabras: solo reglas; ver research D1), intercepta si `sim ≥ umbral` y `sim − max(sim_dominio) ≥ margen`; `motivo="similitud"`. Valores iniciales `UMBRAL = 0.80`, `MARGEN = 0.20` (research D2). Vectores con `normalize_embeddings=True` y producto punto.
+  - Ejemplos y lista de bloqueo: `specs/001-portero-conversacional/research.md` D4 y D6.
   - `def catalogo_tableros(router) -> tuple[list[str], list[str]]` → `(datos, documentacion)`. Datos = `semantic_model` de `router.models`; documentación = nombres de `router._documentation_dashboards` (vía `getattr`, default `[]`) cuyo nombre normalizado o grupo no coincide con ningún `semantic_model`/`semantic_model_key`. Nombres en formato título, deduplicados, ordenados. Excluir los que empiezan por «DICCIONARIO». `router is None` o error → `([], [])`.
   - `def responder(c: Clasificacion, datos: list[str], documentacion: list[str]) -> str`.
 - Textos (copia fija; el implementador puede pulir redacción, se mostrarán al usuario antes de cerrar):
@@ -107,7 +110,7 @@
 - [ ] **Step 2: Correr** `tests.portero.test_portero` → FAIL.
 - [ ] **Step 3: Implementar** lo de Interfaces en `portero.py`.
 - [ ] **Step 4: Correr** → PASS.
-- [ ] **Step 5: Calibrar con MiniLM real** en `tests/portero/test_portero_minilm.py`: `setUpClass` carga `SentenceTransformer(MODEL_NAME)` de `src.rag.retriever` con `local_files_only` si es posible; si falla → `skipTest`. Pruebas: banco del portero ≥90 % aciertos y 0 falsos positivos; barrido de bancos reales 0 interceptados. Ajustar `UMBRAL`/`MARGEN` mirando SOLO el banco del portero y `banco_real`; anotar en el docstring del módulo los valores y las cifras obtenidas. Luego correr el barrido ciego (holdouts, multi-turno) una sola vez.
+- [ ] **Step 5: Calibrar con MiniLM real** en `tests/portero/test_portero_minilm.py`: `setUpClass` carga `SentenceTransformer(MODEL_NAME)` de `src.rag.retriever` con `local_files_only` si es posible; si falla → `skipTest`. Pruebas: banco del portero ≥90 % aciertos y 0 falsos positivos; `clasificar` con similitud < 50 ms de media por mensaje tras precalcular; barrido de bancos reales 0 interceptados. Ajustar `UMBRAL`/`MARGEN` mirando SOLO el banco del portero y `banco_real`; anotar en el docstring del módulo los valores y las cifras obtenidas. Luego correr el barrido ciego (holdouts, multi-turno) una sola vez.
 - [ ] **Step 6: Correr** `.venv\Scripts\python.exe -X utf8 -m unittest tests.portero.test_portero tests.portero.test_portero_minilm` → PASS (o skip del segundo con motivo).
 - [ ] **Step 7: Commit** `"Portero: similitud MiniLM calibrada y respuestas desde el catálogo"`
 
@@ -131,7 +134,7 @@ Reglas de la conexión:
 - `registro.py`: `estricto=result.get("route") not in ("rag", "conversacion")`.
 
 - [ ] **Step 1: Pruebas que fallan** en `test_motor_portero.py` (con `tests.sim.harness`, sin Power BI real):
-  - `test_hola_responde_sin_buscar`: ruta `conversacion`, el retriever falso no recibió `search*`, ningún DAX ejecutado.
+  - `test_hola_responde_sin_buscar`: ruta `conversacion`, el retriever falso no recibió `search*`, ningún DAX ejecutado, el razonamiento contiene «Mensaje conversacional».
   - `test_que_puedes_hacer_lista_tableros_del_catalogo` (nombres del registro de fixtures en «**Datos**»).
   - `test_no_actua_con_contrapregunta_pendiente`: pregunta ambigua que deja contrapregunta → «ninguna» y «gracias» no dan ruta `conversacion`.
   - `test_gracias_no_rompe_seguimiento`: pregunta de datos → «gracias» → «¿y en octubre?»: el tercer turno es seguimiento con el mismo indicador que el primero.
@@ -146,7 +149,7 @@ Reglas de la conexión:
 
 ### Task 4: Verificación final
 
-- [ ] **Step 1:** Simulador (`tests.sim.harness`) con «¿Cómo estás hoy?», «hola», «gracias», «¿quién eres?», «¿qué puedes hacer?»: ruta `conversacion`, 0 DAX. Mostrar las 5 respuestas al usuario.
+- [ ] **Step 1:** Simulador (`tests.sim.harness`) con «¿Cómo estás hoy?», «hola», «gracias», «¿quién eres?», «¿qué puedes hacer?»: ruta `conversacion`, 0 DAX; el saludo aparece en `export_conversation_markdown` (`src/chatbot/conversation_export.py`) con los mensajes de la app. Mostrar las 5 respuestas al usuario.
 - [ ] **Step 2:** Bancos reales (`tests/real/correr_todo.py`) — los corre el usuario o se corren con su permiso (consultan Power BI en solo lectura): mismos porcentajes que antes (96/80/22, multi-turno).
 - [ ] **Step 3:** Golden master `python -m tests.resolution.test_golden` (~1 h) — a decisión del usuario.
 - [ ] **Step 4:** `graphify update .` y commit final si hubo ajustes.
