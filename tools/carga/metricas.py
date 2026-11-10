@@ -152,8 +152,12 @@ def resumen_costo(antes, despues, n_turnos):
         for purpose, values in _delta(despues, antes, "llm_cost_by_purpose").items()
     }
     totals = {k: sum(v.get(k, 0) for v in by_purpose.values()) for k in _COSTO}
-    per_turn = {f"{k}_por_turno": round(v / n_turnos, 2) if n_turnos else None for k, v in totals.items()}
     avoided = {k: v for k, v in _delta(despues, antes, "llm_avoided").items() if v}
+    per_turn = {f"{k}_por_turno": _por_turno(v, n_turnos) for k, v in totals.items()}
     return {"por_uso": by_purpose, "total": totals, **per_turn, "evitadas": avoided,
-            "evitadas_por_turno": round(sum(avoided.values()) / n_turnos, 2) if n_turnos else None,
+            "evitadas_por_turno": _por_turno(sum(avoided.values()), n_turnos),
             "cache": _delta(despues, antes, "llm_cache")}
+
+
+def _por_turno(value, n_turnos):
+    return round(value / n_turnos, 2) if n_turnos else None

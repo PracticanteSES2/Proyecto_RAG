@@ -255,12 +255,14 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
             es_guardable=lambda raw: self._usable(raw, option),
         )
 
-    # Descripción del catálogo que basta (no hace falta el LLM): una frase de
-    # al menos 6 palabras que no solo repite el nombre y que distingue la
-    # opción de las demás. Hoy el catálogo casi nunca la trae (las medidas no
+    # Descripción del catálogo que basta (no hace falta el LLM): ya tiene la
+    # forma que se le pide al LLM (empieza con Cuenta, Suma, Calcula, Mide,
+    # Promedia o Muestra), al menos 6 palabras, no solo repite el nombre y
+    # distingue la opción de las demás. Hoy el catálogo casi nunca la trae (las medidas no
     # tienen descripción), pero la documentación de los tableros sí la irá
     # completando. OPTION_DESCRIBER_CATALOGO=off la desactiva.
     CATALOG_MIN_WORDS = 6
+    CATALOG_VERBS = ("cuenta", "suma", "calcula", "mide", "promedia", "muestra")
 
     def catalog_sufficient(self, options):
         """Ids de las opciones cuya descripción del catálogo basta."""
@@ -271,7 +273,7 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
             text = self._clean(option.get("description"), option.get("label"))
             words = self._plain(text).split()
             label_words = set(self._plain(option.get("label")).split())
-            if len(words) >= self.CATALOG_MIN_WORDS and not set(words) <= label_words:
+            if len(words) >= self.CATALOG_MIN_WORDS and words[0] in self.CATALOG_VERBS                     and not set(words) <= label_words:
                 texts[option["id"]] = text.rstrip(".").casefold()
         return [
             key for key, text in texts.items()
@@ -321,6 +323,13 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
                 )
         return descriptions
 
+    def _split_catalog(self, options):
+        """(ids con descripción de catálogo suficiente, opciones que van al LLM)."""
+        catalog = self.catalog_sufficient(options)
+        if catalog:
+            STATS.llm_call_avoided("catálogo: descripción de opciones", len(catalog))
+        return catalog, [option for option in options if option["id"] not in catalog]
+
     def describe(self, question, options):
         """options: [{id, label, measure, dax_expression, description, report,
         page, visuals, semantic_model}]. `question` no se envía al LLM (sesga
@@ -329,10 +338,7 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
         es {id: frase} y `raw` las respuestas crudas por opción."""
         if not options:
             return {"status": "skipped", "descriptions": {}, "raw": None, "elapsed_s": 0.0}
-        catalog = self.catalog_sufficient(options)
-        if catalog:
-            STATS.llm_call_avoided("catálogo: descripción de opciones", len(catalog))
-        pending = [option for option in options if option["id"] not in catalog]
+        catalog, pending = self._split_catalog(options)
         if not pending:
             return {"status": "catalog", "descriptions": {}, "raw": None, "elapsed_s": 0.0,
                     "catalog": catalog}

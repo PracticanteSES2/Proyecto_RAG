@@ -199,10 +199,14 @@ def cliente_desde_url(url: str | None = None):
     return client
 
 
-def instalar(url: str | None = None, prefix: str = "llm_gate:medgemma") -> None:
-    """Registra el backend Redis en la puerta (lo usa con LLM_GATE_BACKEND=redis).
-    La conexión se abre al elegirlo, no aquí: si Redis no responde, la puerta
-    sigue en memoria y reintenta."""
-    llm_gate.registrar_backend(
-        "redis", lambda capacity_fn: RedisBackend(cliente_desde_url(url), prefix=prefix, capacity_fn=capacity_fn),
-    )
+def instalar(url: str | None = None, cliente=None, prefix: str = "llm_gate:medgemma") -> None:
+    """Registra el backend Redis en la puerta (lo usa con LLM_GATE_BACKEND=redis),
+    con un `cliente` síncrono ya creado o uno nuevo de `url`. Se comprueba al
+    elegirlo, no aquí: si Redis no responde, la puerta sigue en memoria y reintenta."""
+    def fabrica(capacity_fn):
+        conexion = cliente if cliente is not None else cliente_desde_url(url)
+        if cliente is not None:
+            conexion.ping()
+        return RedisBackend(conexion, prefix=prefix, capacity_fn=capacity_fn)
+
+    llm_gate.registrar_backend("redis", fabrica)

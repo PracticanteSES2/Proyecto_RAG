@@ -106,7 +106,7 @@ class OpcionesEnCacheTests(_Base):
 
 class CatalogoSuficienteTests(_Base):
     def test_opcion_con_descripcion_de_catalogo_suficiente_no_va_al_llm(self):
-        documented = dict(CAMAS, description="Número de camas habilitadas en el hospital según el censo diario.")
+        documented = dict(CAMAS, description="Cuenta las camas habilitadas en el hospital según el censo diario.")
         provider = _Proveedor(ANSWERS)
         result = OptionDescriber(provider).describe("camas", [documented, CIRUGIAS])
         self.assertEqual(provider.calls, 1)
@@ -115,8 +115,8 @@ class CatalogoSuficienteTests(_Base):
         self.assertIn("m2", result["descriptions"])
 
     def test_todas_suficientes_no_hay_llamadas(self):
-        a = dict(CAMAS, description="Número de camas habilitadas en el hospital según el censo diario.")
-        b = dict(CIRUGIAS, description="Cirugías agendadas en la programación quirúrgica del mes en curso.")
+        a = dict(CAMAS, description="Cuenta las camas habilitadas en el hospital según el censo diario.")
+        b = dict(CIRUGIAS, description="Cuenta las cirugías agendadas en la programación quirúrgica del mes.")
         provider = _Proveedor(ANSWERS)
         result = OptionDescriber(provider).describe("x", [a, b])
         self.assertEqual(provider.calls, 0)
@@ -125,8 +125,8 @@ class CatalogoSuficienteTests(_Base):
 
     def test_descripciones_cortas_o_repetidas_si_van_al_llm(self):
         corta = dict(CAMAS, description="Camas")
-        igual_1 = dict(CIRUGIAS, description="Total de registros del indicador para el periodo seleccionado.")
-        igual_2 = dict(CAMAS, id="m3", description="Total de registros del indicador para el periodo seleccionado.")
+        igual_1 = dict(CIRUGIAS, description="Cuenta los registros del indicador para el periodo seleccionado.")
+        igual_2 = dict(CAMAS, id="m3", description="Cuenta los registros del indicador para el periodo seleccionado.")
         provider = _Proveedor(ANSWERS)
         result = OptionDescriber(provider).describe("x", [corta, igual_1])
         self.assertEqual(provider.calls, 1)  # solo la corta
@@ -135,9 +135,15 @@ class CatalogoSuficienteTests(_Base):
         OptionDescriber(provider).describe("x", [igual_1, igual_2])
         self.assertEqual(provider.calls, 2)
 
+    def test_frase_sin_verbo_de_la_tarea_va_al_llm(self):
+        sustantivo = dict(CAMAS, description="Porcentaje de ocupación de las camas habilitadas del hospital.")
+        provider = _Proveedor(ANSWERS)
+        OptionDescriber(provider).describe("camas", [sustantivo])
+        self.assertEqual(provider.calls, 1)
+
     def test_se_puede_apagar(self):
         os.environ["OPTION_DESCRIBER_CATALOGO"] = "off"
-        documented = dict(CAMAS, description="Número de camas habilitadas en el hospital según el censo diario.")
+        documented = dict(CAMAS, description="Cuenta las camas habilitadas en el hospital según el censo diario.")
         provider = _Proveedor(ANSWERS)
         OptionDescriber(provider).describe("camas", [documented])
         self.assertEqual(provider.calls, 1)

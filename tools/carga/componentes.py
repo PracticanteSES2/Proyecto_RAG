@@ -61,7 +61,7 @@ def opcion(j, documentado):
     return {
         "id": f"m{j}", "label": f"INDICADOR {j}", "measure": f"INDICADOR {j}", "table": tabla,
         "dax_expression": f"COUNTROWS('{tabla}')",
-        "description": (f"Registros de {tabla.lower()} que cumplen la condición número {j} del tablero "
+        "description": (f"Cuenta los registros de {tabla.lower()} que cumplen la condición número {j} del tablero "
                         f"{j % TABLEROS}." if documentado else ""),
     }
 

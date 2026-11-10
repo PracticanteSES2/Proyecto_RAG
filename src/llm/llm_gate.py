@@ -85,9 +85,10 @@ import os
 import threading
 import time
 from contextlib import contextmanager
+from typing import Callable
 
 from src.chatbot.runtime_stats import STATS, env_float, env_int
-from src.llm.gate_backends import MemoriaBackend
+from src.llm.gate_backends import GateBackend, MemoriaBackend
 
 LOG = logging.getLogger("llm_gate")
 _ABANDON_LOCK = threading.Lock()
@@ -121,7 +122,7 @@ REDIS_RETRY_S = 30.0
 _FABRICAS = {}  # nombre -> fabrica(capacity_fn) -> GateBackend (las registra la infraestructura)
 
 
-def registrar_backend(nombre, fabrica):
+def registrar_backend(nombre: str, fabrica: "Callable[[Callable[[], int]], GateBackend]") -> None:
     """Registra la fábrica de un backend distribuido («redis»): la llama la
     capa de infraestructura del API (backend/app/services/puerta_llm_redis.py).
     `fabrica(capacity_fn)` devuelve un `GateBackend` o lanza si no conecta."""

@@ -16,7 +16,6 @@ error, una contrapregunta o una charla del portero.
 from __future__ import annotations
 
 import hashlib
-import re
 import subprocess
 import threading
 import time
@@ -27,19 +26,14 @@ from backend.app.services.motor import sin_contexto
 
 CARPETAS_HUELLA = (("data", "catalog"), ("data", "rag"), ("data", "model_metadata"), ("data", "vector_db"))
 _IGNORAR = {".lock"}
-_SIGNOS = re.compile(r"[¿?¡!.,;:«»\"'()\[\]]+")
 
 
 def normalizar_pregunta(texto: str, raiz: Path | None = None) -> str:
-    try:
-        from src.semantic.question_normalizer import fold, normalize_question, vocabulary_for
+    """La MISMA forma canónica que usa la caché de llamadas del motor
+    (src/chatbot/cache_llm.py): `question_normalizer.clave_pregunta`."""
+    from src.semantic.question_normalizer import clave_pregunta, vocabulary_for
 
-        normalizada = normalize_question(texto, vocabulary_for(raiz))
-        base = normalizada.text if normalizada is not None and normalizada.text else texto
-        base = fold(base)
-    except Exception:
-        base = str(texto or "").lower()
-    return " ".join(_SIGNOS.sub(" ", base).split())
+    return clave_pregunta(texto, vocabulary_for(raiz))
 
 
 def clave_cache(huella: str, pregunta_normalizada: str, fecha: date | None = None) -> str:

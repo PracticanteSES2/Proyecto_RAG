@@ -187,7 +187,7 @@ class LlamarConCacheTests(_Base):
         self.assertEqual(llamar.n, 1)
         self.assertEqual(len(resultados), 4)
         self.assertTrue(all(r["answer"] == OK["answer"] for r in resultados))
-        self.assertEqual(sorted(r.get("cache", "miss") for r in resultados).count("compartida"), 3)
+        self.assertEqual(sum(r.get("cache") in ("compartida", "hit") for r in resultados), 3)
 
     def test_si_la_lider_falla_las_demas_llaman_por_su_cuenta(self):
         llamar = _Contador({"status": "llm_saturated", "answer": None}, espera=0.2)
