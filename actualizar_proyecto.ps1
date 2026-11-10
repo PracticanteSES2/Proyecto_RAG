@@ -13,7 +13,7 @@
 #   1. Trae y aplica los cambios de GitHub (rama desarrollo).
 #   2. Instala dependencias nuevas en el entorno virtual.
 #   3. Revisa que el .env tenga las variables necesarias (no muestra valores).
-#   4. Regenera todo el RAG con update_rag.py: metadata de Power BI, catálogos,
+#   4. Regenera todo el RAG con tools\update_rag.py: metadata de Power BI, catálogos,
 #      enlaces «Abrir en Power BI» y la documentación de docs_tableros/.
 #   5. Le dice cómo abrir la aplicación.
 # Solo lee de Power BI: no modifica tableros, modelos ni bases de datos.
@@ -95,10 +95,10 @@ if ($LASTEXITCODE -ne 0) {
 Paso "4/5 Regenerar el RAG (metadata, catálogos, enlaces e índice)"
 Write-Host "Puede abrirse la ventana de inicio de sesión de Microsoft: entra con tu cuenta de Power BI." -ForegroundColor Yellow
 Write-Host "Este paso puede tardar varios minutos (embeddings de la documentación)."
-$argumentos = @("-X", "utf8", "update_rag.py", "--skip-import")
+$argumentos = @("-X", "utf8", "tools\update_rag.py", "--skip-import")
 if ($SinSincronizar) { $argumentos += "--skip-sync" } else { $argumentos += "--force-sync" }
 & $python @argumentos
-if ($LASTEXITCODE -ne 0) { Falla "update_rag.py falló en algún paso (ver el mensaje de arriba)." }
+if ($LASTEXITCODE -ne 0) { Falla "tools\update_rag.py falló en algún paso (ver el mensaje de arriba)." }
 
 # ------------------------------------------------------------
 Paso "5/5 Listo"
@@ -107,7 +107,7 @@ if (Test-Path "data\catalog\report_links.json") {
 } else {
     Write-Host "AVISO: no se generaron los enlaces del boton «Abrir en Power BI»." -ForegroundColor Yellow
     Write-Host "  Ejecuta:  .venv\Scripts\python.exe -m src.providers.powerbi_token login" -ForegroundColor Yellow
-    Write-Host "  y luego:  .venv\Scripts\python.exe -X utf8 sync_powerbi_links.py" -ForegroundColor Yellow
+    Write-Host "  y luego:  .venv\Scripts\python.exe -X utf8 tools\sync_powerbi_links.py" -ForegroundColor Yellow
 }
 Write-Host "Si la aplicación estaba abierta, CIÉRRALA (Ctrl+C en su terminal) y ábrela de nuevo:" -ForegroundColor Green
 Write-Host "    .venv\Scripts\python.exe -m streamlit run app.py" -ForegroundColor Green

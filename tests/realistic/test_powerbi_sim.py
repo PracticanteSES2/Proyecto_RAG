@@ -394,7 +394,7 @@ def test_info_view_and_sync_roundtrip_with_real_provider():
     os.environ.update(POWERBI_XMLA_ENDPOINT="powerbi://api.powerbi.com/v1.0/myorg/SIMULADO",
                       POWERBI_SEMANTIC_MODEL=CONSULTA, ADOMD_PATH=str(adomd_dir), IDENTITY_PATH=str(adomd_dir))
     from src.providers.powerbi_provider import PowerBIProvider
-    from sync_powerbi_metadata import MetadataSynchronizer
+    from tools.sync_powerbi_metadata import MetadataSynchronizer
     provider = PowerBIProvider()
     assert provider.connect()["status"] == "success"
     assert set(provider.list_semantic_models()["models"]) == set(sim().list_models())

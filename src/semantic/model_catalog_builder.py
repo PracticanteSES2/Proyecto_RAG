@@ -898,5 +898,5 @@ def build_model_catalog(
 if __name__ == "__main__":
     # Se conserva la ejecución legacy para no romper usos anteriores.
     # La ejecución multi-modelo oficial se realiza con:
-    #     python build_powerbi_catalogs.py
+    #     python tools/build_powerbi_catalogs.py
     main()

@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import sync_powerbi_links as sync  # noqa: E402
+import tools.sync_powerbi_links as sync  # noqa: E402
 from src.providers import powerbi_links as L  # noqa: E402
 
 WS = "ws-0001"
@@ -165,7 +165,7 @@ def test_fetch_with_mocked_rest_api():
 
 
 def test_update_rag_has_optional_links_step():
-    source = (ROOT / "update_rag.py").read_text(encoding="utf-8")
+    source = (ROOT / "tools" / "update_rag.py").read_text(encoding="utf-8")
     assert "--skip-links" in source and "sync_powerbi_links.py" in source
     assert "optional=True" in source
 

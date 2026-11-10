@@ -18,7 +18,7 @@ Rama de trabajo: `desarrollo` (local; **último push a GitHub: a0837b6**, lo de 
 | Columnas del DAX validadas contra el modelo; fecha de la tabla relacionada (causa `Calendario[Date]`: el PBIR de TIEMPOS URGENCIAS usa el nombre viejo de la jerarquía) | `src/dax/column_guard.py`, `query_engine._execute_dax` |
 | «lista de X» → valores de la dimensión en Power BI; respaldo extractivo legible | `src/semantic/detail_list.py`, `query_engine._dimension_listing`, `src/rag/extractive.py` |
 | Homónimo sin informe se descarta; «nivel/índice» no son filtro; «cada una / su respectiva X» agrupan | `src/semantic/query_plan_builder.py`, `request_phrases.py` |
-| Botón «Abrir en Power BI ›» (43 modelos, 382 páginas) | `sync_powerbi_links.py`, `src/providers/powerbi_links.py`, `app.py`, `data/catalog/report_links.json`; paso opcional en `update_rag.py` (`--skip-links`) |
+| Botón «Abrir en Power BI ›» (43 modelos, 382 páginas) | `tools/sync_powerbi_links.py`, `src/providers/powerbi_links.py`, `app.py`, `data/catalog/report_links.json`; paso opcional en `update_rag.py` (`--skip-links`) |
 | Banco REAL con verdad DAX (71 casos, 10 tableros) | `tests/real/` (`correr_todo.py`, `run_real.py`, `banco_real.json`) |
 | 6 casos de las conversaciones del usuario en el banco del simulador | `tests/eval/questions.json` |
 
@@ -83,7 +83,7 @@ Pendiente de esa rama (ver `tests/real/RETOMAR.md`):
 - Arreglos: cuelgue O(n²) en `value_contradiction` + presupuesto `PLAN_TIME_BUDGET_S` (`plan_budget.py`);
   privacidad: listados excluyen familiar/vocero/acudiente/contacto; respuestas «sin datos» con fecha de corte.
 - Repo: `.pyc` ya no se versionan. `actualizar_proyecto.ps1` (propietario): pull + deps + .env + login de dispositivo
-  si falta + `update_rag.py`. Push a GitHub hasta `bfbd594`; lo posterior (r6) está solo en local.
+  si falta + `tools/update_rag.py`. Push a GitHub hasta `bfbd594`; lo posterior (r6) está solo en local.
 - Botón «Abrir en Power BI» del propietario: requiere `data/catalog/report_links.json` (sync con sesión de
   dispositivo). Pendiente decisión del usuario: `POWERBI_AUTH=device_code` en su .env vs versionar el catálogo.
 - En curso: `agente/r7` (TU04 en real: «Recuento de PACNUMDOC» del EPS le gana a CANTIDAD DE TRIAGES; holdout restante).
@@ -100,7 +100,7 @@ Pendiente de esa rama (ver `tests/real/RETOMAR.md`):
 
 ## Actualización 2026-11-04 (cinco puntos)
 - Refactor del motor por etapas (`src/semantic/resolucion/*`, mapa en `src/semantic/README_motor.md`; golden master
-  `tests/resolution/test_golden.py`). Bancos nuevos: `banco_multiturno.json`, `banco_holdout2.json`, `regresion_real.py`.
+  `tests/resolution/test_golden.py`). Bancos nuevos: `banco_multiturno.json`, `banco_holdout2.json`, `tools/manual/regresion_real.py`.
   Diccionario: `docs_tableros/POR_CONFIRMAR.md` (145 preguntas para el propietario). r9: salvaguarda de cifras del RAG
   (`src/rag/grounding.py`), verbos/clíticos, contrapreguntas por filtro, NOT IN, seguimientos.
 - Real (2026-11-04): desarrollo **96 %**, holdout 1 **80 %**, **holdout 2 22 %** (11/49), multiturno (sin auditar)

@@ -406,7 +406,7 @@ def safe_link(compute, *args):
 
 def render_powerbi_link(link, key):
     """Botón «Abrir en Power BI ›» al informe/página donde está el dato
-    (data/catalog/report_links.json, generado por sync_powerbi_links.py).
+    (data/catalog/report_links.json, generado por tools/sync_powerbi_links.py).
     `key` único por mensaje: dos respuestas pueden enlazar la misma página."""
     if not link or not link.get("url"):
         return

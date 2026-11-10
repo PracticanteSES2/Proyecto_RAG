@@ -99,7 +99,7 @@ def test_real_catalog_links_the_15_documented_boards():
     path = Path(os.getenv("POWERBI_LINKS_PATH") or ROOT / "data" / "catalog" / "report_links.json")
     data = L.cargar_enlaces(path)
     if not data:
-        print(f"SKIP  (sin catálogo real en {path}; ejecuta sync_powerbi_links.py)")
+        print(f"SKIP  (sin catálogo real en {path}; ejecuta tools/sync_powerbi_links.py)")
         return
     missing = [name for name in DOCUMENTED if not L.enlace_para(name, links=data)]
     assert not missing, missing

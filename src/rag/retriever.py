@@ -185,7 +185,7 @@ class HybridRetriever:
         else:
             raise RuntimeError(
                 "No existe una colección RAG utilizable. "
-                "Ejecuta primero: python ingest_rag.py"
+                "Ejecuta primero: python tools/ingest_rag.py"
             )
 
         self._load_corpus()

@@ -34,8 +34,11 @@ def _bank(name):
 
 
 def regresion():
-    if str(ROOT) not in sys.path:
-        sys.path.insert(0, str(ROOT))
+    # regresion_real.py vive en tools/manual/ (script manual, fuera de las pruebas).
+    manual = str(ROOT / "tools" / "manual")
+    for path in (str(ROOT), manual):
+        if path not in sys.path:
+            sys.path.insert(0, path)
     return importlib.import_module("regresion_real")
 
 
