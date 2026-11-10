@@ -14,6 +14,40 @@ La barra lateral («Diagnóstico del servidor»), el razonamiento de cada turno
 («Estado al empezar: …») y la cabecera de la exportación (.md) muestran estos
 números: si la app se vuelve lenta tras varias conversaciones, ahí se ve si
 hay llamadas acumuladas, reconexiones o hilos vivos de más.
+
+Filas justas (FIFO) y posición en fila — API para la UI de progreso
+-------------------------------------------------------------------
+Hay dos esperas, ambas en orden de llegada (`FifoLine`):
+
+  * el turno (`turn_slot`, capacidad 1: el motor es compartido por todas las
+    sesiones y atiende un turno a la vez);
+  * el hueco de MedGemma (`src/llm/llm_gate.py`, capacidad
+    MEDGEMMA_MAX_CONCURRENT).
+
+`queue_snapshot(ident=None)` → {"turn": {...}, "llm": {...}}, cada uno con:
+
+    capacity   int   turnos/llamadas que se atienden a la vez
+    in_flight  int   en curso ahora
+    waiting    int   en espera en la fila
+    position   int|None  posición del hilo `ident` (por defecto el actual) en
+                     esa fila: 1 = la siguiente en entrar; None = no espera
+    ahead      int|None  consultas antes que la suya = in_flight + position - 1
+                     (lo que la UI muestra como «hay N consultas antes que la tuya»)
+
+Uso típico en la UI (el callback `on_wait` de `turn_slot` corre en el hilo que
+espera, así que `queue_snapshot()` sin argumentos devuelve SU posición):
+
+    def on_wait(waited, since):
+        turno = queue_snapshot()["turn"]
+        if turno["ahead"]:
+            aviso(f"Hay {turno['ahead']} consultas antes que la tuya")
+
+    with turn_slot(texto, on_wait=on_wait):
+        with llm_gate.ui_progress(on_queue=mostrar_espera_medgemma):
+            engine.process(texto)
+
+`STATS.snapshot()` incluye además (campos NUEVOS; los anteriores no cambian)
+"turn_queue" y "llm_queue" con capacity/in_flight/waiting (sin posición).
 """
 import os
 import re
@@ -43,13 +77,131 @@ def env_int(name, default):
     return value if value > 0 else int(default)
 
 
+# ======================================================================
+# Fila justa (FIFO) con posición consultable
+# ======================================================================
+
+def _empty_queue_state(capacity=None):
+    return {"capacity": capacity, "in_flight": 0, "waiting": 0, "position": None, "ahead": None}
+
+
+class _Ticket:
+    __slots__ = ("ident", "owner", "since")
+
+    def __init__(self, ident, owner, since):
+        self.ident = ident
+        self.owner = owner
+        self.since = since
+
+
+class FifoLine:
+    """Fila de espera en orden de llegada.
+
+    Cada espera saca un ticket (`join`) y solo el primero de la fila puede
+    entrar, cuando además `ready()` lo permite (hay hueco); `ready` se evalúa
+    con el candado de la fila tomado, así que puede reservar el hueco de forma
+    atómica. Quien se rinde sale de la fila y los de detrás avanzan. La espera
+    se hace por sondeo corto (`poll_s`) además de notificaciones: así se
+    respetan también recursos que alguien libera sin avisar a la fila (p. ej.
+    `TURN_LOCK.release()` directo).
+
+    `owner` (opcional) es el hilo «dueño» de la espera (p. ej. el hilo de la
+    sesión de Streamlit que pidió el turno); `position(ident)` encuentra el
+    ticket por hilo o por dueño.
+    """
+
+    def __init__(self, name):
+        self.name = name
+        self.cond = threading.Condition(threading.Lock())
+        self._tickets = deque()
+
+    def join(self, owner=None):
+        ticket = _Ticket(threading.get_ident(), owner, time.time())
+        with self.cond:
+            self._tickets.append(ticket)
+        return ticket
+
+    def leave(self, ticket):
+        with self.cond:
+            try:
+                self._tickets.remove(ticket)
+            except ValueError:
+                pass
+            self.cond.notify_all()
+
+    def notify(self):
+        with self.cond:
+            self.cond.notify_all()
+
+    def waiting(self):
+        with self.cond:
+            return len(self._tickets)
+
+    def is_empty_locked(self):
+        """Sin nadie en la fila (llamar con `cond` tomado)."""
+        return not self._tickets
+
+    def position(self, ident=None):
+        """1 = siguiente en entrar; None si ese hilo no espera aquí."""
+        ident = threading.get_ident() if ident is None else ident
+        with self.cond:
+            for index, ticket in enumerate(self._tickets, start=1):
+                if ticket.ident == ident or ticket.owner == ident:
+                    return index
+        return None
+
+    def wait_turn(self, ticket, ready, deadline, poll_s=0.25, on_tick=None):
+        """Espera hasta ser el primero y que `ready()` sea verdadero (True) o
+        hasta `deadline` (time.monotonic(); False). Siempre sale de la fila.
+        `on_tick()` se llama fuera del candado al empezar a esperar y luego
+        cada `poll_s` como mucho (para avisar a la UI)."""
+        last_tick = None
+        try:
+            while True:
+                with self.cond:
+                    if self._tickets and self._tickets[0] is ticket and ready():
+                        return True
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        return False
+                    must_tick = on_tick is not None and (
+                        last_tick is None or time.monotonic() - last_tick >= poll_s)
+                    if not must_tick:
+                        self.cond.wait(min(poll_s, remaining))
+                if must_tick:
+                    last_tick = time.monotonic()
+                    try:
+                        on_tick()
+                    except Exception:
+                        pass
+        finally:
+            self.leave(ticket)
+
+
 class RuntimeStats:
     """Contadores de proceso (seguros entre hilos)."""
 
     def __init__(self, clock=time.time):
         self._clock = clock
         self._lock = threading.Lock()
+        # Fuentes del estado de las filas ({"turn": fn, "llm": fn}); fn(ident)
+        # devuelve el dict de queue_snapshot(). No se borran con reset().
+        self._queue_sources = {}
         self.reset()
+
+    def set_queue_source(self, name, fn):
+        """Registra quién informa el estado de una fila (lo hacen
+        `runtime_stats` para «turn» y `llm_gate` para «llm»)."""
+        self._queue_sources[name] = fn
+
+    def queue_state(self, name, ident=None):
+        fn = self._queue_sources.get(name)
+        if fn is None:
+            return _empty_queue_state()
+        try:
+            return fn(ident)
+        except Exception:
+            return _empty_queue_state()
 
     def reset(self):
         with self._lock:
@@ -62,6 +214,7 @@ class RuntimeStats:
             }
             self.llm_by_purpose = {}
             self.llm_latencies = deque(maxlen=RECENT_LATENCIES)
+            self._saturated_at = deque(maxlen=1000)  # instantes de rechazo (llm_pressure)
             self.powerbi = {"opened": 0, "reopened": 0, "queries": 0, "query_timeouts": 0,
                             "query_errors": 0, "timeout_kept": 0, "timeout_lost": 0}
             self.powerbi_opened_by_model = {}
@@ -119,8 +272,25 @@ class RuntimeStats:
             if elapsed is not None:
                 self.llm_latencies.append(float(elapsed))
 
+    def llm_pressure(self, window_s=60.0):
+        """Presión sobre MedGemma ahora: {"in_flight", "waiting", "capacity",
+        "saturated_recent"} (rechazos por saturación en los últimos
+        `window_s` s). Con LLM_GATE_BACKEND=redis, in_flight/waiting son
+        globales (todas las réplicas); saturated_recent es de este proceso."""
+        state = self.queue_state("llm", ident=-1)
+        now = self._clock()
+        with self._lock:
+            recent = sum(1 for at in self._saturated_at if now - at <= window_s)
+        return {
+            "in_flight": state.get("in_flight") or 0,
+            "waiting": state.get("waiting") or 0,
+            "capacity": state.get("capacity"),
+            "saturated_recent": recent,
+        }
+
     def llm_saturated(self, purpose):
         with self._lock:
+            self._saturated_at.append(self._clock())
             self.llm["saturated"] += 1
             entry = self.llm_by_purpose.setdefault(purpose or "otro", {"calls": 0, "timeouts": 0})
             entry["saturated"] = entry.get("saturated", 0) + 1
@@ -185,6 +355,11 @@ class RuntimeStats:
             }
         if data["turn_holder"]:
             data["turn_holder"]["for_s"] = round(now - data["turn_holder"]["since"], 1)
+        # Filas justas (campos nuevos): sin posición, que es por hilo.
+        for name in ("turn", "llm"):
+            state = self.queue_state(name, ident=-1)
+            data[f"{name}_queue"] = {key: state.get(key) for key in ("capacity", "in_flight", "waiting")}
+        data["llm_pressure"] = self.llm_pressure()
         data["powerbi_open"] = open_connections(powerbi_provider)
         cache = getattr(powerbi_provider, "domain_cache", None) if powerbi_provider is not None else None
         try:
@@ -371,19 +546,29 @@ def turn_slot(text=None, on_wait=None, max_wait=None, poll_s=0.5, stats=None):
     stats = stats or STATS
     max_wait = turn_wait_limit() if max_wait is None else float(max_wait)
     started = time.time()
-    acquired = TURN_LOCK.acquire(blocking=False)
+    # Fila justa (TURN_LINE): si nadie espera y el candado está libre se
+    # entra directo; si no, se espera en orden de llegada (antes la espera era
+    # por sondeo del candado y entraba quien tuviera suerte, no el primero).
+    with TURN_LINE.cond:
+        acquired = TURN_LINE.is_empty_locked() and TURN_LOCK.acquire(blocking=False)
     if not acquired:
         stats._bump(stats.turns, "waited")
-        while not acquired:
-            waited = time.time() - started
-            if waited >= max_wait:
-                stats._bump(stats.turns, "busy")
-                raise TurnBusy(waited, stats.turn_holder)
+        ticket = TURN_LINE.join()
+
+        def tick():
             if on_wait is not None:
                 holder = stats.turn_holder or {}
                 since = holder.get("since")
-                on_wait(waited, (time.time() - since) if since else None)
-            acquired = TURN_LOCK.acquire(timeout=min(poll_s, max(0.01, max_wait - waited)))
+                on_wait(time.time() - started, (time.time() - since) if since else None)
+
+        acquired = TURN_LINE.wait_turn(
+            ticket, lambda: TURN_LOCK.acquire(blocking=False),
+            deadline=time.monotonic() + max(0.0, max_wait - (time.time() - started)),
+            poll_s=poll_s, on_tick=tick,
+        )
+        if not acquired:
+            stats._bump(stats.turns, "busy")
+            raise TurnBusy(time.time() - started, stats.turn_holder)
     try:
         with stats._lock:
             stats.turn_holder = {"text": str(text or "")[:80], "since": time.time()}
@@ -392,7 +577,36 @@ def turn_slot(text=None, on_wait=None, max_wait=None, poll_s=0.5, stats=None):
         with stats._lock:
             stats.turn_holder = None
         TURN_LOCK.release()
+        TURN_LINE.notify()
 
 
 def turn_lock_busy():
     return TURN_LOCK.locked()
+
+
+TURN_LINE = FifoLine("turnos")
+
+
+def _turn_queue_state(ident=None):
+    in_flight = 1 if TURN_LOCK.locked() else 0
+    position = TURN_LINE.position(ident) if ident != -1 else None
+    return {
+        "capacity": 1,
+        "in_flight": in_flight,
+        "waiting": TURN_LINE.waiting(),
+        "position": position,
+        "ahead": (in_flight + position - 1) if position else None,
+    }
+
+
+STATS.set_queue_source("turn", _turn_queue_state)
+
+
+def queue_snapshot(ident=None):
+    """Estado de las dos filas para el hilo `ident` (por defecto el actual):
+    {"turn": {...}, "llm": {...}} con capacity, in_flight, waiting, position
+    (1 = siguiente; None = no espera) y ahead («hay N consultas antes que la
+    tuya»). Ver el docstring del módulo. La fila «llm» la registra
+    src/llm/llm_gate.py al importarse (antes: todo en 0)."""
+    ident = threading.get_ident() if ident is None else ident
+    return {"turn": STATS.queue_state("turn", ident), "llm": STATS.queue_state("llm", ident)}

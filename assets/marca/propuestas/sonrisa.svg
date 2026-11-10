@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-140 -58 280 198" width="28" height="20" role="img">
+  <title>Sonrisa S.E.S. (una de las cuatro del isotipo) en una sola tinta (currentColor)</title>
+  <g fill="currentColor">
+    <path d="M-111 0A111 111 0 0 0 111 0" fill="none" stroke="currentColor" stroke-width="52"/>
+    <circle cx="-111" r="26"/><circle cx="111" r="26"/>
+    <circle cx="-36.8" cy="-29.7" r="24"/><circle cx="36.8" cy="-29.7" r="24"/>
+  </g>
+</svg>

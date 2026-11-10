@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-150 -262 420 412" width="210" height="206" role="img">
+  <title>Sonrisa S.E.S. pensando: mira hacia arriba con tres puntos de la paleta (propuesta)</title>
+  <path d="M-111 0A111 111 0 0 0 111 0" fill="none" stroke="#3A96D3" stroke-width="52"/>
+  <circle cx="-111" r="26" fill="#096CB5"/><circle cx="111" r="26" fill="#096CB5"/>
+  <circle cx="-14" cy="-52" r="24" fill="#7DCCF3"/><circle cx="56" cy="-50" r="24" fill="#7DCCF3"/>
+  <circle cx="150" cy="-118" r="16" fill="#8D77B1"/>
+  <circle cx="192" cy="-170" r="21" fill="#F08480"/>
+  <circle cx="238" cy="-228" r="27" fill="#8BC160"/>
+</svg>

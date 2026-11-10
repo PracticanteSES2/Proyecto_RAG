@@ -20,8 +20,8 @@ Distingue:
                   cifra: los datos se movieron entre las dos consultas (FM01);
   - falla de red  error de conexión, tiempo de espera o token (no es del bot);
   - mejora        fallaba (o no se evaluaba) y ahora acierta.
-Escribe tests/real/out_regresion/<fecha>/REGRESION.md (y una copia en
-tests/real/out_regresion/REGRESION.md). Código de salida: 0 sin regresiones,
+Escribe var/out/regresion/<fecha>/REGRESION.md (y una copia en
+var/out/regresion/REGRESION.md). Código de salida: 0 sin regresiones,
 1 con regresiones, 2 si la corrida no sirve (todo falló por red o no hay casos).
 
 Uso (desde la RAÍZ DEL CHECKOUT PRINCIPAL, donde están .env, data/ y la caché
@@ -41,7 +41,7 @@ Programarla en el Programador de tareas de Windows (NO se crea sola):
      iniciado sesión (la caché del token está en tu perfil); si el token vence,
      la corrida termina con fallas de red y código 2.
   2. La acción es tests/real/regresion_tarea.ps1 (fija POWERBI_AUTH, corre este
-     script desde la raíz y deja el log en tests/real/out_regresion/ultima_corrida.log).
+     script desde la raíz y deja el log en var/logs/regresion_real.log).
      En PowerShell, una sola línea (ajusta día y hora):
        schtasks /Create /TN "ProyectoRAG\\RegresionReal" /SC WEEKLY /D MON /ST 06:00 /RL LIMITED /IT
          /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\ad6708\\Documents\\Proyecto_RAG\\tests\\real\\regresion_tarea.ps1"
@@ -49,7 +49,7 @@ Programarla en el Programador de tareas de Windows (NO se crea sola):
      iniciado sesión»; Desencadenadores: semanal; Acciones: programa `powershell.exe`,
      argumentos `-NoProfile -ExecutionPolicy Bypass -File <ruta>\\tests\\real\\regresion_tarea.ps1`.
   3. El resultado de la tarea (0x0 / 0x1 / 0x2) es el código de salida; el
-     detalle queda en tests/real/out_regresion/REGRESION.md. Una corrida
+     detalle queda en var/out/regresion/REGRESION.md. Una corrida
      completa tarda del orden de una hora (≈ 245 preguntas).
   Para quitarla: schtasks /Delete /TN "ProyectoRAG\\RegresionReal" /F
 """
@@ -66,6 +66,7 @@ ROOT = Path(__file__).resolve().parents[2]  # raíz del proyecto (este archivo v
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from src.comun.rutas import ruta_salida  # noqa: E402
 from tests.real import run_banco, run_multiturno  # noqa: E402
 
 REAL = ROOT / "tests" / "real"
@@ -76,7 +77,7 @@ BANCOS = {
     "multiturno": REAL / "banco_multiturno.json",
 }
 LINEA_BASE = REAL / "linea_base"
-OUT = REAL / "out_regresion"
+OUT = ruta_salida("regresion")
 
 RED = re.compile(r"time ?out|timed out|tiempo de espera|connection|conexi[oó]n|connect|max retries|"
                  r"name ?resolution|getaddrinfo|temporary failure|remote end closed|ssl|proxy|"
@@ -357,7 +358,7 @@ def main(argv=None):
     parser.add_argument("--aceptar", action="store_true", help="promueve esta corrida a línea base")
     parser.add_argument("--reusar", help="carpeta de una corrida anterior (no pregunta nada)")
     parser.add_argument("--sim", action="store_true", help="Power BI simulado + LLM falso")
-    parser.add_argument("--out", help="carpeta de la corrida (por defecto tests/real/out_regresion/<fecha>)")
+    parser.add_argument("--out", help="carpeta de la corrida (por defecto var/out/regresion/<fecha>)")
     args = parser.parse_args(argv)
     names = [n.strip() for n in args.bancos.split(",") if n.strip()]
     unknown = [n for n in names if n not in BANCOS]
