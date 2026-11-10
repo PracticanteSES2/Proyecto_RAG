@@ -6,3 +6,4 @@ coverage/
 .env*.local
 npm-debug.log*
 capturas-tmp/
+next-env.d.ts
