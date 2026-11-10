@@ -2,6 +2,7 @@ import os
 import re
 import unicodedata
 
+from src.chatbot import cache_llm
 from src.llm.llm_gate import call_llm
 
 from src.rag.grounding import ground_answer, has_content
@@ -468,22 +469,22 @@ Usa únicamente el CONTEXTO. Solo si el CONTEXTO no contiene nada que
 responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
 """.strip()
 
-        result = self._chat_with_timeout(
-            messages=[
-                {
-                    "role": "system",
-                    "content":
-                        self.SYSTEM_PROMPT,
-                },
-                {
-                    "role": "user",
-                    "content":
-                        user_prompt,
-                },
-            ],
-            temperature=0.1,
-            max_tokens=self.max_tokens,
-            think=False,
+        messages = [
+            {"role": "system", "content": self.SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ]
+        # Misma pregunta normalizada + mismas fuentes + mismo prompt: la
+        # respuesta cruda sale de la caché del motor (src/chatbot/cache_llm.py)
+        # y el post-proceso de abajo se aplica igual.
+        result = cache_llm.llamar_con_cache(
+            cache_llm.clave("síntesis RAG", question, fuentes=context, prompt=[
+                self.SYSTEM_PROMPT, task_lines, conversation], modelo=cache_llm.modelo_de(self.llm_provider),
+                max_tokens=self.max_tokens),
+            lambda: self._chat_with_timeout(
+                messages=messages, temperature=0.1, max_tokens=self.max_tokens, think=False,
+            ),
+            proposito="síntesis RAG",
+            es_guardable=lambda raw: not self.is_no_evidence(self._clean_answer(raw.get("answer"))),
         )
 
         if (
@@ -524,6 +525,7 @@ responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
             # El LLM no halló respuesta en el contexto: quien llama lo trata
             # como «no encontrado» (p. ej. pregunta fuera de alcance).
             "no_evidence": self.is_no_evidence(answer),
+            "cache": result.get("cache"),  # "hit" | "compartida" | None
         }
 
     @staticmethod

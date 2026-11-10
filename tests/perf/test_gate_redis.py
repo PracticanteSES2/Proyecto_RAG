@@ -1,5 +1,6 @@
 """
-Backend Redis de la puerta del LLM (src/llm/gate_backends.py) con fakeredis:
+Backend Redis de la puerta del LLM (backend/app/services/puerta_llm_redis.py,
+inyectado en src/llm/llm_gate.py) con fakeredis:
 semáforo justo entre «procesos» (dos clientes contra el mismo servidor falso),
 préstamos con TTL, purga de los que esperaban y murieron, posición en fila,
 caída a memoria si Redis no responde y contrato de call_llm.
@@ -35,7 +36,8 @@ except ImportError:  # pragma: no cover
     fakeredis = None
 
 from src.llm import llm_gate  # noqa: E402
-from src.llm.gate_backends import RedisBackend  # noqa: E402
+from backend.app.services import puerta_llm_redis  # noqa: E402
+from backend.app.services.puerta_llm_redis import RedisBackend  # noqa: E402
 from src.llm.llm_gate import call_llm, evento_cola, queue_state, set_backend, ui_progress  # noqa: E402
 
 MESSAGES = [{"role": "user", "content": "hola"}]
@@ -220,7 +222,7 @@ class EnvSelectionTests(unittest.TestCase):
     def test_unreachable_redis_falls_back_to_memory_with_warning(self):
         saved = {k: os.environ.get(k) for k in ("LLM_GATE_BACKEND", "REDIS_URL")}
         os.environ["LLM_GATE_BACKEND"] = "redis"
-        os.environ["REDIS_URL"] = "redis://127.0.0.1:1/0"  # nadie escucha
+        puerta_llm_redis.instalar("redis://127.0.0.1:1/0")  # nadie escucha
         set_backend(None)
         try:
             with self.assertLogs("llm_gate", level=logging.WARNING) as logs:
@@ -237,6 +239,36 @@ class EnvSelectionTests(unittest.TestCase):
                 else:
                     os.environ[key] = value
             set_backend(None)
+            llm_gate._FABRICAS.pop("redis", None)
+
+    def _with_redis_env(self):
+        saved = os.environ.get("LLM_GATE_BACKEND")
+        os.environ["LLM_GATE_BACKEND"] = "redis"
+
+        def restore():
+            if saved is None:
+                os.environ.pop("LLM_GATE_BACKEND", None)
+            else:
+                os.environ["LLM_GATE_BACKEND"] = saved
+            llm_gate._FABRICAS.pop("redis", None)
+            set_backend(None)
+        self.addCleanup(restore)
+
+    def test_redis_without_adapter_falls_back_to_memory_with_warning(self):
+        self._with_redis_env()
+        llm_gate._FABRICAS.pop("redis", None)
+        set_backend(None)
+        with self.assertLogs("llm_gate", level=logging.WARNING) as logs:
+            self.assertEqual(llm_gate.backend_name(), "memoria")
+        self.assertIn("no hay adaptador", "\n".join(logs.output))
+
+    @unittest.skipIf(fakeredis is None, "fakeredis no instalado")
+    def test_installed_adapter_is_used_when_redis_answers(self):
+        self._with_redis_env()
+        server = fakeredis.FakeServer()
+        llm_gate.registrar_backend("redis", lambda capacity_fn: RedisBackend(
+            fakeredis.FakeRedis(server=server), capacity_fn=capacity_fn, poll_s=0.02))
+        self.assertEqual(llm_gate.backend_name(), "redis")
 
     def test_default_is_memory(self):
         saved = os.environ.pop("LLM_GATE_BACKEND", None)

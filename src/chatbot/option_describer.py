@@ -1,10 +1,12 @@
+import os
 import re
 import time
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from difflib import SequenceMatcher
 
-from src.chatbot.runtime_stats import env_float
+from src.chatbot import cache_llm
+from src.chatbot.runtime_stats import STATS, env_float
 from src.llm.llm_gate import call_llm
 
 
@@ -228,20 +230,54 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
                 return text
         return ""
 
+    def _usable(self, raw, option):
+        """¿La respuesta cruda da una descripción aceptable? (si no, no se cachea)."""
+        text = self.parse(raw.get("answer"), option.get("label"))
+        return bool(text) and not self.invented_concepts(text, option) and not self.contradicts_filters(text, option)
+
     def _describe_one(self, option):
-        return call_llm(
-            self.llm_provider,
-            [
-                {"role": "system",
-                 "content": self.SYSTEM_PROMPT.format(max_words=self.max_words)},
-                {"role": "user", "content": self.build_prompt(option)},
-            ],
-            purpose="descripción de opciones",
-            timeout=self.timeout if self.timeout and self.timeout > 0 else None,
-            temperature=0.1,
-            max_tokens=60,
-            think=False,
+        # La pregunta del usuario no entra en el prompt: la descripción de un
+        # indicador es la misma en cualquier contrapregunta (caché del motor).
+        system, user = self.SYSTEM_PROMPT.format(max_words=self.max_words), self.build_prompt(option)
+        return cache_llm.llamar_con_cache(
+            cache_llm.clave("descripción de opciones", fuentes=user, prompt=system,
+                            modelo=cache_llm.modelo_de(self.llm_provider), max_tokens=60),
+            lambda: call_llm(
+                self.llm_provider,
+                [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                purpose="descripción de opciones",
+                timeout=self.timeout if self.timeout and self.timeout > 0 else None,
+                temperature=0.1,
+                max_tokens=60,
+                think=False,
+            ),
+            proposito="descripción de opciones",
+            es_guardable=lambda raw: self._usable(raw, option),
         )
+
+    # Descripción del catálogo que basta (no hace falta el LLM): una frase de
+    # al menos 6 palabras que no solo repite el nombre y que distingue la
+    # opción de las demás. Hoy el catálogo casi nunca la trae (las medidas no
+    # tienen descripción), pero la documentación de los tableros sí la irá
+    # completando. OPTION_DESCRIBER_CATALOGO=off la desactiva.
+    CATALOG_MIN_WORDS = 6
+
+    def catalog_sufficient(self, options):
+        """Ids de las opciones cuya descripción del catálogo basta."""
+        if str(os.getenv("OPTION_DESCRIBER_CATALOGO", "on")).strip().lower() in ("off", "0", "no", "false"):
+            return []
+        texts = {}
+        for option in options:
+            text = self._clean(option.get("description"), option.get("label"))
+            words = self._plain(text).split()
+            label_words = set(self._plain(option.get("label")).split())
+            if len(words) >= self.CATALOG_MIN_WORDS and not set(words) <= label_words:
+                texts[option["id"]] = text.rstrip(".").casefold()
+        return [
+            key for key, text in texts.items()
+            if not any(other != key and SequenceMatcher(None, text, texts[other]).ratio() >= 0.85
+                       for other in texts)
+        ]
 
     @staticmethod
     def _dax_hint(option):
@@ -293,13 +329,20 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
         es {id: frase} y `raw` las respuestas crudas por opción."""
         if not options:
             return {"status": "skipped", "descriptions": {}, "raw": None, "elapsed_s": 0.0}
+        catalog = self.catalog_sufficient(options)
+        if catalog:
+            STATS.llm_call_avoided("catálogo: descripción de opciones", len(catalog))
+        pending = [option for option in options if option["id"] not in catalog]
+        if not pending:
+            return {"status": "catalog", "descriptions": {}, "raw": None, "elapsed_s": 0.0,
+                    "catalog": catalog}
         started = time.perf_counter()
-        with ThreadPoolExecutor(max_workers=max(1, min(self.max_workers, len(options)))) as pool:
-            responses = list(pool.map(self._describe_one, options))
+        with ThreadPoolExecutor(max_workers=max(1, min(self.max_workers, len(pending)))) as pool:
+            responses = list(pool.map(self._describe_one, pending))
         elapsed = round(time.perf_counter() - started, 2)
 
         descriptions, raw, errors, model, rejected = {}, [], [], None, {}
-        for option, response in zip(options, responses):
+        for option, response in zip(pending, responses):
             model = model or response.get("model")
             answer = response.get("answer")
             if response.get("status") != "success" or not answer:
@@ -321,7 +364,7 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
                 descriptions[option["id"]] = text
         descriptions = self._disambiguate(options, descriptions)
         if descriptions:
-            status = "success" if len(descriptions) == len(options) else "partial"
+            status = "success" if len(descriptions) == len(pending) else "partial"
         else:
             status = "unparsed" if raw else (
                 next((r.get("status") for r in responses if r.get("status")), None) or "error"
@@ -330,5 +373,5 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
             "status": status, "descriptions": descriptions,
             "raw": "\n".join(raw) or None, "elapsed_s": elapsed,
             "error": "; ".join(errors) or None, "model": model,
-            "rejected": rejected,
+            "rejected": rejected, "catalog": catalog,
         }
