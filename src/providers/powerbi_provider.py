@@ -8,10 +8,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from src.chatbot.runtime_stats import STATS
+from src.comun.estadisticas import STATS
+from src.comun.rutas import RAIZ_PROYECTO
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = RAIZ_PROYECTO
 load_dotenv(PROJECT_ROOT / ".env")
 
 
