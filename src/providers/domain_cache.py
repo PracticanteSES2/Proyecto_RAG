@@ -80,6 +80,7 @@ usaba QueryPlanBuilder:
     EVALUATE TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('T'[c]), "Value", 'T'[c]),
                                NOT ISBLANK([Value])), [Value], ASC)
 """
+import logging
 import contextlib
 import inspect
 import os
@@ -88,6 +89,8 @@ import threading
 import time
 
 from src.comun.texto import llave, plegar
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_LIMIT = 2500
 BATCH_MARKER = "__columna"
@@ -877,5 +880,5 @@ def domain_cache_for(provider):
     try:
         provider.domain_cache = cache
     except Exception:
-        pass
+        logger.debug("el proveedor no admite atributos; la caché de dominios no se comparte", exc_info=True)
     return cache

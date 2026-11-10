@@ -2,6 +2,7 @@ import argparse
 import shutil
 import sys
 from pathlib import Path
+from src.comun.registro import configurar_registro, consola_utf8
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
@@ -40,12 +41,7 @@ def clean_derived_outputs():
 
 def configure_console_utf8():
     """Evita UnicodeEncodeError con stdout cp1252 o redirigido."""
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            try:
-                stream.reconfigure(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
+    consola_utf8()
 
 
 def run_pipeline(clean_derived=True, skip_index=False):
@@ -132,6 +128,7 @@ def run_pipeline(clean_derived=True, skip_index=False):
 
 def main():
     configure_console_utf8()
+    configurar_registro()
 
     parser = argparse.ArgumentParser(
         description="Construye e indexa el RAG documental de Gestión Clínica."

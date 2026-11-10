@@ -1,3 +1,4 @@
+import logging
 import math
 import os
 import sys
@@ -10,6 +11,8 @@ from dotenv import load_dotenv
 
 from src.comun.estadisticas import STATS
 from src.comun.rutas import RAIZ_PROYECTO
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = RAIZ_PROYECTO
 load_dotenv(PROJECT_ROOT / ".env")
@@ -45,7 +48,7 @@ def _net_to_python(value):
 
         return float(NetDecimal.ToDouble(value))
     except Exception:
-        pass
+        logger.debug("valor .NET sin conversión a Decimal; se devuelve como texto", exc_info=True)
     return str(value)
 
 
@@ -291,7 +294,7 @@ class PowerBIProvider:
             try:
                 listener(title, *lines)
             except Exception:
-                pass
+                logger.debug("el oyente de actividad de Power BI falló; la consulta sigue", exc_info=True)
 
     def _create_connection(
         self,
@@ -365,12 +368,12 @@ class PowerBIProvider:
         try:
             connection.Close()
         except Exception:
-            pass
+            logger.debug("cerrar la conexión ADOMD falló (se descarta igual)", exc_info=True)
 
         try:
             connection.Dispose()
         except Exception:
-            pass
+            logger.debug("liberar la conexión ADOMD falló (se descarta igual)", exc_info=True)
 
     def _get_connection(
         self,
@@ -573,7 +576,7 @@ class PowerBIProvider:
             try:
                 listener(model, dax)
             except Exception:
-                pass
+                logger.debug("el oyente de consultas de Power BI falló; la consulta sigue", exc_info=True)
 
         reader = None
         command = None
@@ -758,19 +761,19 @@ class PowerBIProvider:
                 try:
                     reader.Close()
                 except Exception:
-                    pass
+                    logger.debug("cerrar el lector ADOMD falló", exc_info=True)
 
                 try:
                     reader.Dispose()
                 except Exception:
-                    pass
+                    logger.debug("liberar el lector ADOMD falló", exc_info=True)
 
             if command is not None:
 
                 try:
                     command.Dispose()
                 except Exception:
-                    pass
+                    logger.debug("liberar el comando ADOMD falló", exc_info=True)
 
     def execute_validated(
         self,

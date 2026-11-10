@@ -418,6 +418,27 @@ def status_line(snapshot):
     return " · ".join(parts)
 
 
+def _by_purpose_lines(by_purpose):
+    if not by_purpose:
+        return []
+    return ["- **MedGemma por uso:** " + " · ".join(
+        f"{name}: {data.get('calls', 0)} llamadas, {data.get('timeouts', 0)} agotadas"
+        + (f", {data['saturated']} saturadas" if data.get("saturated") else "")
+        for name, data in sorted(by_purpose.items())
+    )]
+
+
+def _connection_event_lines(powerbi_provider):
+    """Últimos 5 eventos de conexión de Power BI (aperturas, reconexiones)."""
+    events = list(getattr(powerbi_provider, "connection_events", None) or [])[-5:]
+    return [
+        f"  - {event.get('at')} {event.get('kind')} ({event.get('model')}) en "
+        f"{event.get('elapsed_s')} s" + (f" · {event['reason']}" if event.get("reason") else "")
+        + ("" if event.get("ok", True) else " · NO quedó abierta")
+        for event in events
+    ]
+
+
 def diagnostics_lines(snapshot, powerbi_provider=None):
     """Líneas Markdown del desplegable «Diagnóstico del servidor»."""
     llm = snapshot["llm"]
@@ -439,13 +460,7 @@ def diagnostics_lines(snapshot, powerbi_provider=None):
         + (f"media {latency:.1f} s · máxima {snapshot['llm_recent_max_s']:.1f} s"
            if latency is not None else "sin llamadas aún"),
     ]
-    by_purpose = snapshot.get("llm_by_purpose") or {}
-    if by_purpose:
-        lines.append("- **MedGemma por uso:** " + " · ".join(
-            f"{name}: {data.get('calls', 0)} llamadas, {data.get('timeouts', 0)} agotadas"
-            + (f", {data['saturated']} saturadas" if data.get("saturated") else "")
-            for name, data in sorted(by_purpose.items())
-        ))
+    lines += _by_purpose_lines(snapshot.get("llm_by_purpose") or {})
     open_models = snapshot.get("powerbi_open") or []
     in_flight = snapshot.get("powerbi_in_flight") or {}
     lines += [
@@ -458,13 +473,7 @@ def diagnostics_lines(snapshot, powerbi_provider=None):
         f" (conexión conservada {pbi['timeout_kept']}, perdida {pbi['timeout_lost']})"
         f" · con error {pbi['query_errors']}",
     ]
-    events = list(getattr(powerbi_provider, "connection_events", None) or [])[-5:]
-    for event in events:
-        lines.append(
-            f"  - {event.get('at')} {event.get('kind')} ({event.get('model')}) en "
-            f"{event.get('elapsed_s')} s" + (f" · {event['reason']}" if event.get("reason") else "")
-            + ("" if event.get("ok", True) else " · NO quedó abierta")
-        )
+    lines += _connection_event_lines(powerbi_provider)
     lines += [
         f"- **Caché de dominios:** {snapshot.get('domain_cache_size')} columnas",
         f"- **Hilos vivos:** {snapshot['threads']} ("

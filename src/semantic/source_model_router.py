@@ -1,8 +1,8 @@
-import json
 import re
 from pathlib import Path
 
 from src.comun.texto import normalizar
+from src.comun.json_io import leer_json
 
 
 def normalize_text(value):
@@ -248,21 +248,10 @@ class SourceModelRouter:
         path,
         default=None,
     ):
-        if (
-            path is None
-            or not Path(path).exists()
-        ):
-            return (
-                default
-                if default is not None
-                else {}
-            )
-
-        return json.loads(
-            Path(path).read_text(
-                encoding="utf-8"
-            )
-        )
+        vacio = default if default is not None else {}
+        if path is None:
+            return vacio
+        return leer_json(path, vacio)
 
     def _resolve_path(
         self,

@@ -1,7 +1,7 @@
-import json
 import re
 
 from src.comun.texto import llave
+from src.comun.json_io import leer_json
 
 
 class DAXValidator:
@@ -45,14 +45,7 @@ class DAXValidator:
     # ========================================================
 
     def _load_json(self, path):
-
-        with open(
-            path,
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            return json.load(file)
+        return leer_json(path)
 
 
     def _normalize(self, value):

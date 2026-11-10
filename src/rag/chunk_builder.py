@@ -1,11 +1,13 @@
+import logging
 import hashlib
-import json
 import re
-from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
 from src.comun.rutas import RAIZ_PROYECTO
 from src.comun.texto import slug
+from src.comun.json_io import escribir_json, leer_json
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
@@ -27,21 +29,11 @@ def normalize_key(value):
 
 
 def load_json(path):
-    with open(path, "r", encoding="utf-8") as file:
-        return json.load(file)
+    return leer_json(path)
 
 
 def save_json(data, path):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(path, "w", encoding="utf-8") as file:
-        json.dump(
-            data,
-            file,
-            ensure_ascii=False,
-            indent=2,
-        )
+    escribir_json(data, path)
 
 
 def deterministic_id(*parts):
@@ -614,14 +606,14 @@ def print_statistics(chunks):
         if source_group:
             groups.add(source_group)
 
-    print("\n==========================")
-    print("CHUNKS GENERADOS")
-    print("==========================")
-    print("Total:", len(chunks))
-    print("Grupos documentales:", len(groups))
+    logger.info("\n==========================")
+    logger.info("CHUNKS GENERADOS")
+    logger.info("==========================")
+    logger.info("Total: %s", len(chunks))
+    logger.info("Grupos documentales: %s", len(groups))
 
     for chunk_type, count in sorted(statistics.items()):
-        print(f"{chunk_type}: {count}")
+        logger.info(f"{chunk_type}: {count}")
 
     return {
         "total": len(chunks),
@@ -635,7 +627,7 @@ def build_chunks_file(input_file, output_file):
     chunks = build_chunks(catalog)
     save_json(chunks, output_file)
     stats = print_statistics(chunks)
-    print("\nArchivo generado:", output_file)
+    logger.info("\nArchivo generado: %s", output_file)
     return chunks, stats
 
 
@@ -644,6 +636,9 @@ def build_chunks_file(input_file, output_file):
 # ============================================================
 
 if __name__ == "__main__":
+    from src.comun.registro import configurar_registro
+
+    configurar_registro()
     PROJECT_ROOT = RAIZ_PROYECTO
 
     INPUT_FILE = (

@@ -1,7 +1,10 @@
+import logging
 import json
 
 from src.providers.domain_cache import domain_cache_for
 from src.comun.texto import normalizar
+
+logger = logging.getLogger(__name__)
 
 
 class BusinessFilterResolver:
@@ -117,7 +120,8 @@ class BusinessFilterResolver:
                     ],
                 )
             except Exception:
-                pass  # solo optimización: _get_values consulta por columna
+                # solo optimización: _get_values consulta por columna
+                logger.debug("precarga de dominios por lote falló; se consultan columna por columna", exc_info=True)
 
         for column in columns:
 

@@ -12,7 +12,6 @@ No lee .pbi/cache.abf (datos): solo los .tmdl de definition/.
 """
 import argparse
 import re
-import sys
 from pathlib import Path
 
 from tools.local_data.metadata_format import (
@@ -28,6 +27,7 @@ from tools.local_data.metadata_format import (
     slugify,
     write_model_metadata,
 )
+from src.comun.registro import consola_utf8
 
 
 # TMDL -> nombres que devuelve INFO.VIEW
@@ -533,12 +533,7 @@ def convert(semantic_model_path, output_root, model_name=None, folder_name=None)
 
 
 def main(argv=None):
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            try:
-                stream.reconfigure(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
+    consola_utf8()
 
     parser = argparse.ArgumentParser(
         description=(

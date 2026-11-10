@@ -23,6 +23,7 @@ Uso (desde la raíz del repo):
     python -m tools.local_data.build_local_data
     python -m tools.local_data.build_local_data --skip-index   # sin reindexar
 """
+import logging
 import argparse
 import contextlib
 import io
@@ -34,6 +35,9 @@ import zipfile
 from collections import OrderedDict, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
+from src.comun.registro import configurar_registro, consola_utf8
+
+logger = logging.getLogger(__name__)
 
 CODE_ROOT = Path(__file__).resolve().parents[2]
 if str(CODE_ROOT) not in sys.path:
@@ -60,12 +64,7 @@ DOCS_SUBDIR = Path("Documentacion") / "DOCUMENTACION TABLERO"
 
 
 def configure_console_utf8():
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            try:
-                stream.reconfigure(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
+    consola_utf8()
 
 
 def log(*parts):
@@ -91,7 +90,7 @@ def main_repository_root(code_root=CODE_ROOT):
         if common.name == ".git" and common.parent.exists():
             return common.parent.resolve()
     except Exception:
-        pass
+        logger.debug("git no disponible o no es un worktree; se usa la carpeta actual", exc_info=True)
     return code_root
 
 
@@ -621,6 +620,7 @@ def parse_args(argv=None):
 
 def main(argv=None):
     configure_console_utf8()
+    configurar_registro()
     args = parse_args(argv)
 
     final_root = args.data_root

@@ -1,11 +1,11 @@
 import argparse
-import json
 import re
 import shutil
 from difflib import SequenceMatcher
 from pathlib import Path
 
 from src.comun.texto import normalizar, slug
+from src.comun.json_io import escribir_json, leer_json
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
@@ -33,19 +33,11 @@ def slugify(value):
 
 
 def load_json(path, default=None):
-    path = Path(path)
-    if not path.exists():
-        return {} if default is None else default
-    return json.loads(path.read_text(encoding="utf-8"))
+    return leer_json(path, {} if default is None else default)
 
 
 def save_json(data, path):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    escribir_json(data, path)
 
 
 def relative_to_project(path):

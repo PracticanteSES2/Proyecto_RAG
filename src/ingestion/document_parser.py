@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import re
-import sys
 from pathlib import Path
 from typing import Iterator, Union
 
@@ -15,6 +14,8 @@ from docx.text.paragraph import Paragraph
 
 from src.comun.rutas import RAIZ_PROYECTO
 from src.comun.texto import slug
+from src.comun.registro import consola_utf8
+from src.comun.json_io import leer_json
 
 try:
     from dotenv import load_dotenv
@@ -27,12 +28,7 @@ logger = logging.getLogger(__name__)
 
 def configure_console_utf8():
     """Evita UnicodeEncodeError con stdout cp1252 o redirigido."""
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            try:
-                stream.reconfigure(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
+    consola_utf8()
 
 
 PROJECT_ROOT = RAIZ_PROYECTO
@@ -72,8 +68,7 @@ def file_sha256(path: Path) -> str:
 
 
 def load_json(path: Path) -> dict:
-    with open(path, "r", encoding="utf-8") as file:
-        data = json.load(file)
+    data = leer_json(path)
     return data if isinstance(data, dict) else {}
 
 
@@ -673,7 +668,7 @@ def folder_source_group(group_dir: Path, manifest: Path | None = None) -> str:
             if value:
                 return value
         except Exception:
-            pass
+            logger.debug("manifest.json ilegible; el grupo toma el nombre de la carpeta", exc_info=True)
     return Path(group_dir).name
 
 
@@ -836,15 +831,13 @@ def process_all_documents(
     md_root = plan["markdown_root"]
     documents = plan["docx"] + plan["markdown"]
 
-    print(f"Documentos encontrados: {len(documents)}")
+    logger.info(f"Documentos encontrados: {len(documents)}")
 
     if plan["ignored_docx"]:
-        print(
-            "\n[AVISO] Grupos con documentación .md "
-            f"({', '.join(plan['markdown_groups'])}): se ignoran sus .docx:"
-        )
+        logger.warning("\n[AVISO] Grupos con documentación .md "
+            f"({', '.join(plan['markdown_groups'])}): se ignoran sus .docx:")
         for path in plan["ignored_docx"]:
-            print("   -", path.relative_to(raw_dir))
+            logger.info("   - %s", path.relative_to(raw_dir))
             # Sin limpieza previa (--no-clean-derived) quedaría el JSON del
             # .docx de una corrida anterior contradiciendo al .md.
             stale = (output_dir / path.relative_to(raw_dir)).with_suffix(".json")
@@ -865,7 +858,7 @@ def process_all_documents(
     for document_path in documents:
         is_markdown = document_path.suffix.lower() == ".md"
         relative_path = document_path.relative_to(md_root if is_markdown else raw_dir)
-        print("\nProcesando:", relative_path)
+        logger.info("\nProcesando: %s", relative_path)
 
         try:
             if is_markdown:
@@ -900,27 +893,27 @@ def process_all_documents(
                 "error_type": type(error).__name__,
                 "error": str(error),
             })
-            print(f"  [ERROR] Error procesando {relative_path}")
-            print(f"    {type(error).__name__}: {error}")
+            logger.warning(f"  [ERROR] Error procesando {relative_path}")
+            logger.info(f"    {type(error).__name__}: {error}")
             continue
 
         # Los prints van fuera del try que decide éxito/fallo.
-        print(f"  [OK] JSON generado: {output_path}")
-        print(f"  [OK] Grupo: {result.get('source_group')}")
-        print(f"  [OK] Tableros detectados: {dashboard_count}")
+        logger.info(f"  [OK] JSON generado: {output_path}")
+        logger.info(f"  [OK] Grupo: {result.get('source_group')}")
+        logger.info(f"  [OK] Tableros detectados: {dashboard_count}")
 
         for dashboard in result.get("dashboards", []):
-            print("     ->", dashboard.get("name"))
+            logger.info("     -> %s", dashboard.get("name"))
 
         for warning in result.get("format_warnings") or []:
-            print("  [AVISO] Formato .md:", warning)
+            logger.warning("  [AVISO] Formato .md: %s", warning)
 
-    print("\n==============================")
-    print("PROCESAMIENTO FINALIZADO")
-    print("==============================")
-    print("Documentos procesados:", processed)
-    print("Tableros detectados:", total_dashboards)
-    print("Errores:", len(errors))
+    logger.info("\n==============================")
+    logger.info("PROCESAMIENTO FINALIZADO")
+    logger.info("==============================")
+    logger.info("Documentos procesados: %s", processed)
+    logger.info("Tableros detectados: %s", total_dashboards)
+    logger.info("Errores: %s", len(errors))
 
     return {
         "documents_found": len(documents),
@@ -940,6 +933,9 @@ def process_all_documents(
 # ============================================================
 
 if __name__ == "__main__":
+    from src.comun.registro import configurar_registro
+
+    configurar_registro()
     PROJECT_ROOT = RAIZ_PROYECTO
     RAW_DIR = PROJECT_ROOT / "data" / "raw"
     OUTPUT_DIR = PROJECT_ROOT / "data" / "processed"

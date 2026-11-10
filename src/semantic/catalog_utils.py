@@ -1,7 +1,11 @@
-import json
+import logging
 from pathlib import Path
 
 import pandas as pd
+
+from src.comun.json_io import escribir_json
+
+logger = logging.getLogger(__name__)
 
 
 def load_csv(file_path: Path) -> pd.DataFrame:
@@ -53,7 +57,7 @@ def clean_value(value):
         if pd.isna(value):
             return None
     except Exception:
-        pass
+        logger.debug("pd.isna no aplica a este valor (lista, dict…); se trata como no nulo", exc_info=True)
 
     return value
 
@@ -149,22 +153,4 @@ def save_json(
     data,
     output_file
 ):
-
-    output_file.parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    with open(
-        output_file,
-        "w",
-        encoding="utf-8"
-    ) as file:
-
-        json.dump(
-            data,
-            file,
-            ensure_ascii=False,
-            indent=2,
-            default=str
-        )
+    escribir_json(data, output_file, default=str)

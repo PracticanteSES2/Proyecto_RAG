@@ -19,6 +19,7 @@ POWERBI_TOKEN_CACHE (ruta de la caché).
 """
 
 from __future__ import annotations
+import logging
 
 import os
 import sys
@@ -28,6 +29,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from src.comun.rutas import RAIZ_PROYECTO
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = RAIZ_PROYECTO
 DEFAULT_CLIENT_ID = "ea0616ba-638b-4df5-95b9-636659ae5121"
@@ -53,7 +56,7 @@ def _usar_almacen_de_windows():
 
         truststore.inject_into_ssl()
     except Exception:
-        pass
+        logger.debug("truststore no disponible; se usa el almacén de certificados de Python", exc_info=True)
 
 
 def _ruta_cache() -> Path:

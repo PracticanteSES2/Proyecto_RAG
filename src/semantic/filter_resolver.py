@@ -1,6 +1,6 @@
-import json
 
 from src.comun.texto import llave
+from src.comun.json_io import leer_json
 
 
 MONTH_NAMES = {
@@ -28,14 +28,7 @@ def normalize_name(value):
 
 
 def load_json(path):
-
-    with open(
-        path,
-        "r",
-        encoding="utf-8"
-    ) as file:
-
-        return json.load(file)
+    return leer_json(path)
 
 
 # ============================================================

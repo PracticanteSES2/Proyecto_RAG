@@ -1,6 +1,9 @@
 
+import logging
 from src.rag.source_labels import is_dictionary_source
 from src.comun.texto import normalizar
+
+logger = logging.getLogger(__name__)
 
 
 class MetricResolver:
@@ -321,15 +324,13 @@ class MetricResolver:
         # ----------------------------------------------------
 
         if self.debug:
-            print("\nCANDIDATOS DE MÉTRICA:")
+            logger.debug("\nCANDIDATOS DE MÉTRICA:")
 
             for candidate in candidates[:10]:
-                print(
-                    f"- {candidate['measure']} "
+                logger.debug(f"- {candidate['measure']} "
                     f"| dashboard={candidate.get('dashboard')} "
                     f"| vector={candidate['vector_score']:.4f} "
-                    f"| final={candidate['final_score']:.4f}"
-                )
+                    f"| final={candidate['final_score']:.4f}")
 
         # ----------------------------------------------------
         # 4. Seleccionar mejor candidato

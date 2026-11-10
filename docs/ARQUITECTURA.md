@@ -369,19 +369,21 @@ doctor admita la excepción `tools.manual → tests` (hoy sumaría 2 hallazgos a
 Antes de escribir una función utilitaria: `Grep` por el verbo (`normaliz`, `fold`, `plain`, `slug`, `json`,
 `raiz`, `root`) en `src/comun/` y en esta tabla. Si existe una variante, usarla o moverla a `src/comun/`.
 
-| Necesidad | Usar hoy | Variantes duplicadas encontradas (a consolidar en la fase 3) |
+| Necesidad | Usar | Notas (fase 3, 2026-11-10) |
 | --- | --- | --- |
-| Raíz del proyecto, `data/`, `var/` | `src.comun.rutas` (`RAIZ_PROYECTO`, `DATOS`, `ruta_salida`, `ruta_log`, `ruta_tmp`) | `PROJECT_ROOT`/`RAIZ` en 15 módulos de `src`/`pages` |
-| Normalizar texto para comparar (minúsculas, sin tildes, solo alfanumérico) | `src.semantic.resolucion.texto.normalize_text` (con caché) | `normalize_text` en `rag/ranking`, `semantic/source_model_router`, `master_metric_resolver`, `powerbi_catalog_manager`, `global_master_metric_builder`, `query_semantic_planner`, `chatbot/intent_parser`; `_normalize_text` en `query_engine`, `metric_resolver` |
-| Quitar tildes y minúsculas sin tocar signos | `src.semantic.question_normalizer.fold` | `fold` en `business_terms` (conserva `%`), `request_phrases`; `_fold` en `dax/column_guard`, `rag/grounding`, `semantic/detail_list`, `chatbot/detail_formatter` |
-| Texto plano en mayúsculas para rótulos | `src.rag.source_labels._plain` | `_plain` en `option_describer`, `response_formatter`, `document_parser`, `domain_cache`, `extractive`, `table_titles` |
-| Tokens canónicos | `src.semantic.resolucion.texto.canonical_token(s)` | versión distinta en `query_semantic_planner` |
-| Leer JSON | `json.loads(Path.read_text(encoding="utf-8"))` | `load_json` ×5 (`filter_resolver` y `semantic_merge` idénticas), `_load_json` ×4, `_leer_json` ×2 |
-| Escribir JSON atómico | `src.docs_md.repositorio` (escritura con `os.replace`) | `catalog_utils`, `chunk_builder`, `semantic_merge`, `document_normalizer`, `visual_catalog_builder`, `tools/sync_*` |
-| Slug de nombre | `src.docs_md.repositorio.slug` | `slugify` en `document_parser`, `powerbi_catalog_manager`, `tools/import_documentation_batch`, `tools/local_data/metadata_format`, `tools/sync_powerbi_metadata` |
-| Clave canónica de fila de catálogo | — | `_canonical_key` idéntica en `global_master_metric_builder` y `visual_catalog_builder` |
-| Variables de entorno numéricas | `src.chatbot.runtime_stats.env_int/env_float` | (destino `src/comun/entorno.py`) |
-| Logging | `logging.getLogger(__name__)` | 142 `print()` en 11 módulos de `src` |
+| Raíz del proyecto, `data/`, `var/` | `src.comun.rutas` (`RAIZ_PROYECTO`, `DATOS`, `ruta_salida`, `ruta_log`, `ruta_tmp`) | Quedan en el legado congelado: `pages/`, `src/ui/estilo.py` |
+| Comparar texto: minúsculas, sin tildes, solo `[a-z0-9]` | `src.comun.texto.normalizar(t)` · con `%`: `normalizar(t, "%")` | `semantic.resolucion.texto.normalize_text` = `normalizar(t, "%")` con caché (el más usado en el motor) |
+| Minúsculas y sin tildes, signos intactos | `src.comun.texto.plegar` | — |
+| Clave compacta de nombres (sin separadores) | `src.comun.texto.llave` | — |
+| Slug `a_b_c` | `src.comun.texto.slug` (`repositorio.slug` = `slug(t) or "pagina"`) | — |
+| Rótulos: NFKD sin combinantes, sin cambiar mayúsculas | `src.comun.texto.sin_tildes` | — |
+| Variantes que difieren a propósito (no unificar) | `dax.column_guard._fold` (casefold), `docs_md.formato.normalizar_nombre`, `semantic.document_normalizer.normalize_heading`, `semantic.request_phrases.fold` (misma longitud) | Pendientes en archivos de otros agentes: `specs/012-refactor-motor/tasks.md` T022 |
+| Leer / escribir JSON | `src.comun.json_io.leer_json(ruta, defecto, bom=)` · `escribir_json(datos, ruta, atomico=, default=)` | — |
+| `None`/valor/lista → lista | `src.comun.colecciones.como_lista` | — |
+| Variables de entorno numéricas | `src.comun.entorno.env_int` / `env_float` | `src.chatbot.runtime_stats` las reexporta |
+| Estado de ejecución (contadores, filas FIFO, `turn_slot`) | `src.comun.estadisticas` | `src.chatbot.runtime_stats` es reexporte de compatibilidad |
+| Logging | `logging.getLogger(__name__)` en la librería; `src.comun.registro.configurar_registro()` en CLIs; `consola_utf8()` | `print` solo en CLIs (quedan a propósito: `docs_md.diccionario.main`, `powerbi_token.login`) |
+| Clave canónica de fila de catálogo | — | `_canonical_key` idéntica en `global_master_metric_builder` y `visual_catalog_builder` (fase 4: `src/catalogo/`) |
 
 ---
 

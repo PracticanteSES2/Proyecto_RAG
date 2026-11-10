@@ -22,13 +22,13 @@ Los lectores del proyecto (catalog_utils.load_csv, visual_catalog_builder.
 read_csv_rows) aceptan tanto este formato como el CSV con comas/BOM que
 escribe sync_powerbi_metadata.write_csv.
 """
-import json
 import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 from src.comun.texto import normalizar, slug
+from src.comun.json_io import escribir_json
 
 
 # ============================================================
@@ -555,12 +555,7 @@ def build_info_view_rows(model):
 
 
 def save_json(data, path):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    escribir_json(data, path)
 
 
 def write_sync_info(model_name, model_dir, row_counts, *, source, extra=None):
