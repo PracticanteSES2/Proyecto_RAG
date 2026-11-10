@@ -68,6 +68,24 @@ nunca son sin sentido ni cálculo. Otra institución no se anula por vocabulario
 («¿cómo hace los triages el Santa Sofía?») sino por flujo entre instituciones (remisión, traslado,
 convenio, aseguradora, prepagada, primera persona plural, «al/desde/hacia X», «pacientes de X»).
 
+### Catálogo de fixture y catálogo real
+
+Las pruebas usan un catálogo de fixture determinista: `vocabulario_dominio(tests/portero,
+docs_root=docs_tableros)` (raíz sin `data/`, solo la documentación versionada; 1.296 palabras).
+El catálogo real (`data/` del checkout principal, 2.444 palabras) añade columnas, valores y
+nombres que caen sobre palabras comunes («dolor», «adulto», «correo», «inglés», «cuanto» a una
+letra de «cuarto»). Por eso: (1) las palabras de pregunta y verbos comunes son genéricas; (2) cada
+categoría tolera su campo semántico (clínico: síntomas, medicamentos, personas; redacción:
+idiomas, correo, carta); (3) el marcador fuerte gana a esas palabras sueltas, pero no a un
+indicador o tablero. `TestCatalogoReal` repite las comprobaciones con el catálogo real cuando
+`PORTERO_RAIZ_REAL` apunta a una raíz con `data/` (solo lectura).
+
+### Módulos
+
+`portero_alcance.py` (clasificador: detectores en `_DETECTORES`, anulaciones en
+`_ANULACION_POR_CATEGORIA`), `portero_alcance_patrones.py` (datos y regex) y
+`portero_alcance_respuestas.py` (ejemplos de similitud y textos fijos).
+
 ### Anulación «dominio»
 
 `vocab` (catálogo) menos palabras genéricas del español que el catálogo arrastra («las», «una»,
@@ -83,7 +101,7 @@ letra (sustitución, inserción u omisión) en palabras de 5+ letras.
 | institución | otra_institucion | «Solo tengo información de los tableros del Hospital Universitario de Caldas…» |
 | redacción | redaccion, programacion | «No redacto correos, textos ni código…» |
 | sin sentido | sin_sentido | «No entendí tu mensaje…» |
-| general | calculo, noticias, clima, recetas, deportes, entretenimiento, conocimiento | «Eso está fuera de lo que puedo responder…» |
+| general | calculo, noticias, clima, recetas, deportes, entretenimiento, conocimiento | «Eso está fuera del alcance de los tableros…» (misma frase que la ruta out_of_scope del motor) |
 
 Todas terminan con qué SÍ puede hacer (ejemplo de pregunta y «¿qué puedes hacer?»).
 

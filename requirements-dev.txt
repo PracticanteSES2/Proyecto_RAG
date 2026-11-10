@@ -1,6 +1,7 @@
 # Dependencias de desarrollo y pruebas (no van a producción)
 -r requirements.txt
 fakeredis
+httpx
 
 # Herramientas de calidad: el doctor (python -m tools.doctor) las usa si están
 # instaladas (informativo, no puntúa); si faltan, sigue sin ellas.

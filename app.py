@@ -17,14 +17,9 @@ import streamlit as st
 from src.ui.estilo import LOGO_PATH, aplicar_estilo
 from src.feedback.panel import mostrar_calificacion
 from src.feedback.registro import snapshot_turno
-from src.rag.retriever import HybridRetriever
-from src.chatbot.intent_parser import IntentParser
-from src.chatbot.conversation_manager import ConversationManager
 from src.chatbot.estado_conversacion import EstadoConversacion
+from src.chatbot.fabrica import construir_sistema
 from src.chatbot.query_engine import QueryEngine
-from src.chatbot.rag_answer_engine import RAGAnswerEngine
-from src.chatbot.answer_synthesizer import AnswerSynthesizer
-from src.chatbot.option_describer import OptionDescriber
 from src.chatbot.reasoning_trace import format_reasoning_text
 from src.chatbot.runtime_stats import (
     STATS,
@@ -46,35 +41,7 @@ from src.chatbot.response_formatter import (
     format_query_plan_answer,
     format_unapplied_line,
 )
-from src.semantic.metric_resolver import MetricResolver
-from src.dax.dax_generator import DAXGenerator
-from src.semantic.source_model_router import (
-    SourceModelRouter,
-    documentation_dashboards_from_retriever,
-)
-from src.semantic.multi_model_components import (
-    MultiModelFilterResolver,
-    MultiModelBusinessFilterResolver,
-    MultiModelDAXValidator,
-)
-from src.providers.powerbi_provider import PowerBIProvider
 from src.providers.powerbi_links import enlace_para_opcion, enlace_para_resultado
-from src.llm.medgemma_provider import MedGemmaProvider
-from src.semantic.query_semantic_planner import (
-    QuerySemanticPlanner
-)
-from src.semantic.master_metric_resolver import (
-    MasterMetricResolver
-)
-from src.dax.master_metric_dax_generator import (
-    MasterMetricDAXGenerator
-)
-from src.semantic.query_plan_builder import (
-    QueryPlanBuilder,
-)
-from src.dax.query_plan_dax_generator import (
-    QueryPlanDAXGenerator,
-)
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 QDRANT_PATH = PROJECT_ROOT / "data" / "vector_db" / "qdrant"
@@ -99,183 +66,27 @@ MASTER_METRICS = (
 
 @st.cache_resource
 def build_system():
-    retriever = HybridRetriever(QDRANT_PATH)
-    intent_parser = IntentParser(retriever)
-    conversation_manager = ConversationManager(intent_parser)
-    metric_resolver = MetricResolver(retriever, debug=False)
-
-    powerbi_provider = PowerBIProvider()
-
-    # Conservamos la conexión inicial que ya estaba estable.
-    powerbi_connection = (
-        powerbi_provider.connect()
+    # El cableado del motor vive en src/chatbot/fabrica.py (lo comparte el
+    # backend FastAPI). Las rutas salen de las constantes de este módulo: los
+    # arneses (tests/sim, tests/realistic, tests/real) las sobrescriben.
+    sistema = construir_sistema(
+        PROJECT_ROOT,
+        qdrant_path=QDRANT_PATH,
+        source_registry=SOURCE_REGISTRY,
+        visual_metrics=VISUAL_METRICS,
+        master_metrics=MASTER_METRICS,
     )
-
-    source_router = SourceModelRouter(
-        source_registry_path=
-            SOURCE_REGISTRY,
-        visual_catalog_path=
-            VISUAL_METRICS,
-        project_root=
-            PROJECT_ROOT,
-        default_semantic_model=
-            powerbi_provider
-            .default_semantic_model,
-    )
-
-    # El analizador de intención reconoce los tableros también por los
-    # alias del registro de fuentes («tablero de lavandería»).
-    intent_parser.source_router = source_router
-
-    # Tableros documentados («TRIAGE», «CIRUGÍAS») con su grupo de fuentes:
-    # «tablero de triage» fija el informe correcto aunque esa página no esté
-    # en el catálogo visual.
-    source_router.register_documentation_dashboards(
-        documentation_dashboards_from_retriever(retriever)
-    )
-
-    filter_resolver = (
-        MultiModelFilterResolver(
-            source_router=
-                source_router,
-            default_semantic_model=
-                powerbi_provider
-                .default_semantic_model,
-        )
-    )
-
-    business_filter_resolver = (
-        MultiModelBusinessFilterResolver(
-            source_router=
-                source_router,
-            powerbi_provider=
-                powerbi_provider,
-            default_semantic_model=
-                powerbi_provider
-                .default_semantic_model,
-        )
-    )
-
-    dax_validator = (
-        MultiModelDAXValidator(
-            source_router=
-                source_router,
-            default_semantic_model=
-                powerbi_provider
-                .default_semantic_model,
-        )
-    )
-
-    medgemma_provider = MedGemmaProvider()
-    medgemma_status = medgemma_provider.healthcheck()
-    master_metric_resolver = (
-        MasterMetricResolver(
-            MASTER_METRICS
-        )
-    )
-
-    master_metric_dax_generator = (
-        MasterMetricDAXGenerator()
-    )
-
-    query_semantic_planner = (
-        QuerySemanticPlanner(
-            master_metric_resolver=
-                master_metric_resolver,
-            business_filter_resolver=
-                business_filter_resolver,
-            powerbi_provider=
-                powerbi_provider,
-            source_router=
-                source_router,
-        )
-    )
-
-    query_plan_builder = (
-        QueryPlanBuilder(
-            master_metrics_path=
-                MASTER_METRICS,
-            visual_catalog_path=
-                VISUAL_METRICS,
-            source_router=
-                source_router,
-            powerbi_provider=
-                powerbi_provider,
-            project_root=
-                PROJECT_ROOT,
-        )
-    )
-
-    query_plan_dax_generator = (
-        QueryPlanDAXGenerator()
-    )
-
-    if medgemma_status.get("status") == "ready":
-        warmup = getattr(medgemma_provider, "warmup", None)
-        if callable(warmup):
-            warmup()
-    answer_synthesizer = AnswerSynthesizer(llm_provider=medgemma_provider, max_sources=5, max_context_chars=7000)
-    rag_answer_engine = RAGAnswerEngine(
-        retriever=retriever,
-        answer_synthesizer=answer_synthesizer,
-        default_limit=5,
-        min_score=0.35,
-    )
-    engine = QueryEngine(
-        conversation_manager=conversation_manager,
-        metric_resolver=metric_resolver,
-        filter_resolver=filter_resolver,
-        business_filter_resolver=business_filter_resolver,
-        dax_generator=DAXGenerator(),
-        dax_validator=dax_validator,
-        powerbi_provider=powerbi_provider,
-        rag_answer_engine=rag_answer_engine,
-        master_metric_resolver=master_metric_resolver,
-        master_metric_dax_generator=master_metric_dax_generator,
-        query_semantic_planner=query_semantic_planner,
-        source_router=source_router,
-        query_plan_builder=query_plan_builder,
-        query_plan_dax_generator=query_plan_dax_generator,
-        # MedGemma describe en una frase qué consultaría cada opción.
-        option_describer=(
-            OptionDescriber(medgemma_provider)
-            if medgemma_status.get("status") == "ready"
-            else None
-        ),
-    )
+    engine = sistema.engine
 
     print("--------------------------------------------------------------------------------------")
-
-    print(
-        "\nMASTER METRICS:",
-        MASTER_METRICS.resolve()
+    print("\nMASTER METRICS:", MASTER_METRICS.resolve())
+    print("MASTER RESOLVER ACTIVO:", type(engine.master_metric_resolver).__name__)
+    print("QUERY ENGINE:", engine.__class__)
+    print("MODELOS SEMÁNTICOS ENRUTABLES:", sistema.source_router.semantic_models())
+    return (
+        engine, sistema.conversation_manager, ResponseFormatter(),
+        sistema.medgemma_status, sistema.powerbi_connection,
     )
-
-    print(
-        "MASTER RESOLVER ACTIVO:",
-        type(
-            engine.master_metric_resolver
-        ).__name__
-    )
-
-    print(
-        "QUERY ENGINE:",
-        engine.__class__
-    )
-
-    print(
-        "MODELOS SEMÁNTICOS ENRUTABLES:",
-        source_router.semantic_models()
-    )
-    # Portero conversacional precalentado (similitud MiniLM y catálogo): el
-    # primer «hola» no paga su construcción. Un fallo no impide arrancar.
-    try:
-        warm_up = getattr(engine, "warm_up_portero", None)
-        if callable(warm_up):
-            warm_up()
-    except Exception:
-        traceback.print_exc()
-    return engine, conversation_manager, ResponseFormatter(), medgemma_status, powerbi_connection
 
 def get_display_answer(result, formatter):
     status = result.get("status")

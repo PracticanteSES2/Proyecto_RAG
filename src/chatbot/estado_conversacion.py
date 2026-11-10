@@ -139,9 +139,7 @@ class EstadoConversacion:
         pendiente = datos.get("pendiente") or {}
         for clave, campo in _PENDIENTES.items():
             setattr(estado, campo, _de_json(pendiente.get(clave)))
-        campos = {f.name for f in dataclasses.fields(ConversationState)}
-        intencion = _de_json(datos.get("intencion") or {})
-        estado.intencion = ConversationState(**{k: v for k, v in intencion.items() if k in campos})
+        estado.intencion = _intencion_desde(_de_json(datos.get("intencion") or {}))
         estado.tableros_candidatos = list(_de_json(datos.get("tableros_candidatos") or []))
         return estado
 
@@ -159,6 +157,11 @@ class EstadoConversacion:
     def copia(self):
         """Copia independiente (mismo id), sin el candado ni el razonamiento."""
         return EstadoConversacion.from_dict(copy.deepcopy(self.to_dict()))
+
+
+def _intencion_desde(datos):
+    campos = {f.name for f in dataclasses.fields(ConversationState)}
+    return ConversationState(**{k: v for k, v in datos.items() if k in campos})
 
 
 # ----------------------------------------------------------------------
