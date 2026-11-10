@@ -37,8 +37,8 @@ class ReglasTest(unittest.TestCase):
         self.assertTrue(cache.puede_leer({}, None))
         self.assertFalse(cache.puede_leer({}, None, habilitada=False))
         self.assertFalse(cache.puede_leer({"opcion_id": "a"}, None))
-        self.assertFalse(cache.puede_leer({}, {"_last_success": {"metric": "x"}}))
-        self.assertFalse(cache.puede_leer({}, {"_pending_query_plan": {"q": 1}}))
+        self.assertFalse(cache.puede_leer({}, {"seguimiento": {"metric": "x"}}))
+        self.assertFalse(cache.puede_leer({}, {"pendiente": {"plan": {"q": 1}}}))
 
     def test_que_se_guarda(self):
         self.assertTrue(cache.puede_guardar(self.exito, self.respuesta, None, {}))
@@ -57,7 +57,7 @@ class ReglasTest(unittest.TestCase):
         for result, respuesta in casos:
             with self.subTest(result=result, respuesta=respuesta):
                 self.assertFalse(cache.puede_guardar(result, respuesta, None, {}))
-        self.assertFalse(cache.puede_guardar(self.exito, self.respuesta, {"_last_success": {"m": 1}}, {}))
+        self.assertFalse(cache.puede_guardar(self.exito, self.respuesta, {"seguimiento": {"m": 1}}, {}))
         self.assertFalse(cache.puede_guardar(self.exito, self.respuesta, None, {"opcion_id": "x"}))
 
 

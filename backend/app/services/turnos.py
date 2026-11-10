@@ -17,7 +17,7 @@ from pathlib import Path
 from backend.app.services import cache as reglas_cache
 from backend.app.services import presentacion
 from backend.app.services.almacen import ahora_iso
-from backend.app.services.motor import PiscinaMotores, SerializadorEstado, SesionPorAtributos
+from backend.app.services.motor import PiscinaMotores, SerializadorEstado, SesionExplicita
 from backend.app.services.progreso import EmisorTurno, Reloj, contexto_cola_llm, nuevo_traductor
 
 LOG = logging.getLogger(__name__)
@@ -86,9 +86,9 @@ class ProcesadorTurnos:
         self.huella = huella
         self.raiz_datos = raiz_datos if raiz_datos is not None else getattr(ajustes, "rag_raiz_datos", None)
         self.intervalo_tic_s = intervalo_tic_s
-        # PUNTO DE UNIÓN con agente/memoria-sesion: cómo se pasa el estado de la
-        # conversación al motor (hoy, restaurando atributos; mañana, sesion=…).
-        self.sesiones = sesiones or SesionPorAtributos()
+        # Cómo se pasa el estado de la conversación al motor: `sesion=` con una
+        # EstadoConversacion (spec 008).
+        self.sesiones = sesiones or SesionExplicita()
 
     # ------------------------------------------------------------------
     def _emisor(self, turno_id, frases, diagnostico=False):
