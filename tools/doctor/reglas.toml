@@ -1,0 +1,188 @@
+# Reglas del doctor de salud (python -m tools.doctor). Ver docs/calidad/doctor.md.
+# Lo que no aparece aquí toma el valor por defecto de tools/doctor/config.py.
+# La arquitectura objetivo vive en docs/ARQUITECTURA.md: si cambia, ajustar aquí.
+
+[perfiles]
+pesos = { backend = 60, frontend = 40 }
+
+# =========================================================== BACKEND (Python)
+[general]
+# Sin "/": cualquier componente de la ruta. Con "/" inicial: anclado a la raíz.
+exclusiones = [
+  "/.venv", "/venv", ".git", "/.claude", "/graphify-out", "/data", "/tableros", "/__data",
+  "fixtures", "__pycache__", "node_modules", "/.superpowers", "/Documentacion", "/frontend",
+]
+codigo = ["src", "backend", "tools", "pages", "app.py"]
+pruebas = ["tests", "backend/tests"]
+paquete = "src"
+# Si backend/ se ejecuta con backend/ como raíz de sys.path (`from app.api...`), poner ["backend"].
+raices_import = []
+# Cuánto puede bajar un puntaje sin que falle --verificar (0 = trinquete estricto).
+tolerancia = 0.0
+
+[puntaje]
+pesos_severidad = { alta = 6.0, media = 2.0, baja = 0.5 }
+
+# peso: cuánto cuenta en el perfil · escala: penalización que deja la categoría en 50
+[categorias]
+estructura  = { peso = 15, escala = 30 }
+tamano      = { peso = 15, escala = 60 }
+duplicacion = { peso = 10, escala = 40 }
+muerto      = { peso = 10, escala = 40 }
+capas       = { peso = 15, escala = 40 }
+pruebas     = { peso = 10, escala = 40 }
+higiene     = { peso = 15, escala = 40 }
+fastapi     = { peso = 10, escala = 30 }
+
+[legado]
+# Streamlit queda como legado: se tolera, pero si crece (archivos o líneas) es un hallazgo alto.
+rutas = ["app.py", "pages", ".streamlit", "src/ui"]
+
+[estructura]
+raiz_permitida = [
+  "backend", "frontend", "infra", "src", "tools", "tests", "docs", "docs_tableros", "specs", "assets",
+  ".specify", ".claude", ".gitignore", ".gitattributes", ".editorconfig", "requirements*.txt",
+  "pyproject.toml", ".env.example", "CLAUDE.md", "HANDOFF.md", "README.md", "actualizar_proyecto.ps1",
+  # Legado Streamlit (no crece):
+  "app.py", "pages", ".streamlit",
+]
+max_archivo_kb = 1024
+binario_permitido = ["assets/**", "docs/**"]
+
+[estructura.subcarpetas]
+# Subcarpetas directas permitidas. src/ se controla con [capas].
+tools = ["local_data", "manual", "doctor", "carga"]
+
+[tamano]
+aplica_a = ["src", "backend", "tools", "pages", "app.py"]
+archivo_media = 800
+archivo_alta = 3000
+funcion_media = 80
+funcion_alta = 200
+complejidad_media = 15
+complejidad_alta = 40
+parametros_max = 8
+
+[duplicacion]
+aplica_a = ["src", "backend", "tools", "pages", "app.py"]
+min_lineas = 6
+min_lineas_casi = 10
+
+[[duplicacion.utilidades]]
+nombre = "normalizar texto / quitar tildes"
+llamadas = ["unicodedata.normalize"]
+aplica_a = ["src", "backend", "pages", "app.py"]
+canonico = ""   # cuando exista el módulo común, poner su ruta (p. ej. "src/comun/texto.py")
+sugerencia = "Centralizar en un único módulo de utilidades de texto (ver docs/ARQUITECTURA.md) y reutilizarlo."
+
+[[duplicacion.utilidades]]
+nombre = "raíz del proyecto"
+patron = "raiz_proyecto"
+aplica_a = ["src", "backend", "pages", "app.py"]
+canonico = ""
+sugerencia = "Definir la raíz una sola vez en un módulo de rutas común e importarla."
+
+[muerto]
+aplica_a = ["src", "backend"]
+
+# Capas de abajo arriba: una capa solo importa de su nivel o de niveles inferiores.
+# backend/app → src → providers.
+[[capas.orden]]
+nombre = "infraestructura"
+modulos = ["src.providers", "src.llm", "src.rag"]
+
+[[capas.orden]]
+nombre = "dominio"
+modulos = ["src.semantic", "src.dax", "src.docs_md", "src.ingestion"]
+
+[[capas.orden]]
+nombre = "aplicacion"
+modulos = ["src.chatbot", "src.feedback"]
+
+[[capas.orden]]
+nombre = "presentacion_legado"
+modulos = ["src.ui"]
+
+[[capas.orden]]
+nombre = "backend_base"
+modulos = ["backend.app.core", "backend.app.schemas", "backend.app.models"]
+
+[[capas.orden]]
+nombre = "backend_servicios"
+modulos = ["backend.app.services"]
+
+[[capas.orden]]
+nombre = "backend_api"
+modulos = ["backend.app.api", "backend.app.main", "backend"]
+
+# Importaciones prohibidas (prefijos de módulo).
+[[capas.prohibidas]]
+desde = "src"
+hacia = ["backend", "tools", "tests", "app", "pages"]
+
+[[capas.prohibidas]]
+desde = "backend"
+hacia = ["src.ui", "tools", "tests", "app", "pages"]
+
+[[capas.prohibidas]]
+desde = "tools"
+hacia = ["tests", "app", "pages"]
+
+[[capas.prohibidas]]
+desde = "app"
+hacia = ["tools", "tests", "pages"]
+
+[[capas.prohibidas]]
+desde = "pages"
+hacia = ["tools", "tests"]
+
+[pruebas]
+aplica_a = ["src", "backend"]
+
+[higiene]
+print_en = ["src", "backend"]
+sys_path_en = ["src", "backend"]
+todo_dias_viejo = 90
+bom_permitido = ["*.ps1", "*.csv"]  # PowerShell 5.1 y CSV exportados para Excel
+
+[fastapi]
+aplica_a = ["backend"]
+carpeta_routers = ["backend/app/api/v1"]
+endpoints_permitidos_fuera = []
+modulos_settings = ["backend/app/core/config.py"]
+motor_prohibido_en_routers = ["src"]
+max_lineas_endpoint = 30
+max_complejidad_endpoint = 5
+
+[externas]
+activar = true
+timeout = 90
+ruff_reglas = ["F401", "F811", "F841", "E722", "B006", "T201", "ASYNC"]
+vulture_confianza = 80
+
+# =========================================================== FRONTEND (Next.js)
+[frontend]
+carpeta = "frontend"
+carpetas_api = ["frontend/lib/api", "frontend/src/lib/api"]
+tokens = [
+  "frontend/styles/tokens.*", "frontend/src/styles/tokens.*", "frontend/app/globals.css",
+  "frontend/src/app/globals.css", "frontend/tailwind.config.*",
+]
+componente_media = 250
+componente_alta = 500
+
+[frontend.categorias]
+estructura   = { peso = 10, escala = 30 }
+tipos        = { peso = 15, escala = 40 }
+compilacion  = { peso = 20, escala = 30 }
+lint         = { peso = 15, escala = 50 }
+react        = { peso = 20, escala = 50 }
+arquitectura = { peso = 10, escala = 40 }
+higiene      = { peso = 10, escala = 40 }
+
+[frontend.herramientas]
+timeout = 300
+# Si react-doctor no está en frontend/node_modules, se usa `npx -y <versión fijada>` (requiere red).
+permitir_npx = true
+react_doctor = "react-doctor@0.9.22"
+react_doctor_args = [".", "--json", "--no-score", "--blocking", "none", "-y", "--no-supply-chain", "--no-color"]

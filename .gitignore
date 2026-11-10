@@ -9,7 +9,8 @@ tableros
 # Salidas del evaluador del actualizador (tests/docs_md)
 /tests/docs_md/out/
 # Locales: config de Claude Code, salida de graphify, descargas y zips de documentación
-/.claude/
+/.claude/*
+!/.claude/agents/
 /graphify-out/
 /__data/
 /Documentacion/
