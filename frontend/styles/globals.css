@@ -1,0 +1,314 @@
+/*
+ * Estilos globales. Los VALORES de diseño viven solo en ./tokens.css (copia de docs/diseno/tokens.css):
+ * aquí únicamente se exponen esos tokens a Tailwind y se definen animaciones y estilos de prosa.
+ */
+@import "tailwindcss";
+@import "./tokens.css";
+
+/*
+ * Exposición de tokens a Tailwind v4 (bg-surface, text-fg-muted, rounded-bubble, font-heading…).
+ * `inline` hace que cada utilidad lea la variable de tokens.css en tiempo de ejecución, así el modo oscuro y
+ * un cambio de marca funcionan sin tocar componentes ni este archivo.
+ */
+@theme inline {
+  --color-*: initial;
+  --color-white: white;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --color-ses-azul: var(--ses-azul);
+  --color-ses-azul-medio: var(--ses-azul-medio);
+  --color-ses-azul-profundo: var(--ses-azul-profundo);
+  --color-ses-azul-cielo: var(--ses-azul-cielo);
+  --color-ses-morado: var(--ses-morado);
+  --color-ses-coral: var(--ses-coral);
+  --color-ses-verde: var(--ses-verde);
+
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-2: var(--color-surface-2);
+  --color-surface-3: var(--color-surface-3);
+  --color-surface-code: var(--color-surface-code);
+  --color-fg: var(--color-fg);
+  --color-fg-muted: var(--color-fg-muted);
+  --color-fg-heading: var(--color-fg-heading);
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-primary-active: var(--color-primary-active);
+  --color-on-primary: var(--color-on-primary);
+  --color-link: var(--color-link);
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
+  --color-focus: var(--color-focus);
+  --color-success: var(--color-success);
+  --color-success-bg: var(--color-success-bg);
+  --color-success-border: var(--color-success-border);
+  --color-warning: var(--color-warning);
+  --color-warning-bg: var(--color-warning-bg);
+  --color-warning-border: var(--color-warning-border);
+  --color-danger: var(--color-danger);
+  --color-danger-bg: var(--color-danger-bg);
+  --color-danger-border: var(--color-danger-border);
+  --color-info: var(--color-info);
+  --color-info-bg: var(--color-info-bg);
+  --color-info-border: var(--color-info-border);
+  --color-diag: var(--color-diag);
+  --color-diag-bg: var(--color-diag-bg);
+  --color-diag-border: var(--color-diag-border);
+
+  --font-heading: var(--font-heading);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+  --font-sans: var(--font-body);
+
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-pill: var(--radius-pill);
+  --radius-bubble: var(--radius-bubble);
+  --radius-bubble-tail: var(--radius-bubble-tail);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  --ease-standard: var(--ease-standard);
+}
+
+/* ------------------------------------------------------------------ Animaciones */
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes latido {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.45;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes brillo {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes desvanecer {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes respirar {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes fundido {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ Indicador «pensando» */
+
+/* No se pinta hasta 600 ms después de enviar (la charla rápida nunca lo muestra) y aparece en ~350 ms. */
+.pensando {
+  animation: aparecer 350ms var(--ease-standard) 600ms both;
+}
+
+.pensando__punto {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: var(--radius-pill);
+  animation: latido var(--motion-slow) ease-in-out infinite;
+}
+
+.pensando__frase {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-fg-heading) 0%,
+    var(--color-fg-heading) 35%,
+    var(--color-primary) 50%,
+    var(--color-fg-heading) 65%,
+    var(--color-fg-heading) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation:
+    fundido var(--motion-base) var(--ease-standard) both,
+    brillo 2.6s linear infinite;
+}
+
+.pensando__saliente {
+  animation: desvanecer var(--motion-base) var(--ease-standard) both;
+}
+
+.avatar__anillo {
+  animation: respirar var(--motion-slow) ease-in-out infinite;
+}
+
+.pensando__espera {
+  animation: fundido 600ms var(--ease-standard) both;
+}
+
+.entrada {
+  animation: aparecer var(--motion-base) var(--ease-standard) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pensando {
+    animation: fundido 1ms 600ms both;
+  }
+  .pensando__punto {
+    animation: none;
+    opacity: 0.85;
+    transform: none;
+  }
+  .pensando__frase {
+    animation: none;
+    background: none;
+    color: var(--color-fg-heading);
+  }
+  .pensando__saliente {
+    display: none;
+  }
+  .avatar__anillo {
+    animation: none;
+    opacity: 0.6;
+  }
+  .pensando__espera,
+  .entrada {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ Prosa de las respuestas (Markdown) */
+
+.prosa {
+  overflow-wrap: anywhere;
+}
+.prosa > * + * {
+  margin-top: var(--space-3);
+}
+.prosa strong {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-fg-heading);
+}
+.prosa a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prosa ul {
+  list-style: disc;
+  padding-left: var(--space-6);
+}
+.prosa ol {
+  list-style: decimal;
+  padding-left: var(--space-6);
+}
+.prosa li + li {
+  margin-top: var(--space-1);
+}
+.prosa h1,
+.prosa h2,
+.prosa h3,
+.prosa h4 {
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+}
+.prosa blockquote {
+  border-left: 3px solid var(--color-info-border);
+  padding: var(--space-1) var(--space-4);
+  color: var(--color-fg-muted);
+}
+.prosa code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-surface-code);
+  border-radius: var(--radius-xs);
+  padding: 0.1em 0.35em;
+}
+.prosa pre {
+  background: var(--color-surface-code);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  overflow-x: auto;
+}
+.prosa pre code {
+  background: none;
+  padding: 0;
+}
+.prosa__tabla {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.prosa table {
+  width: 100%;
+  overflow-wrap: normal;
+  word-break: normal;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+}
+.prosa th {
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-fg-heading);
+  background: var(--color-surface-2);
+  border-bottom: 2px solid var(--color-border);
+  padding: var(--space-2) var(--space-3);
+  white-space: nowrap;
+}
+.prosa td {
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-3);
+}
+.prosa tbody tr:last-child td {
+  border-bottom: none;
+}
+.prosa tbody tr:nth-child(even) td {
+  background: var(--color-surface-2);
+}
+.prosa th[align="right"],
+.prosa td[align="right"] {
+  text-align: right;
+}
+.prosa th[align="center"],
+.prosa td[align="center"] {
+  text-align: center;
+}
