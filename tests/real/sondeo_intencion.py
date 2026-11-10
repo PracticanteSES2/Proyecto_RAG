@@ -9,19 +9,20 @@ servidor (504, runner caído, tiempo agotado) espera con backoff y, si se repite
 guarda lo hecho: el servidor de MedGemma es compartido. No ejecuta la consulta final:
 guarda la salida cruda, la intención, la validación (con el DAX que se generaría) y los tiempos.
 
-    python -X utf8 tools/manual/sondeo_intencion.py                      # holdout 2 + nuevas
-    python -X utf8 tools/manual/sondeo_intencion.py --solo G16,N03
-    python -X utf8 tools/manual/sondeo_intencion.py --solo-nuevas
-    python -X utf8 tools/manual/sondeo_intencion.py --pausa 5             # más pausa entre llamadas
-    python -X utf8 tools/manual/sondeo_intencion.py --todas               # también donde la app no llamaría
-    python -X utf8 tools/manual/sondeo_intencion.py --sim                # sin producción (LLM falso): prueba el script
+    python -X utf8 -m tests.real.sondeo_intencion                      # holdout 2 + nuevas
+    python -X utf8 -m tests.real.sondeo_intencion --solo G16,N03
+    python -X utf8 -m tests.real.sondeo_intencion --solo-nuevas
+    python -X utf8 -m tests.real.sondeo_intencion --pausa 5             # más pausa entre llamadas
+    python -X utf8 -m tests.real.sondeo_intencion --todas               # también donde la app no llamaría
+    python -X utf8 -m tests.real.sondeo_intencion --sim                # sin producción (LLM falso): prueba el script
 
 Se ejecuta desde la raíz del checkout PRINCIPAL (lee su .env con load_dotenv, como app.py; nunca se
 imprime). Power BI de producción en SOLO LECTURA: el plan de reglas y la validación de valores
 consultan dominios de columnas (VALUES), igual que la app. MedGemma: no se modifica el servidor.
 
 Salida (no versionada): var/out/sondeo_intencion/sondeo_<fecha>/resultados.json y resumen.md.
-Sondeo de un uso (ciclo 2 del extractor): vive en tools/manual, no es una prueba.
+Sondeo de un uso (ciclo 2 del extractor): pasa a tools/manual cuando el doctor admita la excepción
+tools/manual -> tests (docs/ARQUITECTURA.md, fase 6).
 """
 import argparse
 import json
@@ -35,9 +36,9 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from src.comun.rutas import RAIZ_PROYECTO, ruta_salida  # noqa: E402
+from src.comun.rutas import ruta_salida  # noqa: E402
 
-HERE = RAIZ_PROYECTO / "tests" / "real"
+HERE = Path(__file__).resolve().parent
 OUT = ruta_salida("sondeo_intencion")
 BANCO = HERE / "banco_holdout2.json"
 

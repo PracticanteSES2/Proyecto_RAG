@@ -225,7 +225,7 @@ plan de reglas. Variable `INTENCION_LLM=off|respaldo|siempre` (por defecto `resp
   `CALCULATE` por periodo (`_temporal_grouped`) y la frase «De A a B, X subió/bajó N %» calculada con las
   cifras del DAX (`frase_comparacion`, `comparison_text` en el resultado).
 - Pruebas: `tests/resolution/test_intencion_llm.py` (LLM falso). Sondeo con MedGemma real:
-  `tools/manual/sondeo_intencion.py`.
+  `tests/real/sondeo_intencion.py`.
 
 ### Ciclo 2 (rama `agente/llm-intencion-2`): carga sobre el servidor y validación
 
