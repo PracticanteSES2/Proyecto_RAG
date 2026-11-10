@@ -324,22 +324,30 @@ MedGemma y Power BI, "Nueva conversación", exportar y "Diagnóstico del servido
   opciones quedan como lista atenuada y sin interacción (como `render_past_options`).
 - **Errores** dentro de la burbuja: banda `danger-bg` con borde izquierdo de 3px `danger-border`, icono y texto en
   lenguaje llano ("No pude completar la consulta…"). El detalle técnico solo aparece en modo diagnóstico.
-- **Fuera de alcance:** nota `info` con la sonrisa en `currentColor`.
+- **Fuera de alcance:** nota `info` con `barranquero_mono.svg` a 20px en `currentColor`.
 
-### 7.3 Avatar del asistente
+### 7.3 Avatar del asistente: el barranquero
 
-- Archivo `assets/marca/propuestas/avatar_asistente.svg`: sonrisa blanca sobre círculo `#096CB5`. Se probó a 24, 32
-  y 64px y es legible en los tres tamaños. En el chat va a **32px**, alineado con la primera línea de la burbuja y
-  con `alt=""` (es decorativo: el rol ya lo anuncia el `aria-label` del mensaje, "Asistente").
-- Como componente React, copiar el contenido del SVG a `AvatarAsistente.tsx`. No tiene `id` ni `<style>`, así que se
-  pueden repetir instancias sin conflicto. En modo oscuro se mantiene igual (el azul sobre `#0E1B26` se distingue).
-- Mientras el asistente piensa, el avatar puede llevar un anillo `ses-azul-cielo` que respira (`opacity`
-  0.4 → 1, 1.4s). Con `prefers-reduced-motion` queda fijo.
+La mascota oficial del hospital es el barranquero del Monumento al Buen Acto (ver `identidad_visual.md` §7).
+
+- **Avatar:** `assets/marca/mascota/avatar_barranquero.svg`. Muestra cabeza y pecho de la versión natural dentro de un
+  círculo `#EAF4FB`. Se probó a 24, 32 y 64px: se distinguen la corona turquesa, el antifaz negro con el ojo rojo y
+  el ala verde. En el chat va a **32px**, alineado con la primera línea de la burbuja y con `alt=""` (es decorativo:
+  el rol ya lo anuncia el `aria-label` del mensaje, "Asistente").
+- **Alternativa:** `avatar_barranquero_color.svg`, con la versión a color del usuario. Úsala si Comunicaciones prefiere
+  la paleta del isotipo.
+- **Como componente React:** copiar el SVG a `AvatarBarranquero.tsx`. Los ids van prefijados por archivo
+  (`avatar-barranquero-silueta`, `-circulo`, `-ala`…). Si el mismo avatar aparece muchas veces en línea, los ids se
+  repiten con contenido idéntico, lo que el navegador tolera. Aun así es más limpio servirlo como `<Image
+  src="/marca/avatar_barranquero.svg">` (o `<img>`), que además se cachea.
+- **Modo oscuro:** sin cambios. El círculo claro hace de fondo propio y se ve bien sobre `#0E1B26`.
+- **Mientras piensa:** el avatar puede llevar un anillo `ses-azul-cielo` que respira (`opacity` 0.4 → 1, 1.4s). Con
+  `prefers-reduced-motion` queda fijo.
 
 ### 7.4 Estado vacío (conversación nueva)
 
 ```
-            [isotipo_ses.svg 96px]
+            [barranquero_natural.svg, 220px de alto]
      Hola, soy el asistente de tableros del
        S.E.S. Hospital Universitario de Caldas        ← Montserrat 700 text-2xl fg-heading
   Pregúntame por indicadores, filtros y datos de      ← Mulish text-base fg-muted
@@ -350,13 +358,16 @@ MedGemma y Power BI, "Nueva conversación", exportar y "Diagnóstico del servido
   ┌ ¿Qué indicadores tiene el tablero quirúrgico? ┐
 ```
 
+- **El ave grande** (`barranquero_natural.svg`, unos 220px de alto, centrada) preside el estado vacío. En pantallas
+  anchas puede ir a la izquierda del saludo. Para una cabecera o portada horizontal sirve
+  `barranquero_color_rama.svg`, con la rama completa.
 - Los ejemplos son **botones** (chips `surface-3`, `radius-pill`, `text-sm`) que envían la pregunta al pulsarse.
   Salen de consultas reales del conjunto de pruebas (`tests/`). Lo ideal es que el *backend* entregue la lista según
   los tableros cargados.
 - El patrón decorativo del isotipo (como `fondo-logo-pattern.jpg` del sitio) puede ir de fondo, recortado en una
   esquina al 8-10 % de opacidad y solo en el estado vacío.
-- **Sin resultados** (la consulta no encontró datos): ilustración `estado_sin_resultados.svg` a 120px dentro de la
-  burbuja, más sugerencias de reformulación como chips.
+- **Sin resultados** (la consulta no encontró datos): `barranquero_sin_resultados.svg` (el ave con una lupa) a unos
+  120px dentro de la burbuja, más sugerencias de reformulación como chips.
 
 ### 7.5 Indicador "pensando"
 
@@ -390,7 +401,8 @@ export function Pensando({ paso, segundos }: { paso: string; segundos: number })
 //   style={{ background: "linear-gradient(90deg, var(--color-surface-2) 25%, var(--color-surface-3) 50%, var(--color-surface-2) 75%)", backgroundSize: "400% 100%" }} />
 ```
 
-Ilustración grande opcional (por ejemplo, para la primera carga del modelo): `estado_pensando.svg`.
+Ilustración grande opcional (por ejemplo, para la primera carga del modelo): `barranquero_pensando.svg` (el ave con
+los cuatro puntos de la paleta). Los puntos del indicador son los mismos, así que ambos encajan.
 
 ### 7.6 Modo diagnóstico
 
@@ -423,7 +435,6 @@ se identifica en **morado** (`--color-diag*`), un color que no aparece en ningun
 
 1. La recreación vectorial del isotipo (`isotipo_ses.svg`, `isotipo_ses_monocromo.svg`), o mejor, que entreguen el
    vector oficial.
-2. Usar una "sonrisa" del isotipo como avatar y sus variaciones de expresión (`propuestas/`).
-3. El barranquero como posible mascota (opción B) y el boceto `barranquero_concepto.svg`.
+2. La versión natural del barranquero, el encuadre del avatar y los elementos de los estados (`assets/marca/mascota/`).
+3. Si el barranquero tiene un nombre propio para el saludo.
 4. La licencia web de Arlon, o la aprobación de Montserrat y Mulish como sustitutas.
-5. Confirmar si existe una mascota usada solo en Facebook o Instagram (no se pudo revisar sin sesión).

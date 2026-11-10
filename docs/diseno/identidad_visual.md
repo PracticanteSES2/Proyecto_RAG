@@ -21,7 +21,8 @@ de tableros. Los tokens que salen de aquí están en [`tokens.md`](tokens.md) y 
 | Patrón de fondo con el isotipo | `…/wp-content/uploads/2026/09/fondo-logo-pattern.jpg` | Uso decorativo del isotipo |
 | Historia de los logos | `…/wp-content/uploads/2023/04/historia-logos-ses-hospital-de-caldas.jpg` | Evolución de la marca |
 | Banner con el barranquero (sep. 2026) | `…/wp-content/uploads/2026/09/ave-banner-azul.png` | Símbolo del ave |
-| Página "Monumento al Buen Acto" | https://seshospitaluniversitariodecaldas.com/monumento-al-buen-acto/ | Historia del barranquero |
+| Página "Monumento al Buen Acto" | https://seshospitaluniversitariodecaldas.com/monumento-al-buen-acto/ | Historia del barranquero (la mascota) |
+| `pajaro-coloreado.svg`, entregado por el usuario (2026-11-10) | Archivo local, no público | Vector del barranquero con la paleta del isotipo: base de `assets/marca/mascota/` |
 | Informe de gestión y sostenibilidad 2025 (PDF y portada) | `…/wp-content/uploads/2026/04/INFORME-DE-GESTION-2025-baja.pdf` y `INFORME-DE-GESTION-2025.png` | Tipografías de las piezas impresas, fotografía, lema |
 | Plataforma estratégica / Nuestra historia | `/plataforma-estrategica/`, `/nuestra-historia/` | Misión, tono, historia |
 | Redes enlazadas desde el sitio | Facebook `seshospitaldecaldas`, Instagram `ses_huc`, X `ses_huc`, YouTube `@seshospitaldecaldas`, LinkedIn | Facebook e Instagram no se pudieron leer sin sesión (conexión rechazada o reiniciada) |
@@ -143,44 +144,82 @@ confirma que tiene licencia web y la entrega.
 - **Para el asistente:** tuteo respetuoso, frases cortas, sin jerga técnica en la respuesta principal (la jerga va al
   modo diagnóstico), cálido sin ser informal, sin emojis en las respuestas.
 
-## 7. Mascota
+## 7. Mascota: el barranquero
 
-**Conclusión: no se encontró ninguna mascota oficial.** Se buscó en el sitio (búsqueda interna y biblioteca de
-medios con "mascota", "personaje", "barranquero", "colibrí"), en buscadores ("SES HUC mascota", "personaje
-institucional", "muñeco", "campaña") y en noticias (La Patria). No aparece ningún personaje con nombre ni campaña con
-mascota. Facebook e Instagram no se pudieron revisar sin sesión, así que una mascota usada solo en redes no se puede
-descartar del todo (certeza **media** de que no existe). **No se inventó ninguna mascota.**
+**La mascota oficial es el barranquero** del "Monumento al Buen Acto", según confirmó el usuario el 2026-11-10
+(certeza **alta** por esa confirmación). En la búsqueda pública no apareció como "mascota" con nombre ni campaña. Lo
+que sí aparece es el símbolo:
 
-El símbolo más cercano es **el barranquero**, un ave emblemática de Manizales (*Momotus aequatorialis*):
-
-- El **"Monumento al Buen Acto"** es una escultura del maestro **Luis Guillermo Vallejo Vargas** sobre la torre de
-  mosaico del hospital. Un barranquero azul y verde, de ojo rojo y cola larga con raqueta, levanta el vuelo. Según la
-  página oficial, *"el ave Fénix Barranquero emerge con su vuelo hacia las alturas"* y *"es ese pájaro que nos es
+- El **"Monumento al Buen Acto"** es la escultura grande del maestro **Luis Guillermo Vallejo Vargas** sobre la torre
+  de mosaico del hospital. Un barranquero azul y verde, de ojo rojo y cola larga con raqueta, levanta el vuelo. Según
+  la página oficial, *"el ave Fénix Barranquero emerge con su vuelo hacia las alturas"* y *"es ese pájaro que nos es
   familiar, que cuida a nuestra gente y representa la esperanza"* (texto del Dr. Óscar Jaramillo Robledo). Se
   inauguró hacia 2024 (*Archivos de Medicina* 24(2)).
-- En septiembre de 2026 el sitio publicó `ave-banner-azul.png`, una foto recortada del ave sobre la torre usada como
-  banner. Es decir, el hospital ya lo usa como imagen de marca. Certeza **alta** de que es un símbolo institucional,
-  **no** una mascota.
+- En septiembre de 2026 el sitio publicó `ave-banner-azul.png`, una foto recortada del ave de la estatua sobre la torre,
+  usada como banner.
+- Especie: barranquero andino (*Momotus aequatorialis*), ave emblemática de Manizales. Tiene dorso y alas verdes, que
+  se vuelven azules en las plumas de vuelo. La corona es turquesa y azul. Lleva un antifaz negro con borde turquesa y
+  tiene el ojo rojo. El pecho es verde oliva, con tonos canela abajo. La cola es larga, azul verdosa, y termina en
+  raquetas de punta oscura.
 
-### Opciones propuestas (para decidir con Comunicaciones)
+### 7.1 Colores naturales de referencia
 
-| Opción | Qué es | A favor | En contra |
-|---|---|---|---|
-| **A. "Sonrisa" del isotipo** (recomendada para ya) | Una de las cuatro caras del isotipo, que se usa sola como avatar y como glifo de estados | Es marca oficial, no se inventa nada. Se lee bien a 24-32px y es coherente con "Queremos devolver sonrisas" | Variar la expresión (pensando, sin resultados) toca la forma del logo: necesita visto bueno |
-| **B. Barranquero estilizado** | Ilustración plana del ave del monumento | Símbolo propio y querido. Representa "cuidar a nuestra gente" y la esperanza | Hay que diseñarlo con un ilustrador y validarlo. A 32px pierde detalle (cola y antifaz) |
-| **C. Sin personaje** | Solo el isotipo completo | Cero riesgo de marca | Menos cercano |
+Promedios de 9×9 píxeles muestreados sobre `ave-banner-azul.png` (la estatua, con la iluminación de la foto):
 
-Archivos entregados (todos con `viewBox`, sin `id`, sin `<style>` ni scripts, listos como componente React):
-
-| Archivo | Opción | Uso |
+| Zona | Muestra | Lectura |
 |---|---|---|
-| `assets/marca/isotipo_ses.svg` | Oficial (recreación) | Estado vacío grande y bienvenida |
-| `assets/marca/isotipo_ses_monocromo.svg` | Oficial (recreación) | Pie de página, marcas de agua, modo oscuro (`currentColor`) |
-| `assets/marca/propuestas/avatar_asistente.svg` | A | **Avatar del bot** (sonrisa blanca sobre círculo `#096CB5`, probado a 24, 32 y 64px) |
-| `assets/marca/propuestas/sonrisa.svg` | A | Glifo de una sola tinta (`currentColor`) para viñetas e indicadores |
-| `assets/marca/propuestas/estado_pensando.svg` | A | Ilustración de "pensando": ojos hacia arriba y tres puntos morado, coral y verde |
-| `assets/marca/propuestas/estado_sin_resultados.svg` | A | "Sin resultados": boca neutra y lupa |
-| `assets/marca/propuestas/barranquero_concepto.svg` | B | Boceto conceptual del barranquero, solo para la conversación con Comunicaciones (**no oficial**, no usar en producción) |
+| Corona | `#83CAD3`, `#086D8A` | Turquesa claro sobre azul petróleo |
+| Antifaz / ojo | `#604B63`, `#5D3E50` | Oscuro, con el iris rojo |
+| Pico | `#0E2F4D` | Casi negro |
+| Garganta / pecho | `#52640E`, `#314C03` | Verde oliva amarillento (en sombra) |
+| Alas | `#165FA9` → `#062770` | Azul que se oscurece hacia la punta |
+| Cola | `#0F295C` → `#09215E` | Azul profundo |
 
-Todo lo que está en `propuestas/` es una **recreación o propuesta que debe validar la oficina de comunicaciones del
-hospital** antes de usarse fuera del entorno de desarrollo.
+La versión natural combina esas muestras con la coloración del ave real. Valores usados: corona `#1C7FB8`→`#5EC4D4`,
+antifaz `#16181D` con borde `#3DB6C8`, iris `#D0342C`, pico `#1B2530`, pecho `#A3BC3C`→`#B48A43`, ala y dorso
+`#3C8F3E`→`#2F8A6A`→`#1E63AE`→`#173F8A`, cola `#2C7FA8`→`#1C5DA8`→`#1A3F86`→`#121A26`, rama `#6E4B2C` y musgo `#4F8F3A`.
+
+### 7.2 Archivos (`assets/marca/mascota/`)
+
+Origen común: **`pajaro-coloreado.svg`, entregado por el usuario**. Es un vector de potrace: la silueta del ave
+sobre una rama con musgo, rellena con franjas onduladas y manchas en los colores del isotipo (`#1791D0`, `#8C6FAF`,
+`#87C15A`, `#EF7D7D`). Se trató como dato no confiable: se copió a un directorio aparte y se inspeccionó como texto
+(no tenía scripts, estilos, enlaces externos ni `data:`; la única `url()` era la referencia interna al clipPath).
+Después se optimizó así:
+
+- Se horneó en las coordenadas el `transform` del clipPath (`translate(0,941) scale(.1,-.1)`) y se reescribieron los
+  trazos en coordenadas relativas a partir de absolutos redondeados. La silueta lleva 1 decimal y los rellenos 0.
+- El id `art` se sustituyó por ids con prefijo por archivo (`barranquero-color-silueta`,
+  `barranquero-natural-silueta`, `avatar-barranquero-silueta`, …), así que no chocan al usar varios SVG en línea en la
+  misma página de React.
+- Se recortó el `viewBox` al contorno real del ave (el trazo principal, de 745 a 1261 en x y de 78 a 920 en y, más
+  6 de margen). Se quitaron los trazos y manchas que quedan fuera del recorte.
+- **Verificación:** se renderizaron el original y el optimizado con Edge sin interfaz, a 1:1, y se compararon píxel
+  a píxel. Solo 41 píxeles de 450 912 (0.009 %) difieren en más de 40 niveles en el recorte del ave, y 64 (0.005 %)
+  en la composición con rama. Todos son bordes antialias, invisibles a simple vista.
+
+| Archivo | Tamaño | Qué es / cómo se ve |
+|---|---|---|
+| `barranquero_color.svg` | 51 KB (el original pesaba 119 KB) | **Versión del usuario**, recortada al ave (`viewBox 739 72 528 854`). Ave posada mirando a la izquierda, en estilo de grabado (zonas de tinta y blancos). Cabeza azul y morada, ala con bandas verde, coral y morada, cola larga verde con las raquetas abajo, y un trozo de rama con musgo azul y coral a los lados |
+| `barranquero_color_rama.svg` | 58 KB | La composición completa del usuario (ave más la rama diagonal entera con musgo), recortada al contenido (`viewBox 285 0 1293 941`). Para encabezados o portadas anchas |
+| `barranquero_natural.svg` | 33 KB | **La misma silueta** (los mismos trazos del clipPath) con colores naturales: corona turquesa y azul, antifaz negro, ojo rojo, pico negro, pecho oliva, ala verde que pasa a azul, cola azul que se oscurece hasta las raquetas, rama marrón y musgo verde. Se lee bien desde 32px |
+| `barranquero_mono.svg` | 31 KB | Silueta en una sola tinta (`fill="currentColor"`, un único trazo). Hereda el color del texto cuando va en línea en React. Dentro de un `<img>` se ve negra |
+| `avatar_barranquero.svg` | 17 KB | **Avatar del bot**: círculo `#EAF4FB` con la cabeza y el pecho de la versión natural (`viewBox 730 62 340 340`, 64×64 por defecto). A 24 y 32px se distinguen la corona turquesa, el antifaz con el ojo rojo y el ala verde |
+| `avatar_barranquero_color.svg` | 31 KB | El mismo encuadre con la versión a color del usuario (cabeza azul y morada, ala con bandas) |
+| `barranquero_pensando.svg` | 33 KB | Versión natural más cuatro puntos crecientes (azul, morado, coral, verde de la paleta) sobre la espalda del ave. Son elementos aparte: la silueta no se toca |
+| `barranquero_sin_resultados.svg` | 33 KB | Versión natural más una lupa `#024573` en la esquina inferior izquierda, también como elemento aparte |
+
+Los SVG de React no llevan `<style>`, scripts ni referencias externas. Las únicas `url(#…)` apuntan a sus propios
+clipPath y degradados, con id prefijado.
+
+### 7.3 Descartadas
+
+`assets/marca/propuestas/descartadas/` guarda las propuestas previas, hechas cuando todavía no se sabía de la
+mascota: avatar de "sonrisa", estados de sonrisa y boceto del barranquero. No se usan. Se conservan solo como
+referencia del glifo de sonrisa del isotipo, que sigue siendo útil como viñeta.
+
+### 7.4 Pendiente de validar con Comunicaciones
+
+1. Que la versión natural (los colores elegidos por zona) represente bien al barranquero de la estatua.
+2. El encuadre del avatar y los elementos añadidos de los estados ("pensando" y "sin resultados").
+3. Si el ave tiene un nombre propio para usarlo en la interfaz ("Hola, soy …").
