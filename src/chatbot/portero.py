@@ -698,6 +698,47 @@ _TEXTOS = {
 }
 
 
+def recursos(root, modelo, router):
+    """(vocabulario, similitud, datos, documentacion) del portero. La similitud
+    MiniLM solo con vocabulario de dominio (su guarda) y si el modelo responde."""
+    if root is None:
+        from src.semantic.question_normalizer import PROJECT_ROOT as root
+    vocabulario = vocabulario_dominio(root)
+    similitud = None
+    if vocabulario and modelo is not None:
+        similitud = SimilitudPortero(modelo)
+        if not similitud.activa:
+            similitud = None
+    datos, documentacion = catalogo_tableros(router)
+    return vocabulario, similitud, datos, documentacion
+
+
+_TITULOS_ALCANCE = {"vago": "Petición sin tema", "sin_sentido": "Mensaje sin contenido reconocible"}
+
+
+def turno(c: Clasificacion, answer: str, message: str) -> tuple[str, list[str], dict, bool]:
+    """(título y líneas del razonamiento, resultado del turno, ¿rechazo?).
+
+    Los rechazos fuera de alcance (spec 002) salen por la ruta ``out_of_scope``
+    que motor, app, evaluador y memoria ya entienden (y cortan el seguimiento);
+    la petición vaga y el sin sentido, como la charla, por ``conversacion``."""
+    kind = f"{c.tipo}/{c.subtipo}"
+    resultado = {"status": "success", "route": "conversacion", "answer": answer,
+                 "conversation_kind": kind, "question": message, "stage": f"portero/{kind}"}
+    if c.tipo != "fuera_de_alcance":
+        return ("Mensaje conversacional",
+                [f"{kind} ({c.motivo}): respondido sin buscar en la documentación ni en Power BI"],
+                resultado, False)
+    rechazo = c.subtipo not in _TITULOS_ALCANCE
+    if rechazo:
+        resultado.update(status="not_found", route="out_of_scope", sources=[],
+                         not_found_reason="portero_fuera_de_alcance")
+    lineas = [f"{kind} ({c.motivo}): {c.detalle}",
+              "respondido con un texto fijo, sin buscar en la documentación ni en Power BI "
+              "ni usar el modelo de lenguaje"]
+    return _TITULOS_ALCANCE.get(c.subtipo, "Mensaje fuera de alcance"), lineas, resultado, rechazo
+
+
 def responder(c: Clasificacion, datos: list[str], documentacion: list[str]) -> str:
     """Texto fijo de respuesta para una clasificación del portero."""
     if c.tipo == "fuera_de_alcance":

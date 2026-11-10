@@ -30,6 +30,8 @@ import unicodedata
 from dataclasses import dataclass, field
 from functools import lru_cache
 
+from src.chatbot.portero import normalizar
+
 MAX_CARACTERES = 200
 MIN_PALABRAS_SIMILITUD = 3
 MAX_PALABRAS_SIMILITUD = 12
@@ -42,14 +44,6 @@ UMBRAL = 0.80
 MARGEN = 0.20
 
 TIPO = "fuera_de_alcance"
-
-
-def normalizar(texto: str) -> str:
-    """Minúsculas, sin tildes, sin signos, espacios colapsados (= portero.normalizar)."""
-    base = unicodedata.normalize("NFKD", str(texto or "").lower())
-    base = "".join(c for c in base if not unicodedata.combining(c))
-    base = re.sub(r"[^a-z0-9]+", " ", base)
-    return " ".join(base.split())
 
 
 # Jerga de chat y tipeos frecuentes de las palabras de los marcadores.

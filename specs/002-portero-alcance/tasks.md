@@ -56,6 +56,19 @@ description: "Tareas del portero de alcance (segunda entrega)"
 - [x] T016 Suites `tests/portero` y `tests/routing` en verde; `tests.feedback.test_registro` sin fallos.
 - [ ] T017 Con permiso del usuario: bancos reales contra Power BI (`tests.real.correr_todo`) sin cambios de resultado; `graphify update .` al integrar.
 
+## Resultados (2026-11-10)
+
+- Banco `F*` solo reglas: 127/128 (vaga 16/16, cálculo 11/11, noticias 10/10, clima 8/8, recetas 8/8,
+  deportes 8/8, entretenimiento 10/10, programación 7/7, redacción 10/10, conocimiento 7/8, clínico 13/13,
+  otra institución 9/9, sin sentido 10/10). Único fallo: «quien escribió cien años de soledad» (periodo «años»).
+- Falsos positivos: 0 en 574 textos reales (todos los bancos + evaluador + diccionario, sin los rechazos
+  etiquetados), 0 en los 80 `N*` y 74 `D*`, con y sin MiniLM; barrido extra de ~4.900 literales de `tests/`:
+  solo rechazos ya etiquetados y fragmentos de código.
+- Rechazos etiquetados en los bancos (positivos ciegos): holdouts 4/6 antes de generalizar «mejor X para Y»
+  (clínico) y «buscarv» (ofimática), 6/6 después; evaluador `g_fuera_alcance` 6/6 de los que no resuelve el motor.
+- Ciego nuevo (43 frases no vistas): 34/43 antes de ajustar; 40/43 tras patrones generales (no ciego ya).
+- Similitud: solo 7 preguntas reales llegan «limpias»; ninguna supera ni 0.70/0.05. Se fija 0.80/0.20.
+
 ## Dependencies & Execution Order
 
 Phase 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9. T010 se corre tras cada fase con reglas nuevas.

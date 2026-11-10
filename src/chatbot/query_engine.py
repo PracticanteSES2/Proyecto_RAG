@@ -6740,22 +6740,11 @@ class QueryEngine:
         """(vocabulario, similitud, datos, documentacion) del portero, armados una
         sola vez por motor (también si fallan: no se reintenta en cada turno).
         La similitud MiniLM solo con vocabulario de dominio (su guarda)."""
-        cached = getattr(self, "_portero_recursos", None)
-        if cached is not None:
-            return cached
-        from src.chatbot import portero
+        if getattr(self, "_portero_recursos", None) is None:
+            from src.chatbot import portero
 
-        if root is None:
-            from src.semantic.question_normalizer import PROJECT_ROOT as root
-        vocabulary = portero.vocabulario_dominio(root)
-        similarity = None
-        model = getattr(getattr(getattr(self, "rag_answer_engine", None), "retriever", None), "model", None)
-        if vocabulary and model is not None:
-            similarity = portero.SimilitudPortero(model)
-            if not similarity.activa:
-                similarity = None
-        datos, documentacion = portero.catalogo_tableros(getattr(self, "source_router", None))
-        self._portero_recursos = (vocabulary, similarity, datos, documentacion)
+            model = getattr(getattr(getattr(self, "rag_answer_engine", None), "retriever", None), "model", None)
+            self._portero_recursos = portero.recursos(root, model, getattr(self, "source_router", None))
         return self._portero_recursos
 
     def _portero_turn(self, message, text, root):
@@ -6775,42 +6764,15 @@ class QueryEngine:
             from src.chatbot import portero
 
             vocabulary, similarity, datos, documentacion = self._portero_resources(root)
-            # Charla sobre el texto normalizado; fuera de alcance sobre el original
-            # (la normalización puede inventar palabras del catálogo: arepas → áreas).
+            # Charla sobre el normalizado; alcance sobre el original (arepas → áreas).
             found = portero.clasificar(text, vocabulary, similarity, original=message)
             if found is None:
                 return None
-            answer = portero.responder(found, datos, documentacion)
-            kind = f"{found.tipo}/{found.subtipo}"
-            # Fuera de alcance (spec 002) = la ruta out_of_scope del motor: corta el
-            # seguimiento como cualquier otro tema. Vaga y sin sentido, como la charla.
-            rechazo = found.tipo == "fuera_de_alcance" and found.subtipo not in ("vago", "sin_sentido")
-            titulo = {"vago": "Petición sin tema", "sin_sentido": "Mensaje sin contenido reconocible"}.get(
-                found.subtipo, "Mensaje fuera de alcance") if found.tipo == "fuera_de_alcance" \
-                else "Mensaje conversacional"
-
-            def run():
-                if found.tipo == "fuera_de_alcance":
-                    self._think(titulo, f"{kind} ({found.motivo}): {found.detalle}",
-                                "respondido con un texto fijo, sin buscar en la documentación ni en "
-                                "Power BI ni usar el modelo de lenguaje")
-                else:
-                    self._think(
-                        titulo,
-                        f"{kind} ({found.motivo}): respondido sin buscar en la documentación ni en Power BI",
-                    )
-                result = {"status": "success", "route": "conversacion", "answer": answer,
-                          "conversation_kind": kind, "question": message,
-                          "stage": f"portero/{kind}"}
-                if rechazo:
-                    result.update(status="not_found", route="out_of_scope", sources=[],
-                                  not_found_reason="portero_fuera_de_alcance")
-                return result
-
-            result = self._traced("question", message, run)
-            if rechazo:
-                self._turn_interpretation = None
-                self._deferred_context_message = None
+            titulo, lineas, result, rechazo = portero.turno(
+                found, portero.responder(found, datos, documentacion), message)
+            result = self._traced("question", message, lambda: (self._think(titulo, *lineas), result)[1])
+            if rechazo:  # como la ruta out_of_scope del flujo normal: otro tema corta el seguimiento
+                self._turn_interpretation = self._deferred_context_message = None
                 self._remember_success(result)
                 self._record_turn(text, result, via="texto")
             return result
