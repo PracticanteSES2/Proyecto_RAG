@@ -315,24 +315,35 @@ def _clasificar_charla(texto: str, vocabulario_dominio: frozenset[str] = frozens
     frase de regla completa SIN ediciones no pasa por las guardas de periodo,
     dominio ni largo («hasta mañana», «buenos días a todos»); con una edición sí.
     """
+    tokens = _tokens_charla(texto)
+    if tokens is None:
+        return None
+    regla = _por_reglas(tokens)
+    if regla is not None:
+        return _clasificacion_regla(regla, texto, vocabulario_dominio)
+    if bloqueado_por_guardas(texto, vocabulario_dominio):
+        return None
+    return _por_similitud(" ".join(tokens), similitud)
+
+
+def _tokens_charla(texto: str) -> list[str] | None:
+    """Palabras sin muletillas, o None si el mensaje no puede ser charla: muy
+    largo (acota el coste), con números, vacío o de la lista de bloqueo."""
     if len(texto or "") > MAX_CARACTERES:
-        return None  # ninguna frase conversacional es tan larga (y acota el coste)
+        return None
     norm = normalizar(texto)
     if any(c.isdigit() for c in norm):
         return None
     tokens = _sin_muletillas(norm)
-    if not tokens or _en_lista_bloqueo(tokens):
+    return tokens if tokens and not _en_lista_bloqueo(tokens) else None
+
+
+def _clasificacion_regla(regla, texto, vocabulario_dominio) -> Clasificacion | None:
+    """Frase de regla sin ediciones: sin guardas; con una edición: con guardas."""
+    sub, ediciones = regla
+    if ediciones and bloqueado_por_guardas(texto, vocabulario_dominio):
         return None
-    regla = _por_reglas(tokens)
-    if regla is not None:
-        sub, ediciones = regla
-        if ediciones == 0 or not bloqueado_por_guardas(texto, vocabulario_dominio):
-            return Clasificacion(_TIPO_POR_SUBTIPO[sub], sub,
-                                 1.0 if ediciones == 0 else 0.9, "regla")
-        return None
-    if bloqueado_por_guardas(texto, vocabulario_dominio):
-        return None
-    return _por_similitud(" ".join(tokens), similitud)
+    return Clasificacion(_TIPO_POR_SUBTIPO[sub], sub, 1.0 if ediciones == 0 else 0.9, "regla")
 
 
 def _por_similitud(frase: str, similitud) -> Clasificacion | None:
@@ -353,12 +364,14 @@ def _por_similitud(frase: str, similitud) -> Clasificacion | None:
     return Clasificacion(tipo, subtipo, float(sim), "similitud")
 
 
-def vocabulario_dominio(project_root) -> frozenset[str]:
-    """Palabras del catálogo (targets) sin palabras conversacionales."""
+def vocabulario_dominio(project_root, docs_root=None) -> frozenset[str]:
+    """Palabras del catálogo (targets) sin palabras conversacionales.
+    ``docs_root`` fija la documentación (las pruebas la usan con una raíz sin
+    ``data/`` para tener el mismo vocabulario en cualquier checkout)."""
     try:
         from src.semantic.question_normalizer import vocabulary_for
 
-        palabras = {normalizar(k) for k in vocabulary_for(Path(project_root)).targets}
+        palabras = {normalizar(k) for k in vocabulary_for(Path(project_root), docs_root).targets}
         palabras = {p for p in palabras if p and " " not in p}
         return frozenset(palabras - _PALABRAS_CONVERSACIONALES)
     except Exception as exc:
@@ -444,54 +457,49 @@ class SimilitudPortero:
                  umbral_alcance: float | None = None, margen_alcance: float | None = None):
         from src.chatbot import portero_alcance
 
-        umbral_alcance = portero_alcance.UMBRAL if umbral_alcance is None else umbral_alcance
-        margen_alcance = portero_alcance.MARGEN if margen_alcance is None else margen_alcance
         self.modelo = modelo
         self.umbral = umbral
         self.margen = margen
+        self.umbral_alcance = portero_alcance.UMBRAL if umbral_alcance is None else umbral_alcance
+        self.margen_alcance = portero_alcance.MARGEN if margen_alcance is None else margen_alcance
         self._claves: list[str] = []
-        self._matriz = None
-        self._dominio = None
+        self._matriz = self._dominio = self._matriz_alcance = None
         self._textos_dominio: list[str] = []
+        self._claves_alcance: list[str] = []
         try:
             import numpy as np
 
             self._np = np
-            textos, claves = [], []
-            for sub, lista in EJEMPLOS.items():
-                for t in lista:
-                    textos.append(normalizar(t))
-                    claves.append(f"{_TIPO_POR_SUBTIPO[sub]}/{sub}")
-            refs = (referencias_dominio if referencias_dominio is not None
-                    else referencias_dominio_defecto())
-            refs = sorted({normalizar(r) for r in refs if normalizar(r)})
-            self._matriz = self._codificar(textos)
-            self._dominio = self._codificar(refs)
-            self._claves = claves
-            self._textos_dominio = refs
+            self._preparar_charla(referencias_dominio)
         except Exception as exc:
             logging.getLogger(__name__).warning("SimilitudPortero inactiva: %s", exc)
             self._matriz = None
-        # Fuera de alcance (spec 002): ejemplos por categoría, aparte; si falla,
-        # la charla sigue con similitud y el alcance queda solo con reglas.
-        self._matriz_alcance = None
-        self._claves_alcance: list[str] = []
-        self.umbral_alcance = umbral_alcance
-        self.margen_alcance = margen_alcance
         if self._matriz is not None:
+            # Fuera de alcance (spec 002), aparte: si falla, la charla sigue con
+            # similitud y el alcance queda solo con reglas.
             try:
-                from src.chatbot.portero_alcance import EJEMPLOS as EJEMPLOS_ALCANCE
-
-                textos, claves = [], []
-                for sub, lista in EJEMPLOS_ALCANCE.items():
-                    for t in lista:
-                        textos.append(normalizar(t))
-                        claves.append(sub)
-                self._matriz_alcance = self._codificar(textos)
-                self._claves_alcance = claves
+                self._preparar_alcance(portero_alcance.EJEMPLOS)
             except Exception as exc:
                 logging.getLogger(__name__).warning("similitud de alcance inactiva: %s", exc)
                 self._matriz_alcance = None
+
+    @staticmethod
+    def _textos_y_claves(ejemplos: dict, clave) -> tuple[list[str], list[str]]:
+        pares = [(normalizar(t), clave(sub)) for sub, lista in ejemplos.items() for t in lista]
+        return [t for t, _ in pares], [c for _, c in pares]
+
+    def _preparar_charla(self, referencias_dominio):
+        textos, claves = self._textos_y_claves(EJEMPLOS, lambda s: f"{_TIPO_POR_SUBTIPO[s]}/{s}")
+        refs = referencias_dominio if referencias_dominio is not None else referencias_dominio_defecto()
+        refs = sorted({normalizar(r) for r in refs if normalizar(r)})
+        self._matriz = self._codificar(textos)
+        self._dominio = self._codificar(refs)
+        self._claves, self._textos_dominio = claves, refs
+
+    def _preparar_alcance(self, ejemplos: dict):
+        textos, claves = self._textos_y_claves(ejemplos, lambda s: s)
+        self._matriz_alcance = self._codificar(textos)
+        self._claves_alcance = claves
 
     def mejor_alcance(self, texto: str):
         """(subtipo, sim_alcance, sim_dominio_max, sim_charla_max) o None."""

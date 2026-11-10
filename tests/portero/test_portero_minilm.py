@@ -128,15 +128,18 @@ class TestPorteroMiniLM(unittest.TestCase):
         self.assertEqual(malos, [])
 
     def test_alcance_capta_parafrasis_por_similitud(self):
-        """Paráfrasis nuevas (ni ejemplos ni casos del banco) sin marcador de regla."""
+        """Paráfrasis nuevas (ni ejemplos ni casos del banco) sin marcador de regla
+        (con el catálogo de fixture, igual en cualquier checkout)."""
+        from tests.portero.test_portero_alcance import VOCAB as VOCAB_FIXTURE
+
         casos = {
             "dime algo chistoso": "entretenimiento", "como aprendo a programar": "programacion",
             "que paso con la guerra": "fuera_de_alcance",
         }
         for texto, sub in casos.items():
             with self.subTest(texto=texto):
-                self.assertIsNone(clasificar(texto, VOCAB))  # sin similitud no se capta
-                r = clasificar(texto, VOCAB, similitud=self.sim)
+                self.assertIsNone(clasificar(texto, VOCAB_FIXTURE))  # sin similitud no se capta
+                r = clasificar(texto, VOCAB_FIXTURE, similitud=self.sim)
                 self.assertIsNotNone(r)
                 self.assertEqual(r.motivo, "similitud")
                 self.assertIn(sub, (r.subtipo, r.tipo))

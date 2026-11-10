@@ -164,7 +164,7 @@ class MotorPorteroTests(unittest.TestCase):
         razonamiento = _razonamiento(result)
         self.assertIn("Mensaje fuera de alcance", razonamiento)
         self.assertIn("marcador «cuentame un chiste»", razonamiento)
-        self.assertIn("fuera de lo que puedo responder", ui)
+        self.assertIn("fuera del alcance", ui)
 
     def test_receta_de_arepas_usa_el_mensaje_original(self):
         # El normalizador del motor cambia «arepas» por «áreas» (palabra del catálogo).
