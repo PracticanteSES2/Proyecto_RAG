@@ -5,6 +5,8 @@ import unicodedata
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
+from src.comun.rutas import RAIZ_PROYECTO
+
 
 # ============================================================
 # UTILIDADES
@@ -648,7 +650,7 @@ def build_chunks_file(input_file, output_file):
 # ============================================================
 
 if __name__ == "__main__":
-    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    PROJECT_ROOT = RAIZ_PROYECTO
 
     INPUT_FILE = (
         PROJECT_ROOT

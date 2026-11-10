@@ -12,17 +12,14 @@ from src.semantic.catalog_utils import (
     load_csv,
     save_json
 )
+from src.comun.rutas import RAIZ_PROYECTO
 
 
 # ============================================================
 # CONFIGURACIÓN
 # ============================================================
 
-PROJECT_ROOT = (
-    Path(__file__)
-    .resolve()
-    .parents[2]
-)
+PROJECT_ROOT = RAIZ_PROYECTO
 
 
 WORKSPACE_NAME = (

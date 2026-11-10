@@ -35,8 +35,9 @@ from .formato import (
     serializar,
     validar,
 )
+from src.comun.rutas import RAIZ_PROYECTO
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = RAIZ_PROYECTO
 DOCS_TABLEROS = PROJECT_ROOT / "docs_tableros"
 CARPETA_MD = "md"
 ARCHIVO_GENERAL = "_general.md"

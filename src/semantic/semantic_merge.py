@@ -3,6 +3,8 @@ import re
 import unicodedata
 from pathlib import Path
 
+from src.comun.rutas import RAIZ_PROYECTO
+
 
 # ============================================================
 # NORMALIZACIÓN
@@ -310,7 +312,7 @@ def build_semantic_catalog(
     output_path = Path(output_path)
 
     if project_root is None:
-        project_root = Path(__file__).resolve().parents[2]
+        project_root = RAIZ_PROYECTO
     project_root = Path(project_root)
 
     documents = sorted(
@@ -462,7 +464,7 @@ def build_semantic_catalog(
 # ============================================================
 
 if __name__ == "__main__":
-    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    PROJECT_ROOT = RAIZ_PROYECTO
 
     SEMANTIC_DOCUMENTS_DIR = (
         PROJECT_ROOT / "data" / "semantic_documents"

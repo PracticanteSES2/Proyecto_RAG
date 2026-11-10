@@ -18,6 +18,8 @@ import unicodedata
 from functools import lru_cache
 from pathlib import Path
 
+from src.comun.rutas import RAIZ_PROYECTO
+
 _ENTRY_RE = re.compile(r"^- \*\*(?P<key>[^*]+)\*\*:\s*(?P<desc>.*)$")
 _FRONT_RE = re.compile(r"^tablero:\s*(?P<name>.+?)\s*$", re.MULTILINE)
 _UNIT_RE = re.compile(r"Unidad:\s*(?P<unit>[^.;(]+)")
@@ -45,7 +47,7 @@ def _docs_root():
 
         return Path(raiz_documentos())
     except Exception:
-        return Path(__file__).resolve().parents[2] / "docs_tableros"
+        return RAIZ_PROYECTO / "docs_tableros"
 
 
 @lru_cache(maxsize=4)

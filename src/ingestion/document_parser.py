@@ -14,6 +14,8 @@ from docx.document import Document as DocumentClass
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
+from src.comun.rutas import RAIZ_PROYECTO
+
 try:
     from dotenv import load_dotenv
 except Exception:  # pragma: no cover - compatibilidad si dotenv no está instalado
@@ -33,7 +35,7 @@ def configure_console_utf8():
                 pass
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = RAIZ_PROYECTO
 if load_dotenv is not None:
     load_dotenv(PROJECT_ROOT / ".env")
 
@@ -945,7 +947,7 @@ def process_all_documents(
 # ============================================================
 
 if __name__ == "__main__":
-    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    PROJECT_ROOT = RAIZ_PROYECTO
     RAW_DIR = PROJECT_ROOT / "data" / "raw"
     OUTPUT_DIR = PROJECT_ROOT / "data" / "processed"
 

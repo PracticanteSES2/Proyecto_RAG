@@ -45,7 +45,9 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from src.comun.rutas import RAIZ_PROYECTO
+
+PROJECT_ROOT = RAIZ_PROYECTO
 
 
 _FAST_FOLD = str.maketrans("áéíóúüñàèìòùâêîôû", "aeiouunaeiouaeiou")

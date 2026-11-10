@@ -35,7 +35,9 @@ import unicodedata
 import urllib.parse
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from src.comun.rutas import RAIZ_PROYECTO
+
+PROJECT_ROOT = RAIZ_PROYECTO
 DEFAULT_PATH = PROJECT_ROOT / "data" / "catalog" / "report_links.json"
 SEPARADOR = " › "
 MAX_FILTER_VALUES = 10

@@ -14,6 +14,8 @@ from qdrant_client.models import (
     VectorParams,
 )
 
+from src.comun.rutas import RAIZ_PROYECTO
+
 
 MODEL_NAME = (
     "sentence-transformers/"
@@ -441,7 +443,7 @@ def build_vector_index(
 # ============================================================
 
 if __name__ == "__main__":
-    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    PROJECT_ROOT = RAIZ_PROYECTO
 
     CHUNKS_FILE = (
         PROJECT_ROOT

@@ -27,7 +27,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from src.comun.rutas import RAIZ_PROYECTO
+
+PROJECT_ROOT = RAIZ_PROYECTO
 DEFAULT_CLIENT_ID = "ea0616ba-638b-4df5-95b9-636659ae5121"
 SCOPES = ["https://analysis.windows.net/powerbi/api/.default"]
 

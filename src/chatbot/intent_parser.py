@@ -809,17 +809,13 @@ class IntentParser:
 
 if __name__ == "__main__":
 
-    from pathlib import Path
+    from src.comun.rutas import RAIZ_PROYECTO
 
     from src.rag.retriever import (
         HybridRetriever
     )
 
-    PROJECT_ROOT = (
-        Path(__file__)
-        .resolve()
-        .parents[2]
-    )
+    PROJECT_ROOT = RAIZ_PROYECTO
 
     QDRANT_PATH = (
         PROJECT_ROOT

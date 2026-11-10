@@ -47,7 +47,9 @@ import threading
 import time
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from src.comun.rutas import RAIZ_PROYECTO
+
+PROJECT_ROOT = RAIZ_PROYECTO
 
 # Dos reindexaciones a la vez (dos sesiones de Streamlit) se pisarían los
 # archivos derivados: se serializan.

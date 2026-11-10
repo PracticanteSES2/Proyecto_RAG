@@ -5,6 +5,8 @@ import unicodedata
 from collections import Counter
 from pathlib import Path
 
+from src.comun.rutas import RAIZ_PROYECTO
+
 
 # ============================================================
 # UTILIDADES
@@ -824,7 +826,7 @@ def normalize_all_documents(processed_dir, output_dir):
 # ============================================================
 
 if __name__ == "__main__":
-    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    PROJECT_ROOT = RAIZ_PROYECTO
     PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
     OUTPUT_DIR = PROJECT_ROOT / "data" / "semantic_documents"
 

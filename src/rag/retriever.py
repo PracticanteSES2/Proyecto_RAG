@@ -26,6 +26,7 @@ from src.rag.source_labels import (  # noqa: F401  (reexportadas)
     is_dictionary_source,
     source_label,
 )
+from src.comun.rutas import RAIZ_PROYECTO
 
 
 MODEL_NAME = (
@@ -1046,7 +1047,7 @@ class HybridRetriever:
 # ============================================================
 
 if __name__ == "__main__":
-    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    PROJECT_ROOT = RAIZ_PROYECTO
     QDRANT_PATH = PROJECT_ROOT / "data" / "vector_db" / "qdrant"
 
     retriever = None

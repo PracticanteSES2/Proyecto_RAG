@@ -15,13 +15,10 @@ from src.semantic.visual_catalog_builder import (
 from src.semantic.global_master_metric_builder import (
     build_global_master_metrics,
 )
+from src.comun.rutas import RAIZ_PROYECTO
 
 
-PROJECT_ROOT = (
-    Path(__file__)
-    .resolve()
-    .parents[2]
-)
+PROJECT_ROOT = RAIZ_PROYECTO
 
 
 def normalize_text(value):
