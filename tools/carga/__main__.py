@@ -43,8 +43,11 @@ def parser():
     p.add_argument("--modo", choices=("llm", "e2e"), default="llm")
     p.add_argument("--rampa", type=_rampa, default=[1, 3, 5, 10, 20], help="usuarios simultáneos por nivel")
     p.add_argument("--turnos", type=int, default=2, help="turnos por usuario en cada nivel")
-    p.add_argument("--perfil", choices=("sintesis", "seguimiento", "opciones", "mixto"), default="mixto",
-                   help="modo llm: tipo de turno (mixto = 45%% síntesis, 15%% seguimiento, 20%% opciones, 20%% Power BI)")
+    p.add_argument("--perfil", choices=("sonda", "sintesis", "seguimiento", "opciones", "mixto"), default="mixto",
+                   help="modo llm: tipo de turno (mixto = 45%% síntesis, 15%% seguimiento, 20%% opciones, "
+                        "20%% Power BI; sonda = petición corta de 64 tokens fijos para medir la capacidad)")
+    p.add_argument("--parar-si-error", type=float, default=0.3,
+                   help="detiene la rampa si la tasa de error + tiempo agotado de un escalón la supera")
     p.add_argument("--pausa", type=float, default=0.0, help="segundos entre turnos de un mismo usuario")
     p.add_argument("--semilla", type=int, default=7)
     g = p.add_argument_group("puerta y turno (por defecto, los valores de la app)")
@@ -126,6 +129,10 @@ def main(argv=None, entrada=input):
             return 2
         provider = crear_proveedor_real(streaming=args.streaming)
         print(f"Servidor: {getattr(provider, 'host', '?')} · modelo {getattr(provider, 'model', '?')}")
+        health = provider.healthcheck()
+        if health.get("status") != "ready":
+            print(f"El servidor no está listo ({health.get('status')}): no se corre la prueba.")
+            return 3
     from tools.carga import runner
 
     servidor = ServidorConfig(
@@ -138,7 +145,7 @@ def main(argv=None, entrada=input):
         modo=args.modo, rampa=args.rampa, turnos=args.turnos, perfil=args.perfil, servidor=servidor,
         max_concurrent=args.max_concurrent, espera_cola=args.espera_cola, espera_ui=args.espera_ui,
         espera_turno=args.espera_turno, sin_puerta=args.sin_puerta, pausa=args.pausa, semilla=args.semilla,
-        proveedor=provider, real=args.real, log=print,
+        proveedor=provider, real=args.real, log=print, parar_si_error=args.parar_si_error,
     )
     print()
     print(runner.tabla(report))

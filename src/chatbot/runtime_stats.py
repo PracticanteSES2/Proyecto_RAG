@@ -214,6 +214,7 @@ class RuntimeStats:
             }
             self.llm_by_purpose = {}
             self.llm_latencies = deque(maxlen=RECENT_LATENCIES)
+            self._saturated_at = deque(maxlen=1000)  # instantes de rechazo (llm_pressure)
             self.powerbi = {"opened": 0, "reopened": 0, "queries": 0, "query_timeouts": 0,
                             "query_errors": 0, "timeout_kept": 0, "timeout_lost": 0}
             self.powerbi_opened_by_model = {}
@@ -271,8 +272,25 @@ class RuntimeStats:
             if elapsed is not None:
                 self.llm_latencies.append(float(elapsed))
 
+    def llm_pressure(self, window_s=60.0):
+        """Presión sobre MedGemma ahora: {"in_flight", "waiting", "capacity",
+        "saturated_recent"} (rechazos por saturación en los últimos
+        `window_s` s). Con LLM_GATE_BACKEND=redis, in_flight/waiting son
+        globales (todas las réplicas); saturated_recent es de este proceso."""
+        state = self.queue_state("llm", ident=-1)
+        now = self._clock()
+        with self._lock:
+            recent = sum(1 for at in self._saturated_at if now - at <= window_s)
+        return {
+            "in_flight": state.get("in_flight") or 0,
+            "waiting": state.get("waiting") or 0,
+            "capacity": state.get("capacity"),
+            "saturated_recent": recent,
+        }
+
     def llm_saturated(self, purpose):
         with self._lock:
+            self._saturated_at.append(self._clock())
             self.llm["saturated"] += 1
             entry = self.llm_by_purpose.setdefault(purpose or "otro", {"calls": 0, "timeouts": 0})
             entry["saturated"] = entry.get("saturated", 0) + 1
@@ -341,6 +359,7 @@ class RuntimeStats:
         for name in ("turn", "llm"):
             state = self.queue_state(name, ident=-1)
             data[f"{name}_queue"] = {key: state.get(key) for key in ("capacity", "in_flight", "waiting")}
+        data["llm_pressure"] = self.llm_pressure()
         data["powerbi_open"] = open_connections(powerbi_provider)
         cache = getattr(powerbi_provider, "domain_cache", None) if powerbi_provider is not None else None
         try:

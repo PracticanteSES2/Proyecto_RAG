@@ -291,6 +291,29 @@ class UiProgressTests(unittest.TestCase):
         blocker.join(5)
         self.assertEqual(result["status"], "success")
 
+    def test_pressure_and_queue_observer(self):
+        provider = GateProvider()
+        results = {}
+        blocker = _call_in_thread(provider, "a", results, timeout=20)
+        self.assertTrue(_wait(lambda: queue_state()["in_flight"] == 1))
+        titles = []
+        remove = llm_gate.add_queue_observer(lambda e: titles.append(e["titulo"]))
+        try:
+            before = STATS.llm_pressure()["saturated_recent"]
+            result = call_llm(provider, MESSAGES, purpose="prueba", timeout=5, queue_wait=0.3)
+        finally:
+            remove()
+        self.assertEqual(result["status"], "llm_saturated")
+        pressure = STATS.llm_pressure()
+        self.assertEqual(pressure["saturated_recent"], before + 1)
+        self.assertEqual((pressure["in_flight"], pressure["capacity"]), (1, 1))
+        self.assertIn("waiting", pressure)
+        self.assertTrue(titles and all(t.startswith("LLM en cola") for t in titles), titles)
+        self.assertIn("sin hueco", titles[-1])
+        self.assertIn("llm_pressure", STATS.snapshot())
+        provider.release.set()
+        blocker.join(5)
+
     def test_context_does_not_leak_after_exit(self):
         with ui_progress(queue_wait=7):
             self.assertIsNotNone(llm_gate.current_progress())

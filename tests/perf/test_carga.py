@@ -176,6 +176,27 @@ class RunnerLLMTests(unittest.TestCase):
         self.assertEqual(calls["tasa_saturadas"], 0.0)
         self.assertEqual(calls["ok"], 6)
 
+    def test_probe_reveals_server_parallelism_without_gate(self):
+        from tools.carga import runner
+        report = runner.correr(
+            modo="llm", rampa=[5], turnos=1, perfil="sonda", sin_puerta=True,
+            servidor=ServidorConfig(num_parallel=2, gen_tps=40.0, prompt_tps=20000.0, degradacion=0.0,
+                                    escala=0.05), log=None,
+        )
+        par = report["niveles"][0]["llamadas"]["paralelismo_observado"]
+        self.assertEqual(par["generando_max"], 2)
+        self.assertEqual(par["en_servidor_max"], 5)
+
+    def test_ramp_stops_when_errors_exceed_threshold(self):
+        from tools.carga import runner
+        report = runner.correr(
+            modo="llm", rampa=[1, 4, 8], turnos=1, perfil="sonda", sin_puerta=True, parar_si_error=0.3,
+            servidor=ServidorConfig(num_parallel=1, max_queue=1, gen_tps=40.0, prompt_tps=20000.0, escala=0.05),
+            log=None,
+        )
+        self.assertEqual([level["usuarios"] for level in report["niveles"]], [1, 4])
+        self.assertIn("detenido", report["niveles"][-1])
+
     def test_table_and_json_output(self):
         from tools.carga import runner
         report = runner.correr(

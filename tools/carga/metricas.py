@@ -89,3 +89,39 @@ def resumen_turnos(turns, wall_s):
         "tasa_error": _rate(len(errors), n),
         "turnos_por_min": round(served / wall_s * 60.0, 2) if wall_s else 0.0,
     }
+
+
+def _max_overlap(intervals):
+    events = []
+    for start, end in intervals:
+        if start is None or end is None or end <= start:
+            continue
+        events.append((start, 1))
+        events.append((end, -1))
+    current = best = 0
+    for _, delta in sorted(events, key=lambda e: (e[0], e[1])):
+        current += delta
+        best = max(best, current)
+    return best
+
+
+def paralelismo_observado(calls):
+    """Desde el cliente: cuántas llamadas exitosas estuvieron GENERANDO a la
+    vez como máximo (del primer token al final; requiere el ttft del servidor,
+    p. ej. --streaming o el simulado) y cuántas estuvieron dentro del servidor
+    a la vez. Si el máximo generando se queda en P aunque haya más usuarios,
+    el servidor atiende P en paralelo (OLLAMA_NUM_PARALLEL efectivo) y el
+    resto espera en SU cola (primer token tardío)."""
+    generating, inside = [], []
+    for call in calls:
+        if call.get("status") not in OK or call.get("t1_s") is None or call.get("duration_s") is None:
+            continue
+        end = call["t1_s"]
+        start = end - call["duration_s"]
+        inside.append((start, end))
+        if call.get("ttft_srv_s") is not None:
+            generating.append((start + call["ttft_srv_s"], end))
+    if not inside:
+        return None
+    return {"generando_max": _max_overlap(generating) if generating else None,
+            "en_servidor_max": _max_overlap(inside)}

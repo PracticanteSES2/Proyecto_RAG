@@ -67,7 +67,15 @@ def _mensajes_descripcion():
             {"role": "user", "content": describer.build_prompt(option)}]
 
 
+def _mensajes_sonda():
+    # Salida de largo fijo: con num_predict=64 todas generan exactamente 64
+    # tokens (se cortan a propósito), así la duración solo depende de la carga.
+    return [{"role": "user", "content": "Escribe los números del 1 al 300 separados por comas, sin nada más."}]
+
+
 LLAMADAS = {
+    "sonda": {"purpose": "sonda de capacidad", "max_tokens": 64, "timeout": 90.0,
+              "queue_wait": None, "temperature": 0.0, "messages": _mensajes_sonda},
     "sintesis": {"purpose": "síntesis RAG", "max_tokens": 600, "timeout": DEFAULT_SYNTHESIS_TIMEOUT,
                  "queue_wait": None, "temperature": 0.1, "messages": _mensajes_sintesis},
     "reescritura": {"purpose": "reescritura contextual", "max_tokens": 80, "timeout": 8.0,
@@ -78,6 +86,7 @@ LLAMADAS = {
 
 # Un turno = lista de pasos; un paso = llamadas que van en paralelo.
 TURNOS = {
+    "sonda": [["sonda"]],
     "sintesis": [["sintesis"]],
     "seguimiento": [["reescritura"], ["sintesis"]],
     "opciones": [["descripcion", "descripcion", "descripcion"]],
@@ -87,7 +96,7 @@ TURNOS = {
 # Mezcla supuesta de un día normal (ajústala con --perfil o editando aquí).
 MIXTO = [("sintesis", 0.45), ("seguimiento", 0.15), ("opciones", 0.20), ("powerbi", 0.20)]
 
-PERFILES = ("sintesis", "seguimiento", "opciones", "mixto")
+PERFILES = ("sonda", "sintesis", "seguimiento", "opciones", "mixto")
 
 
 def elegir_turno(perfil, rng):

@@ -81,6 +81,7 @@ class _Llamador:
         self.espera_ui = espera_ui
         self.sin_puerta = sin_puerta
         self.messages = {name: spec["messages"]() for name, spec in escenarios.LLAMADAS.items()}
+        self.t_ref = time.perf_counter()
 
     def llamar(self, name, en_hilo_de_sesion=True):
         from src.llm.llm_gate import call_llm
@@ -93,6 +94,7 @@ class _Llamador:
         else:
             queue_wait = self.espera_cola * self.escala
         started = time.perf_counter()
+        t0 = (started - self.t_ref) / self.escala
         if self.sin_puerta:
             try:
                 result = self.provider.chat(self.messages[name], temperature=spec["temperature"],
@@ -122,12 +124,17 @@ class _Llamador:
             "truncated": bool(result.get("truncated")), "done_reason": result.get("done_reason"),
             "context_truncated": bool(result.get("context_truncated")),
             "error": result.get("error"),
+            # Intervalo de la llamada desde el inicio del escalón (paralelismo observado).
+            "t0_s": round(t0, 3), "t1_s": round(t0 + latency, 3),
+            "duration_s": None if duration is None else round(float(duration), 3),
+            "ttft_srv_s": None if ttft is None else round(float(ttft), 3),
         }
 
 
 def _nivel_llm(usuarios, turnos, perfil, llamador, semilla, pausa):
     from src.llm.llm_gate import ui_progress
     calls, turns, lock = [], [], threading.Lock()
+    llamador.t_ref = time.perf_counter()
 
     def usuario(index):
         rng = escenarios.nuevo_rng(semilla, index)
@@ -291,7 +298,8 @@ def _nivel_e2e(usuarios, turnos, sistema, grabadora, escala, espera_turno, esper
 
 def correr(modo="llm", rampa=(1, 3, 5, 10, 20), turnos=2, perfil="mixto", servidor=None,
            max_concurrent=None, espera_cola=None, espera_ui=None, espera_turno=120.0,
-           sin_puerta=False, pausa=0.0, semilla=7, proveedor=None, real=False, log=print):
+           sin_puerta=False, pausa=0.0, semilla=7, proveedor=None, real=False, log=print,
+           parar_si_error=None):
     """Corre la rampa y devuelve el informe (dict). `proveedor` (real) sustituye
     al simulado; con él la escala es 1."""
     servidor = servidor or ServidorConfig()
@@ -340,9 +348,18 @@ def correr(modo="llm", rampa=(1, 3, 5, 10, 20), turnos=2, perfil="mixto", servid
                         "received", "completed", "rejected_503", "cancelled_queued", "cancelled_generating",
                         "truncated", "context_truncated") else after[k] for k in after}
                     server.stats["max_active"] = server.stats["max_queued"] = 0
+                level["llamadas"]["paralelismo_observado"] = metricas.paralelismo_observado(calls)
                 niveles.append(level)
                 if log:
                     log(_fila(level))
+                c = level["llamadas"]
+                failing = c["tasa_error"] + c["tasa_tiempo_agotado"]
+                if parar_si_error is not None and c["n"] and failing > parar_si_error:
+                    level["detenido"] = (f"tasa de error + tiempo agotado {failing:.0%} > {parar_si_error:.0%}: "
+                                         "se detiene la rampa")
+                    if log:
+                        log(level["detenido"])
+                    break
         finally:
             if restaurar:
                 restaurar()
@@ -356,7 +373,7 @@ def correr(modo="llm", rampa=(1, 3, 5, 10, 20), turnos=2, perfil="mixto", servid
 COLUMNAS = [
     ("usuarios", 8), ("llamadas", 8), ("ok", 5), ("p50 s", 7), ("p95 s", 7), ("1er tok p95", 11),
     ("saturadas", 9), ("t.agotado", 9), ("error", 6), ("truncadas", 9), ("ok/min", 7),
-    ("turno p95 s", 11), ("espera turno p95", 16), ("ocupado", 7), ("respaldo", 8),
+    ("turno p95 s", 11), ("espera turno p95", 16), ("ocupado", 7), ("respaldo", 8), ("paralelo", 8),
 ]
 
 
@@ -375,6 +392,7 @@ def _fila(level):
         _num(c["ttft_p95_s"]), _pct(c["tasa_saturadas"]), _pct(c["tasa_tiempo_agotado"]), _pct(c["tasa_error"]),
         _pct(c["tasa_truncadas"]), _num(c["throughput_ok_por_min"]), _num(t["total_p95_s"]),
         _num(t["espera_turno_p95_s"]), _pct(t["tasa_ocupado"]), _pct(t["tasa_respaldo_extractivo"]),
+        str((c.get("paralelismo_observado") or {}).get("generando_max") or "-"),
     ]
     return " | ".join(value.rjust(width) for value, (_, width) in zip(values, COLUMNAS))
 
