@@ -68,6 +68,10 @@ description: "Tareas del portero de alcance (segunda entrega)"
   (clínico) y «buscarv» (ofimática), 6/6 después; evaluador `g_fuera_alcance` 6/6 de los que no resuelve el motor.
 - Ciego nuevo (43 frases no vistas): 34/43 antes de ajustar; 40/43 tras patrones generales (no ciego ya).
 - Similitud: solo 7 preguntas reales llegan «limpias»; ninguna supera ni 0.70/0.05. Se fija 0.80/0.20.
+- Catálogo real (2.444 palabras, `PORTERO_RAIZ_REAL`) tras la corrección del 2026-11-10: mismas cifras que
+  el fixture (1.296): F* 127/128, falsos positivos 0/728, rechazos etiquetados 17/17 (incluidos PIB y
+  salario, ahora en noticias/economía; «hola, buenos dias» sigue siendo charla), ciego 40/43. Antes de la
+  corrección, con el real: F* 123/128 y 3 rechazos etiquetados sin detectar.
 
 ## Dependencies & Execution Order
 

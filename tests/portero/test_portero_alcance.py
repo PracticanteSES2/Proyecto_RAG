@@ -4,8 +4,16 @@
 
 Principio: un falso positivo (bloquear una pregunta real) es mucho peor que un
 falso negativo. El barrido de TODOS los bancos reales debe dar 0 intercepciones.
+
+Catálogo: las pruebas usan un catálogo de FIXTURE determinista (solo
+``docs_tableros/`` versionado, con una raíz sin ``data/``), el mismo en cualquier
+checkout. Para repetir las mismas comprobaciones con el catálogo REAL (solo
+lectura) se apunta ``PORTERO_RAIZ_REAL`` a una raíz con ``data/``:
+
+  $env:PORTERO_RAIZ_REAL="C:\\ruta\\al\\checkout"; python -X utf8 -m unittest tests.portero.test_portero_alcance
 """
 import json
+import os
 import time
 import unittest
 from collections import Counter
@@ -15,11 +23,16 @@ import numpy as np
 
 from src.chatbot import portero_alcance
 from src.chatbot.portero import (
-    Clasificacion, EJEMPLOS, SimilitudPortero, clasificar, normalizar, responder,
+    Clasificacion, EJEMPLOS, SimilitudPortero, clasificar, normalizar, responder, vocabulario_dominio,
 )
-from tests.portero.test_portero import BANCO, PROJECT_ROOT, VOCAB, _json
+from src.comun.rutas import RAIZ_PROYECTO as PROJECT_ROOT
+from tests.portero.test_portero import BANCO, _json
 
 TIPO = "fuera_de_alcance"
+RAIZ_FIXTURE = PROJECT_ROOT / "tests" / "portero"  # sin data/: solo la documentación versionada
+DOCS_FIXTURE = PROJECT_ROOT / "docs_tableros"
+VOCAB = vocabulario_dominio(RAIZ_FIXTURE, docs_root=DOCS_FIXTURE)
+RAIZ_REAL = os.environ.get("PORTERO_RAIZ_REAL", "").strip()
 
 
 def _casos(prefijo):
@@ -84,27 +97,58 @@ def _casos_eval():
     return json.loads(ruta.read_text(encoding="utf-8"))["cases"]
 
 
-def _como_motor(texto, similitud=None):
+def _como_motor(texto, similitud=None, raiz=RAIZ_FIXTURE, vocab=None):
     """Igual que el motor: charla sobre el texto normalizado, alcance sobre el original."""
     from src.semantic.question_normalizer import normalize_question, vocabulary_for
 
+    docs = DOCS_FIXTURE if raiz == RAIZ_FIXTURE else None
     try:
-        norm = normalize_question(texto, vocabulary_for(PROJECT_ROOT)).text or texto
+        norm = normalize_question(texto, vocabulary_for(raiz, docs)).text or texto
     except Exception:
         norm = texto
-    return clasificar(norm, VOCAB, similitud, original=texto)
+    return clasificar(norm, VOCAB if vocab is None else vocab, similitud, original=texto)
+
+
+EJEMPLOS_USUARIO = {
+    "necesito que me respondas algo": "vago",
+    "quiero saber cuánto es la raíz cuadrada de x": "calculo",
+    "qué pasó ayer en Tailandia": "noticias",
+    "cómo hace las cirugías el hospital Santa Sofía": "otra_institucion",
+    "hazme un reporte de": "vago",
+}
+
+# Rechazos etiquetados en los bancos y lo que el portero responde a cada uno.
+ESPERADO_ETIQUETADOS = {"hola, buenos dias": "charla/saludo"}  # el resto: fuera_de_alcance/*
+
+
+def cobertura(vocab):
+    """(total, aciertos por categoría, fallos) del banco F* solo con reglas."""
+    total, aciertos, fallos = Counter(), Counter(), []
+    for c in _casos("F"):
+        sub = c["esperado"].split("/", 1)[1]
+        total[sub] += 1
+        r = clasificar(c["texto"], vocab)
+        if r is not None and f"{r.tipo}/{r.subtipo}" == c["esperado"]:
+            aciertos[sub] += 1
+        else:
+            fallos.append((c["id"], c["texto"], r and f"{r.tipo}/{r.subtipo}"))
+    return total, aciertos, fallos
+
+
+def etiquetados_mal_resueltos(**motor):
+    malos = []
+    for t in textos_fuera_de_alcance_etiquetados():
+        r = _como_motor(t, **motor)
+        got = f"{r.tipo}/{r.subtipo}" if r else None
+        esperado = ESPERADO_ETIQUETADOS.get(t)
+        if (got != esperado) if esperado else not (got or "").startswith(TIPO):
+            malos.append((t, got))
+    return malos
 
 
 class TestEjemplosDelUsuario(unittest.TestCase):
     def test_cinco_ejemplos(self):
-        casos = {
-            "necesito que me respondas algo": "vago",
-            "quiero saber cuánto es la raíz cuadrada de x": "calculo",
-            "qué pasó ayer en Tailandia": "noticias",
-            "cómo hace las cirugías el hospital Santa Sofía": "otra_institucion",
-            "hazme un reporte de": "vago",
-        }
-        for texto, sub in casos.items():
+        for texto, sub in EJEMPLOS_USUARIO.items():
             with self.subTest(texto=texto):
                 c = _como_motor(texto)
                 self.assertIsNotNone(c)
@@ -124,17 +168,8 @@ class TestEjemplosDelUsuario(unittest.TestCase):
 
 class TestCategorias(unittest.TestCase):
     def test_cobertura_por_categoria_solo_reglas(self):
-        casos = _casos("F")
-        self.assertGreaterEqual(len(casos), 100)
-        total, aciertos, fallos = Counter(), Counter(), []
-        for c in casos:
-            sub = c["esperado"].split("/", 1)[1]
-            total[sub] += 1
-            r = clasificar(c["texto"], VOCAB)
-            if r is not None and f"{r.tipo}/{r.subtipo}" == c["esperado"]:
-                aciertos[sub] += 1
-            else:
-                fallos.append((c["id"], c["texto"], r and f"{r.tipo}/{r.subtipo}"))
+        self.assertGreaterEqual(len(_casos("F")), 100)
+        total, aciertos, fallos = cobertura(VOCAB)
         global_ = sum(aciertos.values()) / sum(total.values())
         self.assertGreaterEqual(global_, 0.90, fallos)
         for sub in total:
@@ -232,11 +267,10 @@ class TestCategorias(unittest.TestCase):
     def test_positivos_etiquetados_en_los_bancos(self):
         """Rechazos que los bancos ya esperan (holdouts H47-H49, G48-G50 y casos
         del evaluador). Medición: antes de generalizar dos reglas («mejor X
-        para Y» clínico y «buscarv» de ofimática) se detectaban 4 de 6 holdouts."""
-        textos = textos_fuera_de_alcance_etiquetados()
-        detectados = [t for t in textos if (_como_motor(t) or Clasificacion("", "", 0, "")).tipo == TIPO]
-        # No se esperan: el saludo (charla) y salario/PIB (los resuelve el motor tras el catálogo).
-        self.assertGreaterEqual(len(detectados), len(textos) - 3, set(textos) - set(detectados))
+        para Y» clínico y «buscarv» de ofimática) se detectaban 4 de 6 holdouts.
+        «hola, buenos dias» (g_saludo) sigue siendo charla de la primera entrega."""
+        self.assertGreaterEqual(len(textos_fuera_de_alcance_etiquetados()), 14)
+        self.assertEqual(etiquetados_mal_resueltos(), [])
 
     def test_tipeo_de_una_letra_cuenta_como_dominio(self):
         for t in ("cirujias", "ocupasion", "cirugas", "urgenciass", "arepas"):  # arepas ~ areas
@@ -287,6 +321,47 @@ class TestSinFalsosPositivos(unittest.TestCase):
         malos = [t for t in textos if clasificar(t, VOCAB) is not None]
         self.assertEqual(malos, [])
         malos = [t for t in textos if _como_motor(t) is not None]
+        self.assertEqual(malos, [])
+
+
+@unittest.skipUnless(RAIZ_REAL and (Path(RAIZ_REAL) / "data").is_dir(),
+                     "PORTERO_RAIZ_REAL no apunta a una raíz con data/ (catálogo real)")
+class TestCatalogoReal(unittest.TestCase):
+    """Mismas comprobaciones con el catálogo REAL (solo lectura, fuera del repo)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.raiz = Path(RAIZ_REAL)
+        cls.vocab = vocabulario_dominio(cls.raiz)
+
+    def _motor(self, texto):
+        return _como_motor(texto, raiz=self.raiz, vocab=self.vocab)
+
+    def test_catalogo_real_es_mas_grande(self):
+        self.assertGreater(len(self.vocab), len(VOCAB))
+
+    def test_ejemplos_del_usuario(self):
+        for texto, sub in EJEMPLOS_USUARIO.items():
+            with self.subTest(texto=texto):
+                c = self._motor(texto)
+                self.assertEqual(c and (c.tipo, c.subtipo), (TIPO, sub))
+        self.assertIsNone(self._motor("hazme un reporte de la ocupación de camas"))
+
+    def test_cobertura(self):
+        total, aciertos, fallos = cobertura(self.vocab)
+        self.assertGreaterEqual(sum(aciertos.values()) / sum(total.values()), 0.90, fallos)
+        for sub in total:
+            with self.subTest(categoria=sub):
+                self.assertGreaterEqual(aciertos[sub] / total[sub], 0.80, fallos)
+
+    def test_etiquetados(self):
+        self.assertEqual(etiquetados_mal_resueltos(raiz=self.raiz, vocab=self.vocab), [])
+
+    def test_sin_falsos_positivos(self):
+        textos = textos_todos_los_bancos() + [c["texto"] for c in _casos("N") + _casos("D")]
+        malos = [t for t in textos if clasificar(t, self.vocab) is not None
+                 and clasificar(t, self.vocab).tipo == TIPO]
+        malos += [t for t in textos if (r := self._motor(t)) is not None and r.tipo == TIPO]
         self.assertEqual(malos, [])
 
 
@@ -376,7 +451,7 @@ class TestRespuestas(unittest.TestCase):
         self.assertIn("No redacto", self._r("redaccion"))
         self.assertIn("No redacto", self._r("programacion"))
         self.assertIn("No entendí", self._r("sin_sentido"))
-        self.assertIn("fuera de lo que puedo responder", self._r("calculo"))
+        self.assertIn("fuera del alcance", self._r("calculo"))
 
 
 if __name__ == "__main__":

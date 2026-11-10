@@ -10,3 +10,7 @@ streamlit
 msal
 truststore
 redis
+# Backend FastAPI (backend/)
+fastapi
+uvicorn[standard]
+pydantic-settings
