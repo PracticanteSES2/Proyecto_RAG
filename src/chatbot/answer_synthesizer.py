@@ -1,7 +1,10 @@
 import os
 import re
+import time
 import unicodedata
 
+from src.chatbot.respuesta_completa import completar
+from src.llm import presupuesto_tokens as P
 from src.llm.llm_gate import call_llm
 
 from src.rag.grounding import ground_answer, has_content
@@ -88,6 +91,12 @@ STYLE_TASK = (
 # fórmula documentada).
 BRIEF_TASK = "Si la respuesta es puntual, basta con una a tres frases."
 BRIEF_INTENTS = ("definition", "general")
+# Extensión objetivo acorde a num_predict (src/llm/presupuesto_tokens.py): la
+# respuesta debe terminar antes del tope y no quedar cortada.
+LENGTH_TASK = (
+    "Extensión: como máximo unas {palabras} palabras. Si no caben todos los elementos, nombra los "
+    "principales y di en una frase que hay más. Termina siempre con una frase completa."
+)
 
 # Conversación previa que acompaña la pregunta (solo para entenderla).
 HISTORY_MARKER = "CONVERSACIÓN PREVIA"
@@ -221,7 +230,7 @@ REGLAS OBLIGATORIAS:
 8. Conserva exactamente los nombres, valores, rangos y categorías presentes
    en la evidencia.
 9. No confundas información documental con un valor actual de Power BI.
-10. Sé completo pero sin relleno: incluye todos los elementos relevantes del
+10. Sé completo pero sin relleno y dentro de la extensión que pide la TAREA: incluye todos los elementos relevantes del
     CONTEXTO (indicadores, visualizaciones, filtros, rangos, categorías) y
     usa viñetas solo cuando haya varios.
 11. Si el CONTEXTO trae información de varios tableros o páginas, indica a
@@ -246,7 +255,7 @@ REGLAS OBLIGATORIAS:
         max_sources=5,
         max_context_chars=7000,
         max_source_chars=2500,
-        max_tokens=600,
+        max_tokens=None,
         timeout_seconds=None,
     ):
         self.llm_provider = (
@@ -282,14 +291,12 @@ REGLAS OBLIGATORIAS:
             max_source_chars
         )
 
-        self.max_tokens = (
-            max_tokens
-        )
+        # Tope de salida: LLM_NUM_PREDICT_SINTESIS (600 por defecto).
+        self.max_tokens = max_tokens or P.num_predict("sintesis")
 
-    def _build_context(
-        self,
-        sources,
-    ):
+    def _build_context(self, sources, max_chars=None):
+        """`max_chars` (opcional) acota aún más el contexto (recorte por num_ctx)."""
+        limit = self.max_context_chars if max_chars is None else min(max_chars, self.max_context_chars)
         sections = []
         total_chars = 0
 
@@ -362,10 +369,7 @@ REGLAS OBLIGATORIAS:
                 + text
             )
 
-            remaining = (
-                self.max_context_chars
-                - total_chars
-            )
+            remaining = limit - total_chars
 
             if remaining <= 0:
                 break
@@ -435,23 +439,90 @@ REGLAS OBLIGATORIAS:
             rest.sort(key=lambda source: source.get("chunk_type") != "dashboard_overview")
             sources = head + rest
 
-        context = self._build_context(
-            sources
-        )
+        conversation = history_block(self._previous_turns(question, history))
+        task_lines = [task, STYLE_TASK, LENGTH_TASK.format(palabras=P.extension_pedida(self.max_tokens))]
+        if intent in BRIEF_INTENTS:
+            task_lines.append(BRIEF_TASK)
+        if conversation:
+            task_lines.append(HISTORY_TASK)
 
+        # Nunca más entrada de la que cabe en num_ctx junto a la salida: se
+        # quitan primero las fuentes menos relevantes (las últimas).
+        def build(count, max_chars):
+            built = self._build_context(sources[:count], max_chars)
+            return built, self._rag_messages(question, built, conversation, task_lines)
+
+        context, messages, trimmed = P.ajustar_a_contexto(
+            build, min(len(sources), self.max_sources), self.max_tokens,
+        )
         if not context:
             return {
                 "status": "not_found",
                 "answer": None,
             }
 
-        conversation = history_block(self._previous_turns(question, history))
-        task_lines = [task, STYLE_TASK]
-        if intent in BRIEF_INTENTS:
-            task_lines.append(BRIEF_TASK)
-        if conversation:
-            task_lines.append(HISTORY_TASK)
+        started = time.perf_counter()
+        result = self._chat_with_timeout(messages=messages, temperature=0.1, max_tokens=self.max_tokens, think=False)
 
+        if (
+            result.get("status")
+            != "success"
+        ):
+            return {
+                "status": "llm_unavailable",
+                "answer": None,
+                "details": result,
+            }
+
+        # Truncada por num_predict: corte seguro o UNA continuación
+        # (src/chatbot/respuesta_completa.py). Nada truncado sigue sin reparar.
+        raw, diagnostico = completar(
+            result, messages, self._continue,
+            presupuesto_s=self.timeout_seconds or None,
+            transcurrido_s=time.perf_counter() - started, salida=self.max_tokens,
+        )
+        diagnostico.update(num_predict=self.max_tokens, num_ctx=P.num_ctx(), recorte=trimmed,
+                           tokens_entrada_estimados=P.tokens_mensajes(messages))
+        if not raw.strip():
+            return {"status": "llm_truncated", "answer": None, "diagnostico": diagnostico,
+                    "details": {"status": "llm_truncated", "num_predict": self.max_tokens}}
+
+        answer, unsupported = self._postprocess(
+            raw, context, question, self._previous_turns(question, history) if conversation else None,
+        )
+        return {
+            "status": "success",
+            "answer": answer,
+            "model": result.get(
+                "model"
+            ),
+            "intent": intent,
+            "unsupported": [piece for piece, _ in unsupported],
+            # El LLM no halló respuesta en el contexto: quien llama lo trata
+            # como «no encontrado» (p. ej. pregunta fuera de alcance).
+            "no_evidence": self.is_no_evidence(answer),
+            # Truncada y no completada: lleva la línea del tablero y nunca va a caché.
+            "incompleta": diagnostico["incompleta"],
+            "cacheable": not diagnostico["incompleta"],
+            "diagnostico": diagnostico,
+        }
+
+    def _postprocess(self, raw, context, question, previous_turns):
+        """(respuesta limpia y anclada, piezas sin respaldo). `previous_turns`
+        (o None) sirve para no repetir la apertura ya dicha."""
+        answer = self._drop_unsupported_scaling(self._clean_answer(raw), context)
+        if previous_turns:
+            answer = self._drop_repeated_opening(answer, previous_turns)
+        # Nunca cifras, tendencias ni listas que no estén en el CONTEXTO
+        # (src/rag/grounding.py; auditoría holdout 2: G16, G29, MT19.3).
+        unsupported = []
+        if answer and not self.is_no_evidence(answer):
+            grounded, unsupported = ground_answer(answer, [context], question)
+            if unsupported:
+                answer = grounded if has_content(grounded) else NO_EVIDENCE_ANSWER
+        return answer, unsupported
+
+    def _rag_messages(self, question, context, conversation, task_lines):
         # La conversación va ANTES de la pregunta y fuera del CONTEXTO: el
         # modelo (y el Ollama falso de las pruebas) solo toma evidencia de
         # «CONTEXTO RECUPERADO:» hasta «TAREA:».
@@ -467,64 +538,15 @@ TAREA:
 Usa únicamente el CONTEXTO. Solo si el CONTEXTO no contiene nada que
 responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
 """.strip()
+        return [{"role": "system", "content": self.SYSTEM_PROMPT}, {"role": "user", "content": user_prompt}]
 
-        result = self._chat_with_timeout(
-            messages=[
-                {
-                    "role": "system",
-                    "content":
-                        self.SYSTEM_PROMPT,
-                },
-                {
-                    "role": "user",
-                    "content":
-                        user_prompt,
-                },
-            ],
-            temperature=0.1,
-            max_tokens=self.max_tokens,
-            think=False,
+    def _continue(self, messages, max_tokens, timeout):
+        """Continuación de una síntesis truncada: opcional, espera hueco 1 s como mucho."""
+        return call_llm(
+            self.llm_provider, messages, purpose="continuación síntesis",
+            timeout=timeout if timeout and timeout > 0 else None, queue_wait=1.0,
+            temperature=0.1, max_tokens=max_tokens, think=False,
         )
-
-        if (
-            result.get("status")
-            != "success"
-        ):
-            return {
-                "status": "llm_unavailable",
-                "answer": None,
-                "details": result,
-            }
-
-        answer = self._drop_unsupported_scaling(
-            self._clean_answer(result.get("answer")),
-            context,
-        )
-        if conversation:
-            answer = self._drop_repeated_opening(
-                answer, self._previous_turns(question, history),
-            )
-
-        # Nunca cifras, tendencias ni listas que no estén en el CONTEXTO
-        # (src/rag/grounding.py; auditoría holdout 2: G16, G29, MT19.3).
-        unsupported = []
-        if answer and not self.is_no_evidence(answer):
-            grounded, unsupported = ground_answer(answer, [context], question)
-            if unsupported:
-                answer = grounded if has_content(grounded) else NO_EVIDENCE_ANSWER
-
-        return {
-            "status": "success",
-            "answer": answer,
-            "model": result.get(
-                "model"
-            ),
-            "intent": intent,
-            "unsupported": [piece for piece, _ in unsupported],
-            # El LLM no halló respuesta en el contexto: quien llama lo trata
-            # como «no encontrado» (p. ej. pregunta fuera de alcance).
-            "no_evidence": self.is_no_evidence(answer),
-        }
 
     @staticmethod
     def is_no_evidence(answer):
@@ -741,6 +763,6 @@ No inventes causas ni tendencias no demostradas.
                 },
             ],
             temperature=0.1,
-            max_tokens=350,
+            max_tokens=P.num_predict("powerbi"),
             think=False,
         )

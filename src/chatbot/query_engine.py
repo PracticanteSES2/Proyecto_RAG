@@ -7152,7 +7152,7 @@ class QueryEngine:
             self._think(
                 "Búsqueda en la documentación (RAG)",
                 f"estado: {rag_result.get('status')} · síntesis: {rag_result.get('synthesis_mode')}",
-                rag_result.get("synthesis_issue"),
+                rag_result.get("synthesis_issue"), rag_result.get("synthesis_detail"),
                 *[
                     f"fuente: {source_label(source) or '-'} · {source.get('chunk_type') or '-'}"
                     f" · puntaje {format_score(source.get('score'))}"
@@ -7247,10 +7247,9 @@ class QueryEngine:
                     + str(answer)
                 )
             return {
-                "status":
-                    rag_result.get(
-                        "status"
-                    ),
+                "status": rag_result.get("status"),
+                # False si la síntesis quedó truncada sin completar (spec 011): no va a caché.
+                "cacheable": rag_result.get("cacheable", True),
                 "pages_without_metrics": missing_pages or [],
                 "route":
                     "rag",

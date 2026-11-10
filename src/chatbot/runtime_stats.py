@@ -49,7 +49,6 @@ espera, así que `queue_snapshot()` sin argumentos devuelve SU posición):
 `STATS.snapshot()` incluye además (campos NUEVOS; los anteriores no cambian)
 "turn_queue" y "llm_queue" con capacity/in_flight/waiting (sin posición).
 """
-import os
 import re
 import threading
 import time
@@ -57,24 +56,11 @@ from collections import deque
 from contextlib import contextmanager
 from datetime import datetime
 
+# env_float/env_int viven en src/comun/entorno.py; se reexportan con su nombre de siempre.
+from src.comun.entorno import env_float, env_int  # noqa: F401
+
 # Latencias recientes que se promedian (llamadas al LLM).
 RECENT_LATENCIES = 20
-
-
-def env_float(name, default):
-    try:
-        value = float(os.getenv(name, default))
-    except (TypeError, ValueError):
-        return float(default)
-    return value if value > 0 else float(default)
-
-
-def env_int(name, default):
-    try:
-        value = int(float(os.getenv(name, default)))
-    except (TypeError, ValueError):
-        return int(default)
-    return value if value > 0 else int(default)
 
 
 # ======================================================================
