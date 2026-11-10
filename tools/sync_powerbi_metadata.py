@@ -2,12 +2,12 @@ import argparse
 import csv
 import hashlib
 import json
-import re
 import sys
-import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote
+
+from src.comun.texto import normalizar, slug
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
@@ -37,19 +37,11 @@ INFO_VIEW_QUERIES = {
 
 
 def normalize_text(value):
-    value = str(value or "").strip().lower()
-    value = "".join(
-        char
-        for char in unicodedata.normalize("NFD", value)
-        if unicodedata.category(char) != "Mn"
-    )
-    value = re.sub(r"[^a-z0-9]+", " ", value)
-    return re.sub(r"\s+", " ", value).strip()
+    return normalizar(value)
 
 
 def slugify(value):
-    text = normalize_text(value)
-    return text.replace(" ", "_") or "sin_nombre"
+    return slug(value) or "sin_nombre"
 
 
 def workspace_name_from_endpoint(endpoint):

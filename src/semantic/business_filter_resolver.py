@@ -1,8 +1,7 @@
 import json
-import re
-import unicodedata
 
 from src.providers.domain_cache import domain_cache_for
+from src.comun.texto import normalizar
 
 
 class BusinessFilterResolver:
@@ -140,39 +139,7 @@ class BusinessFilterResolver:
         self,
         value
     ):
-
-        if not value:
-            return ""
-
-        value = str(
-            value
-        ).lower()
-
-        value = "".join(
-            char
-            for char
-            in unicodedata.normalize(
-                "NFD",
-                value
-            )
-            if unicodedata.category(
-                char
-            ) != "Mn"
-        )
-
-        value = re.sub(
-            r"[^a-z0-9\s]",
-            " ",
-            value
-        )
-
-        value = re.sub(
-            r"\s+",
-            " ",
-            value
-        )
-
-        return value.strip()
+        return normalizar(value)
 
 
     # ========================================================

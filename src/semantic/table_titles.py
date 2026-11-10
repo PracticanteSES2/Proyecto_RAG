@@ -14,7 +14,8 @@ rotula con su agregación («Suma de PACIENTE_ACOSTADO») y el título queda com
 contexto, no como alias.
 """
 import re
-import unicodedata
+
+from src.comun.texto import normalizar
 
 TABLE_VISUAL_TYPES = {"tableex", "pivottable", "matrix", "table"}
 COUNT_AGGREGATIONS = {"count", "countnonnull", "distinctcount", "countrows", "countdistinct"}
@@ -28,9 +29,7 @@ _FRIENDLY_RE = re.compile(
 
 
 def _plain(text):
-    text = unicodedata.normalize("NFD", str(text or "").lower())
-    text = "".join(char for char in text if unicodedata.category(char) != "Mn")
-    return re.sub(r"[^a-z0-9]+", " ", text).strip()
+    return normalizar(text)
 
 
 def _stem(word):

@@ -1,7 +1,6 @@
 import json
-import re
-import unicodedata
-from pathlib import Path
+
+from src.comun.texto import llave
 
 
 MONTH_NAMES = {
@@ -25,28 +24,7 @@ MONTH_NAMES = {
 # ============================================================
 
 def normalize_name(value):
-
-    if not value:
-        return ""
-
-    value = str(value).lower().strip()
-
-    value = "".join(
-        char
-        for char in unicodedata.normalize(
-            "NFD",
-            value
-        )
-        if unicodedata.category(char) != "Mn"
-    )
-
-    value = re.sub(
-        r"[^a-z0-9]",
-        "",
-        value
-    )
-
-    return value
+    return llave(value)
 
 
 def load_json(path):

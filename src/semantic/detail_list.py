@@ -34,9 +34,9 @@ tope de filas de la lista.
 """
 import os
 import re
-import unicodedata
 
 from src.semantic.answer_shape import detail_request
+from src.comun.texto import plegar
 
 DEFAULT_MAX_ROWS = 50
 DEFAULT_TIMEOUT_S = 30
@@ -81,8 +81,7 @@ _DETAIL_VISUAL_TYPES = {"tableex", "table"}
 # ---------------------------------------------------------------------------
 
 def _fold(value):
-    text = unicodedata.normalize("NFD", str(value or "").lower())
-    return "".join(c for c in text if unicodedata.category(c) != "Mn")
+    return plegar(value)
 
 
 def compact(value):

@@ -2,9 +2,10 @@ import argparse
 import json
 import re
 import shutil
-import unicodedata
 from difflib import SequenceMatcher
 from pathlib import Path
+
+from src.comun.texto import normalizar, slug
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
@@ -24,17 +25,11 @@ REPORT_ROOT_CANDIDATES = (
 
 
 def normalize_text(value):
-    value = str(value or "").strip().lower()
-    value = "".join(
-        c for c in unicodedata.normalize("NFD", value)
-        if unicodedata.category(c) != "Mn"
-    )
-    value = re.sub(r"[^a-z0-9]+", " ", value)
-    return re.sub(r"\s+", " ", value).strip()
+    return normalizar(value)
 
 
 def slugify(value):
-    return normalize_text(value).replace(" ", "_") or "sin_nombre"
+    return slug(value) or "sin_nombre"
 
 
 def load_json(path, default=None):

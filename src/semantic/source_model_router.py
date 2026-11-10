@@ -1,32 +1,12 @@
 import json
 import re
-import unicodedata
 from pathlib import Path
+
+from src.comun.texto import normalizar
 
 
 def normalize_text(value):
-    value = str(value or "").lower().strip()
-
-    value = "".join(
-        char
-        for char in unicodedata.normalize(
-            "NFD",
-            value,
-        )
-        if unicodedata.category(char) != "Mn"
-    )
-
-    value = re.sub(
-        r"[^a-z0-9]+",
-        " ",
-        value,
-    )
-
-    return re.sub(
-        r"\s+",
-        " ",
-        value,
-    ).strip()
+    return normalizar(value)
 
 
 def _token_score(question, candidate):

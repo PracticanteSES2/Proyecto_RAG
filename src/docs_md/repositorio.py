@@ -20,9 +20,7 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import tempfile
-import unicodedata
 from pathlib import Path
 
 from .formato import (
@@ -36,6 +34,7 @@ from .formato import (
     validar,
 )
 from src.comun.rutas import RAIZ_PROYECTO
+from src.comun.texto import slug as _slug
 
 PROJECT_ROOT = RAIZ_PROYECTO
 DOCS_TABLEROS = PROJECT_ROOT / "docs_tableros"
@@ -60,9 +59,7 @@ def raiz_documentos(raiz: str | Path | None = None) -> Path:
 
 
 def slug(texto: str) -> str:
-    texto = unicodedata.normalize("NFD", str(texto or ""))
-    texto = "".join(c for c in texto if unicodedata.category(c) != "Mn").lower()
-    return re.sub(r"[^a-z0-9]+", "_", texto).strip("_") or "pagina"
+    return _slug(texto) or "pagina"
 
 
 def es_archivo_diccionario(nombre: str) -> bool:

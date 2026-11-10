@@ -1,9 +1,7 @@
 import argparse
 import json
 import os
-import re
 import sys
-import unicodedata
 from pathlib import Path
 
 from src.semantic.model_catalog_builder import (
@@ -16,49 +14,18 @@ from src.semantic.global_master_metric_builder import (
     build_global_master_metrics,
 )
 from src.comun.rutas import RAIZ_PROYECTO
+from src.comun.texto import normalizar, slug
 
 
 PROJECT_ROOT = RAIZ_PROYECTO
 
 
 def normalize_text(value):
-    value = str(
-        value or ""
-    ).strip().lower()
-
-    value = "".join(
-        char
-        for char in unicodedata.normalize(
-            "NFD",
-            value,
-        )
-        if unicodedata.category(char)
-        != "Mn"
-    )
-
-    value = re.sub(
-        r"[^a-z0-9]+",
-        " ",
-        value,
-    )
-
-    return re.sub(
-        r"\s+",
-        " ",
-        value,
-    ).strip()
+    return normalizar(value)
 
 
 def slugify(value):
-    return (
-        normalize_text(
-            value
-        ).replace(
-            " ",
-            "_",
-        )
-        or "sin_nombre"
-    )
+    return slug(value) or "sin_nombre"
 
 
 def display_name_from_slug(

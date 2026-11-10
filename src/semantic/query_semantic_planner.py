@@ -1,6 +1,6 @@
-import re
-import unicodedata
 from difflib import SequenceMatcher
+
+from src.comun.texto import normalizar
 
 
 GENERIC_ENTITY_TOKENS = {
@@ -20,17 +20,7 @@ GENERIC_ENTITY_TOKENS = {
 
 
 def normalize_text(value):
-    value = str(value or "").lower().strip()
-
-    value = "".join(
-        char
-        for char in unicodedata.normalize("NFD", value)
-        if unicodedata.category(char) != "Mn"
-    )
-
-    value = re.sub(r"[^a-z0-9]+", " ", value)
-
-    return re.sub(r"\s+", " ", value).strip()
+    return normalizar(value)
 
 
 def canonical_token(token):

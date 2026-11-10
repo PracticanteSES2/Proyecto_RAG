@@ -5,7 +5,6 @@ import logging
 import os
 import re
 import sys
-import unicodedata
 from pathlib import Path
 from typing import Iterator, Union
 
@@ -15,6 +14,7 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 
 from src.comun.rutas import RAIZ_PROYECTO
+from src.comun.texto import slug
 
 try:
     from dotenv import load_dotenv
@@ -56,14 +56,7 @@ def clean_text(text: str) -> str:
 
 def slugify(value: str) -> str:
     """Convierte un nombre humano en una clave estable de carpeta/configuración."""
-    value = clean_text(value).lower()
-    value = "".join(
-        char
-        for char in unicodedata.normalize("NFD", value)
-        if unicodedata.category(char) != "Mn"
-    )
-    value = re.sub(r"[^a-z0-9]+", "_", value)
-    return value.strip("_")
+    return slug(value)
 
 
 def folder_to_display_name(folder_name: str) -> str:

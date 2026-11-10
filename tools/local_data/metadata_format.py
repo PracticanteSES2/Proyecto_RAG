@@ -24,10 +24,11 @@ escribe sync_powerbi_metadata.write_csv.
 """
 import json
 import re
-import unicodedata
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+from src.comun.texto import normalizar, slug
 
 
 # ============================================================
@@ -35,20 +36,12 @@ from pathlib import Path
 # ============================================================
 
 def normalize_text(value):
-    value = str(value or "").strip().lower()
-    value = "".join(
-        char
-        for char in unicodedata.normalize("NFD", value)
-        if unicodedata.category(char) != "Mn"
-    )
-    value = re.sub(r"[^a-z0-9]+", " ", value)
-    return re.sub(r"\s+", " ", value).strip()
+    return normalizar(value)
 
 
 def slugify(value):
     """Misma regla que sync_powerbi_metadata.slugify (carpeta del modelo)."""
-    text = normalize_text(value)
-    return text.replace(" ", "_") or "sin_nombre"
+    return slug(value) or "sin_nombre"
 
 
 # ============================================================

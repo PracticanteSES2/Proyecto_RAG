@@ -86,7 +86,8 @@ import os
 import re
 import threading
 import time
-import unicodedata
+
+from src.comun.texto import llave, plegar
 
 DEFAULT_LIMIT = 2500
 BATCH_MARKER = "__columna"
@@ -141,9 +142,7 @@ def _env_flag(name, default):
 
 
 def _compact(name):
-    text = unicodedata.normalize("NFD", str(name or "").lower())
-    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
-    return re.sub(r"[^a-z0-9]+", "", text)
+    return llave(name)
 
 
 def identifier_column(column):
@@ -162,8 +161,7 @@ def likely_high_cardinality(column):
 
 
 def _plain(text):
-    text = unicodedata.normalize("NFD", str(text or "").lower())
-    return "".join(c for c in text if unicodedata.category(c) != "Mn")
+    return plegar(text)
 
 
 def code_column(column):

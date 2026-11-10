@@ -60,7 +60,7 @@ from collections import deque
 from contextlib import contextmanager
 from datetime import datetime
 
-from src.comun.entorno import env_float, env_int
+from src.comun.entorno import env_float
 
 logger = logging.getLogger(__name__)
 

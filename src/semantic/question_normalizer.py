@@ -40,29 +40,19 @@ Uso:
 """
 import json
 import re
-import unicodedata
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
 from src.comun.rutas import RAIZ_PROYECTO
+from src.comun.texto import plegar
 
 PROJECT_ROOT = RAIZ_PROYECTO
 
 
-_FAST_FOLD = str.maketrans("áéíóúüñàèìòùâêîôû", "aeiouunaeiouaeiou")
-
-
 def fold(text):
     """Minúsculas y sin tildes (la ñ pasa a n, como en normalize_text)."""
-    text = str(text or "").lower()
-    if text.isascii():
-        return text
-    text = text.translate(_FAST_FOLD)
-    if text.isascii():
-        return text
-    text = unicodedata.normalize("NFD", text)
-    return "".join(char for char in text if unicodedata.category(char) != "Mn")
+    return plegar(text)
 
 
 # ---------------------------------------------------------------- abreviaturas

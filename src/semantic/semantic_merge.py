@@ -1,9 +1,8 @@
 import json
-import re
-import unicodedata
 from pathlib import Path
 
 from src.comun.rutas import RAIZ_PROYECTO
+from src.comun.texto import llave
 
 
 # ============================================================
@@ -11,17 +10,7 @@ from src.comun.rutas import RAIZ_PROYECTO
 # ============================================================
 
 def normalize_name(value):
-    if not value:
-        return ""
-
-    value = str(value).strip().lower()
-    value = "".join(
-        char
-        for char in unicodedata.normalize("NFD", value)
-        if unicodedata.category(char) != "Mn"
-    )
-    value = re.sub(r"[^a-z0-9]", "", value)
-    return value
+    return llave(value)
 
 
 def load_json(path):

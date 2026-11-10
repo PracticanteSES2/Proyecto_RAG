@@ -1,11 +1,11 @@
 import hashlib
 import json
 import re
-import unicodedata
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
 from src.comun.rutas import RAIZ_PROYECTO
+from src.comun.texto import slug
 
 
 # ============================================================
@@ -22,14 +22,8 @@ def clean_text(value):
 
 
 def normalize_key(value):
-    value = clean_text(value).lower()
-    value = "".join(
-        char
-        for char in unicodedata.normalize("NFD", value)
-        if unicodedata.category(char) != "Mn"
-    )
-    value = re.sub(r"[^a-z0-9]+", "_", value)
-    return value.strip("_")
+    # clean_text solo trata None como vacío (0 -> "0"): se conserva delante de slug.
+    return slug(clean_text(value))
 
 
 def load_json(path):

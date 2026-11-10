@@ -1,7 +1,7 @@
 import json
 import re
-import unicodedata
-from pathlib import Path
+
+from src.comun.texto import llave
 
 
 class DAXValidator:
@@ -56,28 +56,8 @@ class DAXValidator:
 
 
     def _normalize(self, value):
-
-        if value is None:
-            return ""
-
-        value = str(value).strip().lower()
-
-        value = "".join(
-            char
-            for char in unicodedata.normalize(
-                "NFD",
-                value
-            )
-            if unicodedata.category(char) != "Mn"
-        )
-
-        value = re.sub(
-            r"[^a-z0-9]",
-            "",
-            value
-        )
-
-        return value
+        # Solo None es vacío: 0 y False se comparan como «0» y «false».
+        return "" if value is None else llave(str(value))
 
 
     # ========================================================

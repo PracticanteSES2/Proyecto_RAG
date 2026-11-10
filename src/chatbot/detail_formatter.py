@@ -9,9 +9,9 @@ Lo usa ``format_query_plan_answer`` cuando el resultado trae ``detail``
 (``QueryEngine._detail_listing``).
 """
 import re
-import unicodedata
 
 from src.semantic.request_phrases import singular
+from src.comun.texto import plegar
 
 # Palabras entre la entidad y su calificativo («camas QUE ESTÁN disponibles»).
 _SKIP = {
@@ -24,8 +24,7 @@ _LOCATION_WORDS = ("servicio", "servicios", "hsunombre", "unidad", "piso", "sede
 
 
 def _fold(text):
-    text = unicodedata.normalize("NFD", str(text or "").lower())
-    return "".join(c for c in text if unicodedata.category(c) != "Mn")
+    return plegar(text)
 
 
 def _tokens(text):

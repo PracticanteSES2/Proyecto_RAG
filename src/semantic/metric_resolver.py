@@ -1,7 +1,6 @@
-import re
-import unicodedata
 
 from src.rag.source_labels import is_dictionary_source
+from src.comun.texto import normalizar
 
 
 class MetricResolver:
@@ -92,22 +91,7 @@ class MetricResolver:
     # ========================================================
 
     def _normalize_text(self, value):
-        if not value:
-            return ""
-
-        value = str(value).lower()
-
-        value = "".join(
-            char
-            for char in unicodedata.normalize("NFD", value)
-            if unicodedata.category(char) != "Mn"
-        )
-
-        value = value.replace("_", " ")
-        value = re.sub(r"[^a-z0-9\s]", " ", value)
-        value = re.sub(r"\s+", " ", value)
-
-        return value.strip()
+        return normalizar(value)
 
     # ========================================================
     # CONSTRUIR CONSULTA SEMÁNTICA

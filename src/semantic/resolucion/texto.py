@@ -8,11 +8,11 @@ las reexporta con los mismos nombres.
 """
 import re
 import threading
-import unicodedata
 from difflib import SequenceMatcher
 from functools import lru_cache
 from src.semantic import plan_budget
 from src.semantic.answer_shape import DETAIL_REQUEST_WORDS
+from src.comun.texto import normalizar
 
 MONTHS = {
     "enero": 1, "febrero": 2, "marzo": 3, "abril": 4,
@@ -238,13 +238,7 @@ def normalize_text(value):
 
 @lru_cache(maxsize=262144)
 def _normalize_str(value):
-    value = value.lower().strip()
-    value = "".join(
-        char for char in unicodedata.normalize("NFD", value)
-        if unicodedata.category(char) != "Mn"
-    )
-    value = _NON_ALNUM_RE.sub(" ", value)
-    return _SPACES_RE.sub(" ", value).strip()
+    return normalizar(value, "%")
 
 
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9%]+")

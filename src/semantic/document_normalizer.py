@@ -21,6 +21,7 @@ def clean_text(text):
     return text.strip()
 
 
+# No es src.comun.texto: MAYÚSCULAS (upper antes de NFD) y conserva signos de los títulos del .docx.
 def normalize_heading(text):
     text = clean_text(text).upper()
     text = "".join(
