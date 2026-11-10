@@ -30,6 +30,8 @@ def _textos_reales():
     textos = []
     for nombre in ("banco_real.json", "banco_holdout.json", "banco_holdout2.json"):
         for caso in _json(nombre)["casos"]:
+            if caso.get("tipo") == "fuera_alcance" or (caso.get("esperado") or {}).get("rechazo"):
+                continue  # rechazo esperado: positivo del portero de alcance (spec 002)
             textos.append(caso["pregunta"])
             for extra in caso.get("turnos_extra") or []:
                 textos.append(extra.removeprefix("texto: "))
@@ -108,7 +110,7 @@ class TestPortero(unittest.TestCase):
 
     def test_banco_portero_cobertura_reglas(self):
         casos = [c for c in json.loads(BANCO.read_text(encoding="utf-8"))["casos"]
-                 if c["esperado"] is not None]
+                 if c["esperado"] is not None and c["id"].startswith("C")]  # F*: test_portero_alcance
         aciertos = 0
         for c in casos:
             r = clasificar(c["texto"], VOCAB)

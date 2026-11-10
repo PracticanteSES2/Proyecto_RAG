@@ -190,7 +190,9 @@ class FalsosPositivos(unittest.TestCase):
         out = []
         for s in lista:
             r = clasificar(s, VOCAB, similitud=self.sim)
-            if r is not None:
+            # Spec 002: una petición vaga de mensaje ENTERO («hola, tengo una
+            # pregunta») se responde pidiendo el dato; nunca es una pregunta de datos.
+            if r is not None and (r.tipo, r.subtipo) != ("fuera_de_alcance", "vago"):
                 out.append(f"{s!r} -> {r.tipo}/{r.subtipo} conf={r.confianza:.3f} ({r.motivo})")
         return out
 
