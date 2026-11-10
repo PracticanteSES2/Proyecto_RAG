@@ -45,7 +45,8 @@ En FastAPI la llamada al LLM corre en un hilo del threadpool: abre
 `queue_state(ident=None)` → {"capacity", "in_flight", "waiting", "position",
 "ahead"} de la fila de MedGemma para el hilo `ident` (por defecto el actual).
 `position` 1 = la siguiente en entrar, None = ese hilo no espera; `ahead` =
-in_flight + position - 1 («hay N consultas antes que la tuya»). También en
+in_flight + position - 1 (solo para el modo diagnóstico: la interfaz normal
+nunca habla de filas ni de otras consultas). También en
 `runtime_stats.queue_snapshot()["llm"]`.
 
 `ui_progress(on_queue=None, queue_wait=None)` — gestor de contexto que la UI
@@ -58,7 +59,7 @@ Dentro, las llamadas SIN `queue_wait` explícito (síntesis RAG, descripción de
 opciones si corre en ese hilo) esperan hueco hasta `queue_wait` o
 MEDGEMMA_QUEUE_WAIT_UI (30 s) en lugar de MEDGEMMA_QUEUE_WAIT (3 s), y esa
 espera NO le resta presupuesto a la generación (recibe su `timeout` completo:
-el usuario está viendo su posición). Las que pasan `queue_wait` explícito
+la interfaz muestra que trabaja en la pregunta). Las que pasan `queue_wait` explícito
 (reescritura contextual, intención LLM: 1 s, son opcionales) no cambian.
 `on_queue(evento)` se llama en el MISMO hilo que abrió el contexto (el de la
 sesión de Streamlit; nunca desde hilos auxiliares) mientras espera, cada
@@ -247,8 +248,8 @@ def _with_tokens(provider, call_kwargs, on_token, box):
                 return
             try:
                 on_token(text)
-            except Exception:
-                pass  # la vista en vivo nunca tumba la llamada
+            except Exception:  # la vista en vivo nunca tumba la llamada
+                LOG.debug("on_token falló; la llamada sigue", exc_info=True)
 
     return dict(call_kwargs, stream=True, on_token=forward)
 

@@ -1,3 +1,4 @@
+import logging
 import os
 import threading
 import time
@@ -10,6 +11,8 @@ try:  # el cliente de Ollama usa httpx; sus timeouts se reconocen por tipo
     from httpx import TimeoutException as _HttpTimeout
 except Exception:  # pragma: no cover - httpx siempre viene con ollama
     _HttpTimeout = ()
+
+LOG = logging.getLogger(__name__)
 
 
 def _is_timeout(error):
@@ -41,7 +44,7 @@ def _avisar(on_token, texto):
     try:
         on_token(texto)
     except Exception:
-        pass
+        LOG.debug("on_token falló; la llamada sigue", exc_info=True)
 
 
 def _leer_stream(partes, on_token, plazo_s):

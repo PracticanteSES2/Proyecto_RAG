@@ -24,7 +24,7 @@
 | Esperas largas | Umbrales 10/25/50/90 s iguales; textos sin carga | Mismo ritmo, mensaje distinto |
 | Carga del LLM | `leer_carga_llm` se conserva (gancho/diagnóstico) pero ya no decide textos; `TraductorProgreso` deja de recibir `carga` | El texto no depende de otros |
 | Degradación | `aviso` con texto neutro único; `motivo` solo para diagnóstico | Honesto sin culpar a la carga |
-| Paso de `on_token` al motor | `escuchar_tokens(cb)` (ContextVar, como `llm_gate.ui_progress`) leído por `RAGAnswerEngine` | No toca `query_engine` (lo edita `agente/memoria-sesion`); explícito por parámetro en las capas de síntesis |
+| Paso de `on_token` al motor | `QueryEngine.process(texto, on_token=cb)` vía el decorador `@con_tokens`, que activa `escuchar_tokens(cb)` (ContextVar, como `llm_gate.ui_progress`) leído por `RAGAnswerEngine` | +3 líneas en `query_engine` (lo edita `agente/memoria-sesion`), sin re-indentar; la firma anuncia `on_token` para el backend; explícito por parámetro en las capas de síntesis |
 | Streaming en el proveedor | `client.chat(stream=True)` de Ollama; se acumula el texto y se devuelve el MISMO dict que sin streaming | El contrato de `call_llm` no cambia |
 | Tiempo límite en streaming | Plazo total comprobado tras cada fragmento (cierra el generador → cierra la conexión → Ollama deja de generar) + el tiempo límite HTTP por lectura del cliente | httpx solo limita cada lectura; el plazo total sigue siendo real |
 | Callback que lanza | Se ignora (proveedor y puerta) | La vista en vivo nunca tumba la llamada |
@@ -37,15 +37,14 @@
 
 ## Integración en el backend (FastAPI, `agente/backend-api`)
 
-```python
-from src.chatbot.respuesta_en_vivo import escuchar_tokens
+Ya integrado en `backend/app/services/turnos.py` (`sesiones.ejecutar(..., on_token=emisor.token)`):
 
+```python
 traductor = TraductorProgreso(recientes=frases_de_la_sesion)
 emitir(traductor.iniciar())
 engine.set_progress_listener(lambda e: emitir(traductor.traducir(e)))
-# EN EL HILO DEL MOTOR (ContextVar por hilo):
-with escuchar_tokens(lambda texto: emitir(traductor.token(texto))):
-    result = engine.process(texto)
+# EN EL HILO DEL MOTOR:
+result = engine.process(texto, on_token=lambda texto: emitir(traductor.token(texto)))
 # generador SSE: cada ~1 s → emitir(traductor.tic())
 emitir(traductor.finalizar()); enviar respuesta; emitir(traductor.aviso(result))
 ```

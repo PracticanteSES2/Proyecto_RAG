@@ -9,6 +9,7 @@ from src.chatbot.contextual_rewriter import LLMContextRewriter
 from src.chatbot.conversation_memory import ConversationMemory
 from src.chatbot.intent_parser import ordinal_choice_index
 from src.chatbot.reasoning_trace import ReasoningTrace, format_score, short
+from src.chatbot.respuesta_en_vivo import con_tokens
 from src.chatbot.runtime_stats import STATS, degradation_lines, status_line
 from src.dax.column_guard import GuardedQueryPlanDAXGenerator, ModelSchema, unknown_references
 from src.chatbot.response_formatter import (
@@ -3432,6 +3433,7 @@ class QueryEngine:
             return self._execute_query_plan(plan)
         return self._query_plan_failure(plan)
 
+    @con_tokens  # on_token: borrador en vivo de la redacción (evento SSE `token`)
     def select_clarification_option(self, option_id, label=None):
         """Resuelve una contrapregunta pendiente con la opción elegida (botón).
         `label` (texto del botón) solo se usa en el razonamiento."""
@@ -6683,6 +6685,7 @@ class QueryEngine:
         self._pending_dashboard_clarification = None
         return result
 
+    @con_tokens  # on_token: borrador en vivo de la redacción (evento SSE `token`)
     def process(self, message):
         from src.semantic.question_normalizer import normalize_question, vocabulary_for
 

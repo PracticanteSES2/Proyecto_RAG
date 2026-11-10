@@ -8,11 +8,17 @@ idéntico.
 
 Ejecutar: python -X utf8 -m unittest tests.streaming.test_sintesis_stream
 """
+import inspect
 import unittest
 
 from src.chatbot.answer_synthesizer import NO_EVIDENCE_ANSWER, AnswerSynthesizer
 from src.chatbot.rag_answer_engine import RAGAnswerEngine
-from src.chatbot.respuesta_en_vivo import FiltroBorrador, escuchar_tokens, oyente_tokens
+from src.chatbot.respuesta_en_vivo import (
+    FiltroBorrador,
+    con_tokens,
+    escuchar_tokens,
+    oyente_tokens,
+)
 
 SOURCES = [{
     "text": "Tablero: BRIEFING Indicador: CANTIDAD DE PACIENTES Descripción: Cuenta los pacientes "
@@ -98,6 +104,39 @@ class TestEscucharTokens(unittest.TestCase):
                 self.assertIsNone(oyente_tokens())
             self.assertIs(oyente_tokens(), cb)
         self.assertIsNone(oyente_tokens())
+
+
+class TestConTokens(unittest.TestCase):
+    """`@con_tokens`: el método del motor acepta `on_token` (el backend lo
+    detecta por la firma) y lo activa con `escuchar_tokens` durante el turno."""
+
+    class _Motor:
+        @con_tokens
+        def process(self, message):
+            return {"oyente": oyente_tokens(), "texto": message}
+
+        @con_tokens
+        def anidado(self, message):
+            return self.process(message)  # turno anidado sin on_token: hereda
+
+    def test_la_firma_anuncia_on_token(self):
+        self.assertIn("on_token", inspect.signature(self._Motor().process).parameters)
+        self.assertIn("message", inspect.signature(self._Motor().process).parameters)
+
+    def test_activa_el_oyente_solo_durante_la_llamada(self):
+        def cb(_texto):
+            return None
+        motor = self._Motor()
+        self.assertIs(motor.process("hola", on_token=cb)["oyente"], cb)
+        self.assertIsNone(motor.process("hola")["oyente"])
+        self.assertIsNone(oyente_tokens())
+        self.assertIs(motor.anidado("hola", on_token=cb)["oyente"], cb)
+
+    def test_query_engine_acepta_on_token(self):
+        from src.chatbot.query_engine import QueryEngine
+
+        for metodo in (QueryEngine.process, QueryEngine.select_clarification_option):
+            self.assertIn("on_token", inspect.signature(metodo).parameters)
 
 
 class TestSintesisConTokens(unittest.TestCase):

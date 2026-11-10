@@ -34,6 +34,12 @@ description: "Tareas de la experiencia de espera: textos sin colas y respuesta e
   `synthesize_rag(on_token)` y `RAGAnswerEngine.answer` (resultado idéntico, tokens, sin evidencia retenida)
 - [x] T010 `src/chatbot/respuesta_en_vivo.py`, parámetro `on_token` en la síntesis y el RAG
 
+- [x] T010b `@con_tokens` (respuesta_en_vivo): `QueryEngine.process` y `select_clarification_option` aceptan
+  `on_token` (el backend lo detecta por la firma) sin re-indentar el motor (+3 líneas en `query_engine.py`)
+- [x] T010c Backend: `EmisorTurno.token` pasa por `TraductorProgreso.token` (silencia `tic`); 503
+  `servicio_ocupado` sin «muchas consultas»; descripción SSE con `token` y `cola` solo diagnóstico
+- [x] T010d Catálogo de textos a `src/chatbot/frases_progreso.py` (`progreso.py` < 400 líneas)
+
 ## Phase 4: Streamlit legado (US5)
 
 - [x] T011 Textos de espera y `TurnBusy` en `app.py`; actualizar `tests/stability/test_stability.py`

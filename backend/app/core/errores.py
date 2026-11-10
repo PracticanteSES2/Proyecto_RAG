@@ -30,7 +30,7 @@ OPCION_NO_VIGENTE = (409, "opcion_no_vigente",
                      "Esa opción ya no está disponible. Escribe de nuevo tu pregunta, por favor.")
 NO_CALIFICABLE = (409, "turno_no_calificable", "Esa respuesta todavía no se puede calificar.")
 SERVICIO_OCUPADO = (503, "servicio_ocupado",
-                    "Hay muchas consultas en este momento. Intenta de nuevo en unos minutos, por favor.")
+                    "No pude recibir tu pregunta en este momento. Intenta de nuevo en un momento, por favor.")
 FORMATO_NO_SOPORTADO = (400, "formato_no_soportado", "Por ahora solo puedo exportar en formato Markdown (md).")
 PETICION_INVALIDA = "peticion_invalida"
 ERROR_INTERNO = "error_interno"

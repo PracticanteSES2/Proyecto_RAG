@@ -17,8 +17,12 @@ que el post-proceso quitará. Decisión completa en
 specs/009-experiencia-espera/plan.md.
 """
 import contextvars
+import functools
+import inspect
+import logging
 from contextlib import contextmanager
 
+LOG = logging.getLogger(__name__)
 _OYENTE = contextvars.ContextVar("respuesta_en_vivo_oyente", default=None)
 
 # Caracteres a reunir antes de decidir si el comienzo se transmite.
@@ -39,6 +43,29 @@ def escuchar_tokens(on_token):
 def oyente_tokens():
     """`on_token` del bloque `escuchar_tokens` activo en este hilo, o None."""
     return _OYENTE.get()
+
+
+def con_tokens(metodo):
+    """Decorador para los métodos de turno del motor (QueryEngine.process,
+    select_clarification_option): aceptan `on_token=None` (palabra clave) y,
+    si llega, lo activan con `escuchar_tokens` durante la llamada. Sin él (p.
+    ej. un turno anidado) se hereda el oyente vigente. La firma publicada
+    incluye `on_token`: el backend la inspecciona para decidir si lo pasa."""
+
+    @functools.wraps(metodo)
+    def envoltura(*args, on_token=None, **kwargs):
+        if on_token is None:
+            return metodo(*args, **kwargs)
+        with escuchar_tokens(on_token):
+            return metodo(*args, **kwargs)
+
+    firma = inspect.signature(metodo)
+    parametros = list(firma.parameters.values())
+    extra = [p for p in parametros if p.kind is inspect.Parameter.VAR_KEYWORD]
+    parametros = [p for p in parametros if p.kind is not inspect.Parameter.VAR_KEYWORD]
+    parametros.append(inspect.Parameter("on_token", inspect.Parameter.KEYWORD_ONLY, default=None))
+    envoltura.__signature__ = firma.replace(parameters=parametros + extra)
+    return envoltura
 
 
 def _plano(texto):
@@ -96,5 +123,5 @@ class FiltroBorrador:
             return
         try:
             self._on_token(texto)
-        except Exception:
-            pass  # la vista en vivo nunca tumba la síntesis
+        except Exception:  # la vista en vivo nunca tumba la síntesis
+            LOG.debug("on_token falló; la síntesis sigue", exc_info=True)

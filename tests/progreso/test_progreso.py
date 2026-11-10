@@ -1,4 +1,5 @@
 """Pruebas del progreso del turno (src/chatbot/progreso.py): lógica pura, sin interfaz."""
+import itertools
 import json
 import random
 import re
@@ -348,7 +349,7 @@ class TestTraductor(unittest.TestCase):
         # En orden de avance, sin repetir la frase anterior, y cíclica.
         largo = len(SEGUIMIENTO["revisando_documentacion"])
         self.assertEqual(frases[:largo], list(SEGUIMIENTO["revisando_documentacion"]))
-        self.assertTrue(all(a != b for a, b in zip(frases, frases[1:], strict=False)))
+        self.assertTrue(all(a != b for a, b in itertools.pairwise(frases)))
 
     def test_cambio_de_etapa_reinicia_la_rotacion(self):
         traductor, reloj = _traductor()

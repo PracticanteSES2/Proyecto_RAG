@@ -12,8 +12,9 @@ from backend.app.services.eventos import flujo_eventos
 router = APIRouter(prefix="/turnos", tags=["turnos"], responses=RESPUESTAS_ERROR)
 
 DESCRIPCION_SSE = (
-    "Flujo `text/event-stream`. Eventos: `cola` {posicion, en_curso} · `progreso` {etapa, frase, t} · "
-    "`espera` {nivel, frase, t} · `aviso` {motivo, texto} · `respuesta` (esquema Respuesta) · "
+    "Flujo `text/event-stream`. Eventos: `progreso` {etapa, frase, t} · `espera` {nivel, frase, t} · "
+    "`token` {texto} · `cola` {posicion, en_curso} (solo modo diagnóstico) · `aviso` {motivo, texto} · "
+    "`respuesta` (esquema Respuesta) · "
     "`error` {mensaje, codigo} · `fin` {}. Reconexión con `Last-Event-ID` o `?desde=`. "
     "Ver specs/006-api-backend/contracts/api-v1.md."
 )
