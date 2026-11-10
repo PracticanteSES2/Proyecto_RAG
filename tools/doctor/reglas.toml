@@ -1,6 +1,7 @@
 # Reglas del doctor de salud (python -m tools.doctor). Ver docs/calidad/doctor.md.
-# Lo que no aparece aquí toma el valor por defecto de tools/doctor/config.py.
-# La arquitectura objetivo vive en docs/ARQUITECTURA.md: si cambia, ajustar aquí.
+# Valores de docs/ARQUITECTURA.md §12 (arquitectura objetivo); lo que no aparece aquí toma el
+# valor por defecto de tools/doctor/config.py. Si la arquitectura cambia, ajustar aquí y
+# regenerar la línea base (--actualizar-linea-base).
 
 [perfiles]
 pesos = { backend = 60, frontend = 40 }
@@ -9,7 +10,7 @@ pesos = { backend = 60, frontend = 40 }
 [general]
 # Sin "/": cualquier componente de la ruta. Con "/" inicial: anclado a la raíz.
 exclusiones = [
-  "/.venv", "/venv", ".git", "/.claude", "/graphify-out", "/data", "/tableros", "/__data",
+  "/.venv", "/venv", ".git", "/.claude", "/graphify-out", "/data", "/tableros", "/__data", "/var",
   "fixtures", "__pycache__", "node_modules", "/.superpowers", "/Documentacion", "/frontend",
 ]
 codigo = ["src", "backend", "tools", "pages", "app.py"]
@@ -35,32 +36,42 @@ higiene     = { peso = 15, escala = 40 }
 fastapi     = { peso = 10, escala = 30 }
 
 [legado]
-# Streamlit queda como legado: se tolera, pero si crece (archivos o líneas) es un hallazgo alto.
-rutas = ["app.py", "pages", ".streamlit", "src/ui"]
+# Streamlit congelado (ARQUITECTURA §9): se tolera, pero si crece (archivos o líneas) es un hallazgo alto.
+rutas = ["app.py", "pages", ".streamlit", "src/ui", "src/docs_md/interfaz.py", "src/feedback/panel.py", "assets"]
 
 [estructura]
+# Entradas permitidas en la raíz. Todo lo demás (zips, logs, scripts, .md sueltos) es un hallazgo.
 raiz_permitida = [
-  "backend", "frontend", "infra", "src", "tools", "tests", "docs", "docs_tableros", "specs", "assets",
-  ".specify", ".claude", ".gitignore", ".gitattributes", ".editorconfig", "requirements*.txt",
-  "pyproject.toml", ".env.example", "CLAUDE.md", "HANDOFF.md", "README.md", "actualizar_proyecto.ps1",
-  # Legado Streamlit (no crece):
-  "app.py", "pages", ".streamlit",
+  "backend", "frontend", "infra", "src", "tools", "tests", "docs", "docs_tableros", "specs",
+  ".specify", ".gitignore", ".gitattributes", ".editorconfig", "pyproject.toml", "requirements*.txt",
+  ".env.example", "CLAUDE.md", "README.md", "actualizar_proyecto.ps1",
+  # Legado Streamlit (congelado; se borra con la paridad):
+  "app.py", "pages", ".streamlit", "assets",
+  # Locales: tolerados SOLO si git los ignora (ver carpetas_ignoradas).
+  ".claude", ".env", ".venv", "var", "data", "tableros", "graphify-out", ".superpowers",
 ]
+# Deben estar ignoradas por git si existen. `.claude` no está: se versiona .claude/agents/ (subagentes).
+carpetas_ignoradas = ["var", "data", "tableros", ".venv", "graphify-out", ".superpowers", ".env",
+                      "__pycache__", "node_modules", ".next"]
 max_archivo_kb = 1024
-binario_permitido = ["assets/**", "docs/**"]
+binario_permitido = ["assets/**", "docs/**", "frontend/public/**", "tests/**/fixtures/**"]
 
 [estructura.subcarpetas]
 # Subcarpetas directas permitidas. src/ se controla con [capas].
 tools = ["local_data", "manual", "doctor", "carga"]
+docs = ["superpowers", "diseno", "adr", "calidad"]
+infra = ["redis", "scripts", "servicios", "docker"]
+backend = ["app", "motor", "tests"]
+"backend/app" = ["core", "api", "schemas", "services", "models"]
 
 [tamano]
 aplica_a = ["src", "backend", "tools", "pages", "app.py"]
-archivo_media = 800
-archivo_alta = 3000
-funcion_media = 80
-funcion_alta = 200
-complejidad_media = 15
-complejidad_alta = 40
+archivo_media = 400       # aviso
+archivo_alta = 800        # máximo para código nuevo o tocado
+funcion_media = 50
+funcion_alta = 80
+complejidad_media = 10
+complejidad_alta = 15
 parametros_max = 8
 
 [duplicacion]
@@ -72,28 +83,31 @@ min_lineas_casi = 10
 nombre = "normalizar texto / quitar tildes"
 llamadas = ["unicodedata.normalize"]
 aplica_a = ["src", "backend", "pages", "app.py"]
-canonico = ""   # cuando exista el módulo común, poner su ruta (p. ej. "src/comun/texto.py")
-sugerencia = "Centralizar en un único módulo de utilidades de texto (ver docs/ARQUITECTURA.md) y reutilizarlo."
+canonico = ""   # "src/comun/texto.py" cuando exista (fase 3)
+sugerencia = "Reutilizar la normalización existente (docs/ARQUITECTURA.md §11) o moverla a src/comun/texto.py."
 
 [[duplicacion.utilidades]]
 nombre = "raíz del proyecto"
 patron = "raiz_proyecto"
 aplica_a = ["src", "backend", "pages", "app.py"]
-canonico = ""
-sugerencia = "Definir la raíz una sola vez en un módulo de rutas común e importarla."
+canonico = "src/comun/rutas.py"
+sugerencia = "from src.comun.rutas import RAIZ_PROYECTO, DATOS, ruta_salida, ruta_log, ruta_tmp"
 
 [muerto]
 aplica_a = ["src", "backend"]
 
 # Capas de abajo arriba: una capa solo importa de su nivel o de niveles inferiores.
-# backend/app → src → providers.
+[[capas.orden]]
+nombre = "base"
+modulos = ["src.comun"]
+
 [[capas.orden]]
 nombre = "infraestructura"
 modulos = ["src.providers", "src.llm", "src.rag"]
 
 [[capas.orden]]
 nombre = "dominio"
-modulos = ["src.semantic", "src.dax", "src.docs_md", "src.ingestion"]
+modulos = ["src.semantic", "src.dax", "src.docs_md", "src.ingestion", "src.catalogo"]
 
 [[capas.orden]]
 nombre = "aplicacion"
@@ -115,26 +129,31 @@ modulos = ["backend.app.services"]
 nombre = "backend_api"
 modulos = ["backend.app.api", "backend.app.main", "backend"]
 
-# Importaciones prohibidas (prefijos de módulo).
+# Importaciones prohibidas (prefijos de módulo, propios o externos). `excepto`: orígenes exentos.
 [[capas.prohibidas]]
 desde = "src"
-hacia = ["backend", "tools", "tests", "app", "pages"]
+hacia = ["backend", "tools", "tests", "app", "pages", "fastapi", "starlette", "redis"]
+
+[[capas.prohibidas]]
+desde = "backend.app.api"
+hacia = ["src"]            # el motor se usa a través de backend.app.services.motor
 
 [[capas.prohibidas]]
 desde = "backend"
-hacia = ["src.ui", "tools", "tests", "app", "pages"]
+hacia = ["src.ui", "streamlit", "tools", "tests", "app", "pages"]
 
 [[capas.prohibidas]]
 desde = "tools"
-hacia = ["tests", "app", "pages"]
+hacia = ["tests", "app", "pages", "backend"]
+excepto = ["tools.manual"]   # los sondeos manuales usan los arneses de tests.real/tests.realistic
 
 [[capas.prohibidas]]
 desde = "app"
-hacia = ["tools", "tests", "pages"]
+hacia = ["tools", "tests", "pages", "backend"]
 
 [[capas.prohibidas]]
 desde = "pages"
-hacia = ["tools", "tests"]
+hacia = ["tools", "tests", "backend"]
 
 [pruebas]
 aplica_a = ["src", "backend"]
@@ -144,6 +163,9 @@ print_en = ["src", "backend"]
 sys_path_en = ["src", "backend"]
 todo_dias_viejo = 90
 bom_permitido = ["*.ps1", "*.csv"]  # PowerShell 5.1 y CSV exportados para Excel
+# Nombres de archivo prohibidos en código y pruebas (ARQUITECTURA §7).
+nombres_prohibidos = ["utils.py", "helpers.py", "misc.py", "nuevo*.py", "final*.py", "*_v2.py", "*_old.py", "copia*",
+                      "test_final.py"]
 
 [fastapi]
 aplica_a = ["backend"]
@@ -163,13 +185,20 @@ vulture_confianza = 80
 # =========================================================== FRONTEND (Next.js)
 [frontend]
 carpeta = "frontend"
-carpetas_api = ["frontend/lib/api", "frontend/src/lib/api"]
-tokens = [
-  "frontend/styles/tokens.*", "frontend/src/styles/tokens.*", "frontend/app/globals.css",
-  "frontend/src/app/globals.css", "frontend/tailwind.config.*",
+carpetas_api = ["frontend/lib/api"]
+fetch_solo_en = ["frontend/lib/api"]
+tokens = ["frontend/styles/tokens.*", "frontend/app/globals.css"]
+componente_media = 150
+componente_alta = 250
+archivo_ts_media = 250
+archivo_ts_alta = 400
+generado_no_editable = ["frontend/lib/api/generado"]
+alias_raiz = "frontend"   # "@/x" → frontend/x (tsconfig paths)
+prohibidas = [
+  { desde = "frontend/components/ui", hacia = ["frontend/lib/api", "frontend/app"] },
+  { desde = "frontend/components", hacia = ["frontend/app"] },
+  { desde = "frontend/lib", hacia = ["frontend/app", "frontend/components", "frontend/hooks"] },
 ]
-componente_media = 250
-componente_alta = 500
 
 [frontend.categorias]
 estructura   = { peso = 10, escala = 30 }

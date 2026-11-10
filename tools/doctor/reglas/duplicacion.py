@@ -134,12 +134,12 @@ def _utilidades(repo: Repo, cfg: dict) -> list[Hallazgo]:
         else:
             sobrantes = apariciones if len(apariciones) > 1 else {}
         for ruta, linea in sorted(sobrantes.items()):
-            otras = [r for r in sorted(apariciones) if r != ruta]
+            otras = [r for r in sorted(apariciones) if r not in (ruta, canonico)]
             muestra = (", ".join(otras[:3]) + (f" y {len(otras) - 3} más" if len(otras) > 3 else "")) or "ningún otro"
-            destino = f"Usar `{canonico}`." if canonico else util.get("sugerencia", "Unificar en un solo módulo.")
+            destino = (f"Usar `{canonico}`: " if canonico else "") + util.get("sugerencia", "Unificar en un solo módulo.")
             salida.append(_h(
                 "utilidad_repetida", "media", ruta, linea,
-                f"Utilidad «{util['nombre']}» reimplementada aquí ({len(apariciones)} módulos; también en {muestra}).",
+                (f"Utilidad «{util['nombre']}» reimplementada aquí en vez de usar `{canonico}` ({len(sobrantes)} módulos; también en {muestra})." if canonico else f"Utilidad «{util['nombre']}» reimplementada aquí ({len(apariciones)} módulos; también en {muestra})."),
                 destino,
                 util["nombre"],
             ))

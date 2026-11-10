@@ -99,4 +99,58 @@ def revisar(repo: Repo) -> list[Hallazgo]:
                 "Moverlo al paquete de su capa (p. ej. src/<paquete>/).",
                 clave=p,
             ))
+    return salida + _no_ignoradas(repo, cfg) + _salidas_fuera_de_var(repo)
+
+
+_NOMBRES_SALIDA = ("out", "salidas", "salida", "output", "outputs", "logs", "tmp", "resultados", "informes")
+
+
+def _no_ignoradas(repo: Repo, cfg: dict) -> list[Hallazgo]:
+    """Carpetas que deben estar ignoradas por git y no lo están (solo con git)."""
+    nombres = set(cfg.get("carpetas_ignoradas", []))
+    if not repo.es_git or not nombres:
+        return []
+    # Las que también figuran en la raíz permitida (var, data, .venv…) solo cuentan en la raíz;
+    # las demás (__pycache__, node_modules, .next) en cualquier nivel.
+    solo_raiz = {n for n in nombres if _coincide(n, cfg["raiz_permitida"])}
+    vistas: dict[str, str] = {}
+    for p in repo.listado:
+        partes = p.split("/")
+        for i, parte in enumerate(partes[:-1] if len(partes) > 1 else partes):
+            if parte in nombres and (i == 0 or parte not in solo_raiz):
+                vistas.setdefault("/".join(partes[: i + 1]), p)
+                break
+    return [
+        _h(
+            "no_ignorada", "alta", carpeta,
+            f"`{carpeta}` debería estar ignorada por git y no lo está (p. ej. `{ejemplo}`).",
+            "Añadirla a .gitignore y, si ya está versionada, `git rm -r --cached` (docs/ARQUITECTURA.md §6).",
+            clave=carpeta,
+        )
+        for carpeta, ejemplo in sorted(vistas.items())
+    ]
+
+
+def _salidas_fuera_de_var(repo: Repo) -> list[Hallazgo]:
+    """Salidas/logs/temporales ignorados junto al código en vez de en var/ (lo dice el .gitignore)."""
+    salida = []
+    for gi in (p for p in repo.listado if p.rsplit("/", 1)[-1] == ".gitignore"):
+        base = gi.rpartition("/")[0]
+        texto = repo.texto_de(gi) or ""
+        for n, linea in enumerate(texto.splitlines(), 1):
+            patron = linea.strip()
+            if not patron or patron.startswith(("#", "!")):
+                continue
+            ruta = "/".join(x for x in (base, patron.strip("/")) if x)
+            partes = ruta.split("/")
+            if len(partes) < 2 or partes[0] in ("var", "data", "tableros", "frontend") or "fixtures" in partes:
+                continue
+            if any(p.rstrip("*_").lower() in _NOMBRES_SALIDA for p in partes[-1:]):
+                salida.append(Hallazgo(
+                    "estructura", "salida_fuera_de_var", "media", gi, n,
+                    f"Salidas en `{ruta}` (ignoradas junto al código) en vez de `var/`.",
+                    "Escribirlas con `src.comun.rutas.ruta_salida(...)`/`ruta_log`/`ruta_tmp` (var/out, var/logs, var/tmp) "
+                    "y quitar la entrada del .gitignore (docs/ARQUITECTURA.md §6).",
+                    ruta,
+                ))
     return salida

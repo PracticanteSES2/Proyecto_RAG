@@ -45,6 +45,12 @@ description: "Tareas del doctor de salud del proyecto"
 - [x] T019 Línea base v2 por perfil, legado que no crece, `--estricto`, `--forzar`; pruebas en `test_cli.py`
 - [x] T020 Agentes `.claude/agents/doctor-backend.md` y `doctor-frontend.md`; revisor de ambos stacks
 
+## Phase 5c: Reglas de docs/ARQUITECTURA.md §12
+
+- [x] T021 Merge de `desarrollo`; `reglas.toml` con los valores de §12
+- [x] T022 Pruebas que fallan y luego pasan: `excepto`, destino externo prohibido, `nombres_prohibidos`, `salida_fuera_de_var`, `carpetas_ignoradas` (con git real en temporal), importaciones prohibidas del frontend, cliente generado editado, archivo TS grande
+- [x] T023 Regenerar la línea base sobre el desarrollo fusionado
+
 ## Phase 6: Polish
 
 - [x] T014 `requirements-dev.txt`; medir tiempo (< 30 s); `graphify update .` (si el CLI está instalado)

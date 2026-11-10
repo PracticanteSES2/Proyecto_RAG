@@ -7,7 +7,12 @@ import unittest
 
 sys.dont_write_bytecode = True
 
-from tests.doctor._mini_repo import diagnosticar, reglas
+import shutil
+import subprocess
+
+from tests.doctor._mini_repo import BASE, MiniRepo, diagnosticar, fusionar, reglas
+from tools.doctor.config import config_de
+from tools.doctor.motor import analizar
 
 # Cadenas armadas por partes para que el propio doctor no las marque en este archivo.
 MOJIBAKE = "Informaci\u00c3\u00b3n"
@@ -332,6 +337,64 @@ class HigieneTests(unittest.TestCase):
     def test_sys_path_en_src(self):
         inf = diagnosticar({"src/a/x.py": "import sys\nsys.path.insert(0, '.')\n"})
         self.assertIn(("sys_path", "src/a/x.py"), reglas(inf))
+
+
+class ExtensionesArquitecturaTests(unittest.TestCase):
+    """Extensiones pedidas en docs/ARQUITECTURA.md §12."""
+
+    PROHIBIDAS = {"prohibidas": [
+        {"desde": "tools", "hacia": ["tests"], "excepto": ["tools.manual"]},
+        {"desde": "src", "hacia": ["redis", "fastapi"]},
+    ]}
+
+    def test_excepto_en_importaciones_prohibidas(self):
+        inf = diagnosticar({
+            "tools/manual/sondeo.py": "from tests.real import banco\n",
+            "tools/script.py": "from tests.real import banco\n",
+            "tests/real/banco.py": "X = 1\n",
+        }, capas=self.PROHIBIDAS)
+        r = reglas(inf)
+        self.assertIn(("importacion_prohibida", "tools/script.py"), r)
+        self.assertNotIn(("importacion_prohibida", "tools/manual/sondeo.py"), r)
+
+    def test_prohibido_importar_paquete_externo(self):
+        inf = diagnosticar({"src/a/x.py": "import redis\n"}, capas=self.PROHIBIDAS)
+        self.assertIn(("importacion_prohibida", "src/a/x.py"), reglas(inf))
+
+    def test_nombres_prohibidos(self):
+        inf = diagnosticar({"src/a/utils.py": "X = 1\n", "src/a/periodo.py": "X = 1\n", "tools/manual/test_final.py": ""},
+                           higiene={"nombres_prohibidos": ["utils.py", "test_final.py"]})
+        r = reglas(inf)
+        self.assertIn(("nombre_prohibido", "src/a/utils.py"), r)
+        self.assertIn(("nombre_prohibido", "tools/manual/test_final.py"), r)
+        self.assertNotIn(("nombre_prohibido", "src/a/periodo.py"), r)
+
+    def test_salidas_fuera_de_var_segun_gitignore(self):
+        inf = diagnosticar({
+            ".gitignore": "/var/\n/data\n/tools/carga/salidas/\n*.log\n",
+            "tests/real/.gitignore": "out*/\n",
+        })
+        h = {(x.archivo, x.mensaje.split("`")[1]) for x in inf.hallazgos if x.regla == "salida_fuera_de_var"}
+        self.assertEqual(h, {(".gitignore", "tools/carga/salidas"), ("tests/real/.gitignore", "tests/real/out*")})
+
+    @unittest.skipUnless(shutil.which("git"), "requiere git")
+    def test_carpetas_que_deben_estar_ignoradas(self):
+        cfg = config_de(fusionar(BASE, {"estructura": {
+            "carpetas_ignoradas": ["var", "data", "__pycache__"],
+            "raiz_permitida": [*BASE["estructura"]["raiz_permitida"], "var", "data"],
+        }}))
+        archivos = {"src/a/x.py": "", "var/out/informe.txt": "x", "src/a/__pycache__/x.pyc": "x",
+                    "tests/sim/data/catalogo.json": "{}"}  # «data» solo cuenta en la raíz
+        with MiniRepo(archivos) as raiz:
+            subprocess.run(["git", "init", "-q"], cwd=raiz, check=True)
+            inf = analizar(raiz, cfg, externas=False)
+            r = reglas(inf)
+            self.assertIn(("no_ignorada", "var"), r)
+            self.assertIn(("no_ignorada", "src/a/__pycache__"), r)
+            self.assertNotIn(("no_ignorada", "tests/sim/data"), r)
+            (raiz / ".gitignore").write_text("/var/\n__pycache__/\n", encoding="utf-8")
+            r = reglas(analizar(raiz, cfg, externas=False))
+            self.assertFalse([x for x in r if x[0] == "no_ignorada"])
 
 
 class PuntajeTests(unittest.TestCase):

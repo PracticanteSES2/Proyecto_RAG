@@ -81,6 +81,7 @@ copia de una función existente; el veredicto es BLOQUEAR con la referencia a la
 - **FR-012**: La línea base MUST guardar backend y frontend por separado; el trinquete compara cada perfil y categoría medidos.
 - **FR-013**: `app.py`, `pages/`, `.streamlit/` y `src/ui/` son LEGADO: se toleran, pero si crecen respecto de la línea base es un hallazgo alto (`legado_crece`).
 - **FR-014**: Capas: `backend/app → src → providers`; `src` nunca importa `backend`, `tools` ni `tests`.
+- **FR-015** (docs/ARQUITECTURA.md §12): `reglas.toml` MUST usar los valores de §12 (`src/comun` como capa base, `canonico = "src/comun/rutas.py"` para la raíz del proyecto, umbrales de §7) y el doctor MUST leer sus extensiones: `excepto` en importaciones prohibidas (p. ej. `tools.manual → tests`), destinos externos (`fastapi`, `redis`, `streamlit`), `carpetas_ignoradas` (lo que git no ignora), `nombres_prohibidos`, salidas fuera de `var/` y la arquitectura del frontend (`fetch_solo_en`, `prohibidas` entre carpetas, `generado_no_editable`, tamaño de archivos TS).
 
 ### Key Entities
 

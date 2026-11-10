@@ -53,6 +53,8 @@ DEFAULTS: dict = {
         # Carpetas cuyas subcarpetas directas deben estar declaradas. `src` se
         # controla con las capas.
         "subcarpetas": {},
+        # Deben estar ignoradas por git si existen (lo que git no ignora sale en el listado).
+        "carpetas_ignoradas": [],
         "max_archivo_kb": 1024,
         "binario_permitido": ["assets/**", "docs/**"],
     },
@@ -121,6 +123,8 @@ DEFAULTS: dict = {
             ".ts", ".tsx", ".js", ".jsx", ".mjs",
         ],
         "bom_permitido": ["*.ps1"],
+        # Nombres de archivo prohibidos en código y pruebas (genéricos o de versión).
+        "nombres_prohibidos": [],
         "secreto_placeholders": ["fake", "falso", "dummy", "test", "prueba", "ejemplo", "example", "xxx", "placeholder", "changeme", "<", "${", "{"],
         "max_kb_texto": 2048,
     },
@@ -175,6 +179,15 @@ DEFAULTS: dict = {
                    "frontend/src/app/globals.css", "frontend/tailwind.config.*"],
         "componente_media": 250,
         "componente_alta": 500,
+        "archivo_ts_media": 250,
+        "archivo_ts_alta": 400,
+        # Cliente generado desde OpenAPI: no se edita a mano ni se le aplican reglas de estilo.
+        "generado_no_editable": [],
+        # Únicas carpetas con fetch/axios (si está vacío, `carpetas_api`).
+        "fetch_solo_en": [],
+        # Importaciones prohibidas entre carpetas: [{desde, hacia: [...]}]; "@/" apunta a `alias_raiz`.
+        "prohibidas": [],
+        "alias_raiz": "",
         "extensiones": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".css", ".scss"],
         "herramientas": {
             "timeout": 300,

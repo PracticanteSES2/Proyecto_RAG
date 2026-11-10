@@ -429,6 +429,7 @@ class Repo:
         self.es_git = listado is not None
         if listado is None:
             listado = _listar_disco(self.raiz, exclusiones)
+        self.listado = listado  # sin exclusiones: lo que git no ignora (reglas de carpetas ignoradas)
         self.archivos = [
             p for p in listado
             if not excluido(p, exclusiones) and (self.raiz / p).is_file()

@@ -240,6 +240,22 @@ def _textos(repo: Repo, cfg: dict) -> list[Hallazgo]:
     return salida
 
 
+def _nombres(repo: Repo, cfg: dict) -> list[Hallazgo]:
+    patrones = cfg.get("nombres_prohibidos", [])
+    return [
+        _h(
+            "nombre_prohibido", "media", p, 0,
+            f"Nombre de archivo genérico o de versión: `{p.rsplit('/', 1)[-1]}`.",
+            "Nombrarlo por su responsabilidad (`periodo.py`, no `utils.py`/`final.py`/`_v2.py`; docs/ARQUITECTURA.md §7); "
+            "las versiones viejas se borran (están en git).",
+            "nombre",
+        )
+        for p in repo.archivos
+        if (repo.en_codigo(p) or repo.en_pruebas(p))
+        and any(fnmatch.fnmatchcase(p.rsplit("/", 1)[-1], g) for g in patrones)
+    ]
+
+
 def revisar(repo: Repo) -> list[Hallazgo]:
     cfg = repo.config["higiene"]
-    return _python(repo, cfg) + _todos(repo, cfg) + _textos(repo, cfg)
+    return _python(repo, cfg) + _todos(repo, cfg) + _textos(repo, cfg) + _nombres(repo, cfg)

@@ -104,7 +104,9 @@ def revisar(repo: Repo) -> list[Hallazgo]:
         for imp in mod.importaciones:
             # Prohibidas
             for regla in cfg["prohibidas"]:
-                if not _prefijo(mod.nombre, regla["desde"]) or not repo.es_propio(imp.modulo):
+                if not _prefijo(mod.nombre, regla["desde"]):
+                    continue
+                if any(_prefijo(mod.nombre, e) for e in regla.get("excepto", [])):
                     continue
                 hacia = next((h for h in regla["hacia"] if _prefijo(imp.modulo, h)), None)
                 if hacia and not _prefijo(mod.nombre, hacia):

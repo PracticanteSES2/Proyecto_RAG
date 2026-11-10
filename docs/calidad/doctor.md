@@ -31,17 +31,17 @@ solo el top), `--top N`, `--cambios origin/desarrollo` (solo hallazgos de archiv
 Códigos de salida: `0` bien · `1` el trinquete falló (o se negó a bajar el listón) · `2` error
 de uso (p. ej. no hay línea base) · `3` con `--estricto`, partes sin verificar.
 
-Tarda ~15-20 s en el repo (sin externas).
+Tarda ~20 s en el repo (sin externas).
 
 ## Cómo leer el informe
 
 ```
-Puntaje global: 71.8/100 (necesita trabajo)
-BACKEND   71.8/100
-  Tamaño y complejidad      29.7  ###.......   506 hallazgos (70 altos)
+Puntaje global: 64.1/100 (necesita trabajo)
+BACKEND   64.1/100
+  Tamaño y complejidad      17.5  ##........   935 hallazgos (501 altos)
   ...
   [alta] tamano/archivo_grande  src/chatbot/query_engine.py:1
-      7567 líneas (umbral 800; alto 3000).
+      7567 líneas (umbral 400; alto 800).
       -> Partirlo por responsabilidades …
 ```
 
@@ -56,13 +56,13 @@ BACKEND   71.8/100
 
 | Categoría | Reglas (severidad) |
 |---|---|
-| Estructura | `raiz_no_permitida` (alta): entrada de la raíz fuera de la lista blanca · `archivo_temporal` (alta): logs, zips, .bak… versionados · `archivo_pesado` (media) · `carpeta_sin_dueno` (media): subcarpeta de `src/` sin capa o de `tools/` no declarada · `modulo_suelto_src` (media) · `legado_crece` (alta): `app.py`, `pages/`, `.streamlit/` o `src/ui/` crecieron respecto de la línea base |
-| Tamaño y complejidad | `archivo_grande` (>800 media, >3000 alta) · `funcion_larga` (>80 media, >200 alta) · `complejidad` ciclomática tipo McCabe (>15 media, >40 alta) · `demasiados_parametros` (>8, baja) |
+| Estructura | `raiz_no_permitida` (alta): entrada de la raíz fuera de la lista blanca · `archivo_temporal` (alta): logs, zips, .bak… versionados · `archivo_pesado` (media) · `carpeta_sin_dueno` (media): subcarpeta de `src/` sin capa o de `tools/` no declarada · `modulo_suelto_src` (media) · `legado_crece` (alta): `app.py`, `pages/`, `.streamlit/` o `src/ui/` crecieron respecto de la línea base · `no_ignorada` (alta): `var/`, `data/`, `.venv/`… (en la raíz) o `__pycache__/`, `node_modules/`, `.next/` (en cualquier nivel) que git no ignora · `salida_fuera_de_var` (media): un `.gitignore` que ignora salidas (`out/`, `salidas/`, `logs/`…) junto al código en vez de usar `var/` |
+| Tamaño y complejidad | `archivo_grande` (>400 media, >800 alta) · `funcion_larga` (>50 media, >80 alta) · `complejidad` ciclomática tipo McCabe (>10 media, >15 alta) · `demasiados_parametros` (>8, baja). Umbrales de docs/ARQUITECTURA.md §7: el código heredado los supera, el trinquete solo penaliza lo que crezca |
 | Duplicación | `funcion_identica` (media): mismo cuerpo en dos sitios · `funcion_casi_identica` (baja): misma estructura con otros nombres/literales · `utilidad_repetida` (media): utilidades que deben existir una sola vez (quitar tildes con `unicodedata.normalize`, calcular la raíz del proyecto con `Path(__file__).parents[n]`) |
 | Código muerto | `modulo_sin_uso` (media) · `modulo_solo_pruebas` (baja) · `simbolo_sin_uso` (baja) · `import_sin_uso` (baja; respeta `# noqa` y reexportaciones) |
-| Capas e importaciones | `importacion_prohibida` (alta): `src` → `backend`/`tools`/`tests`/`app`/`pages`, `backend` → `src.ui`/`tools`/`tests`… · `capa_invertida` (alta): capa baja que importa una alta (orden: providers/llm/rag → semantic/dax/docs_md/ingestion → chatbot/feedback → ui legado → backend core/schemas → services → api) · `ciclo` (media): ciclos de imports a nivel de módulo · `importacion_rota` (alta) |
+| Capas e importaciones | `importacion_prohibida` (alta): `src` → `backend`/`tools`/`tests`/`app`/`pages` o paquetes `fastapi`/`starlette`/`redis`; `backend.app.api` → `src`; `backend` → `src.ui`/`streamlit`/`tools`/`tests`; `tools` → `tests` (salvo `excepto = ["tools.manual"]`)… · `capa_invertida` (alta): capa baja que importa una alta (orden: comun → providers/llm/rag → semantic/dax/docs_md/ingestion → chatbot/feedback → ui legado → backend core/schemas → services → api) · `ciclo` (media): ciclos de imports a nivel de módulo · `importacion_rota` (alta) |
 | Pruebas | `modulo_sin_pruebas` (media): ninguna prueba lo alcanza ni indirectamente · `prueba_huerfana` (alta): la prueba importa algo que ya no existe · `patch_roto` (alta): `mock.patch("src.x.y")` que apunta a nada · `archivo_prueba_vacio` (baja) |
-| Higiene | `print_depuracion` (media, en `src/` y `backend/`) · `except_desnudo` (alta) · `except_silencioso` (media: `except Exception: pass`) · `punto_de_ruptura` (alta) · `sys_path` (media) · `todo` (baja; la antigüedad se informa con git blame pero no puntúa) · `secreto` (alta) · `ruta_usuario` (media: `C:\Users\<nombre>` codificado) · `bom` (baja) · `no_utf8` (media) · `mojibake` (media: la «ó» convertida en dos caracteres raros por una doble codificación UTF-8/cp1252) · `sintaxis_invalida` (alta) |
+| Higiene | `print_depuracion` (media, en `src/` y `backend/`) · `except_desnudo` (alta) · `except_silencioso` (media: `except Exception: pass`) · `punto_de_ruptura` (alta) · `sys_path` (media) · `todo` (baja; la antigüedad se informa con git blame pero no puntúa) · `secreto` (alta) · `ruta_usuario` (media: `C:\Users\<nombre>` codificado) · `bom` (baja) · `no_utf8` (media) · `mojibake` (media: la «ó» convertida en dos caracteres raros por una doble codificación UTF-8/cp1252) · `sintaxis_invalida` (alta) · `nombre_prohibido` (media): `utils.py`, `helpers.py`, `final*.py`, `*_v2.py`, `copia*`… |
 | FastAPI (`backend/`) | `router_fuera_de_api` (media): `APIRouter`/endpoints fuera de `backend/app/api/v1` · `sin_response_model` (media) · `dict_suelto` (media): parámetros `dict`/`Any` en vez de esquemas pydantic · `logica_en_router` (media: endpoint > 30 líneas o complejidad > 5) · `router_importa_motor` (media: el router importa `src` sin pasar por `services/`) · `bloqueante_en_async` (alta: `time.sleep`, `requests`, `open`, `subprocess`, redis síncrono… dentro de `async def`) · `getenv_disperso` (media: `os.getenv` fuera de `backend/app/core/config.py`) · `settings_sin_pydantic` (media) |
 
 ### Perfil frontend
@@ -74,7 +74,7 @@ BACKEND   71.8/100
 | Compilación (tsc) | cada error de `tsc --noEmit` (alta) |
 | Lint (ESLint) | errores (media) y avisos (baja) de `eslint . --format json` con la configuración del proyecto |
 | React (react-doctor) | diagnósticos de `react-doctor . --json --no-score --blocking none -y --no-supply-chain` (error → alta, aviso → media) |
-| Arquitectura | `fetch_fuera_de_api` (alta): `fetch`/`axios` fuera de `frontend/lib/api` · `hex_fuera_de_tokens` (media): colores `#…` fuera de `styles/tokens.*`, `app/globals.css` o `tailwind.config.*` · `componente_grande` (>250 media, >500 alta) |
+| Arquitectura | `fetch_fuera_de_api` (alta): `fetch`/`axios` fuera de `fetch_solo_en` (`frontend/lib/api`) · `hex_fuera_de_tokens` (media): colores `#…` fuera de `styles/tokens.*` o `app/globals.css` · `componente_grande` (.tsx >150 media, >250 alta) · `archivo_grande` (.ts >250 media, >400 alta) · `importacion_prohibida` (alta): `components/ui` → `lib/api`/`app`, `components` → `app`, `lib` → `app`/`components`/`hooks` (rutas relativas y alias `@/`) · `generado_editado` (media): archivo de `lib/api/generado` sin marca de generación (al cliente generado no se le aplican reglas de estilo) |
 | Higiene | `console_log` (media) · `debugger` (alta) · `todo` (baja) · `eslint_disable` (baja) · secretos, rutas de usuario, BOM y mojibake (como en backend) |
 
 react-doctor se usa tal cual: si está en `frontend/node_modules/.bin` se usa ese; si no, `npx -y
@@ -132,12 +132,16 @@ conserva su valor anterior.
 
 ## Configuración (`tools/doctor/reglas.toml`)
 
-Lista blanca de la raíz, subcarpetas permitidas de `tools/`, capas e importaciones prohibidas,
-umbrales, exclusiones (`.venv`, `.claude`, `graphify-out`, `data`, `tableros`, `__data`,
-`fixtures`, `node_modules`, `.next`…), legado, utilidades canónicas (cuando exista el módulo
-común de texto o de rutas, poner su ruta en `canonico` y las demás copias pasan a ser
-hallazgos), rutas FastAPI y del frontend. La arquitectura objetivo vive en
-`docs/ARQUITECTURA.md`: si cambia, se ajusta aquí y se regenera la línea base.
+Los valores salen de `docs/ARQUITECTURA.md` §12: lista blanca de la raíz, `carpetas_ignoradas`,
+subcarpetas permitidas (`tools`, `docs`, `infra`, `backend`, `backend/app`), capas (de
+`src.comun` a `backend.app.api`) e importaciones prohibidas con `excepto`, umbrales,
+exclusiones (`.venv`, `.claude`, `graphify-out`, `data`, `tableros`, `var`, `__data`,
+`fixtures`, `node_modules`…), legado, `nombres_prohibidos`, utilidades canónicas (la raíz del
+proyecto ya tiene `canonico = "src/comun/rutas.py"`: cualquier otro módulo que calcule
+`Path(__file__).parents[n]` es un hallazgo; la de texto se activará con `src/comun/texto.py`),
+rutas FastAPI y la arquitectura del frontend (`fetch_solo_en`, `tokens`, `prohibidas`,
+`generado_no_editable`, `alias_raiz`). Si la arquitectura cambia, se ajusta aquí y se
+regenera la línea base.
 
 Si `backend/` se ejecuta con `backend/` como raíz de `sys.path` (`from app.api …`), añadir
 `raices_import = ["backend"]` en `[general]` para que las importaciones se resuelvan.
