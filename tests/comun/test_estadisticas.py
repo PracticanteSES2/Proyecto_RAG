@@ -24,14 +24,17 @@ class TestReexporte(unittest.TestCase):
         self.assertIs(runtime_stats.env_float, entorno.env_float)
         self.assertIs(runtime_stats.env_int, entorno.env_int)
 
-    def test_reexporta_todo_lo_publico(self):
-        arbol = ast.parse((RAIZ / "src/comun/estadisticas.py").read_text(encoding="utf-8"))
-        nombres = {n.name for n in arbol.body if isinstance(n, (ast.FunctionDef, ast.ClassDef))}
-        nombres |= {t.id for n in arbol.body if isinstance(n, ast.Assign) for t in n.targets
-                    if isinstance(t, ast.Name)}
-        nombres.discard("logger")
-        for nombre in sorted(nombres | {"env_float", "env_int"}):
+    def test_reexporta_la_api_de_siempre(self):
+        # Lo que src/chatbot/runtime_stats.py definía antes del traslado (2026-11-10).
+        api = {
+            "RECENT_LATENCIES", "STATS", "TURN_LINE", "TURN_LOCK", "FifoLine", "RuntimeStats", "TurnBusy",
+            "_Ticket", "_duration", "_empty_queue_state", "_turn_queue_state", "degradation_lines",
+            "diagnostics_lines", "env_float", "env_int", "open_connections", "queue_snapshot", "status_line",
+            "turn_lock_busy", "turn_slot", "turn_wait_limit",
+        }
+        for nombre in sorted(api):
             self.assertTrue(hasattr(runtime_stats, nombre), nombre)
+            self.assertTrue(hasattr(estadisticas, nombre) or hasattr(entorno, nombre), nombre)
 
     def test_comun_no_importa_capas_superiores(self):
         for archivo in ("estadisticas.py", "entorno.py"):
