@@ -13,7 +13,9 @@ describe("configuración", () => {
   it("con mock usa el mismo origen", () => {
     expect(urlBaseApi("http://x", true)).toBe("");
     expect(mockActivo("1")).toBe(true);
-    expect(mockActivo(undefined)).toBe(false);
+    expect(mockActivo("0", "development")).toBe(false);
+    expect(mockActivo(undefined, "production")).toBe(false);
+    expect(mockActivo(undefined, "development")).toBe(true);
   });
 });
 
@@ -24,7 +26,9 @@ describe("cliente", () => {
   it("envía el turno con el cuerpo del contrato", async () => {
     const fetchFn = vi.fn(async () => respuestaJson({ turno_id: "t1" }, 202));
     const cliente = crearClienteApi("http://api", fetchFn);
-    await expect(cliente.enviarTurno("c 1", { mensaje: "hola", diagnostico: false, opcion_id: "op" })).resolves.toEqual({ turno_id: "t1" });
+    await expect(cliente.enviarTurno("c 1", { mensaje: "hola", diagnostico: false, opcion_id: "op" })).resolves.toEqual(
+      { turno_id: "t1" },
+    );
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("http://api/api/v1/conversaciones/c%201/turnos");
     expect(init.method).toBe("POST");
@@ -84,7 +88,12 @@ describe("eventos SSE", () => {
     const fuente = new FuenteFalsa();
     const eventos: EventoTurno[] = [];
     const alDesconectar = vi.fn();
-    const sub = abrirEventosTurno("/x", { alEvento: (e) => eventos.push(e), alDesconectar, crearFuente: () => fuente, maxReintentos });
+    const sub = abrirEventosTurno("/x", {
+      alEvento: (e) => eventos.push(e),
+      alDesconectar,
+      crearFuente: () => fuente,
+      maxReintentos,
+    });
     return { fuente, eventos, alDesconectar, sub };
   };
 

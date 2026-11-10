@@ -11,7 +11,7 @@ const CLAVES_PROPIAS = new Set(["dax", "razonamiento", "tiempos"]);
 function Bloque({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <section className="mt-3">
-      <h4 className="mb-1 font-body text-xs font-bold uppercase tracking-wide text-diag">{titulo}</h4>
+      <h4 className="mb-1 font-body text-xs font-bold tracking-wide text-diag uppercase">{titulo}</h4>
       {children}
     </section>
   );
@@ -34,7 +34,7 @@ export function PanelDiagnostico({ turno }: Props) {
 
   return (
     <details className="group mt-3 rounded-md border-l-[3px] border-diag-border bg-diag-bg px-3 py-2 text-sm">
-      <summary className="cursor-pointer select-none font-semibold text-diag">
+      <summary className="cursor-pointer font-semibold text-diag select-none">
         Detalles técnicos <span className="font-normal">· {resumen}</span>
       </summary>
       {turno.etapas.length > 0 && <LineaTiempo etapas={turno.etapas} segundos={turno.segundos} />}

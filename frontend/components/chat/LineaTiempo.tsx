@@ -7,28 +7,34 @@ interface Props {
   enCurso?: boolean;
 }
 
-const formatear = (s: number) => `${s.toLocaleString("es-CO", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} s`;
+const formatear = (s: number) =>
+  `${s.toLocaleString("es-CO", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} s`;
 
 /** Línea de tiempo de etapas con segundos. SOLO para el modo diagnóstico. */
 export function LineaTiempo({ etapas, segundos, enCurso = false }: Props) {
   return (
-    <div className="mt-2 rounded-md border-l-[3px] border-diag-border bg-diag-bg px-3 py-2 text-xs text-fg" aria-label="Línea de tiempo del turno">
+    <div
+      className="mt-2 rounded-md border-l-[3px] border-diag-border bg-diag-bg px-3 py-2 text-xs text-fg"
+      aria-label="Línea de tiempo del turno"
+    >
       <ol className="space-y-0.5 font-mono">
         {etapas.map((e, i) => {
           const fin = etapas[i + 1]?.t ?? (enCurso ? undefined : segundos);
           return (
             <li key={`${e.etapa}-${e.t}`} className="flex gap-3">
-              <span className="w-14 shrink-0 text-right tabular-nums text-diag">{formatear(e.t)}</span>
+              <span className="w-14 shrink-0 text-right text-diag tabular-nums">{formatear(e.t)}</span>
               <span className="min-w-0 flex-1 truncate">
                 {e.etapa}
                 <span className="text-fg-muted"> · {e.frase}</span>
               </span>
-              {fin !== undefined && <span className="shrink-0 tabular-nums text-fg-muted">+{formatear(Math.max(0, fin - e.t))}</span>}
+              {fin !== undefined && (
+                <span className="shrink-0 text-fg-muted tabular-nums">+{formatear(Math.max(0, fin - e.t))}</span>
+              )}
             </li>
           );
         })}
       </ol>
-      <p className="mt-1 font-mono tabular-nums text-diag">
+      <p className="mt-1 font-mono text-diag tabular-nums">
         {enCurso ? "Transcurrido" : "Total"}: {formatear(segundos)}
       </p>
     </div>

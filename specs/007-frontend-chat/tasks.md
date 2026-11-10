@@ -10,10 +10,10 @@ description: "Tareas del frontend web del chat"
 
 ## Fase 1: Preparación
 
-- [x] T001 Crear `frontend/` con package.json de versiones exactas, `.npmrc` (save-exact) y `.gitignore`
+- [x] T001 Crear `frontend/` con package.json de versiones exactas y `.gitignore`
 - [x] T002 [P] Configurar TypeScript estricto (`tsconfig.json`), ESLint (`eslint.config.mjs`, regla sin hex), Vitest (`vitest.config.mts`, `tests/setup.ts`)
-- [x] T003 [P] Tailwind v4 + tokens: copiar `docs/diseno/tokens.css` a `app/tokens.css` y exponerlos con `@theme inline` en `app/globals.css`
-- [x] T004 [P] Copiar marca a `public/marca/` (isotipo, sonrisa, estados) y `public/logo_ses.png`
+- [x] T003 [P] Tailwind v4 + tokens: copiar `docs/diseno/tokens.css` a `styles/tokens.css` y exponerlos con `@theme inline` en `styles/globals.css`
+- [x] T004 [P] Marca en `public/marca/` (isotipo, oficial/, mascota/)
 
 ## Fase 2: Base (bloqueante)
 
@@ -52,6 +52,7 @@ description: "Tareas del frontend web del chat"
 
 - [x] T023 Pruebas de componentes y flujo completo (`tests/componentes/*.test.tsx`)
 - [x] T024 lint, typecheck, test y build en verde; capturas con el mock (claro, oscuro, móvil)
-- [ ] T025 Sustituir el barranquero provisional por los SVG oficiales (`public/marca/mascota/`, `MASCOTA_OFICIAL_DISPONIBLE = true`)
+- [x] T025 Barranquero oficial (`public/marca/mascota/`): avatar, estado vacío, avisos; marca movida de `assets/marca/` a `frontend/public/marca/`
+- [x] T028 Prettier 3.9.10 (`npm run format`, exigido en `npm run lint`) y línea base del doctor para el perfil frontend
 - [ ] T026 Integrar con el backend real: tipos generados desde OpenAPI, confirmar supuestos de `contracts/api-v1.md`, CORS
 - [ ] T027 Endpoint de cancelación de turno en el backend (hoy «Detener» solo cierra el flujo en el cliente)

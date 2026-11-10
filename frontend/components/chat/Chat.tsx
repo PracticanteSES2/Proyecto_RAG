@@ -58,8 +58,8 @@ export function Chat() {
       />
       {salud.estado === "caido" && <AvisoServidor alReintentar={salud.verificar} />}
 
-      <main className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
-        <div className="mx-auto w-full max-w-[var(--chat-max-width)] px-4 pb-6 pt-6">
+      <main className="min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto">
+        <div className="mx-auto w-full max-w-[var(--chat-max-width)] px-4 pt-6 pb-6">
           {vacio ? (
             <EstadoVacio cliente={cliente} alPreguntar={(t) => preguntar(t)} deshabilitado={ocupado} />
           ) : (
@@ -76,7 +76,7 @@ export function Chat() {
       </main>
 
       <footer className="shrink-0 bg-linear-to-t from-bg from-70% to-transparent">
-        <div className="mx-auto w-full max-w-[var(--chat-max-width)] px-4 pb-3 pt-2">
+        <div className="mx-auto w-full max-w-[var(--chat-max-width)] px-4 pt-2 pb-3">
           <Compositor ref={compositor} ocupado={ocupado} alEnviar={(t) => preguntar(t)} alDetener={chat.detener} />
           <p className="mt-2 text-center text-xs text-fg-muted">
             Respondo solo con información de los tableros y documentos institucionales.

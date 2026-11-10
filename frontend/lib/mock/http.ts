@@ -12,8 +12,12 @@ export const esperar = (ms: number, senal: AbortSignal) =>
   new Promise<void>((resolver) => {
     if (ms <= 0 || senal.aborted) return resolver();
     const temporizador = setTimeout(resolver, ms);
-    senal.addEventListener("abort", () => {
-      clearTimeout(temporizador);
-      resolver();
-    }, { once: true });
+    senal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(temporizador);
+        resolver();
+      },
+      { once: true },
+    );
   });

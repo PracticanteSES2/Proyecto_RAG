@@ -33,13 +33,18 @@ export function Contrapregunta({ contrapregunta, activa, elegida, alElegir }: Pr
               >
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold text-link">{opcion.texto}</span>
-                  {opcion.descripcion && <span className="mt-0.5 block text-sm text-fg-muted">{opcion.descripcion}</span>}
+                  {opcion.descripcion && (
+                    <span className="mt-0.5 block text-sm text-fg-muted">{opcion.descripcion}</span>
+                  )}
                 </span>
                 <span className="mt-0.5 shrink-0 text-link" aria-hidden="true">
                   {esElegida ? (
                     <IconoCheck tamano={18} />
                   ) : activa ? (
-                    <IconoChevron tamano={18} className="transition-transform duration-200 group-hover:translate-x-0.5" />
+                    <IconoChevron
+                      tamano={18}
+                      className="transition-transform duration-200 group-hover:translate-x-0.5"
+                    />
                   ) : null}
                 </span>
               </button>

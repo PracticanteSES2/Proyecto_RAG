@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import type { Tema } from "@/hooks/useTema";
-import { IconoAjustes, IconoExportar, IconoLuna, IconoMonitor, IconoSol } from "./Iconos";
+import { IconoAjustes, IconoExportar, IconoLuna, IconoMonitor, IconoSol } from "./IconosAjustes";
 import { Interruptor } from "./Interruptor";
 
 interface Props {
@@ -21,7 +21,14 @@ const TEMAS: { valor: Tema; etiqueta: string; Icono: typeof IconoSol }[] = [
 ];
 
 /** Menú discreto de ajustes: tema, modo diagnóstico y exportar la conversación. */
-export function MenuAjustes({ tema, alCambiarTema, diagnostico, alCambiarDiagnostico, puedeExportar, alExportar }: Props) {
+export function MenuAjustes({
+  tema,
+  alCambiarTema,
+  diagnostico,
+  alCambiarDiagnostico,
+  puedeExportar,
+  alExportar,
+}: Props) {
   const [abierto, setAbierto] = useState(false);
   const [mensajeExportar, setMensajeExportar] = useState<string | null>(null);
   const contenedor = useRef<HTMLDivElement>(null);
@@ -71,7 +78,7 @@ export function MenuAjustes({ tema, alCambiarTema, diagnostico, alCambiarDiagnos
           id={idPanel}
           role="dialog"
           aria-label="Ajustes"
-          className="entrada absolute right-0 top-12 z-30 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-border bg-surface p-4 shadow-lg"
+          className="entrada absolute top-12 right-0 z-30 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-border bg-surface p-4 shadow-lg"
         >
           <fieldset>
             <legend className="text-sm font-semibold text-fg">Apariencia</legend>
@@ -120,7 +127,8 @@ export function MenuAjustes({ tema, alCambiarTema, diagnostico, alCambiarDiagnos
             Exportar conversación (.md)
           </button>
           <p className="px-2 text-xs text-fg-muted" aria-live="polite">
-            {mensajeExportar ?? (puedeExportar ? "Preguntas, respuestas y enlaces, para compartir." : "Aún no hay nada que exportar.")}
+            {mensajeExportar ??
+              (puedeExportar ? "Preguntas, respuestas y enlaces, para compartir." : "Aún no hay nada que exportar.")}
           </p>
         </div>
       )}

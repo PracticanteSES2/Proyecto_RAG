@@ -52,7 +52,11 @@ export function crearClienteApi(base: string = urlBaseApi(), fetchFn: Fetch = (.
     try {
       respuesta = await fetchFn(url(ruta), {
         ...init,
-        headers: { Accept: "application/json", ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers },
+        headers: {
+          Accept: "application/json",
+          ...(init?.body ? { "Content-Type": "application/json" } : {}),
+          ...init?.headers,
+        },
       });
     } catch (causa) {
       throw new ErrorApi("red", causa instanceof Error ? causa.message : "Fallo de red");
@@ -60,14 +64,23 @@ export function crearClienteApi(base: string = urlBaseApi(), fetchFn: Fetch = (.
     if (respuesta.ok) return respuesta;
     if (respuesta.status === 429) {
       const cabecera = Number(respuesta.headers.get("Retry-After"));
-      throw new ErrorApi("saturado", "Demasiadas consultas", 429, Number.isFinite(cabecera) && cabecera > 0 ? cabecera : undefined);
+      throw new ErrorApi(
+        "saturado",
+        "Demasiadas consultas",
+        429,
+        Number.isFinite(cabecera) && cabecera > 0 ? cabecera : undefined,
+      );
     }
     if (respuesta.status === 404) throw new ErrorApi("no_encontrado", "No encontrado", 404);
     throw new ErrorApi("http", `HTTP ${respuesta.status}`, respuesta.status);
   }
 
-  const json = async <T>(ruta: string, init?: RequestInit): Promise<T> => (await pedir(ruta, init)).json() as Promise<T>;
-  const post = (cuerpo?: unknown): RequestInit => ({ method: "POST", body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo) });
+  const json = async <T>(ruta: string, init?: RequestInit): Promise<T> =>
+    (await pedir(ruta, init)).json() as Promise<T>;
+  const post = (cuerpo?: unknown): RequestInit => ({
+    method: "POST",
+    body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
+  });
   const id = encodeURIComponent;
 
   return {
@@ -77,7 +90,11 @@ export function crearClienteApi(base: string = urlBaseApi(), fetchFn: Fetch = (.
     eventosTurno: (turnoId, opciones) => abrirEventosTurno(url(`/turnos/${id(turnoId)}/eventos`), opciones),
     obtenerConversacion: (conversacionId) => json<ConversacionGuardada>(`/conversaciones/${id(conversacionId)}`),
     exportarConversacion: async (conversacionId) =>
-      (await pedir(`/conversaciones/${id(conversacionId)}/exportar?formato=md`, { headers: { Accept: "text/markdown" } })).text(),
+      (
+        await pedir(`/conversaciones/${id(conversacionId)}/exportar?formato=md`, {
+          headers: { Accept: "text/markdown" },
+        })
+      ).text(),
     calificarTurno: async (turnoId, calificacion) => {
       await pedir(`/turnos/${id(turnoId)}/calificacion`, post(calificacion));
     },

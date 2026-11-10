@@ -183,7 +183,7 @@ prefijo `dark:`. Que el `:root` de `tokens.css` repita los valores de `@theme` n
 base de `tokens.css` está en `@layer base`, así que las utilidades la sobrescriben.
 
 ```css
-/* frontend/app/globals.css (copiar docs/diseno/tokens.css a frontend/app/tokens.css) */
+/* frontend/styles/globals.css (copiar docs/diseno/tokens.css a frontend/styles/tokens.css) */
 @import "tailwindcss";
 @import "./tokens.css";
 
@@ -330,7 +330,7 @@ MedGemma y Power BI, "Nueva conversación", exportar y "Diagnóstico del servido
 
 La mascota oficial del hospital es el barranquero del Monumento al Buen Acto (ver `identidad_visual.md` §7).
 
-- **Avatar:** `assets/marca/mascota/avatar_barranquero.svg`. Muestra cabeza y pecho de la versión natural dentro de un
+- **Avatar:** `frontend/public/marca/mascota/avatar_barranquero.svg`. Muestra cabeza y pecho de la versión natural dentro de un
   círculo `#EAF4FB`. Se probó a 24, 32 y 64px: se distinguen la corona turquesa, el antifaz negro con el ojo rojo y
   el ala verde. En el chat va a **32px**, alineado con la primera línea de la burbuja y con `alt=""` (es decorativo:
   el rol ya lo anuncia el `aria-label` del mensaje, "Asistente").
@@ -435,6 +435,6 @@ se identifica en **morado** (`--color-diag*`), un color que no aparece en ningun
 
 1. La recreación vectorial del isotipo (`isotipo_ses.svg`, `isotipo_ses_monocromo.svg`), o mejor, que entreguen el
    vector oficial.
-2. La versión natural del barranquero, el encuadre del avatar y los elementos de los estados (`assets/marca/mascota/`).
+2. La versión natural del barranquero, el encuadre del avatar y los elementos de los estados (`frontend/public/marca/mascota/`).
 3. Si el barranquero tiene un nombre propio para el saludo.
 4. La licencia web de Arlon, o la aprobación de Montserrat y Mulish como sustitutas.

@@ -21,8 +21,9 @@ rehype-sanitize 6.0.0. Versiones exactas (sin `^`/`~`).
 
 **Plataforma**: navegadores modernos (Edge/Chrome del hospital), móvil y escritorio.
 
-**Restricciones**: red cerrada → sin fuentes de Google en build (`next/font/google` descartado; pila de fuentes
-del sistema en tokens hasta que llegue la tipografía oficial). Sin dependencias de iconos (SVG propios).
+**Restricciones**: red cerrada → `next/font/google` descarga Montserrat, Mulish y JetBrains Mono al compilar y
+las sirve desde el propio servidor (sin internet en el build: pasar a `next/font/local`). Sin dependencias de
+iconos (SVG propios).
 
 ## Decisiones
 
@@ -34,17 +35,18 @@ del sistema en tokens hasta que llegue la tipografía oficial). Sin dependencias
 | EventSource nativo | reconexión y `Last-Event-ID` gratis | fetch + parser propio |
 | Reductor del turno puro (`lib/turno/`) | la máquina de estados del SSE se prueba sin DOM ni red | estado disperso en el hook |
 | Indicador visible con `animation-delay: 600ms` en CSS | sin temporizadores en JS; si la respuesta llega antes, nunca se pinta | `setTimeout` |
-| Tokens en `app/tokens.css` (primitivas de marca → semánticos claro/oscuro → `@theme inline`) | reemplazar la marca sin tocar componentes | colores en componentes |
+| Tokens en `styles/tokens.css` (primitivas de marca → semánticos claro/oscuro → `@theme inline`) | reemplazar la marca sin tocar componentes | colores en componentes |
 | Regla ESLint que prohíbe hex en `components/`, `hooks/` y `lib/` | garantiza el punto anterior | revisión manual |
 
 ## Estructura
 
 ```text
 frontend/
-├── app/                 # layout, página, tokens.css, globals.css, api/v1/** (mock)
+├── app/                 # layout, página, api/v1/** (mock)
+├── styles/              # tokens.css (copia de docs/diseno/tokens.css) y globals.css
 ├── components/chat/     # Chat, Historial, MensajeUsuario, MensajeAsistente, IndicadorPensando, Compositor,
 │                        # Contrapregunta, Calificacion, PanelDiagnostico, EstadoVacio, AvisoServidor, ...
-├── components/ui/       # Boton, Iconos, Mascota, Marca, MenuAjustes, Interruptor
+├── components/ui/       # Iconos, Mascota (barranquero oficial), MenuAjustes, Interruptor
 ├── hooks/               # useChat, useTurno, useSalud, useTema
 ├── lib/api/             # tipos.ts, config.ts, cliente.ts, sse.ts
 ├── lib/turno/           # reductor del turno + frases (puro)

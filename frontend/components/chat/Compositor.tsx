@@ -17,7 +17,10 @@ interface Props {
 const MAX_ALTO_PX = 6 * 24 + 20; // ~6 líneas
 
 /** Campo de pregunta: Enter envía, Shift+Enter hace salto de línea; crece hasta ~6 líneas. */
-export const Compositor = forwardRef<ManejadorCompositor, Props>(function Compositor({ ocupado, alEnviar, alDetener }, ref) {
+export const Compositor = forwardRef<ManejadorCompositor, Props>(function Compositor(
+  { ocupado, alEnviar, alDetener },
+  ref,
+) {
   const [texto, setTexto] = useState("");
   const campo = useRef<HTMLTextAreaElement>(null);
 

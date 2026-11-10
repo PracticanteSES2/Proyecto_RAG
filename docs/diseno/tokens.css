@@ -1,7 +1,7 @@
 /*
  * Tokens de diseño — Asistente de tableros, S.E.S. Hospital Universitario de Caldas
  * Fuente y justificación: docs/diseno/tokens.md (contrastes WCAG calculados) e identidad_visual.md.
- * Listo para copiar a frontend/app/tokens.css e importarlo antes de Tailwind.
+ * Listo para copiar a frontend/styles/tokens.css e importarlo antes de Tailwind.
  *
  * Capas:
  *   1. --ses-*        primitivos de marca (no usar directo en componentes salvo ilustraciones/gráficos)

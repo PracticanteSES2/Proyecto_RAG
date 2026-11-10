@@ -11,5 +11,7 @@ export default defineConfig({
     setupFiles: ["./tests/setup.ts"],
     include: ["tests/**/*.test.{ts,tsx}"],
     css: false,
+    // El disco del equipo es lento (antivirus): margen para las pruebas de interacción.
+    testTimeout: 15000,
   },
 });

@@ -1,11 +1,12 @@
 # Quickstart: frontend del chat
 
-Requisitos: Node 24 LTS (npm 11). Todo se ejecuta dentro de `frontend/`.
+Requisitos: Node 24 LTS (npm 11). Todo se ejecuta dentro de `frontend/`. Las dependencias van con versión
+exacta: instalar nuevas con `npm install --save-exact`.
 
 ```powershell
 cd frontend
 npm ci                 # instala versiones exactas de package-lock.json
-npm run dev            # http://localhost:3000 con el MOCK (lo activa .env.development)
+npm run dev            # http://localhost:3000 con el MOCK (activo por defecto en `next dev`)
 ```
 
 ## Contra el backend FastAPI real
@@ -24,7 +25,8 @@ El backend debe permitir CORS desde `http://localhost:3000` y exponer las rutas 
 ## Calidad
 
 ```powershell
-npm run lint        # ESLint (incluye la regla que prohíbe colores hex en componentes)
+npm run lint        # ESLint (incluye la regla que prohíbe colores hex) + prettier --check
+npm run format      # Prettier (con el plugin de Tailwind que ordena las clases)
 npm run typecheck   # tsc --noEmit
 npm test            # Vitest + Testing Library
 npm run build       # build de producción (descarga Montserrat/Mulish/JetBrains Mono al compilar)

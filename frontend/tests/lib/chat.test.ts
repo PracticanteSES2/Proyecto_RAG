@@ -10,7 +10,8 @@ import {
 } from "@/lib/chat/reductor";
 import type { EventoRespuesta } from "@/lib/api/tipos";
 
-const aplicar = (acciones: AccionChat[], inicial: EstadoChat = estadoInicialChat) => acciones.reduce(reducirChat, inicial);
+const aplicar = (acciones: AccionChat[], inicial: EstadoChat = estadoInicialChat) =>
+  acciones.reduce(reducirChat, inicial);
 const enviar = (n: number, texto = `pregunta ${n}`, opcionId?: string): AccionChat => ({
   tipo: "enviar",
   idUsuario: `u${n}`,
@@ -26,7 +27,15 @@ const responder = (n: number, extra: Partial<EventoRespuesta> = {}): AccionChat 
     tipo: "evento",
     evento: {
       tipo: "respuesta",
-      datos: { turno_id: `t${n}`, texto_markdown: "ok", ruta: "powerbi", fuentes: [], enlaces_powerbi: [], degradada: false, ...extra },
+      datos: {
+        turno_id: `t${n}`,
+        texto_markdown: "ok",
+        ruta: "powerbi",
+        fuentes: [],
+        enlaces_powerbi: [],
+        degradada: false,
+        ...extra,
+      },
     },
   },
 });
@@ -88,7 +97,11 @@ describe("reductor del chat", () => {
     const e = aplicar([
       enviar(1),
       responder(1),
-      { tipo: "calificar", idAsistente: "a1", calificacion: { valor: "mala", comentario: "faltó el año", estado: "guardada" } },
+      {
+        tipo: "calificar",
+        idAsistente: "a1",
+        calificacion: { valor: "mala", comentario: "faltó el año", estado: "guardada" },
+      },
     ]);
     expect(asistente(e, "a1").calificacion).toEqual({ valor: "mala", comentario: "faltó el año", estado: "guardada" });
   });
@@ -119,13 +132,28 @@ describe("reductor del chat", () => {
             {
               turno_id: "t1",
               mensaje: "¿Ocupación?",
-              respuesta: { turno_id: "t1", texto_markdown: "¿Cuál?", ruta: "aclaracion", fuentes: [], enlaces_powerbi: [], degradada: false, contrapregunta },
+              respuesta: {
+                turno_id: "t1",
+                texto_markdown: "¿Cuál?",
+                ruta: "aclaracion",
+                fuentes: [],
+                enlaces_powerbi: [],
+                degradada: false,
+                contrapregunta,
+              },
             },
             {
               turno_id: "t2",
               mensaje: "UCI adultos",
               opcion_id: "op-uci",
-              respuesta: { turno_id: "t2", texto_markdown: "87 %", ruta: "powerbi", fuentes: [], enlaces_powerbi: [], degradada: false },
+              respuesta: {
+                turno_id: "t2",
+                texto_markdown: "87 %",
+                ruta: "powerbi",
+                fuentes: [],
+                enlaces_powerbi: [],
+                degradada: false,
+              },
               avisos: [{ motivo: "saturado", texto: "nota" }],
               calificacion: { valor: "buena" },
             },

@@ -1,37 +1,10 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Chat } from "@/components/chat/Chat";
 import { ErrorApi, type ClienteApi } from "@/lib/api/cliente";
 import { ProveedorApi } from "@/lib/api/contexto";
-import type { OpcionesEventos } from "@/lib/api/sse";
-import type { EventoTurno } from "@/lib/api/tipos";
-
-function clienteFalso(sobrescribir: Partial<ClienteApi> = {}) {
-  const flujos: OpcionesEventos[] = [];
-  const cerrar = vi.fn();
-  const cliente: ClienteApi = {
-    crearConversacion: vi.fn(async () => ({ conversacion_id: "c1" })),
-    enviarTurno: vi.fn(async () => ({ turno_id: "t1" })),
-    eventosTurno: vi.fn((_id: string, opciones: OpcionesEventos) => {
-      flujos.push(opciones);
-      return { cerrar };
-    }),
-    obtenerConversacion: vi.fn(async () => {
-      throw new ErrorApi("no_encontrado", "no");
-    }),
-    exportarConversacion: vi.fn(async () => "# md"),
-    calificarTurno: vi.fn(async () => {}),
-    capacidades: vi.fn(async () => ({
-      capacidades: [{ titulo: "Cifras de los tableros", descripcion: "x" }],
-      ejemplos: [{ texto: "¿Cuántos egresos hubo en marzo?" }],
-    })),
-    salud: vi.fn(async () => ({ estado: "ok" as const })),
-    ...sobrescribir,
-  };
-  const emitir = (evento: EventoTurno) => act(() => flujos.at(-1)!.alEvento(evento));
-  return { cliente, emitir, cerrar, flujos };
-}
+import { clienteFalso } from "./clienteFalso";
 
 const montar = (cliente: ClienteApi) =>
   render(
@@ -48,7 +21,12 @@ describe("Chat (flujo completo contra un cliente falso)", () => {
     montar(cliente);
     expect(await screen.findByText("Cifras de los tableros")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "¿Cuántos egresos hubo en marzo?" }));
-    await waitFor(() => expect(cliente.enviarTurno).toHaveBeenCalledWith("c1", { mensaje: "¿Cuántos egresos hubo en marzo?", diagnostico: false }));
+    await waitFor(() =>
+      expect(cliente.enviarTurno).toHaveBeenCalledWith("c1", {
+        mensaje: "¿Cuántos egresos hubo en marzo?",
+        diagnostico: false,
+      }),
+    );
   });
 
   it("pregunta → progreso → respuesta, y el botón Detener mientras piensa", async () => {
@@ -58,12 +36,22 @@ describe("Chat (flujo completo contra un cliente falso)", () => {
     await waitFor(() => expect(cliente.eventosTurno).toHaveBeenCalledWith("t1", expect.anything()));
     expect(screen.getByRole("button", { name: "Detener la consulta" })).toBeInTheDocument();
 
-    emitir({ tipo: "progreso", datos: { etapa: "consultando_powerbi", frase: "Consultando los datos en Power BI", t: 2 } });
+    emitir({
+      tipo: "progreso",
+      datos: { etapa: "consultando_powerbi", frase: "Consultando los datos en Power BI", t: 2 },
+    });
     expect(screen.getByRole("status")).toHaveTextContent("Consultando los datos en Power BI…");
 
     emitir({
       tipo: "respuesta",
-      datos: { turno_id: "t1", texto_markdown: "Hubo **1.284** egresos.", ruta: "powerbi", fuentes: [], enlaces_powerbi: [], degradada: false },
+      datos: {
+        turno_id: "t1",
+        texto_markdown: "Hubo **1.284** egresos.",
+        ruta: "powerbi",
+        fuentes: [],
+        enlaces_powerbi: [],
+        degradada: false,
+      },
     });
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.getByText("1.284")).toBeInTheDocument();
@@ -132,7 +120,11 @@ describe("Chat (flujo completo contra un cliente falso)", () => {
     emitir({ tipo: "fin", datos: {} });
     await userEvent.click(screen.getByRole("button", { name: "UCI adultos" }));
     await waitFor(() =>
-      expect(cliente.enviarTurno).toHaveBeenLastCalledWith("c1", { mensaje: "UCI adultos", diagnostico: false, opcion_id: "op-uci" }),
+      expect(cliente.enviarTurno).toHaveBeenLastCalledWith("c1", {
+        mensaje: "UCI adultos",
+        diagnostico: false,
+        opcion_id: "op-uci",
+      }),
     );
   });
 });

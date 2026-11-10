@@ -34,7 +34,7 @@ function EnlacesPowerBI({ enlaces }: { enlaces: EnlacePowerBI[] }) {
           target="_blank"
           rel="noopener noreferrer"
           title={enlace.titulo}
-          className="group inline-flex max-w-full items-center gap-2 rounded-pill border border-primary bg-surface py-1.5 pl-3 pr-4 text-sm font-semibold text-link no-underline transition-colors hover:bg-primary hover:text-on-primary"
+          className="group inline-flex max-w-full items-center gap-2 rounded-pill border border-primary bg-surface py-1.5 pr-4 pl-3 text-sm font-semibold text-link no-underline transition-colors hover:bg-primary hover:text-on-primary"
         >
           <IconoTablero tamano={16} className="shrink-0" />
           <span className="truncate">
@@ -54,9 +54,14 @@ function Fuentes({ fuentes }: { fuentes: Fuente[] }) {
     <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-fg-muted">
       <span className="font-semibold">Fuentes:</span>
       {fuentes.map((f, i) => (
-        <span key={`${f.titulo}-${i}`} className="inline-flex max-w-full items-center gap-1 rounded-pill bg-surface-2 px-2.5 py-1">
+        <span
+          key={`${f.titulo}-${i}`}
+          className="inline-flex max-w-full items-center gap-1 rounded-pill bg-surface-2 px-2.5 py-1"
+        >
           <IconoDocumento tamano={12} className="shrink-0" />
-          <span className="truncate">{[f.tablero && f.tablero !== f.titulo ? f.tablero : null, f.titulo, f.pagina].filter(Boolean).join(" · ")}</span>
+          <span className="truncate">
+            {[f.tablero && f.tablero !== f.titulo ? f.tablero : null, f.titulo, f.pagina].filter(Boolean).join(" · ")}
+          </span>
         </span>
       ))}
     </div>
@@ -78,7 +83,15 @@ function Avisos({ textos }: { textos: string[] }) {
 }
 
 /** Mensaje del asistente: indicador de «pensando», respuesta completa o aviso amable. */
-export function MensajeAsistente({ mensaje, diagnostico, contrapreguntaActiva, ocupado, alElegirOpcion, alReintentar, alCalificar }: Props) {
+export function MensajeAsistente({
+  mensaje,
+  diagnostico,
+  contrapreguntaActiva,
+  ocupado,
+  alElegirOpcion,
+  alReintentar,
+  alCalificar,
+}: Props) {
   const { turno } = mensaje;
 
   if (turnoActivo(turno)) {
@@ -117,10 +130,14 @@ export function MensajeAsistente({ mensaje, diagnostico, contrapreguntaActiva, o
               <Fuentes fuentes={respuesta.fuentes} />
             </div>
             <Avisos textos={avisosVisibles(turno)} />
-            {turno.turnoId && !respuesta.contrapregunta && <Calificacion calificacion={mensaje.calificacion} alCalificar={alCalificar} />}
+            {turno.turnoId && !respuesta.contrapregunta && (
+              <Calificacion calificacion={mensaje.calificacion} alCalificar={alCalificar} />
+            )}
           </>
         ) : (
-          esFaseProblema(turno.fase) && <AvisoTurno fase={turno.fase} alReintentar={alReintentar} puedeReintentar={!ocupado} />
+          esFaseProblema(turno.fase) && (
+            <AvisoTurno fase={turno.fase} alReintentar={alReintentar} puedeReintentar={!ocupado} />
+          )
         )}
         {diagnostico && <PanelDiagnostico turno={turno} />}
       </div>

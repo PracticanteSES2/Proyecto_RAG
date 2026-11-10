@@ -1,5 +1,6 @@
 import type { FaseTurno } from "@/lib/turno/maquina";
-import { IconoAlerta, IconoReintentar } from "@/components/ui/Iconos";
+import { IconoReintentar } from "@/components/ui/Iconos";
+import { Mascota } from "@/components/ui/Mascota";
 
 type FaseProblema = Extract<FaseTurno, "error" | "saturado" | "fallo_envio" | "desconectado" | "detenido">;
 
@@ -31,10 +32,8 @@ export function AvisoTurno({ fase, alReintentar, puedeReintentar }: Props) {
       : "border-l-[3px] border-warning-border bg-warning-bg text-fg";
   return (
     <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md px-4 py-3 ${tono}`}>
-      <p className="flex min-w-0 flex-1 items-start gap-2">
-        {!detenido && (
-          <IconoAlerta tamano={18} className={`mt-0.5 shrink-0 ${fase === "error" ? "text-danger" : "text-warning"}`} />
-        )}
+      <p className="flex min-w-0 flex-1 items-center gap-3">
+        {!detenido && <Mascota variante={fase === "saturado" ? "pensando" : "sin_resultados"} alto={52} />}
         <span>{TEXTOS_PROBLEMA[fase]}</span>
       </p>
       {alReintentar && (

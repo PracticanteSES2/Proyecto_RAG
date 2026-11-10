@@ -1,6 +1,6 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { IconoNueva } from "@/components/ui/Iconos";
+import { IconoNueva } from "@/components/ui/IconosAjustes";
 
 interface Props {
   diagnostico: boolean;
@@ -16,7 +16,15 @@ export function Encabezado({ diagnostico, puedeReiniciar, alNuevaConversacion, a
       <div className="h-1" style={{ background: "var(--gradient-marca)" }} aria-hidden="true" />
       <div className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-5xl items-center gap-3 px-4">
-          <Image src="/marca/isotipo_ses.svg" alt="" width={36} height={36} unoptimized priority className="size-9 shrink-0" />
+          <Image
+            src="/marca/isotipo_ses.svg"
+            alt=""
+            width={36}
+            height={36}
+            unoptimized
+            priority
+            className="size-9 shrink-0"
+          />
           <div className="min-w-0 flex-1 leading-tight">
             <p className="flex items-center gap-2 font-heading text-base font-semibold text-fg-heading sm:text-lg">
               <span className="truncate">Asistente de tableros</span>
@@ -27,7 +35,8 @@ export function Encabezado({ diagnostico, puedeReiniciar, alNuevaConversacion, a
               )}
             </p>
             <p className="truncate text-xs text-fg-muted">
-              S.E.S. Hospital Universitario de Caldas <span className="hidden sm:inline">· Queremos devolver sonrisas</span>
+              S.E.S. Hospital Universitario de Caldas{" "}
+              <span className="hidden sm:inline">· Queremos devolver sonrisas</span>
             </p>
           </div>
           <button

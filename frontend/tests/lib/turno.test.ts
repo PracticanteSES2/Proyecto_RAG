@@ -43,7 +43,10 @@ describe("máquina de estados del turno", () => {
   it("progreso reemplaza la frase, añade puntos suspensivos y registra la etapa", () => {
     const e = aplicar([
       { tipo: "creado", turnoId: "t1" },
-      ev({ tipo: "progreso", datos: { etapa: "consultando_powerbi", frase: "Consultando los datos en Power BI", t: 3.1 } }),
+      ev({
+        tipo: "progreso",
+        datos: { etapa: "consultando_powerbi", frase: "Consultando los datos en Power BI", t: 3.1 },
+      }),
     ]);
     expect(e.frase).toBe("Consultando los datos en Power BI…");
     expect(e.etapas).toEqual([{ etapa: "consultando_powerbi", frase: "Consultando los datos en Power BI", t: 3.1 }]);
@@ -83,7 +86,10 @@ describe("máquina de estados del turno", () => {
 
   it("espera del servidor ocupa el renglón secundario y desactiva el respaldo del cliente", () => {
     const e = aplicar([
-      ev({ tipo: "espera", datos: { nivel: 2, frase: "Power BI está tardando en responder; sigo esperando los datos.", t: 25 } }),
+      ev({
+        tipo: "espera",
+        datos: { nivel: 2, frase: "Power BI está tardando en responder; sigo esperando los datos.", t: 25 },
+      }),
       { tipo: "tic", segundos: 95 },
     ]);
     expect(e.fraseEspera).toBe("Power BI está tardando en responder; sigo esperando los datos.");

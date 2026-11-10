@@ -43,7 +43,12 @@ export function crearConversacion(): string {
   return id;
 }
 
-export function crearTurno(conversacionId: string, mensaje: string, diagnostico: boolean, opcionId?: string): TurnoMock | null {
+export function crearTurno(
+  conversacionId: string,
+  mensaje: string,
+  diagnostico: boolean,
+  opcionId?: string,
+): TurnoMock | null {
   const turnos = almacen().conversaciones.get(conversacionId);
   if (!turnos) return null;
   const turnoId = nuevoId("turno");
@@ -87,14 +92,20 @@ export function conversacionGuardada(conversacionId: string): ConversacionGuarda
 export function exportarMarkdown(conversacionId: string): string | null {
   const conversacion = conversacionGuardada(conversacionId);
   if (!conversacion) return null;
-  const partes = ["# Conversación con el Asistente de tableros", "", `_Exportada el ${new Date().toLocaleString("es-CO")}_`, ""];
+  const partes = [
+    "# Conversación con el Asistente de tableros",
+    "",
+    `_Exportada el ${new Date().toLocaleString("es-CO")}_`,
+    "",
+  ];
   conversacion.turnos.forEach((t, i) => {
     partes.push(`## ${i + 1}. ${t.mensaje}`, "");
     if (t.respuesta) {
       partes.push(t.respuesta.texto_markdown, "");
       t.respuesta.contrapregunta?.opciones.forEach((o) => partes.push(`- ${o.texto}`));
       t.respuesta.enlaces_powerbi.forEach((e) => partes.push(`[Abrir en Power BI › ${e.titulo}](${e.url})`, ""));
-      if (t.respuesta.fuentes.length) partes.push(`**Fuentes:** ${t.respuesta.fuentes.map((f) => f.titulo).join(" · ")}`, "");
+      if (t.respuesta.fuentes.length)
+        partes.push(`**Fuentes:** ${t.respuesta.fuentes.map((f) => f.titulo).join(" · ")}`, "");
     }
     t.avisos?.forEach((a) => partes.push(`> ${a.texto}`, ""));
   });
@@ -103,8 +114,14 @@ export function exportarMarkdown(conversacionId: string): string | null {
 
 export const CAPACIDADES_MOCK: Capacidades = {
   capacidades: [
-    { titulo: "Cifras de los tableros", descripcion: "Egresos, cirugías, camas, urgencias, lavandería y más, con los filtros que necesites." },
-    { titulo: "Qué significa cada indicador", descripcion: "Definiciones y fichas técnicas tomadas de la documentación de los tableros." },
+    {
+      titulo: "Cifras de los tableros",
+      descripcion: "Egresos, cirugías, camas, urgencias, lavandería y más, con los filtros que necesites.",
+    },
+    {
+      titulo: "Qué significa cada indicador",
+      descripcion: "Definiciones y fichas técnicas tomadas de la documentación de los tableros.",
+    },
     { titulo: "Ir directo a Power BI", descripcion: "Te dejo el enlace a la página del tablero donde está el dato." },
   ],
   ejemplos: [

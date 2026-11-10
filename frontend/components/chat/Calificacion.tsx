@@ -74,7 +74,11 @@ export function Calificacion({ calificacion, alCalificar }: Props) {
             className="mt-2 w-full resize-y rounded-sm border border-border-strong bg-surface px-3 py-2 text-sm text-fg"
           />
           <div className="mt-2 flex justify-end gap-2">
-            <button type="button" onClick={() => setEditando(false)} className="rounded-pill px-3 py-1.5 text-sm font-semibold text-fg-muted hover:bg-surface-3">
+            <button
+              type="button"
+              onClick={() => setEditando(false)}
+              className="rounded-pill px-3 py-1.5 text-sm font-semibold text-fg-muted hover:bg-surface-3"
+            >
               Cancelar
             </button>
             <button

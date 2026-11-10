@@ -3,12 +3,7 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { ErrorApi, type ClienteApi } from "@/lib/api/cliente";
 import type { ValorCalificacion } from "@/lib/api/tipos";
-import {
-  estadoInicialChat,
-  reducirChat,
-  turnoEnCurso,
-  type MensajeAsistente,
-} from "@/lib/chat/reductor";
+import { estadoInicialChat, reducirChat, turnoEnCurso, type MensajeAsistente } from "@/lib/chat/reductor";
 import type { AccionTurno } from "@/lib/turno/maquina";
 import { escribirPreferencia, leerPreferencia } from "./usePreferencia";
 import { useTurno } from "./useTurno";
@@ -58,7 +53,8 @@ export function useChat({ cliente, diagnostico, alFallarRed }: OpcionesChat) {
         if (vigente && estadoRef.current.mensajes.length === 0) despachar({ tipo: "restaurar", conversacion });
       })
       .catch((error: unknown) => {
-        if (error instanceof ErrorApi && error.tipo === "no_encontrado") escribirPreferencia(CLAVE_CONVERSACION, undefined);
+        if (error instanceof ErrorApi && error.tipo === "no_encontrado")
+          escribirPreferencia(CLAVE_CONVERSACION, undefined);
       });
     return () => {
       vigente = false;
@@ -110,7 +106,9 @@ export function useChat({ cliente, diagnostico, alFallarRed }: OpcionesChat) {
 
   const reintentar = useCallback(
     (idAsistente: string) => {
-      const mensaje = estadoRef.current.mensajes.find((m): m is MensajeAsistente => m.id === idAsistente && m.rol === "asistente");
+      const mensaje = estadoRef.current.mensajes.find(
+        (m): m is MensajeAsistente => m.id === idAsistente && m.rol === "asistente",
+      );
       if (!mensaje || turnoEnCurso(estadoRef.current)) return;
       despachar({ tipo: "descartar", idAsistente });
       void enviar(mensaje.solicitud.mensaje, mensaje.solicitud.opcionId);
@@ -120,7 +118,9 @@ export function useChat({ cliente, diagnostico, alFallarRed }: OpcionesChat) {
 
   const calificar = useCallback(
     async (idAsistente: string, valor: ValorCalificacion, comentario?: string) => {
-      const mensaje = estadoRef.current.mensajes.find((m): m is MensajeAsistente => m.id === idAsistente && m.rol === "asistente");
+      const mensaje = estadoRef.current.mensajes.find(
+        (m): m is MensajeAsistente => m.id === idAsistente && m.rol === "asistente",
+      );
       const turnoId = mensaje?.turno.turnoId;
       if (!turnoId) return;
       const nota = comentario?.trim() || undefined;

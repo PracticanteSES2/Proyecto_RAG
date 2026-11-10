@@ -9,8 +9,14 @@ import { Mascota } from "@/components/ui/Mascota";
 /** Contenido de respaldo si GET /capacidades no responde: el estado vacío nunca queda vacío. */
 export const CAPACIDADES_RESPALDO: Capacidades = {
   capacidades: [
-    { titulo: "Cifras de los tableros", descripcion: "Indicadores de los tableros de Power BI institucionales, con los filtros que necesites." },
-    { titulo: "Qué significa cada indicador", descripcion: "Definiciones tomadas de la documentación de los tableros." },
+    {
+      titulo: "Cifras de los tableros",
+      descripcion: "Indicadores de los tableros de Power BI institucionales, con los filtros que necesites.",
+    },
+    {
+      titulo: "Qué significa cada indicador",
+      descripcion: "Definiciones tomadas de la documentación de los tableros.",
+    },
     { titulo: "Ir directo a Power BI", descripcion: "Un enlace a la página del tablero donde está el dato." },
   ],
   ejemplos: [
@@ -43,7 +49,10 @@ export function EstadoVacio({ cliente, alPreguntar, deshabilitado = false }: Pro
   const contenido = datos ?? CAPACIDADES_RESPALDO;
 
   return (
-    <section aria-labelledby="bienvenida" className="entrada relative mx-auto flex max-w-2xl flex-col items-center py-8 text-center sm:py-14">
+    <section
+      aria-labelledby="bienvenida"
+      className="entrada relative mx-auto flex max-w-2xl flex-col items-center py-6 text-center sm:py-10"
+    >
       <Image
         src="/marca/isotipo_ses.svg"
         alt=""
@@ -51,9 +60,9 @@ export function EstadoVacio({ cliente, alPreguntar, deshabilitado = false }: Pro
         height={420}
         unoptimized
         priority
-        className="pointer-events-none absolute -top-6 left-1/2 -z-10 size-[26rem] -translate-x-1/2 opacity-[0.06]"
+        className="pointer-events-none absolute top-0 left-1/2 -z-10 size-[26rem] -translate-x-1/2 opacity-[0.06]"
       />
-      <Mascota variante="color" tamano={104} />
+      <Mascota variante="natural" alto={220} />
       <h1 id="bienvenida" className="mt-4 text-2xl font-bold sm:text-3xl">
         Hola, ¿qué quieres consultar hoy?
       </h1>
@@ -62,7 +71,7 @@ export function EstadoVacio({ cliente, alPreguntar, deshabilitado = false }: Pro
         sin tener que entrar a Power BI.
       </p>
 
-      <h2 className="mt-7 font-body text-xs font-bold uppercase tracking-wide text-fg-muted">Prueba con</h2>
+      <h2 className="mt-7 font-body text-xs font-bold tracking-wide text-fg-muted uppercase">Prueba con</h2>
       <ul className="mt-3 flex flex-wrap justify-center gap-2">
         {contenido.ejemplos.map((e) => (
           <li key={e.texto}>
@@ -77,7 +86,9 @@ export function EstadoVacio({ cliente, alPreguntar, deshabilitado = false }: Pro
           </li>
         ))}
       </ul>
-      <ul className={`mt-10 grid w-full gap-3 text-left sm:grid-cols-3 ${datos ? "" : "opacity-0"} transition-opacity duration-300`}>
+      <ul
+        className={`mt-10 grid w-full gap-3 text-left sm:grid-cols-3 ${datos ? "" : "opacity-0"} transition-opacity duration-300`}
+      >
         {contenido.capacidades.map((c) => (
           <li key={c.titulo} className="rounded-lg border border-border bg-surface p-4 shadow-sm">
             <h2 className="text-sm font-semibold">{c.titulo}</h2>

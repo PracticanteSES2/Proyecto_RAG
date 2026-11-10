@@ -27,7 +27,13 @@ export function Historial({ estado, diagnostico, ocupado, alElegirOpcion, alRein
   }, [huella]);
 
   return (
-    <div role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversación" className="flex flex-col gap-6">
+    <div
+      role="log"
+      aria-live="polite"
+      aria-relevant="additions"
+      aria-label="Conversación"
+      className="flex flex-col gap-6"
+    >
       {estado.mensajes.map((m) =>
         m.rol === "usuario" ? (
           <MensajeUsuario key={m.id} mensaje={m} />

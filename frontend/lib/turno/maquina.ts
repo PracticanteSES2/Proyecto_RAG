@@ -8,14 +8,7 @@
  * Reglas (specs/003-progreso-chat/contracts/eventos.md): `progreso` reemplaza la frase; `espera` reemplaza el
  * renglón secundario; nunca se muestran `t`, `nivel` ni `etapa` como texto.
  */
-import type {
-  Etapa,
-  EventoAviso,
-  EventoCola,
-  EventoError,
-  EventoRespuesta,
-  EventoTurno,
-} from "@/lib/api/tipos";
+import type { Etapa, EventoAviso, EventoCola, EventoError, EventoRespuesta, EventoTurno } from "@/lib/api/tipos";
 
 export type FaseTurno =
   | "enviando" // POST /turnos en vuelo
@@ -124,7 +117,7 @@ function aplicarEvento(estado: EstadoTurno, evento: EventoTurno): EstadoTurno {
       return { ...estado, fase: "en_curso", cola: evento.datos, frase: fraseCola(evento.datos) };
     case "progreso": {
       const { etapa, frase, t } = evento.datos;
-      const texto = frase?.trim() ? frase : FRASES_ETAPA[etapa] ?? FRASE_INICIAL;
+      const texto = frase?.trim() ? frase : (FRASES_ETAPA[etapa] ?? FRASE_INICIAL);
       return {
         ...estado,
         fase: "en_curso",
@@ -156,7 +149,7 @@ export function reducirTurno(estado: EstadoTurno, accion: AccionTurno): EstadoTu
       if (!turnoActivo(estado)) return estado;
       const fraseEspera = estado.esperaDelServidor
         ? estado.fraseEspera
-        : fraseEsperaCliente(accion.segundos) ?? estado.fraseEspera;
+        : (fraseEsperaCliente(accion.segundos) ?? estado.fraseEspera);
       return { ...estado, segundos: accion.segundos, fraseEspera };
     }
     case "saturado":

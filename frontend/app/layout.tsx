@@ -1,11 +1,21 @@
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Montserrat, Mulish } from "next/font/google";
-import "./globals.css";
+import "@/styles/globals.css";
 
 // next/font descarga las fuentes al compilar y las sirve desde el propio servidor (sin peticiones a Google
 // desde el navegador). tokens.css las consume con var(--font-montserrat) / var(--font-mulish) / var(--font-jetbrains).
-const montserrat = Montserrat({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-montserrat", display: "swap" });
-const mulish = Mulish({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-mulish", display: "swap" });
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-montserrat",
+  display: "swap",
+});
+const mulish = Mulish({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-mulish",
+  display: "swap",
+});
 const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400"], variable: "--font-jetbrains", display: "swap" });
 
 export const metadata: Metadata = {
@@ -28,7 +38,11 @@ const SCRIPT_TEMA = `try{var t=JSON.parse(localStorage.getItem("asistente.tema")
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es-CO" className={`${montserrat.variable} ${mulish.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html
+      lang="es-CO"
+      className={`${montserrat.variable} ${mulish.variable} ${mono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
       </head>

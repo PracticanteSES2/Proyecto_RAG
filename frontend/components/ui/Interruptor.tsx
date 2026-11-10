@@ -14,7 +14,11 @@ interface Props {
 /** Interruptor accesible (role="switch"). */
 export function Interruptor({ etiqueta, ayuda, activo, alCambiar, tono = "primario" }: Props) {
   const id = useId();
-  const fondo = activo ? (tono === "diag" ? "bg-diag border-diag" : "bg-primary border-primary") : "bg-surface-2 border-border-strong";
+  const fondo = activo
+    ? tono === "diag"
+      ? "bg-diag border-diag"
+      : "bg-primary border-primary"
+    : "bg-surface-2 border-border-strong";
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0">
