@@ -10,6 +10,7 @@ Requiere Redis >= 6.2 (Streams con grupos y XAUTOCLAIM).
 from __future__ import annotations
 
 import json
+import logging
 import time
 import uuid
 
@@ -24,6 +25,7 @@ from backend.app.services.almacen import (
 )
 from backend.app.services.claves import GRUPO_MOTORES, Claves
 
+LOG = logging.getLogger(__name__)
 MAXLEN_COLA = 10_000
 MAXLEN_EVENTOS = 2_000
 
@@ -72,7 +74,7 @@ class AlmacenRedis:
         try:
             await self.r.aclose()
         except Exception:
-            pass
+            LOG.debug("No se pudo cerrar el cliente de Redis", exc_info=True)
 
     async def crear_conversacion(self, conversacion_id: str, ttl_s: int) -> None:
         ahora = ahora_iso()

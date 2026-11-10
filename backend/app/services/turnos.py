@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import logging
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from backend.app.services import cache as reglas_cache
@@ -32,6 +33,38 @@ ERROR_OPCION = {
 }
 
 
+@dataclass
+class ContextoTurno:
+    turno: dict
+    emisor: EmisorTurno
+    opcion: dict | None
+    texto_usuario: str
+    estado_previo: object
+    recibido: float
+
+
+@dataclass
+class CorridaMotor:
+    result: dict
+    estado_nuevo: object
+    formatter: object
+    inicio: float
+    fin: float
+
+
+def _opcion_elegida(meta: dict, opcion_id: str | None) -> dict | None:
+    if not opcion_id:
+        return None
+    return next((o for o in meta.get("opciones") or [] if o.get("id") == opcion_id), None)
+
+
+def _quitar_oyente(poner_oyente) -> None:
+    try:
+        poner_oyente(None)
+    except Exception:
+        LOG.warning("No se pudo quitar el oyente de progreso del motor", exc_info=True)
+
+
 def _snapshot(result, texto, pregunta, via, opciones):
     try:
         from src.feedback.registro import snapshot_turno
@@ -51,18 +84,18 @@ class ProcesadorTurnos:
         self.serializador = serializador
         self.ajustes = ajustes
         self.huella = huella
-        self.raiz_datos = raiz_datos
+        self.raiz_datos = raiz_datos if raiz_datos is not None else getattr(ajustes, "rag_raiz_datos", None)
         self.intervalo_tic_s = intervalo_tic_s
         # PUNTO DE UNIÓN con agente/memoria-sesion: cómo se pasa el estado de la
         # conversación al motor (hoy, restaurando atributos; mañana, sesion=…).
         self.sesiones = sesiones or SesionPorAtributos()
 
     # ------------------------------------------------------------------
-    def _emisor(self, turno_id, frases):
+    def _emisor(self, turno_id, frases, diagnostico=False):
         def publicar(evento, datos):
             self.almacen.publicar_evento(turno_id, evento, datos)
 
-        return EmisorTurno(publicar, nuevo_traductor(list(frases or [])))
+        return EmisorTurno(publicar, nuevo_traductor(list(frases or [])), diagnostico=diagnostico)
 
     def _cerrar(self, turno, emisor, campos, mensajes, opciones, estado_bytes, guardar_estado=True):
         cid = turno["conversacion_id"]
@@ -111,79 +144,87 @@ class ProcesadorTurnos:
                 LOG.exception("Tampoco se pudo cerrar el turno %s", turno.get("turno_id"))
 
     def _procesar(self, turno: dict) -> None:
+        ctx = self._preparar(turno)
+        if ctx is None:
+            return
+        clave, guardado = self._buscar_en_cache(turno, ctx.estado_previo, ctx.texto_usuario)
+        if guardado:
+            self._desde_cache(turno, ctx.emisor, guardado, ctx.texto_usuario, ctx.recibido)
+            return
+        corrida = self._correr_motor(ctx)
+        if corrida is None:
+            return
+        try:
+            respuesta, pendientes, texto = presentacion.construir_respuesta(corrida.result, corrida.formatter,
+                                                                            turno["turno_id"])
+        except Exception:
+            LOG.exception("No se pudo presentar la respuesta del turno %s", turno["turno_id"])
+            self._error(turno, ctx.emisor, ERROR_MOTOR, ctx.texto_usuario)
+            return
+        guardable = self._responder(ctx, corrida, respuesta, pendientes, texto)
+        if clave and reglas_cache.puede_guardar(corrida.result, respuesta, ctx.estado_previo, turno,
+                                                self.ajustes.cache_habilitada, self.sesiones.sin_contexto):
+            self.almacen.cache_guardar(clave, guardable, self.ajustes.cache_ttl_s)
+
+    def _preparar(self, turno: dict) -> ContextoTurno | None:
+        """Marca el turno en curso, abre el progreso y resuelve la opción elegida."""
         tid, cid = turno["turno_id"], turno["conversacion_id"]
         recibido = time.time()
         self.almacen.iniciar_turno(tid)
         meta = self.almacen.meta_conversacion(cid)
-        emisor = self._emisor(tid, meta.get("frases"))
+        emisor = self._emisor(tid, meta.get("frases"), bool(turno.get("diagnostico")))
         emisor.iniciar()
-
-        opcion = None
-        if turno.get("opcion_id"):
-            opcion = next((o for o in meta.get("opciones") or [] if o.get("id") == turno["opcion_id"]), None)
-            if opcion is None:
-                self._error(turno, emisor, ERROR_OPCION, turno.get("mensaje") or "")
-                return
+        opcion = _opcion_elegida(meta, turno.get("opcion_id"))
+        if turno.get("opcion_id") and opcion is None:
+            self._error(turno, emisor, ERROR_OPCION, turno.get("mensaje") or "")
+            return None
         texto_usuario = (turno.get("mensaje") or "").strip() or (opcion or {}).get("texto") or ""
         estado_previo = self.serializador.de_bytes(self.almacen.cargar_estado_motor(cid))
+        return ContextoTurno(turno, emisor, opcion, texto_usuario, estado_previo, recibido)
 
-        clave, guardado = self._buscar_en_cache(turno, estado_previo, texto_usuario)
-        if guardado:
-            self._desde_cache(turno, emisor, guardado, texto_usuario, recibido)
-            return
-
+    def _correr_motor(self, ctx: ContextoTurno) -> CorridaMotor | None:
+        """Ejecuta el turno en una instancia libre; None si el motor falló (ya se avisó)."""
         with self.piscina.tomar() as instancia:
-            inicio_motor = time.time()
-            motor = instancia.engine
-            poner_oyente = getattr(motor, "set_progress_listener", None)
+            inicio = time.time()
+            poner_oyente = getattr(instancia.engine, "set_progress_listener", None)
+            oyente = poner_oyente if callable(poner_oyente) else (lambda _oyente: None)
             try:
-                if callable(poner_oyente):
-                    poner_oyente(emisor.traducir)
-                with Reloj(emisor, self.intervalo_tic_s), contexto_cola_llm(emisor.cola_llm):
-                    result, estado_nuevo = self.sesiones.ejecutar(instancia, estado_previo, texto_usuario, opcion,
-                                                                  on_token=emisor.token)
+                oyente(ctx.emisor.traducir)
+                with Reloj(ctx.emisor, self.intervalo_tic_s), contexto_cola_llm(ctx.emisor.cola_llm):
+                    result, estado_nuevo = self.sesiones.ejecutar(instancia, ctx.estado_previo, ctx.texto_usuario,
+                                                                  ctx.opcion, on_token=ctx.emisor.token)
             except Exception:
-                LOG.warning("Turno %s: el motor falló", tid, exc_info=True)
-                self._error(turno, emisor, ERROR_MOTOR, texto_usuario)
-                return
+                LOG.warning("Turno %s: el motor falló", ctx.turno["turno_id"], exc_info=True)
+                self._error(ctx.turno, ctx.emisor, ERROR_MOTOR, ctx.texto_usuario)
+                return None
             finally:
-                if callable(poner_oyente):
-                    try:
-                        poner_oyente(None)
-                    except Exception:
-                        pass
-            formatter = instancia.formatter
-            fin_motor = time.time()
+                _quitar_oyente(oyente)
+            return CorridaMotor(result, estado_nuevo, instancia.formatter, inicio, time.time())
 
-        try:
-            respuesta, pendientes, texto = presentacion.construir_respuesta(result, formatter, tid)
-        except Exception:
-            LOG.exception("No se pudo presentar la respuesta del turno %s", tid)
-            self._error(turno, emisor, ERROR_MOTOR, texto_usuario)
-            return
-        tiempos = self._tiempos(turno, recibido, inicio_motor, fin_motor)
+    def _responder(self, ctx: ContextoTurno, corrida: CorridaMotor, respuesta: dict, pendientes: list,
+                   texto: str) -> dict:
+        """Publica la respuesta, guarda la conversación y cierra el turno.
+        Devuelve la entrada para la caché (por si se puede guardar)."""
+        turno, result = ctx.turno, corrida.result
+        tiempos = self._tiempos(turno, ctx.recibido, corrida.inicio, corrida.fin)
         razonamiento = presentacion.razonamiento_texto(result, texto)
         if turno.get("diagnostico"):
             respuesta["diagnostico"] = presentacion.diagnostico(result, texto, tiempos, cacheada=False)
-        snapshot = _snapshot(result, texto, texto_usuario, "botón" if opcion else "texto",
+        snapshot = _snapshot(result, texto, ctx.texto_usuario, "botón" if ctx.opcion else "texto",
                              [p["texto"] for p in pendientes])
-        estado_bytes = self.serializador.a_bytes(estado_nuevo)
-
-        emisor.finalizar()
-        emisor.aviso(result)
-        self.almacen.publicar_evento(tid, "respuesta", respuesta)
-        mensajes = [self._mensaje_usuario(turno, texto_usuario), self._mensaje_asistente(respuesta, razonamiento)]
-        self._cerrar(turno, emisor, {"estado": "terminado", "respuesta": respuesta, "snapshot": snapshot},
+        estado_bytes = self.serializador.a_bytes(corrida.estado_nuevo)
+        ctx.emisor.finalizar()
+        ctx.emisor.aviso(result)
+        self.almacen.publicar_evento(turno["turno_id"], "respuesta", respuesta)
+        mensajes = [self._mensaje_usuario(turno, ctx.texto_usuario), self._mensaje_asistente(respuesta, razonamiento)]
+        self._cerrar(turno, ctx.emisor, {"estado": "terminado", "respuesta": respuesta, "snapshot": snapshot},
                      mensajes, pendientes, estado_bytes)
-
-        if clave and reglas_cache.puede_guardar(result, respuesta, estado_previo, turno,
-                                                       self.ajustes.cache_habilitada, self.sesiones.sin_contexto):
-            guardable = {k: v for k, v in respuesta.items() if k not in ("turno_id", "diagnostico")}
-            self.almacen.cache_guardar(clave, {
-                "respuesta": guardable, "snapshot": snapshot, "razonamiento": razonamiento,
-                "estado_motor": base64.b64encode(estado_bytes).decode("ascii") if estado_bytes else None,
-                "guardada": ahora_iso(),
-            }, self.ajustes.cache_ttl_s)
+        return {
+            "respuesta": {k: v for k, v in respuesta.items() if k not in ("turno_id", "diagnostico")},
+            "snapshot": snapshot, "razonamiento": razonamiento,
+            "estado_motor": base64.b64encode(estado_bytes).decode("ascii") if estado_bytes else None,
+            "guardada": ahora_iso(),
+        }
 
     # ------------------------------------------------------------------
     def _buscar_en_cache(self, turno, estado_previo, texto_usuario):

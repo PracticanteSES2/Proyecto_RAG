@@ -77,10 +77,14 @@ def capturar_estado(instancia: InstanciaMotor) -> dict:
     return estado
 
 
-def restaurar_estado(instancia: InstanciaMotor, estado: dict | None) -> None:
-    """Deja la instancia como si siempre hubiera atendido solo esta conversación."""
+_LIMPIAR_SIEMPRE = ATRIBUTOS_TURNO + ("_range_choice", "_applying_deferred", "_turn_interpretation")
+_ESTADO_GESTOR = (("_cm_state", "state"), ("_cm_candidatos", "candidate_dashboards"))
+
+
+def _reiniciar_todo(instancia: InstanciaMotor) -> None:
+    """Como «Nueva conversación»: sin pendientes, sin memoria, sin turno a medias."""
     motor, gestor = instancia.engine, instancia.conversation_manager
-    if gestor is not None and callable(getattr(gestor, "reset", None)):
+    if callable(getattr(gestor, "reset", None)):
         gestor.reset()
     reiniciar = getattr(motor, "reset", None)
     if callable(reiniciar):
@@ -88,22 +92,22 @@ def restaurar_estado(instancia: InstanciaMotor, estado: dict | None) -> None:
             reiniciar(full=True)
         except TypeError:
             reiniciar()
-    for nombre in ATRIBUTOS_TURNO:
-        if nombre in motor.__dict__:
-            setattr(motor, nombre, None)
-    for nombre in ("_range_choice", "_applying_deferred", "_turn_interpretation"):
-        if nombre in motor.__dict__:
-            setattr(motor, nombre, None)
+    for nombre in (n for n in _LIMPIAR_SIEMPRE if n in motor.__dict__):
+        setattr(motor, nombre, None)
+
+
+def restaurar_estado(instancia: InstanciaMotor, estado: dict | None) -> None:
+    """Deja la instancia como si siempre hubiera atendido solo esta conversación."""
+    _reiniciar_todo(instancia)
     if not estado:
         return
-    for nombre in ATRIBUTOS_CONVERSACION:
-        if nombre in estado and (estado[nombre] is not None or nombre in motor.__dict__):
+    motor, gestor = instancia.engine, instancia.conversation_manager
+    for nombre in (n for n in ATRIBUTOS_CONVERSACION if n in estado):
+        if estado[nombre] is not None or nombre in motor.__dict__:
             setattr(motor, nombre, copy.deepcopy(estado[nombre]))
-    if gestor is not None:
-        if estado.get("_cm_state") is not None:
-            gestor.state = copy.deepcopy(estado["_cm_state"])
-        if estado.get("_cm_candidatos") is not None:
-            gestor.candidate_dashboards = copy.deepcopy(estado["_cm_candidatos"])
+    for clave, atributo in _ESTADO_GESTOR:
+        if gestor is not None and estado.get(clave) is not None:
+            setattr(gestor, atributo, copy.deepcopy(estado[clave]))
 
 
 def sin_contexto(estado: dict | None) -> bool:

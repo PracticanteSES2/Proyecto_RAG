@@ -11,7 +11,7 @@ from datetime import datetime
 from anyio import to_thread
 
 from backend.app.core import errores
-from backend.app.services.almacen import ESTADOS_FINALES, ahora_iso
+from backend.app.services.almacen import ahora_iso
 
 ID_VALIDO = frozenset("0123456789abcdef")
 
@@ -56,22 +56,11 @@ class ServicioConversaciones:
     async def crear_turno(self, conversacion_id: str, mensaje: str, diagnostico: bool, opcion_id: str | None,
                           cliente: str) -> str:
         conversacion = await self._conversacion(conversacion_id)
-        opcion = None
-        if opcion_id:
-            opcion = next((o for o in conversacion["opciones"] if o.get("id") == opcion_id), None)
-            if opcion is None:
-                raise errores.error(errores.OPCION_NO_VIGENTE)
+        opcion = _opcion_vigente(conversacion, opcion_id)
         turno_id = nuevo_id()
         if not await self.almacen.reservar_turno(conversacion_id, turno_id, self.ajustes.turno_max_s):
             raise errores.error(errores.TURNO_EN_CURSO)
-        turno = {
-            "turno_id": turno_id, "conversacion_id": conversacion_id,
-            "mensaje": mensaje or (opcion or {}).get("texto") or "",
-            "opcion_id": opcion_id, "opcion_texto": (opcion or {}).get("texto"),
-            "via": "opcion" if opcion else "texto", "diagnostico": bool(diagnostico), "cliente": cliente,
-            "estado": "en_cola", "creado": ahora_iso(), "creado_ms": int(time.time() * 1000),
-            "respuesta": None, "error": None, "snapshot": None, "calificacion": None,
-        }
+        turno = _turno_nuevo(turno_id, conversacion_id, mensaje, diagnostico, opcion_id, opcion, cliente)
         try:
             encolado = await self.almacen.encolar_turno(turno, self.ajustes.cola_max, self.ajustes.turno_ttl_s)
         except Exception:
@@ -127,6 +116,27 @@ class ServicioConversaciones:
 
 
 # ----------------------------------------------------------------------
+def _opcion_vigente(conversacion: dict, opcion_id: str | None) -> dict | None:
+    """La opción pendiente elegida (None si no se eligió); 409 si ya no está vigente."""
+    if not opcion_id:
+        return None
+    opcion = next((o for o in conversacion["opciones"] if o.get("id") == opcion_id), None)
+    if opcion is None:
+        raise errores.error(errores.OPCION_NO_VIGENTE)
+    return opcion
+
+
+def _turno_nuevo(turno_id, conversacion_id, mensaje, diagnostico, opcion_id, opcion, cliente) -> dict:
+    texto_opcion = (opcion or {}).get("texto")
+    return {
+        "turno_id": turno_id, "conversacion_id": conversacion_id, "mensaje": mensaje or texto_opcion or "",
+        "opcion_id": opcion_id, "opcion_texto": texto_opcion, "via": "opcion" if opcion else "texto",
+        "diagnostico": bool(diagnostico), "cliente": cliente, "estado": "en_cola", "creado": ahora_iso(),
+        "creado_ms": int(time.time() * 1000), "respuesta": None, "error": None, "snapshot": None,
+        "calificacion": None,
+    }
+
+
 def _mensaje_publico(mensaje: dict) -> dict:
     publico = {k: v for k, v in mensaje.items() if k != "razonamiento"}
     publico.setdefault("contrapregunta_vigente", False)
@@ -162,27 +172,22 @@ def _con_enlaces(respuesta: dict) -> str:
 def _mensajes_streamlit(mensajes: list[dict]) -> list[dict]:
     """Historial del backend → formato que espera conversation_export (el de
     st.session_state.messages en app.py), con los enlaces de Power BI."""
-    salida = []
-    for mensaje in mensajes:
-        if mensaje.get("rol") == "usuario":
-            via = "botón" if mensaje.get("via") == "opcion" else "texto"
-            salida.append({"role": "user", "content": mensaje.get("texto") or "", "via": via})
-            continue
-        if mensaje.get("error"):
-            salida.append({"role": "assistant", "content": mensaje["error"].get("mensaje"), "status": "error"})
-            continue
-        respuesta = mensaje.get("respuesta") or {}
-        botones = []
-        for opcion in (respuesta.get("contrapregunta") or {}).get("opciones") or []:
-            partes = [opcion.get("descripcion")]
-            if opcion.get("enlace_powerbi"):
-                partes.append(f"[Power BI ›]({opcion['enlace_powerbi'].get('url')})")
-            botones.append({"label": opcion.get("texto"), "caption": " · ".join(p for p in partes if p) or None})
-        salida.append({"role": "assistant", "content": _con_enlaces(respuesta), "buttons": botones,
-                       "reasoning": mensaje.get("razonamiento"), "status": respuesta.get("estado"),
-                       "route": respuesta.get("ruta")})
-    return salida
+    return [_mensaje_streamlit(mensaje) for mensaje in mensajes]
 
 
-def turno_terminado(turno: dict) -> bool:
-    return turno.get("estado") in ESTADOS_FINALES
+def _mensaje_streamlit(mensaje: dict) -> dict:
+    if mensaje.get("rol") == "usuario":
+        via = "botón" if mensaje.get("via") == "opcion" else "texto"
+        return {"role": "user", "content": mensaje.get("texto") or "", "via": via}
+    if mensaje.get("error"):
+        return {"role": "assistant", "content": mensaje["error"].get("mensaje"), "status": "error"}
+    respuesta = mensaje.get("respuesta") or {}
+    botones = [_boton_exportado(o) for o in (respuesta.get("contrapregunta") or {}).get("opciones") or []]
+    return {"role": "assistant", "content": _con_enlaces(respuesta), "buttons": botones,
+            "reasoning": mensaje.get("razonamiento"), "status": respuesta.get("estado"), "route": respuesta.get("ruta")}
+
+
+def _boton_exportado(opcion: dict) -> dict:
+    enlace = opcion.get("enlace_powerbi") or {}
+    partes = [opcion.get("descripcion"), f"[Power BI ›]({enlace.get('url')})" if enlace.get("url") else None]
+    return {"label": opcion.get("texto"), "caption": " · ".join(p for p in partes if p) or None}
