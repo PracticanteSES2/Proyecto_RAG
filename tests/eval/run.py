@@ -14,7 +14,7 @@ Cada turno es un texto del usuario o la pulsación de un botón de la
 contrapregunta (engine.select_clarification_option, como hace app.py). Se mide
 la latencia de cada turno, se evalúan las expectativas (expectations.py) y las
 métricas de calidad (quality.py) y se escriben report.md y report.json en
---out (por defecto tests/eval/out/<arnés>-<fecha>/, carpeta ignorada por git).
+--out (por defecto var/out/eval/<arnés>-<fecha>/, carpeta ignorada por git).
 
 El arnés se importa de forma perezosa: `--harness realistic` solo necesita que
 exista tests/realistic/harness.py con la misma API que tests/sim/harness.py.
@@ -40,9 +40,10 @@ if str(REPO_ROOT) not in sys.path:
 from tests.eval import expectations as ex  # noqa: E402
 from tests.eval import quality  # noqa: E402
 from tests.eval.report import write_reports  # noqa: E402
+from src.comun.rutas import ruta_salida  # noqa: E402
 
 DEFAULT_QUESTIONS = EVAL_DIR / "questions.json"
-DEFAULT_OUT_ROOT = EVAL_DIR / "out"
+DEFAULT_OUT_ROOT = ruta_salida("eval")
 HARNESSES = {"sim": "tests.sim.harness", "realistic": "tests.realistic.harness"}
 CATEGORIES = {
     "a_kpi_simple": "KPI numérico simple",
@@ -431,7 +432,7 @@ def parse_args(argv=None):
     parser.add_argument("--case", action="append",
                         help="id(s) de caso, repetible o separados por coma; admite patrones (v_*, *hospital*)")
     parser.add_argument("--questions", default=str(DEFAULT_QUESTIONS))
-    parser.add_argument("--out", help="carpeta de salida (por defecto tests/eval/out/<arnés>-<fecha>)")
+    parser.add_argument("--out", help="carpeta de salida (por defecto var/out/eval/<arnés>-<fecha>)")
     parser.add_argument("--solo-aplicables", action="store_true",
                         help="solo los casos marcados para este arnés (campo 'arneses')")
     parser.add_argument("--strict", action="store_true",

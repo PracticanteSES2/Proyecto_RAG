@@ -41,6 +41,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from src.comun.rutas import ruta_salida  # noqa: E402
+
 PREGUNTAS = Path(__file__).resolve().parent / "diccionario_preguntas.json"
 TOP_K = 5
 
@@ -324,7 +326,7 @@ def main(argv=None):
         print(f"[{etiqueta}] hit@1 {_pct(m['hit@1'])} hit@5 {_pct(m['hit@5'])} MRR {m['mrr']:.2f} "
               f"mención@5 {_pct(m['mencion@5'])} dic@1 {_pct(m['dic@1'])}")
 
-    out = Path(args.out) if args.out else REPO_ROOT / "tests" / "eval" / "out" / f"diccionario-{time.strftime('%Y%m%d-%H%M%S')}"
+    out = Path(args.out) if args.out else ruta_salida("eval", f"diccionario-{time.strftime('%Y%m%d-%H%M%S')}")
     out.mkdir(parents=True, exist_ok=True)
     (out / "diccionario.json").write_text(json.dumps(resultados, ensure_ascii=False, indent=1), encoding="utf-8")
     (out / "diccionario.md").write_text(informe_md(resultados), encoding="utf-8")

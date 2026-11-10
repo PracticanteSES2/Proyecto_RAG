@@ -1,4 +1,8 @@
-# Herramientas de desarrollo (no las necesita la aplicación).
-# El doctor (python -m tools.doctor) las usa si están instaladas; si faltan, sigue sin ellas.
+# Dependencias de desarrollo y pruebas (no van a producción)
+-r requirements.txt
+fakeredis
+
+# Herramientas de calidad: el doctor (python -m tools.doctor) las usa si están
+# instaladas (informativo, no puntúa); si faltan, sigue sin ellas.
 ruff>=0.6
 vulture>=2.11
