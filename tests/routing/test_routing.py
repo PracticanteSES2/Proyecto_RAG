@@ -404,8 +404,17 @@ def test_fallback_rag_not_found_uses_query_plan():
 
 def test_fallback_both_fail_returns_not_found():
     engine, _, _, rag = make_system(_NOT_FOUND)
-    result = engine.process("¿Cuál es la capital de Francia?")
+    # Pregunta que el portero de alcance NO intercepta (sin marcador): llega al RAG.
+    result = engine.process("Cuanta gente vive en la luna")
     assert result["status"] == "not_found" and rag.calls
+
+
+def test_portero_fuera_de_alcance_no_llama_al_rag():
+    # Spec 002: «capital de Francia» se rechaza con texto fijo, sin RAG ni Power BI.
+    engine, _, _, rag = make_system(_NOT_FOUND)
+    result = engine.process("¿Cuál es la capital de Francia?")
+    assert result["status"] == "not_found" and result["route"] == "out_of_scope", result
+    assert not rag.calls
 
 
 def test_numeric_looking_but_unresolved_tries_rag_before_failing():
