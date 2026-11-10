@@ -8,10 +8,10 @@ Pasos (los mismos del propietario, en su orden):
        - historial git (commit 3bf7b9f)              -> metadata real exportada
        - reportes PBIR + documentación               -> metadata inferida
      y data/catalog/model_registry.json.
-  2. import_documentation_batch.py  -> data/raw/<grupo>/ + manifest.json
-  3. build_powerbi_catalogs.py      -> catálogos técnicos, visuales,
+  2. tools/import_documentation_batch.py  -> data/raw/<grupo>/ + manifest.json
+  3. tools/build_powerbi_catalogs.py      -> catálogos técnicos, visuales,
                                        master_metrics.json, source_registry
-  4. ingest_rag.py                  -> processed, semantic_documents,
+  4. tools/ingest_rag.py                  -> processed, semantic_documents,
                                        knowledge_chunks.json, Qdrant
   5. data/catalog/local_build_report.json (cobertura)
 
@@ -147,7 +147,7 @@ def discover_models(tableros_dir, docs_dir, repo, history_commit, reference_slug
     Devuelve OrderedDict slug -> spec con la mejor fuente disponible:
     tmdl > git_history > inferido (reporte y/o documentación).
     """
-    import import_documentation_batch as idb
+    import tools.import_documentation_batch as idb
 
     specs = OrderedDict()
 
@@ -372,7 +372,7 @@ def complete_incomplete_report(spec, documents, data_root, owner_root, model_dir
 # ============================================================
 
 def run_import_documentation(project_root, data_root, docs_dir, tableros_dir):
-    import import_documentation_batch as idb
+    import tools.import_documentation_batch as idb
 
     idb.PROJECT_ROOT = project_root
     idb.RAW_DIR = data_root / "raw"
@@ -448,7 +448,7 @@ def run_catalogs(project_root, data_root):
 
 
 def run_ingest(project_root, data_root, skip_index):
-    import ingest_rag
+    import tools.ingest_rag as ingest_rag
 
     ingest_rag.PROJECT_ROOT = project_root
     ingest_rag.RAW_DIR = data_root / "raw"

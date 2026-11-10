@@ -14,6 +14,9 @@ except ImportError:
 
 import streamlit as st
 
+from src.ui.estilo import LOGO_PATH, aplicar_estilo
+from src.feedback.panel import mostrar_calificacion
+from src.feedback.registro import snapshot_turno
 from src.rag.retriever import HybridRetriever
 from src.chatbot.intent_parser import IntentParser
 from src.chatbot.conversation_manager import ConversationManager
@@ -263,6 +266,14 @@ def build_system():
         "MODELOS SEMÁNTICOS ENRUTABLES:",
         source_router.semantic_models()
     )
+    # Portero conversacional precalentado (similitud MiniLM y catálogo): el
+    # primer «hola» no paga su construcción. Un fallo no impide arrancar.
+    try:
+        warm_up = getattr(engine, "warm_up_portero", None)
+        if callable(warm_up):
+            warm_up()
+    except Exception:
+        traceback.print_exc()
     return engine, conversation_manager, ResponseFormatter(), medgemma_status, powerbi_connection
 
 def get_display_answer(result, formatter):
@@ -274,6 +285,9 @@ def get_display_answer(result, formatter):
         return result.get("answer") or "No encontré información relacionada con esa pregunta."
     if route == "rag":
         return result.get("answer") or "No encontré información suficiente."
+    if route == "conversacion":
+        # Portero conversacional: texto fijo, sin informe ni métrica.
+        return result.get("answer") or ""
     if route == "powerbi" and status == "success":
         # Query Plan conoce exactamente la métrica y el modelo. Evitar
         # presentar resultados con textos/periodos heredados de otra ruta.
@@ -356,9 +370,14 @@ def reset_if_finished(result, engine, conversation_manager):
     if callable(reset_method):
         reset_method()
 
-st.set_page_config(page_title="Asistente de Gestión Clínica", page_icon="📊", layout="centered")
-st.title("📊 Asistente de Gestión Clínica")
-st.caption("Consultas sobre tableros institucionales con RAG, Power BI y Qwen local.")
+st.set_page_config(
+    page_title="Asistente de Gestión Clínica",
+    page_icon=str(LOGO_PATH) if LOGO_PATH.exists() else "📊",
+    layout="centered",
+)
+aplicar_estilo()
+st.title("Asistente de Gestión Clínica")
+st.caption("RAG para consultas sobre tableros institucionales con Power BI y MEDGemma local.")
 
 engine, conversation_manager, formatter, medgemma_status, powerbi_connection = build_system()
 
@@ -387,7 +406,7 @@ def safe_link(compute, *args):
 
 def render_powerbi_link(link, key):
     """Botón «Abrir en Power BI ›» al informe/página donde está el dato
-    (data/catalog/report_links.json, generado por sync_powerbi_links.py).
+    (data/catalog/report_links.json, generado por tools/sync_powerbi_links.py).
     `key` único por mensaje: dos respuestas pueden enlazar la misma página."""
     if not link or not link.get("url"):
         return
@@ -657,7 +676,7 @@ def execute_turn(user_text, runner, via="texto"):
             }
             render_clarification_buttons(st.session_state.pending_clarification)
 
-        if result.get("status") == "success":
+        if result.get("status") == "success" and result.get("route") != "conversacion":
             with st.expander("Detalles de la consulta", expanded=False):
                 st.write("**Ruta:**", result.get("route", "sin ruta"))
                 if result.get("report"):
@@ -744,13 +763,24 @@ def execute_turn(user_text, runner, via="texto"):
                     language="text",
                 )
 
-    st.session_state.messages.append({
-        "role": "assistant", "content": answer,
-        "buttons": buttons, "clarification_id": clarification_id,
-        "reasoning": reasoning_text,
-        "status": result.get("status"), "route": result.get("route"),
-        "powerbi_link": powerbi_link,
-    })
+        mensaje = {
+            "role": "assistant", "content": answer,
+            "buttons": buttons, "clarification_id": clarification_id,
+            "reasoning": reasoning_text,
+            "status": result.get("status"), "route": result.get("route"),
+            "powerbi_link": powerbi_link,
+        }
+        # Snapshot para calificar el turno (barato, no se muestra); si falla,
+        # el mensaje queda sin snapshot y sin panel.
+        try:
+            mensaje["snapshot"] = snapshot_turno(
+                result, answer, user_text, via, [b["label"] for b in buttons or []])
+        except Exception:
+            traceback.print_exc()
+        st.session_state.messages.append(mensaje)
+        if debug_mode and mensaje.get("snapshot"):
+            # Mismas claves que el bucle del historial: tras un rerun no se duplica.
+            mostrar_calificacion(len(st.session_state.messages) - 1, st.session_state.messages)
 
 
 with st.sidebar:
@@ -799,6 +829,8 @@ with st.sidebar:
             )
 
         st.session_state.messages = []
+        # Los índices de mensajes se reinician: sesión nueva para no chocar id_turno.
+        st.session_state.pop("id_sesion", None)
         clear_pending_clarification()
         st.rerun()
 
@@ -829,6 +861,8 @@ for message_index, message in enumerate(st.session_state.messages):
             else:
                 render_past_options(message["buttons"])
         render_reasoning(message.get("reasoning"))
+        if debug_mode and message.get("snapshot"):
+            mostrar_calificacion(message_index, st.session_state.messages)
 
 if prompt:
     execute_turn(prompt, lambda: engine.process(prompt))

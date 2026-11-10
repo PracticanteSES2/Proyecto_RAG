@@ -39,9 +39,9 @@ del respaldo.
 |---|---|---|
 | 1 | `tmdl_to_metadata.py` (TMDL), `git show 3bf7b9f` (historial) o `infer_metadata.py` | `data/model_metadata/<slug>/{tables,columns,measures,relationships}.csv` + `_metadata_sync.json` |
 | 1 | `build_local_data.py` | `data/catalog/model_registry.json` |
-| 2 | `import_documentation_batch.py` (propietario) | `data/raw/<grupo>/*.docx` + `manifest.json`, `documentation_import_report.json` |
-| 3 | `build_powerbi_catalogs.py` (propietario) | `data/catalog/<modelo>{,_normalized,_rag}.json`, `catalog/visuals/`, `source_registry.json`, `rag/visual_metrics_catalog.json`, `rag/master_metrics.json` |
-| 4 | `ingest_rag.py` (propietario) | `processed/`, `semantic_documents/`, `catalog/semantic_knowledge.json`, `rag/knowledge_chunks.json`, `vector_db/qdrant` |
+| 2 | `tools/import_documentation_batch.py` (propietario) | `data/raw/<grupo>/*.docx` + `manifest.json`, `documentation_import_report.json` |
+| 3 | `tools/build_powerbi_catalogs.py` (propietario) | `data/catalog/<modelo>{,_normalized,_rag}.json`, `catalog/visuals/`, `source_registry.json`, `rag/visual_metrics_catalog.json`, `rag/master_metrics.json` |
+| 4 | `tools/ingest_rag.py` (propietario) | `processed/`, `semantic_documents/`, `catalog/semantic_knowledge.json`, `rag/knowledge_chunks.json`, `vector_db/qdrant` |
 | 5 | `coverage_report.py` | `data/catalog/local_build_report.json` (también se imprime) |
 
 Los módulos del propietario se importan tal cual; solo se redirigen sus

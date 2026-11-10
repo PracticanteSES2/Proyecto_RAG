@@ -1,0 +1,940 @@
+{
+ "version": 1,
+ "casos": [
+  {
+   "id": "C01",
+   "texto": "hola",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C02",
+   "texto": "Hola!",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C03",
+   "texto": "holaa",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C04",
+   "texto": "holi",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C05",
+   "texto": "buenas",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C06",
+   "texto": "Buenos días",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C07",
+   "texto": "buen dia",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C08",
+   "texto": "buenas tardes",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C09",
+   "texto": "buenas noches",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C11",
+   "texto": "¿qué más?",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C12",
+   "texto": "quiubo",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C13",
+   "texto": "hey",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C14",
+   "texto": "saludos",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C15",
+   "texto": "hola, buenas",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C16",
+   "texto": "oye hola",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C17",
+   "texto": "hola, ¿qué tal?",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C18",
+   "texto": "q tal",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C19",
+   "texto": "¿Qué tal?",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C20",
+   "texto": "bueno, hola",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C21",
+   "texto": "hola por favor",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C22",
+   "texto": "hoola",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C23",
+   "texto": "ola",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C24",
+   "texto": "HOLA",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C25",
+   "texto": "buenass",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C26",
+   "texto": "¿Cómo estás?",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C27",
+   "texto": "como estas",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C28",
+   "texto": "¿cómo estás hoy?",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C29",
+   "texto": "como te va",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C30",
+   "texto": "como vas",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C31",
+   "texto": "todo bien",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C32",
+   "texto": "¿todo bien por allá?",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C33",
+   "texto": "bien y tu",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C34",
+   "texto": "como amaneciste",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C35",
+   "texto": "¿cómo le va?",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C36",
+   "texto": "oye, como estas",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C37",
+   "texto": "como estas?",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C38",
+   "texto": "comoo estas",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C39",
+   "texto": "gracias",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C40",
+   "texto": "grax",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C41",
+   "texto": "grcias",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C42",
+   "texto": "graciass",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C43",
+   "texto": "mil gracias",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C44",
+   "texto": "muchas gracias",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C45",
+   "texto": "muchísimas gracias",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C46",
+   "texto": "ok gracias",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C47",
+   "texto": "perfecto, gracias",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C48",
+   "texto": "listo gracias",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C49",
+   "texto": "súper gracias",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C50",
+   "texto": "te agradezco",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C51",
+   "texto": "muy amable",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C52",
+   "texto": "Dios le pague",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C53",
+   "texto": "gracias por la ayuda",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C54",
+   "texto": "gracias!",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C55",
+   "texto": "gracias.",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C56",
+   "texto": "okey gracias",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C57",
+   "texto": "chao",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C58",
+   "texto": "chau",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C59",
+   "texto": "adiós",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C60",
+   "texto": "adios",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C61",
+   "texto": "hasta luego",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C62",
+   "texto": "hasta pronto",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C63",
+   "texto": "nos vemos",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C64",
+   "texto": "bendiciones",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C65",
+   "texto": "que este bien",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C66",
+   "texto": "feliz día",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C67",
+   "texto": "buena noche",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C68",
+   "texto": "me despido",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C69",
+   "texto": "chaoo",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C70",
+   "texto": "chao, gracias",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C71",
+   "texto": "¿quién eres?",
+   "esperado": "identidad/identidad"
+  },
+  {
+   "id": "C72",
+   "texto": "quien eres",
+   "esperado": "identidad/identidad"
+  },
+  {
+   "id": "C73",
+   "texto": "que eres",
+   "esperado": "identidad/identidad"
+  },
+  {
+   "id": "C74",
+   "texto": "con quien hablo",
+   "esperado": "identidad/identidad"
+  },
+  {
+   "id": "C75",
+   "texto": "¿eres un robot?",
+   "esperado": "identidad/identidad"
+  },
+  {
+   "id": "C76",
+   "texto": "eres humano",
+   "esperado": "identidad/identidad"
+  },
+  {
+   "id": "C77",
+   "texto": "como te llamas",
+   "esperado": "identidad/identidad"
+  },
+  {
+   "id": "C78",
+   "texto": "oye, ¿cómo te llamas?",
+   "esperado": "identidad/identidad"
+  },
+  {
+   "id": "C79",
+   "texto": "¿qué puedes hacer?",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "C80",
+   "texto": "que sabes hacer",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "C81",
+   "texto": "en que me ayudas",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "C82",
+   "texto": "para que sirves",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "C83",
+   "texto": "¿qué tableros hay?",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "C84",
+   "texto": "ayuda",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "C85",
+   "texto": "Ayuda!",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "C86",
+   "texto": "oye ayuda",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "C87",
+   "texto": "que puedes hacer por favor",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "C88",
+   "texto": "qué onda parcero",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C89",
+   "texto": "muy buenas a todos",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C90",
+   "texto": "hola mi estimado asistente",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C91",
+   "texto": "muy agradecido por todo",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C92",
+   "texto": "mil gracias por tu tiempo hoy",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C93",
+   "texto": "eso era todo, gracias",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C94",
+   "texto": "que tenga un lindo día",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C95",
+   "texto": "hasta la próxima",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C96",
+   "texto": "tú eres una persona o una máquina",
+   "esperado": "identidad/identidad"
+  },
+  {
+   "id": "C97",
+   "texto": "qué cosas me puedes consultar",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "D01",
+   "texto": "¿y en octubre?",
+   "esperado": null
+  },
+  {
+   "id": "D02",
+   "texto": "y en agosto?",
+   "esperado": null
+  },
+  {
+   "id": "D03",
+   "texto": "ninguna",
+   "esperado": null
+  },
+  {
+   "id": "D04",
+   "texto": "sí",
+   "esperado": null
+  },
+  {
+   "id": "D05",
+   "texto": "si",
+   "esperado": null
+  },
+  {
+   "id": "D06",
+   "texto": "no",
+   "esperado": null
+  },
+  {
+   "id": "D07",
+   "texto": "la primera",
+   "esperado": null
+  },
+  {
+   "id": "D08",
+   "texto": "la 2",
+   "esperado": null
+  },
+  {
+   "id": "D09",
+   "texto": "la segunda",
+   "esperado": null
+  },
+  {
+   "id": "D10",
+   "texto": "el primero",
+   "esperado": null
+  },
+  {
+   "id": "D11",
+   "texto": "listo",
+   "esperado": null
+  },
+  {
+   "id": "D12",
+   "texto": "ok",
+   "esperado": null
+  },
+  {
+   "id": "D13",
+   "texto": "dale",
+   "esperado": null
+  },
+  {
+   "id": "D14",
+   "texto": "perfecto",
+   "esperado": null
+  },
+  {
+   "id": "D15",
+   "texto": "hola, ¿cuántas cirugías hubo en octubre?",
+   "esperado": null
+  },
+  {
+   "id": "D16",
+   "texto": "hola cuantas camas hay",
+   "esperado": null
+  },
+  {
+   "id": "D17",
+   "texto": "buenas, en octubre",
+   "esperado": null
+  },
+  {
+   "id": "D18",
+   "texto": "hola 2025",
+   "esperado": null
+  },
+  {
+   "id": "D19",
+   "texto": "buenos días, ¿cómo va la ocupación?",
+   "esperado": null
+  },
+  {
+   "id": "D20",
+   "texto": "gracias, ¿y la ocupación de ayer?",
+   "esperado": null
+  },
+  {
+   "id": "D21",
+   "texto": "cirugías",
+   "esperado": null
+  },
+  {
+   "id": "D22",
+   "texto": "ocupación",
+   "esperado": null
+  },
+  {
+   "id": "D23",
+   "texto": "camas",
+   "esperado": null
+  },
+  {
+   "id": "D24",
+   "texto": "urgencias",
+   "esperado": null
+  },
+  {
+   "id": "D25",
+   "texto": "hospitalización",
+   "esperado": null
+  },
+  {
+   "id": "D26",
+   "texto": "ayuda con las cirugías",
+   "esperado": null
+  },
+  {
+   "id": "D27",
+   "texto": "ayuda para las camas",
+   "esperado": null
+  },
+  {
+   "id": "D28",
+   "texto": "ayuda con ocupacion",
+   "esperado": null
+  },
+  {
+   "id": "D29",
+   "texto": "como vamos",
+   "esperado": null
+  },
+  {
+   "id": "D30",
+   "texto": "¿cómo vamos?",
+   "esperado": null
+  },
+  {
+   "id": "D31",
+   "texto": "como estamos",
+   "esperado": null
+  },
+  {
+   "id": "D32",
+   "texto": "como estamos hoy en urgencias",
+   "esperado": null
+  },
+  {
+   "id": "D33",
+   "texto": "como va",
+   "esperado": null
+  },
+  {
+   "id": "D34",
+   "texto": "como va la ocupacion",
+   "esperado": null
+  },
+  {
+   "id": "D35",
+   "texto": "como esta la ocupacion",
+   "esperado": null
+  },
+  {
+   "id": "D36",
+   "texto": "como esta el hospital",
+   "esperado": null
+  },
+  {
+   "id": "D37",
+   "texto": "que hay de nuevo",
+   "esperado": null
+  },
+  {
+   "id": "D38",
+   "texto": "resumen",
+   "esperado": null
+  },
+  {
+   "id": "D39",
+   "texto": "novedades",
+   "esperado": null
+  },
+  {
+   "id": "D40",
+   "texto": "mas detalle",
+   "esperado": null
+  },
+  {
+   "id": "D41",
+   "texto": "hoy",
+   "esperado": null
+  },
+  {
+   "id": "D42",
+   "texto": "ayer",
+   "esperado": null
+  },
+  {
+   "id": "D43",
+   "texto": "el mes pasado",
+   "esperado": null
+  },
+  {
+   "id": "D44",
+   "texto": "y el anterior?",
+   "esperado": null
+  },
+  {
+   "id": "D45",
+   "texto": "quiero ver las cirugias",
+   "esperado": null
+  },
+  {
+   "id": "D46",
+   "texto": "cuantas camas hay",
+   "esperado": null
+  },
+  {
+   "id": "D47",
+   "texto": "hola, quiero saber cuantas cirugias programadas hay para hoy en el hospital",
+   "esperado": null
+  },
+  {
+   "id": "D48",
+   "texto": "necesito un informe del tablero de urgencias",
+   "esperado": null
+  },
+  {
+   "id": "D49",
+   "texto": "dame los indicadores",
+   "esperado": null
+  },
+  {
+   "id": "D50",
+   "texto": "bueno",
+   "esperado": null
+  },
+  {
+   "id": "D51",
+   "texto": "por favor",
+   "esperado": null
+  },
+  {
+   "id": "D52",
+   "texto": "gracias, tambien necesito las camas ocupadas",
+   "esperado": null
+  },
+  {
+   "id": "D53",
+   "texto": "hola hola cuantas consultas hay",
+   "esperado": null
+  },
+  {
+   "id": "D54",
+   "texto": "muy bien, ahora las cirugias",
+   "esperado": null
+  },
+  {
+   "id": "D55",
+   "texto": "y los medicamentos?",
+   "esperado": null
+  },
+  {
+   "id": "D56",
+   "texto": "cola",
+   "esperado": null
+  },
+  {
+   "id": "D57",
+   "texto": "sola",
+   "esperado": null
+  },
+  {
+   "id": "D58",
+   "texto": "bola",
+   "esperado": null
+  },
+  {
+   "id": "D59",
+   "texto": "mola",
+   "esperado": null
+  },
+  {
+   "id": "D60",
+   "texto": "ayudo",
+   "esperado": null
+  },
+  {
+   "id": "D61",
+   "texto": "ayudas",
+   "esperado": null
+  },
+  {
+   "id": "D62",
+   "texto": "ayudar",
+   "esperado": null
+  },
+  {
+   "id": "D63",
+   "texto": "que eras",
+   "esperado": null
+  },
+  {
+   "id": "D64",
+   "texto": "nos vamos",
+   "esperado": null
+  },
+  {
+   "id": "D65",
+   "texto": "nos vimos",
+   "esperado": null
+  },
+  {
+   "id": "D66",
+   "texto": "como estan",
+   "esperado": null
+  },
+  {
+   "id": "D67",
+   "texto": "holas",
+   "esperado": null
+  },
+  {
+   "id": "D68",
+   "texto": "sii",
+   "esperado": null
+  },
+  {
+   "id": "D69",
+   "texto": "okk",
+   "esperado": null
+  },
+  {
+   "id": "C98",
+   "texto": "hola buenas tardes",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C99",
+   "texto": "chao gracias",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C100",
+   "texto": "hola como estas",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "C101",
+   "texto": "gracias chao",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C102",
+   "texto": "hasta mañana",
+   "esperado": "charla/despedida"
+  },
+  {
+   "id": "C103",
+   "texto": "buenos días a todos",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C104",
+   "texto": "hola a todos",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C105",
+   "texto": "buenas tardes a todos",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C106",
+   "texto": "gracias parce",
+   "esperado": "charla/agradecimiento"
+  },
+  {
+   "id": "C107",
+   "texto": "quiubo parce",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C108",
+   "texto": "q hubo",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C109",
+   "texto": "qué hubo",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C110",
+   "texto": "necesito ayuda",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "C111",
+   "texto": "qué opciones hay",
+   "esperado": "capacidades/capacidades"
+  },
+  {
+   "id": "C112",
+   "texto": "cuál es tu nombre",
+   "esperado": "identidad/identidad"
+  },
+  {
+   "id": "C113",
+   "texto": "hola, ¿qué más?",
+   "esperado": "charla/saludo"
+  },
+  {
+   "id": "C114",
+   "texto": "qué más, ¿cómo vas?",
+   "esperado": "charla/estado"
+  },
+  {
+   "id": "D70",
+   "texto": "q mas",
+   "esperado": null
+  },
+  {
+   "id": "D71",
+   "texto": "que mas",
+   "esperado": null
+  },
+  {
+   "id": "D72",
+   "texto": "¿qué más?",
+   "esperado": null
+  },
+  {
+   "id": "D73",
+   "texto": "k mas",
+   "esperado": null
+  },
+  {
+   "id": "D74",
+   "texto": "gracias, ¿qué más?",
+   "esperado": null
+  }
+ ]
+}

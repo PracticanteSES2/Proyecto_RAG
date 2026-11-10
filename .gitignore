@@ -18,3 +18,4 @@ tableros
 # Bloqueo y metadatos que genera Qdrant al abrir la base de fixtures
 /tests/sim/fixtures/data/vector_db/qdrant/.lock
 /tests/sim/fixtures/data/vector_db/qdrant/meta.json
+/.superpowers/

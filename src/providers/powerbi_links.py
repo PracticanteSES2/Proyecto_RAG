@@ -1,7 +1,7 @@
 """
 Enlaces «Abrir en Power BI» a partir de data/catalog/report_links.json.
 
-El archivo lo genera `sync_powerbi_links.py` (solo GET a la API REST). Este
+El archivo lo genera `tools/sync_powerbi_links.py` (solo GET a la API REST). Este
 módulo no usa la red: solo lee el JSON.
 
     enlace_para("BRIEFING HOSPITALARIO", page="Inicio")
