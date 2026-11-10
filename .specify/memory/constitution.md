@@ -1,50 +1,73 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Constitución de Proyecto_RAG
 
-## Core Principles
+Asistente RAG + Power BI del SES Hospital Universitario de Caldas. Estos principios mandan sobre
+cualquier spec, plan o tarea de `specs/`. El detalle operativo (carpetas, capas, convenciones y plan
+por fases) vive en `docs/ARQUITECTURA.md`; el resumen, en `CLAUDE.md`.
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+## Principios
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### I. Power BI y producción: solo lectura (NO NEGOCIABLE)
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+El sistema **consulta** modelos semánticos, tableros y bases de datos; nunca los crea, modifica ni
+borra. Los clientes de Power BI exponen solo lectura (XMLA/DAX y GET de la API REST). Las pruebas
+corren contra el simulador; las corridas reales son pocas, se lanzan desde el checkout principal y
+con permiso del usuario. Un agente nunca lee, carga ni edita el `.env`.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. Nada de datos de pacientes (NO NEGOCIABLE)
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+Ninguna fila con datos de pacientes (nombres, documentos, contactos, familiares) aparece en salidas,
+logs, trazas, fixtures ni commits. Los listados del motor excluyen columnas de identificación y
+contacto; los logs de advertencia no incluyen el texto del usuario. Ante la duda, se omite el dato.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### III. Un falso positivo es peor que un falso negativo
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+Una cifra equivocada dicha con seguridad hace más daño que una contrapregunta o un «no encontré».
+Cuando el motor duda entre fuentes con cifras distintas, pregunta; cuando un atajo (portero,
+seguimiento, filtro implícito) no está seguro, se desactiva y deja seguir el flujo normal. Las
+reglas nuevas se miden con los bancos reales: no se acepta una mejora que añada respuestas
+inventadas o filtros espurios.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### IV. Pruebas primero (TDD)
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+Todo cambio de comportamiento trae su prueba en el mismo commit (roja → verde), en
+`tests/<área>/test_<tema>.py` nombrada por comportamiento. Los refactors del motor no cambian
+comportamiento: **golden master idéntico** (`tests.resolution.test_golden`, foto tomada y comparada
+el mismo día) y pruebas de equivalencia para cada sustitución de utilidades.
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+### V. El doctor con trinquete: el listón solo sube
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+`python -X utf8 -m tools.doctor --verificar` debe pasar antes de integrar: ningún cambio baja el
+puntaje (global, de perfil o de categoría) ni introduce hallazgos altos nuevos. Cuando el puntaje
+sube, se sube el listón con `--actualizar-linea-base`. `--forzar` solo para un retroceso consciente,
+justificado en el commit.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+### VI. Capas: se importa solo hacia abajo
+
+`backend/app → src.chatbot/feedback → dominio (semantic, dax, docs_md, ingestion, catalogo) →
+infraestructura (providers, llm, rag) → src.comun`. `src` nunca importa `backend`, `tools`, `tests`,
+`app`, `pages`, `fastapi` ni `redis`; fuera del legado tampoco `streamlit`. Sin ciclos entre paquetes.
+Las utilidades transversales (rutas, texto, JSON, logging, entorno) existen **una sola vez**, en
+`src/comun/`: se busca antes de crear.
+
+### VII. Simplicidad y tamaño acotado
+
+Un módulo, una responsabilidad nombrada en español. Archivo ≤ 800 líneas, función ≤ 80. Ningún
+cambio hace crecer un archivo que ya pasa el máximo sin extraer más de lo que añade. La librería usa
+`logging`; `print` solo en CLIs. El legado Streamlit está congelado: solo arreglos críticos.
+
+## Flujo de trabajo
+
+- spec-kit (`/speckit-specify` → `clarify` → `plan` → `tasks` → `analyze` → `implement`) y las
+  habilidades de superpowers (brainstorming, writing-plans, TDD, systematic-debugging,
+  verification-before-completion, requesting-code-review).
+- Agentes en ramas `agente/<tema>` y worktrees propios; commits pequeños en español con el porqué.
+  Las fases que tocan `src/` se coordinan: dos agentes no editan el mismo archivo a la vez.
+- graphify al día (`graphify update .`) tras cada cambio de código.
+
+## Gobierno
+
+Esta constitución prevalece sobre specs y planes. Una enmienda se propone en un commit que explique
+el motivo, actualice `docs/ARQUITECTURA.md` y `CLAUDE.md` si cambian reglas verificables y suba la
+versión (mayor: se quita o redefine un principio; menor: se añade uno; parche: redacción).
+
+**Versión**: 1.0.0 | **Ratificada**: 2026-11-10 | **Última enmienda**: 2026-11-10
