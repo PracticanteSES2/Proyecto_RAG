@@ -232,8 +232,8 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
 
     def _usable(self, raw, option):
         """¿La respuesta cruda da una descripción aceptable? (si no, no se cachea)."""
-        text = self.parse(raw.get("answer"), option.get("label"))
-        return bool(text) and not self.invented_concepts(text, option) and not self.contradicts_filters(text, option)
+        text, reasons = self._judge(raw.get("answer"), option)
+        return bool(text) and not reasons
 
     def _describe_one(self, option):
         # La pregunta del usuario no entra en el prompt: la descripción de un
@@ -369,17 +369,24 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
                 errors.append(f"{option['id']}: {response.get('error') or response.get('status')}")
                 continue
             raw.append(f"[{option['id']}] {answer}")
-            text = self.parse(answer, option.get("label"))
-            invented = self.invented_concepts(text, option) if text else []
-            if invented:
-                # Habla de algo que el indicador no tiene («personal» en una
-                # medida de camas): se usa la descripción del catálogo.
-                rejected[option["id"]] = invented
-                continue
-            if text and self.contradicts_filters(text, option):
-                # Nombra como incluido lo que la expresión excluye.
-                rejected[option["id"]] = ["filtro excluido"]
-                continue
-            if text:
+            text, reasons = self._judge(answer, option)
+            if reasons:
+                rejected[option["id"]] = reasons
+            elif text:
                 descriptions[option["id"]] = text
         return descriptions, raw, errors, model, rejected
+
+    def _judge(self, answer, option):
+        """(frase, motivos de rechazo) de una respuesta del LLM."""
+        text = self.parse(answer, option.get("label"))
+        if not text:
+            return "", []
+        invented = self.invented_concepts(text, option)
+        if invented:
+            # Habla de algo que el indicador no tiene («personal» en una
+            # medida de camas): se usa la descripción del catálogo.
+            return text, invented
+        if self.contradicts_filters(text, option):
+            # Nombra como incluido lo que la expresión excluye.
+            return text, ["filtro excluido"]
+        return text, []
