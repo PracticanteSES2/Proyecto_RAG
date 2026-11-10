@@ -84,7 +84,7 @@ def con_sesion(metodo):
                 cerrar = nuevo and sesion is not None
                 try:
                     resultado = metodo(self, *args, **kwargs)
-                except BaseException:
+                except Exception:  # como app.py: un aborto de Streamlit (BaseException) no cierra
                     if cerrar:
                         turno.sesion.cerrar_turno({"status": "error"})
                     raise
