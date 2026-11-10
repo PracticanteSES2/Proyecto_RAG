@@ -73,7 +73,7 @@ Formato SSE estándar: `id:` (solo en eventos guardados; usar `Last-Event-ID` o 
 
 | Evento | `data` | Notas |
 |---|---|---|
-| `cola` | `{"posicion": 2, "en_curso": 1}` | mientras el turno espera en la fila (1 = el siguiente; sin `id:`) o una llamada a MedGemma espera hueco. **Mostrar solo en modo diagnóstico**: la interfaz nunca habla de filas, otras consultas ni saturación |
+| `cola` | `{"posicion": 2, "en_curso": 1}` | **solo si el turno se envió con `diagnostico: true`**: mientras espera en la fila (1 = el siguiente; sin `id:`) o una llamada a MedGemma espera hueco. En modo normal no se emite: el primer evento visible es siempre `progreso` y todos los eventos llevan `id:` |
 | `progreso` | `{"etapa": "consultando_powerbi", "frase": "Trayendo las cifras del tablero", "t": 4.0}` | contrato de `specs/003-progreso-chat/contracts/eventos.md` (etapas, reglas: no mostrar `t`) |
 | `espera` | `{"nivel": 1, "frase": "Esto está tomando un poco más de lo normal…", "t": 10.0}` | niveles 1..4 (10/25/50/90 s) |
 | `token` | `{"texto": "El tablero muestra"}` | trozo de la redacción en streaming (cuando el motor lo emita; agente/ux-espera). Concatenar en orden; `respuesta` trae el texto final completo y lo reemplaza |

@@ -46,14 +46,14 @@ if ($ArchivoEntorno) {
     Write-Host "Variables cargadas desde $ArchivoEntorno (solo este proceso)."
 }
 
-$argumentos = @("-m", "uvicorn", "backend.app.main:app", "--host", $Anfitrion, "--port", "$Puerto")
+$argumentos = @("-m", "backend", "api", "--host", $Anfitrion, "--port", "$Puerto")
 if ($Recarga) { $argumentos += "--reload" }
 
 if ($RedisUrl) {
     $env:REDIS_URL = $RedisUrl
     $env:MOTOR_MODO = "externo"
     Write-Host "Modo Redis: trabajador + API ($Procesos proceso(s))."
-    $trabajador = Start-Process -FilePath $python -ArgumentList @("-m", "backend.worker") -PassThru -NoNewWindow
+    $trabajador = Start-Process -FilePath $python -ArgumentList @("-m", "backend", "trabajador") -PassThru -NoNewWindow
     try {
         if ($Procesos -gt 1) { $argumentos += @("--workers", "$Procesos") }
         & $python @argumentos

@@ -7,18 +7,20 @@ from datetime import date
 from pathlib import Path
 
 from backend.app.services import cache
-from tests.backend import apoyo  # noqa: F401
+from tests.backend.apoyo import RAIZ_VACIA
 
 
 class ClaveTest(unittest.TestCase):
     def test_misma_pregunta_escrita_distinto_da_la_misma_clave(self):
         variantes = ["¿Cuántas CIRUGÍAS hubo en 2024?", "cuantas cirugias hubo en 2024",
                      "  Cuántas cirugías  hubo en 2024 "]
-        claves = {cache.clave_cache("h", cache.normalizar_pregunta(v), date(2026, 11, 10)) for v in variantes}
+        normalizadas = [cache.normalizar_pregunta(v, RAIZ_VACIA) for v in variantes]
+        claves = {cache.clave_cache("h", n, date(2026, 11, 10)) for n in normalizadas}
         self.assertEqual(len(claves), 1)
 
     def test_abreviaturas_de_chat(self):
-        self.assertEqual(cache.normalizar_pregunta("camas x estado"), cache.normalizar_pregunta("camas por estado"))
+        self.assertEqual(cache.normalizar_pregunta("camas x estado", RAIZ_VACIA),
+                         cache.normalizar_pregunta("camas por estado", RAIZ_VACIA))
 
     def test_cambia_con_fecha_huella_y_pregunta(self):
         base = cache.clave_cache("h1", "pregunta", date(2026, 11, 10))
