@@ -223,11 +223,18 @@ class MedGemmaProvider:
                     "host": self.host,
                 }
 
+            # done_reason="length": se llegó a num_predict (max_tokens) y la
+            # respuesta quedó cortada a la mitad (campos añadidos; medición en
+            # tools/carga).
+            done_reason = getattr(response, "done_reason", None)
             return {
                 "status": "success",
                 "answer": str(content).strip(),
                 "model": self.model,
                 "host": self.host,
+                "done_reason": done_reason,
+                "truncated": done_reason == "length",
+                "eval_count": getattr(response, "eval_count", None),
             }
 
         except ResponseError as exc:
