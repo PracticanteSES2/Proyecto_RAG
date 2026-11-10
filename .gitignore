@@ -19,3 +19,4 @@ tableros
 /tests/sim/fixtures/data/vector_db/qdrant/.lock
 /tests/sim/fixtures/data/vector_db/qdrant/meta.json
 /.superpowers/
+/tools/carga/salidas/
