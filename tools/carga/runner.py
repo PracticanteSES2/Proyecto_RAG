@@ -340,20 +340,27 @@ def _rampa(rampa, correr_nivel, server, op, log):
     return niveles
 
 
+def _opciones(opciones):
+    """Opciones con los valores de la app donde no se dieron."""
+    from src.llm.llm_gate import default_queue_wait, max_concurrent
+
+    op = Opciones(**opciones)
+    op.espera_cola = float(op.espera_cola) if op.espera_cola is not None else default_queue_wait()
+    op.max_concurrent = int(op.max_concurrent or max_concurrent())
+    return op
+
+
 def correr(modo="llm", rampa=(1, 3, 5, 10, 20), turnos=2, perfil="mixto", servidor=None, proveedor=None,
            log=print, fabrica_motor=None, **opciones):
     """Corre la rampa y devuelve el informe (dict). `proveedor` (real) sustituye
     al simulado; con él la escala es 1. `opciones`: campos de `Opciones`."""
-    op = Opciones(**opciones)
+    op = _opciones(opciones)
     servidor = servidor or ServidorConfig()
     escala = 1.0 if proveedor is not None else float(servidor.escala)
     server = None
     if proveedor is None:
         server = ServidorSimulado(servidor)
         proveedor = ProveedorSimulado(server)
-    from src.llm.llm_gate import default_queue_wait, max_concurrent as current_max
-    op.espera_cola = float(op.espera_cola) if op.espera_cola is not None else default_queue_wait()
-    op.max_concurrent = int(op.max_concurrent or current_max())
     config = dict(asdict(op), modo=modo, rampa=list(rampa), turnos=turnos, escala=escala,
                   perfil=perfil if modo != "e2e" else "preguntas_e2e", espera_cola_s=op.espera_cola,
                   espera_ui_s=op.espera_ui, servidor_simulado=None if op.real else servidor.as_dict(),

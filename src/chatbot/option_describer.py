@@ -336,17 +336,31 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
         las descripciones); se conserva en la firma para el razonamiento.
         Devuelve {status, descriptions, raw, elapsed_s, error?}; `descriptions`
         es {id: frase} y `raw` las respuestas crudas por opción."""
-        if not options:
-            return {"status": "skipped", "descriptions": {}, "raw": None, "elapsed_s": 0.0}
-        catalog, pending = self._split_catalog(options)
-        if not pending:
-            return {"status": "catalog", "descriptions": {}, "raw": None, "elapsed_s": 0.0,
-                    "catalog": catalog}
+        catalog, pending = self._split_catalog(options or [])
+        if not pending:  # sin opciones, o todas con descripción de catálogo suficiente
+            return {"status": "catalog" if catalog else "skipped", "descriptions": {}, "raw": None,
+                    "elapsed_s": 0.0, "catalog": catalog}
         started = time.perf_counter()
         with ThreadPoolExecutor(max_workers=max(1, min(self.max_workers, len(pending)))) as pool:
             responses = list(pool.map(self._describe_one, pending))
         elapsed = round(time.perf_counter() - started, 2)
+        descriptions, raw, errors, model, rejected = self._collect(pending, responses)
+        descriptions = self._disambiguate(options, descriptions)
+        if descriptions:
+            status = "success" if len(descriptions) == len(pending) else "partial"
+        else:
+            status = "unparsed" if raw else (
+                next((r.get("status") for r in responses if r.get("status")), None) or "error"
+            )
+        return {
+            "status": status, "descriptions": descriptions,
+            "raw": "\n".join(raw) or None, "elapsed_s": elapsed,
+            "error": "; ".join(errors) or None, "model": model,
+            "rejected": rejected, "catalog": catalog,
+        }
 
+    def _collect(self, pending, responses):
+        """(descripciones, crudas, errores, modelo, rechazadas) de las respuestas."""
         descriptions, raw, errors, model, rejected = {}, [], [], None, {}
         for option, response in zip(pending, responses):
             model = model or response.get("model")
@@ -368,16 +382,4 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
                 continue
             if text:
                 descriptions[option["id"]] = text
-        descriptions = self._disambiguate(options, descriptions)
-        if descriptions:
-            status = "success" if len(descriptions) == len(pending) else "partial"
-        else:
-            status = "unparsed" if raw else (
-                next((r.get("status") for r in responses if r.get("status")), None) or "error"
-            )
-        return {
-            "status": status, "descriptions": descriptions,
-            "raw": "\n".join(raw) or None, "elapsed_s": elapsed,
-            "error": "; ".join(errors) or None, "model": model,
-            "rejected": rejected, "catalog": catalog,
-        }
+        return descriptions, raw, errors, model, rejected
