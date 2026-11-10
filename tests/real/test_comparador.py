@@ -436,7 +436,7 @@ class Holdout(unittest.TestCase):
             if c["tipo"] in run_banco.DATA_TIPOS:
                 self.assertTrue(c["verdad"]["dax"].startswith("EVALUATE"), c["id"])
         out, audit = correr_todo.banco_dirs(str(path))
-        self.assertEqual(out.name, "out_holdout")
+        self.assertEqual(out.parts[-3:], ("out", "real", "holdout"))
         self.assertTrue(audit.endswith("auditoria_holdout.json"))
         self.assertEqual(correr_todo.banco_dirs(None), (correr_todo.OUT, None))
         self.assertIn("INI_SEMANA", run_banco.period_values())

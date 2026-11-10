@@ -116,6 +116,13 @@ Pendiente de esa rama (ver `tests/real/RETOMAR.md`):
 - `build_system` precalienta el portero (MiniLM + catálogo): suma ~4–6 s al arranque en frío; el primer «hola» ya no paga ese costo.
 - Pendiente (permiso del usuario): bancos reales y golden master (T028).
 
+## Estructura del repositorio (2026-11-10)
+- Arquitectura objetivo (monorepo FastAPI + Next.js + Redis; Streamlit congelado), capas, «dónde va cada cosa» y
+  plan por fases para partir `query_engine.py`: `docs/ARQUITECTURA.md`. Reglas cortas en `CLAUDE.md`.
+- Salidas de bancos y evaluadores ahora en `var/out/<suite>/` (ignorada), logs en `var/logs/`, temporales en
+  `var/tmp/` (`src/comun/rutas.py`). Las carpetas viejas `tests/real/out*` y `tests/eval/out` siguen ignoradas.
+- Este archivo se movió de la raíz a `docs/HANDOFF.md`.
+
 ## Pendiente (en orden)
 1. Rama `agente/qa-real`: auditoría de la verdad y del comparador del banco real (ver `tests/real/RETOMAR.md`
    en esa rama). Integrarla cuando esté.

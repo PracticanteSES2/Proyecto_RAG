@@ -214,7 +214,7 @@ IDs a validar en real: `correr_todo --solo TU04,TU01,TU03,TU10,BH10,BH15,EP02,AI
   posición, por categoría, seguimientos (y seguimientos con el turno anterior correcto) y por conversación.
   Los primeros turnos reutilizan preguntas del banco de desarrollo a propósito: lo que se mide es el seguimiento.
 - **Regresión periódica** (`tools/manual/regresion_real.py`): corre los cuatro bancos en serie, compara con
-  `tests/real/linea_base/<banco>.json` (solo id, correcto, fallas y cifra) y escribe `out_regresion/REGRESION.md`.
+  `tests/real/linea_base/<banco>.json` (solo id, correcto, fallas y cifra) y escribe `var/out/regresion/REGRESION.md`.
   «Dato en vivo» = falla de cifra con la misma firma DAX (columnas, medidas y literales) que la verdad.
   `--aceptar` promueve la corrida; `--reusar <carpeta>` compara o acepta una corrida ya hecha. Salida 0/1/2.
   Programador de tareas: ver el docstring de `tools/manual/regresion_real.py` y `regresion_tarea.ps1` (la tarea NO se creó).

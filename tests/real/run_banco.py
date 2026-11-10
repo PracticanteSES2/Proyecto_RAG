@@ -7,12 +7,12 @@ del día cambian a cada rato).
     python -X utf8 -m tests.real.run_banco                 # todo el banco
     python -X utf8 -m tests.real.run_banco --solo BH01,TU12
     python -X utf8 -m tests.real.run_banco --tablero "TABLERO EPS"
-    python -X utf8 -m tests.real.run_banco --reevaluar tests/real/out/banco_<fecha>/resultados.json
+    python -X utf8 -m tests.real.run_banco --reevaluar var/out/real/desarrollo/banco_<fecha>/resultados.json
     python -X utf8 -m tests.real.run_banco --reevaluar <resultados.json> --auditoria   # + veredictos auditados
     python -X utf8 -m tests.real.run_banco --banco tests/real/banco_holdout.json       # otro banco (holdout)
 
-Salida: tests/real/out/banco_<fecha>/resultados.json y resumen.md (la carpeta
-out/ no se versiona). Nunca guarda filas de pacientes: la verdad solo usa
+Salida: var/out/real/desarrollo/banco_<fecha>/resultados.json y resumen.md (var/
+no se versiona). Nunca guarda filas de pacientes: la verdad solo usa
 agregados y dimensiones no personales, y las respuestas del bot pasan por
 run_real.redact().
 """
@@ -28,6 +28,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from src.comun.rutas import ruta_salida  # noqa: E402
 from tests.real import env as real_env  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -644,7 +645,7 @@ def main(argv=None):
     from tests.real import run_real
 
     run_real.SIM["on"] = args.sim
-    out_dir = Path(args.out) if args.out else HERE / "out" / ("banco_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
+    out_dir = Path(args.out) if args.out else ruta_salida("real", "desarrollo", "banco_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
     out_dir.mkdir(parents=True, exist_ok=True)
     print("Construyendo el sistema (Power BI real + MedGemma)...", flush=True)
     run_real.build_system()

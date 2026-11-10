@@ -17,9 +17,9 @@ acierto por conversación (todos sus turnos correctos).
     python -X utf8 -m tests.real.run_multiturno --solo MT01,MT13
     python -X utf8 -m tests.real.run_multiturno --categoria periodo
     python -X utf8 -m tests.real.run_multiturno --sim              # Power BI simulado: valida el flujo
-    python -X utf8 -m tests.real.run_multiturno --reevaluar tests/real/out_multiturno/<corrida>/resultados.json
+    python -X utf8 -m tests.real.run_multiturno --reevaluar var/out/real/multiturno/<corrida>/resultados.json
 
-Salida: tests/real/out_multiturno/multiturno_<fecha>/resultados.json y
+Salida: var/out/real/multiturno/multiturno_<fecha>/resultados.json y
 resumen.md (no versionados). Sin filas de pacientes: la verdad solo usa
 agregados y las respuestas pasan por run_real.redact().
 """
@@ -34,12 +34,13 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from src.comun.rutas import ruta_salida  # noqa: E402
 from tests.real import env as real_env  # noqa: E402
 from tests.real import run_banco  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 BANCO = HERE / "banco_multiturno.json"
-OUT = HERE / "out_multiturno"
+OUT = ruta_salida("real", "multiturno")
 
 
 def load(path=None):

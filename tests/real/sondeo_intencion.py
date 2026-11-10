@@ -20,7 +20,9 @@ Se ejecuta desde la raíz del checkout PRINCIPAL (lee su .env con load_dotenv, c
 imprime). Power BI de producción en SOLO LECTURA: el plan de reglas y la validación de valores
 consultan dominios de columnas (VALUES), igual que la app. MedGemma: no se modifica el servidor.
 
-Salida (no versionada): tests/real/out_sondeo/sondeo_<fecha>/resultados.json y resumen.md.
+Salida (no versionada): var/out/sondeo_intencion/sondeo_<fecha>/resultados.json y resumen.md.
+Sondeo de un uso (ciclo 2 del extractor): pasa a tools/manual cuando el doctor admita la excepción
+tools/manual -> tests (docs/ARQUITECTURA.md, fase 6).
 """
 import argparse
 import json
@@ -34,8 +36,10 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from src.comun.rutas import ruta_salida  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
-OUT = HERE / "out_sondeo"
+OUT = ruta_salida("sondeo_intencion")
 BANCO = HERE / "banco_holdout2.json"
 
 # Preguntas NUEVAS (no están en ningún banco): paráfrasis, sinónimos de negocio, comparaciones entre
@@ -275,7 +279,7 @@ def main(argv=None):
     parser.add_argument("--esperar-indice", type=float, default=300.0,
                         help="segundos máximos esperando el índice de embeddings la primera vez")
     parser.add_argument("--sim", action="store_true", help="Power BI simulado y LLM falso (solo prueba el script)")
-    parser.add_argument("--out", help="carpeta de salida (por defecto tests/real/out_sondeo/sondeo_<fecha>)")
+    parser.add_argument("--out", help="carpeta de salida (por defecto var/out/sondeo_intencion/sondeo_<fecha>)")
     args = parser.parse_args(argv)
 
     started = time.perf_counter()

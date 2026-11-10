@@ -8,7 +8,7 @@ Evaluación del actualizador con MedGemma REAL (no es una prueba unitaria: usa r
 
 Corre cada nota del banco contra el mini tablero de tests/docs_md/actualizador_fixtures
 (no escribe en él: proponer_cambio no guarda nada), mide aciertos por criterio y
-latencia, y escribe un informe en tests/docs_md/out/eval_actualizador_<fecha>.md con
+latencia, y escribe un informe en var/out/docs_md/eval_actualizador_<fecha>.md con
 la nota, el JSON crudo de MedGemma y el diff de cada caso.
 
 Grupos (se reportan aparte):
@@ -41,10 +41,11 @@ from pathlib import Path
 
 from src.docs_md import formato as F
 from src.docs_md.actualizador import proponer_cambio
+from src.comun.rutas import ruta_salida
 
 RAIZ = Path(__file__).parent / "actualizador_fixtures"
 GRUPO = "tablero_tiempos_urgencias"
-SALIDA = Path(__file__).parent / "out"
+SALIDA = ruta_salida("docs_md")
 
 CRITERIOS = ["pagina", "seccion_entrada", "accion", "contenido", "no_toca_mas", "formato", "aclaracion"]
 

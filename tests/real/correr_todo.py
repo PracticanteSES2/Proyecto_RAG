@@ -9,9 +9,9 @@ Opciones: --solo BH01,TU12   --tablero "TABLERO EPS"   --sim (Power BI simulado,
           --comparar <resultado.json de una corrida anterior>   (tabla comparativa en el informe)
           --auditoria <auditoria.json>   (por defecto tests/real/auditoria.json)
           --informe <resultado.json>     (no pregunta nada: re-evalúa esa corrida y rehace el informe)
-          --out-informe <carpeta>        (dónde escribir resultado.json e INFORME.md; por defecto tests/real/out)
-          --banco tests/real/banco_holdout.json   (otro banco; salida por defecto en tests/real/out_<nombre>,
-                                                   p. ej. out_holdout, y auditoría tests/real/auditoria_<nombre>.json
+          --out-informe <carpeta>        (dónde escribir resultado.json e INFORME.md; por defecto var/out/real/desarrollo)
+          --banco tests/real/banco_holdout.json   (otro banco; salida por defecto en var/out/real/<nombre>,
+                                                   p. ej. var/out/real/holdout, y auditoría tests/real/auditoria_<nombre>.json
                                                    si existe: el holdout no hereda los veredictos del banco real)
 
 Hace, en orden y por caso: (1) calcula la VERDAD con el DAX del banco
@@ -21,10 +21,10 @@ app.py; clic automático en la opción de la contrapregunta indicada en
 «elegir»), (3) compara y clasifica la falla.
 
 Escribe salidas PEQUEÑAS y sin datos de pacientes:
-    tests/real/out/resultado.json   (por caso: verdad resumida, respuesta, estado, DAX del bot, evaluación)
-    tests/real/out/INFORME.md       (tasa automática y auditada, por tablero, por causa raíz, comparación
+    var/out/real/desarrollo/resultado.json   (por caso: verdad resumida, respuesta, estado, DAX del bot, evaluación)
+    var/out/real/desarrollo/INFORME.md       (tasa automática y auditada, por tablero, por causa raíz, comparación
                                      con la corrida anterior y evidencia de los fallos)
-El detalle completo queda en tests/real/out/banco_<fecha>/ (carpeta no versionada).
+El detalle completo queda en var/out/real/desarrollo/banco_<fecha>/ (var/ no se versiona).
 """
 import argparse
 import json
@@ -34,14 +34,15 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from src.comun.rutas import ruta_salida  # noqa: E402
 from tests.real import auditoria, run_banco  # noqa: E402
 
-OUT = Path(__file__).resolve().parent / "out"
+OUT = ruta_salida("real", "desarrollo")
 
 
 def banco_dirs(banco):
-    """(carpeta de salida, auditoría por defecto) del banco: el real usa out/ y
-    auditoria.json; otro banco (banco_<nombre>.json) usa out_<nombre>/ y
+    """(carpeta de salida, auditoría por defecto) del banco: el real usa var/out/real/desarrollo/
+    y auditoria.json; otro banco (banco_<nombre>.json) usa var/out/real/<nombre>/ y
     auditoria_<nombre>.json (si no existe, sin veredictos auditados)."""
     if not banco:
         return OUT, None
@@ -50,7 +51,7 @@ def banco_dirs(banco):
         return OUT, None
     name = path.stem[len("banco_"):] if path.stem.startswith("banco_") else path.stem
     here = Path(__file__).resolve().parent
-    return here / f"out_{name}", str(here / f"auditoria_{name}.json")
+    return ruta_salida("real", name), str(here / f"auditoria_{name}.json")
 
 
 def _short_truth(truth):
@@ -170,7 +171,7 @@ def main(argv=None):
     parser.add_argument("--comparar", help="resultado.json de una corrida anterior")
     parser.add_argument("--auditoria", help="auditoria.json (por defecto tests/real/auditoria.json)")
     parser.add_argument("--informe", help="resultado.json existente: re-evalúa y rehace el informe sin preguntar")
-    parser.add_argument("--out-informe", help="carpeta para resultado.json e INFORME.md (por defecto tests/real/out)")
+    parser.add_argument("--out-informe", help="carpeta para resultado.json e INFORME.md (por defecto var/out/real/desarrollo)")
     parser.add_argument("--banco", help="banco JSON (por defecto tests/real/banco_real.json)")
     args = parser.parse_args(argv)
     from datetime import datetime
