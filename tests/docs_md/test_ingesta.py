@@ -42,7 +42,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.docs_md import formato, repositorio  # noqa: E402
-from src.docs_md.indexacion import reindexar_grupo, rutas_datos  # noqa: E402
+from src.catalogo.indexacion import reindexar_grupo, rutas_datos  # noqa: E402
 
 FIXTURE = Path(os.getenv("DOCS_MD_FIXTURE") or Path(__file__).parent / "fixtures" / "tablero_tiempos_urgencias")
 GRUPO = "tablero_tiempos_urgencias"

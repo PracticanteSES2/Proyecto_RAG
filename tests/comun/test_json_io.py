@@ -41,7 +41,7 @@ def o_save_json_chunk_builder(data, path):
 
 
 def o_escribir_json_atomico(datos, ruta):
-    # docs_md/indexacion._escribir_json
+    # catalogo/indexacion._escribir_json (antes en docs_md)
     ruta.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=ruta.parent, suffix=".tmp")
     try:
