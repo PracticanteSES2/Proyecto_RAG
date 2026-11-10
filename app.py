@@ -20,6 +20,7 @@ from src.feedback.registro import snapshot_turno
 from src.rag.retriever import HybridRetriever
 from src.chatbot.intent_parser import IntentParser
 from src.chatbot.conversation_manager import ConversationManager
+from src.chatbot.estado_conversacion import EstadoConversacion
 from src.chatbot.query_engine import QueryEngine
 from src.chatbot.rag_answer_engine import RAGAnswerEngine
 from src.chatbot.answer_synthesizer import AnswerSynthesizer
@@ -359,11 +360,15 @@ def get_display_answer(result, formatter):
         return format_empty_result(result)
     return "No pude completar la consulta. Activa Modo diagnóstico para ver en qué etapa falló."
 
-def reset_if_finished(result, engine, conversation_manager):
+def reset_if_finished(result, engine, conversation_manager, sesion=None):
     # Solo conservamos contexto mientras hay una contrapregunta pendiente.
     # engine.reset() (sin full=True) conserva a propósito la última consulta
     # numérica exitosa para seguimientos como «¿y en 2025?».
     if result.get("status") == "needs_clarification":
+        return
+    if sesion is not None:
+        # Conversación de esta pestaña (spec 008): no se toca la de nadie más.
+        sesion.cerrar_turno(result)
         return
     conversation_manager.reset()
     reset_method = getattr(engine, "reset", None)
@@ -380,6 +385,14 @@ st.title("Asistente de Gestión Clínica")
 st.caption("RAG para consultas sobre tableros institucionales con Power BI y MEDGemma local.")
 
 engine, conversation_manager, formatter, medgemma_status, powerbi_connection = build_system()
+
+
+def conversacion():
+    """Estado de la conversación de ESTA pestaña (spec 008): el motor es
+    compartido por todas las sesiones y no guarda memoria ni contrapreguntas."""
+    if "estado_conversacion" not in st.session_state:
+        st.session_state.estado_conversacion = EstadoConversacion()
+    return st.session_state.estado_conversacion
 
 def clear_pending_clarification():
     st.session_state.pending_clarification = None
@@ -614,9 +627,11 @@ def execute_turn(user_text, runner, via="texto"):
         live = LiveProgress()
         set_listener = getattr(engine, "set_progress_listener", None)
         try:
-            # Un turno a la vez: el motor es un único objeto con estado por
-            # turno. El candado se libera siempre, también si Streamlit aborta
-            # esta ejecución (StopException/RerunException son BaseException).
+            # Un turno a la vez: la conversación va en st.session_state, pero
+            # algunos colaboradores compartidos del motor aún guardan datos
+            # del turno (specs/008-memoria-por-sesion/research.md). El candado
+            # se libera siempre, también si Streamlit aborta esta ejecución
+            # (StopException/RerunException son BaseException).
             with turn_slot(user_text, on_wait=live.waiting):
                 if callable(set_listener):
                     set_listener(live.on_event)
@@ -628,10 +643,10 @@ def execute_turn(user_text, runner, via="texto"):
                         error_text = f"{type(exc).__name__}: {exc}"
                         result = {
                             "status": "error", "route": None, "error": error_text,
-                            "reasoning": getattr(engine, "last_reasoning", None),
+                            "reasoning": conversacion().ultimo_razonamiento,
                         }
-                    # Dentro del candado: también modifica el estado del motor.
-                    reset_if_finished(result, engine, conversation_manager)
+                    # El motor ya cerró el turno de esta sesión; repetirlo no cambia nada.
+                    reset_if_finished(result, engine, conversation_manager, sesion=conversacion())
                 finally:
                     if callable(set_listener):
                         set_listener(None)
@@ -808,26 +823,10 @@ with st.sidebar:
     debug_mode = st.checkbox("Modo diagnóstico", value=False)
     st.info("El asistente responde únicamente con información respaldada por los tableros y documentos disponibles.")
     if st.button("Nueva conversación", use_container_width=True):
-        try:
-            # El motor no se reinicia en medio de otro turno.
-            with turn_slot("Nueva conversación", max_wait=5):
-                conversation_manager.reset()
-
-                reset_method = getattr(
-                    engine,
-                    "reset",
-                    None,
-                )
-
-                if callable(reset_method):
-                    # full=True: también olvida el contexto de seguimiento.
-                    reset_method(full=True)
-        except TurnBusy:
-            st.session_state.notice = (
-                "Había otra consulta en curso: el historial se borró, pero el contexto "
-                "del asistente no. Pulsa «Nueva conversación» otra vez cuando termine."
-            )
-
+        # Solo la conversación de esta pestaña: las demás sesiones no se tocan
+        # y no hace falta esperar al turno de nadie (un turno aún en curso de
+        # esta pestaña escribe en el estado viejo, no en el nuevo).
+        st.session_state.estado_conversacion = EstadoConversacion()
         st.session_state.messages = []
         # Los índices de mensajes se reinician: sesión nueva para no chocar id_turno.
         st.session_state.pop("id_sesion", None)
@@ -865,11 +864,11 @@ for message_index, message in enumerate(st.session_state.messages):
             mostrar_calificacion(message_index, st.session_state.messages)
 
 if prompt:
-    execute_turn(prompt, lambda: engine.process(prompt))
+    execute_turn(prompt, lambda: engine.process(prompt, sesion=conversacion()))
 elif queued:
     execute_turn(
         queued["label"],
-        lambda: engine.select_clarification_option(queued["id"], queued["label"]),
+        lambda: engine.select_clarification_option(queued["id"], queued["label"], sesion=conversacion()),
         via="botón",
     )
 
