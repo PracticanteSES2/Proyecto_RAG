@@ -2,6 +2,7 @@
 
 import json
 import os
+import sys
 import time
 import unittest
 from pathlib import Path
@@ -20,6 +21,19 @@ MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"  # = 
 
 
 def _cargar_modelo():
+    # En `unittest discover` el arnés de tests/sim ya instaló un
+    # sentence_transformers falso: se aparta un momento para cargar el real.
+    falso = sys.modules.get("sentence_transformers")
+    if falso is not None and getattr(falso, "__file__", None) is None:
+        del sys.modules["sentence_transformers"]
+        try:
+            return _cargar_modelo_real()
+        finally:
+            sys.modules["sentence_transformers"] = falso
+    return _cargar_modelo_real()
+
+
+def _cargar_modelo_real():
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     from sentence_transformers import SentenceTransformer
 
@@ -69,7 +83,7 @@ class TestPorteroMiniLM(unittest.TestCase):
         return json.loads(BANCO.read_text(encoding="utf-8"))["casos"]
 
     def test_cobertura_banco_portero_con_similitud(self):
-        casos = [c for c in self._casos() if c["esperado"] is not None]
+        casos = [c for c in self._casos() if c["esperado"] is not None and c["id"].startswith("C")]
         aciertos = 0
         for c in casos:
             r = clasificar(c["texto"], VOCAB, similitud=self.sim)
@@ -103,6 +117,30 @@ class TestPorteroMiniLM(unittest.TestCase):
                          if clasificar(t, VOCAB, similitud=self.sim) is not None]
         self.assertEqual(interceptados, [])
 
+    # ---- Fuera de alcance (spec 002) con MiniLM real ----
+
+    def test_alcance_sin_falsos_positivos_en_todos_los_bancos(self):
+        from tests.portero.test_portero_alcance import _casos, _como_motor, textos_todos_los_bancos
+
+        textos = textos_todos_los_bancos() + [c["texto"] for c in _casos("N") + _casos("D")]
+        malos = [t for t in textos if (r := _como_motor(t, self.sim)) is not None
+                 and r.tipo == "fuera_de_alcance"]
+        self.assertEqual(malos, [])
+
+    def test_alcance_capta_parafrasis_por_similitud(self):
+        """Paráfrasis nuevas (ni ejemplos ni casos del banco) sin marcador de regla."""
+        casos = {
+            "dime algo chistoso": "entretenimiento", "como aprendo a programar": "programacion",
+            "que paso con la guerra": "fuera_de_alcance",
+        }
+        for texto, sub in casos.items():
+            with self.subTest(texto=texto):
+                self.assertIsNone(clasificar(texto, VOCAB))  # sin similitud no se capta
+                r = clasificar(texto, VOCAB, similitud=self.sim)
+                self.assertIsNotNone(r)
+                self.assertEqual(r.motivo, "similitud")
+                self.assertIn(sub, (r.subtipo, r.tipo))
+
     def test_latencia_media_menor_50_ms(self):
         textos = ["que tal como estas hoy", "eso es todo muchas gracias",
                   "que cosas puedo consultar", "quien te creo y para que"]
@@ -110,6 +148,8 @@ class TestPorteroMiniLM(unittest.TestCase):
         t0 = time.perf_counter()
         n = 40
         for i in range(n):
+            # Sin la caché de vectores: se mide el coste real de un mensaje nuevo.
+            self.sim.__dict__.pop("_cache_vectores", None)
             clasificar(textos[i % len(textos)], VOCAB, similitud=self.sim)
         media_ms = (time.perf_counter() - t0) / n * 1000
         self.assertLess(media_ms, 50, f"{media_ms:.1f} ms")

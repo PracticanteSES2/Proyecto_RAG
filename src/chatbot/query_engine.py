@@ -6775,21 +6775,45 @@ class QueryEngine:
             from src.chatbot import portero
 
             vocabulary, similarity, datos, documentacion = self._portero_resources(root)
-            found = portero.clasificar(text, vocabulary, similarity)
+            # Charla sobre el texto normalizado; fuera de alcance sobre el original
+            # (la normalización puede inventar palabras del catálogo: arepas → áreas).
+            found = portero.clasificar(text, vocabulary, similarity, original=message)
             if found is None:
                 return None
             answer = portero.responder(found, datos, documentacion)
             kind = f"{found.tipo}/{found.subtipo}"
+            # Fuera de alcance (spec 002) = la ruta out_of_scope del motor: corta el
+            # seguimiento como cualquier otro tema. Vaga y sin sentido, como la charla.
+            rechazo = found.tipo == "fuera_de_alcance" and found.subtipo not in ("vago", "sin_sentido")
+            titulo = {"vago": "Petición sin tema", "sin_sentido": "Mensaje sin contenido reconocible"}.get(
+                found.subtipo, "Mensaje fuera de alcance") if found.tipo == "fuera_de_alcance" \
+                else "Mensaje conversacional"
 
             def run():
-                self._think(
-                    "Mensaje conversacional",
-                    f"{kind} ({found.motivo}): respondido sin buscar en la documentación ni en Power BI",
-                )
-                return {"status": "success", "route": "conversacion", "answer": answer,
-                        "conversation_kind": kind, "question": message}
+                if found.tipo == "fuera_de_alcance":
+                    self._think(titulo, f"{kind} ({found.motivo}): {found.detalle}",
+                                "respondido con un texto fijo, sin buscar en la documentación ni en "
+                                "Power BI ni usar el modelo de lenguaje")
+                else:
+                    self._think(
+                        titulo,
+                        f"{kind} ({found.motivo}): respondido sin buscar en la documentación ni en Power BI",
+                    )
+                result = {"status": "success", "route": "conversacion", "answer": answer,
+                          "conversation_kind": kind, "question": message,
+                          "stage": f"portero/{kind}"}
+                if rechazo:
+                    result.update(status="not_found", route="out_of_scope", sources=[],
+                                  not_found_reason="portero_fuera_de_alcance")
+                return result
 
-            return self._traced("question", message, run)
+            result = self._traced("question", message, run)
+            if rechazo:
+                self._turn_interpretation = None
+                self._deferred_context_message = None
+                self._remember_success(result)
+                self._record_turn(text, result, via="texto")
+            return result
         except Exception as exc:
             # Solo tipo y mensaje de la excepción: nunca el texto del usuario.
             logging.getLogger(__name__).warning(

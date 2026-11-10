@@ -149,6 +149,73 @@ class MotorPorteroTests(unittest.TestCase):
         self.ask("gracias")
         self.assertIs(self.engine._portero_recursos, recursos)
 
+    # ---- Segunda entrega: fuera de alcance (spec 002) ----
+
+    def test_chiste_fuera_de_alcance_sin_buscar(self):
+        with ExitStack() as stack:
+            llamadas = self._espiar_busquedas(stack)
+            result, ui = self.ask("cuéntame un chiste")
+        self.assertEqual(llamadas, [])
+        self.assertEqual(result["_sim"]["dax_log"], [])
+        self.assertEqual((result["status"], result["route"]), ("not_found", "out_of_scope"), ui)
+        self.assertEqual(result["conversation_kind"], "fuera_de_alcance/entretenimiento")
+        self.assertEqual(result["stage"], "portero/fuera_de_alcance/entretenimiento")
+        self.assertEqual(result["question"], "cuéntame un chiste")
+        razonamiento = _razonamiento(result)
+        self.assertIn("Mensaje fuera de alcance", razonamiento)
+        self.assertIn("marcador «cuentame un chiste»", razonamiento)
+        self.assertIn("fuera de lo que puedo responder", ui)
+
+    def test_receta_de_arepas_usa_el_mensaje_original(self):
+        # El normalizador del motor cambia «arepas» por «áreas» (palabra del catálogo).
+        result, ui = self.ask("receta de arepas")
+        self.assertEqual(result.get("conversation_kind"), "fuera_de_alcance/recetas", ui)
+
+    def test_peticion_vaga_invita_con_la_lista_de_tableros(self):
+        with ExitStack() as stack:
+            llamadas = self._espiar_busquedas(stack)
+            result, ui = self.ask("necesito que me respondas algo")
+        self.assertEqual(llamadas, [])
+        self.assertEqual((result["status"], result["route"]), ("success", "conversacion"), ui)
+        self.assertEqual(result["conversation_kind"], "fuera_de_alcance/vago")
+        self.assertTrue(ui.startswith("Claro"), ui)
+        self.assertIn("Lavanderia", ui)
+        self.assertIn("Petición sin tema", _razonamiento(result))
+
+    def test_reporte_con_tema_va_al_flujo_normal(self):
+        result, ui = self.ask("hazme un reporte de la ocupación de camas")
+        self.assertNotIn(result["route"], ("conversacion",), ui)
+        self.assertNotEqual(result.get("stage", "") or "", "portero/fuera_de_alcance/vago")
+        self.assertIsNone(result.get("conversation_kind"))
+
+    def test_fuera_de_alcance_borra_el_seguimiento_y_vaga_no(self):
+        # Igual que la ruta out_of_scope del motor: otro tema corta el seguimiento.
+        self.ask("cirugias programadas de urologia en 2024")
+        otro, _ = self.ask("¿Cuál es la capital de Francia?")
+        self.assertEqual(otro["conversation_kind"], "fuera_de_alcance/conocimiento")
+        tercero, ui3 = self.ask("y en 2025?")
+        self.assertNotEqual(tercero["route"], "powerbi", ui3)
+        # La petición vaga no cambia de tema: el seguimiento sigue.
+        harness.new_conversation(self.engine, self.cm)
+        primero, _ = self.ask("cirugias programadas de urologia en 2024")
+        vaga, _ = self.ask("tengo una pregunta")
+        self.assertEqual(vaga["route"], "conversacion")
+        tercero, ui3 = self.ask("¿y en octubre?")
+        self.assertEqual(tercero["status"], "success", ui3)
+        self.assertEqual(tercero["query_plan"]["metric"]["metric_id"],
+                         primero["query_plan"]["metric"]["metric_id"])
+
+    def test_fuera_de_alcance_no_actua_con_contrapregunta_pendiente(self):
+        primero, ui1 = self.ask("cuantas cirugias hubo en 2024")
+        self.assertEqual(primero["status"], "needs_clarification", ui1)
+        segundo, ui2 = self.ask("cuéntame un chiste")
+        self.assertIsNone(segundo.get("conversation_kind"), ui2)
+
+    def test_clinico_responde_sin_recomendar(self):
+        result, ui = self.ask("¿qué le doy a mi hijo para la fiebre?")
+        self.assertEqual(result["conversation_kind"], "fuera_de_alcance/clinico", ui)
+        self.assertIn("No doy recomendaciones clínicas", ui)
+
     def test_sin_rag_answer_engine_usa_solo_reglas(self):
         guardado = self.engine.rag_answer_engine
         self.engine._portero_recursos = None

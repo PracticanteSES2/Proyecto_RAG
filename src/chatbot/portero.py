@@ -15,6 +15,10 @@ Las preguntas de banco_real tambien son referencias de dominio, asi que la
 evidencia ciega honesta son holdout, holdout2 y multi-turno, mas leave-one-out.
 Las referencias de dominio viven en portero_referencias.json (produccion no lee
 tests/).
+
+Segunda entrega (specs/002-portero-alcance): si no es charla, ``clasificar``
+prueba ``portero_alcance`` (mensajes fuera de alcance: vaga, cálculo, noticias,
+clínico, otra institución, sin sentido…) sobre el mensaje ORIGINAL.
 """
 
 from __future__ import annotations
@@ -129,6 +133,7 @@ class Clasificacion:
     subtipo: str
     confianza: float
     motivo: str
+    detalle: str = ""  # por qué (marcador o similitud); solo en fuera de alcance
 
 
 def normalizar(texto: str) -> str:
@@ -268,8 +273,42 @@ def _por_reglas(tokens: list[str]) -> tuple[str, int] | None:
 
 
 def clasificar(texto: str, vocabulario_dominio: frozenset[str] = frozenset(),
-               similitud: "SimilitudPortero | None" = None) -> Clasificacion | None:
-    """Clasifica charla/identidad/capacidades o devuelve None (flujo normal).
+               similitud: "SimilitudPortero | None" = None,
+               original: str | None = None) -> Clasificacion | None:
+    """Charla/identidad/capacidades (primera entrega) o, si no lo es, fuera de
+    alcance (segunda entrega, ``portero_alcance``); None = flujo normal.
+
+    ``texto`` es el mensaje normalizado por el motor; ``original`` el que
+    escribió el usuario (el alcance lo usa: la normalización puede inventar
+    palabras del catálogo, «arepas» → «áreas»). Sin ``original``, ``texto``.
+    """
+    c = _clasificar_charla(texto, vocabulario_dominio, similitud)
+    if c is not None:
+        return c
+    return _clasificar_alcance(texto, vocabulario_dominio, similitud, original)
+
+
+def _clasificar_alcance(texto, vocabulario_dominio, similitud, original):
+    """Fuera de alcance (spec 002) o None. Nunca con un mensaje que sea ENTERO
+    de la lista de bloqueo («resumen», «ok», «ninguna»…): son seguimientos del
+    dominio o respuestas a una contrapregunta. Los prefijos de bloqueo («cómo va
+    X») no aplican aquí: cada categoría exige su marcador y sus anulaciones."""
+    tokens = _sin_muletillas(normalizar(texto)) if len(texto or "") <= MAX_CARACTERES else []
+    if tokens and any(_casa(tokens, solo.split()) for solo in _SOLOS_FLUJO_NORMAL):
+        return None
+    from src.chatbot import portero_alcance
+
+    d = portero_alcance.detectar(original if original is not None else texto,
+                                 vocabulario_dominio, similitud)
+    if d is None:
+        return None
+    return Clasificacion(portero_alcance.TIPO, d.subtipo, 1.0 if d.motivo == "regla" else 0.9,
+                         d.motivo, d.detalle)
+
+
+def _clasificar_charla(texto: str, vocabulario_dominio: frozenset[str] = frozenset(),
+                       similitud: "SimilitudPortero | None" = None) -> Clasificacion | None:
+    """Clasifica charla/identidad/capacidades o devuelve None.
 
     Orden: tope de longitud, guarda de número, lista de bloqueo, reglas (frase
     completa o unión de dos), guardas de periodo/dominio/largo y similitud. Una
@@ -401,7 +440,12 @@ class SimilitudPortero:
     conversacionales y referencias de dominio, precalculados una sola vez."""
 
     def __init__(self, modelo, umbral: float = UMBRAL, margen: float = MARGEN,
-                 referencias_dominio: list[str] | None = None):
+                 referencias_dominio: list[str] | None = None,
+                 umbral_alcance: float | None = None, margen_alcance: float | None = None):
+        from src.chatbot import portero_alcance
+
+        umbral_alcance = portero_alcance.UMBRAL if umbral_alcance is None else umbral_alcance
+        margen_alcance = portero_alcance.MARGEN if margen_alcance is None else margen_alcance
         self.modelo = modelo
         self.umbral = umbral
         self.margen = margen
@@ -428,6 +472,54 @@ class SimilitudPortero:
         except Exception as exc:
             logging.getLogger(__name__).warning("SimilitudPortero inactiva: %s", exc)
             self._matriz = None
+        # Fuera de alcance (spec 002): ejemplos por categoría, aparte; si falla,
+        # la charla sigue con similitud y el alcance queda solo con reglas.
+        self._matriz_alcance = None
+        self._claves_alcance: list[str] = []
+        self.umbral_alcance = umbral_alcance
+        self.margen_alcance = margen_alcance
+        if self._matriz is not None:
+            try:
+                from src.chatbot.portero_alcance import EJEMPLOS as EJEMPLOS_ALCANCE
+
+                textos, claves = [], []
+                for sub, lista in EJEMPLOS_ALCANCE.items():
+                    for t in lista:
+                        textos.append(normalizar(t))
+                        claves.append(sub)
+                self._matriz_alcance = self._codificar(textos)
+                self._claves_alcance = claves
+            except Exception as exc:
+                logging.getLogger(__name__).warning("similitud de alcance inactiva: %s", exc)
+                self._matriz_alcance = None
+
+    def mejor_alcance(self, texto: str):
+        """(subtipo, sim_alcance, sim_dominio_max, sim_charla_max) o None."""
+        if (self._matriz_alcance is None or self._dominio is None or not len(self._dominio)
+                or self._matriz is None):
+            return None
+        try:
+            v = self._vector(normalizar(texto))
+            sims = self._matriz_alcance @ v
+            i = int(sims.argmax())
+            return (self._claves_alcance[i], float(sims[i]),
+                    float((self._dominio @ v).max()), float((self._matriz @ v).max()))
+        except Exception as exc:
+            logging.getLogger(__name__).warning("SimilitudPortero.mejor_alcance fallo: %s",
+                                                type(exc).__name__)
+            return None
+
+    def _vector(self, norm: str):
+        """Vector de un texto normalizado; la charla y el alcance suelen pedir el
+        mismo en un turno, así que se recuerdan los últimos (un solo encode)."""
+        cache = self.__dict__.setdefault("_cache_vectores", {})
+        v = cache.get(norm)
+        if v is None:
+            v = self._codificar([norm])[0]
+            if len(cache) >= 256:
+                cache.clear()
+            cache[norm] = v
+        return v
 
     def _codificar(self, textos):
         vec = self._np.asarray(
@@ -450,7 +542,7 @@ class SimilitudPortero:
             return None
         try:
             norm = normalizar(texto)
-            v = self._codificar([norm])[0]
+            v = self._vector(norm)
             sims = self._matriz @ v
             i = int(sims.argmax())
             dom = self._dominio @ v
@@ -608,6 +700,14 @@ _TEXTOS = {
 
 def responder(c: Clasificacion, datos: list[str], documentacion: list[str]) -> str:
     """Texto fijo de respuesta para una clasificación del portero."""
+    if c.tipo == "fuera_de_alcance":
+        from src.chatbot import portero_alcance
+
+        capacidades = ""
+        if c.subtipo == "vago":
+            capacidades = responder(Clasificacion("capacidades", "capacidades", 1.0, "regla"),
+                                    datos, documentacion)
+        return portero_alcance.texto_respuesta(c.subtipo, capacidades)
     if c.tipo == "capacidades":
         if not datos and not documentacion:
             return ("Puedo responder preguntas sobre los indicadores y la documentación "

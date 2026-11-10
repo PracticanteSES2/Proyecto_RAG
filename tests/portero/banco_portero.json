@@ -935,6 +935,1046 @@
    "id": "D74",
    "texto": "gracias, ¿qué más?",
    "esperado": null
+  },
+  {
+   "id": "F001",
+   "texto": "necesito que me respondas algo",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F002",
+   "texto": "Necesito que me respondas algo!",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F003",
+   "texto": "nesecito q me ayudes con algo",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F004",
+   "texto": "tengo una pregunta",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F005",
+   "texto": "Tengo una duda",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F006",
+   "texto": "te puedo hacer una pregunta?",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F007",
+   "texto": "¿puedo preguntarte algo?",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F008",
+   "texto": "quiero preguntarte algo",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F009",
+   "texto": "me puedes ayudar con algo?",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F010",
+   "texto": "hola, tengo una consulta",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F011",
+   "texto": "hazme un reporte de",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F012",
+   "texto": "HAZME UN INFORME DE",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F013",
+   "texto": "necesito un reporte sobre",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F014",
+   "texto": "ayudame con algo porfa",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F015",
+   "texto": "respondeme algo",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F016",
+   "texto": "necesito informacion",
+   "esperado": "fuera_de_alcance/vago"
+  },
+  {
+   "id": "F017",
+   "texto": "quiero saber cuánto es la raíz cuadrada de x",
+   "esperado": "fuera_de_alcance/calculo"
+  },
+  {
+   "id": "F018",
+   "texto": "cuanto es la raiz cuadrada de 144",
+   "esperado": "fuera_de_alcance/calculo"
+  },
+  {
+   "id": "F019",
+   "texto": "cuánto es 25 por 4",
+   "esperado": "fuera_de_alcance/calculo"
+  },
+  {
+   "id": "F020",
+   "texto": "cuanto es 2+2",
+   "esperado": "fuera_de_alcance/calculo"
+  },
+  {
+   "id": "F021",
+   "texto": "45*12",
+   "esperado": "fuera_de_alcance/calculo"
+  },
+  {
+   "id": "F022",
+   "texto": "calcula la derivada de x al cuadrado",
+   "esperado": "fuera_de_alcance/calculo"
+  },
+  {
+   "id": "F023",
+   "texto": "resuelve la ecuacion 2x + 3 = 7",
+   "esperado": "fuera_de_alcance/calculo"
+  },
+  {
+   "id": "F024",
+   "texto": "cual es el 15 por ciento de 200",
+   "esperado": "fuera_de_alcance/calculo"
+  },
+  {
+   "id": "F025",
+   "texto": "Raiz cubica de 27",
+   "esperado": "fuera_de_alcance/calculo"
+  },
+  {
+   "id": "F026",
+   "texto": "cuanto es dos mas dos",
+   "esperado": "fuera_de_alcance/calculo"
+  },
+  {
+   "id": "F027",
+   "texto": "cual es el area de un circulo de radio 3",
+   "esperado": "fuera_de_alcance/calculo"
+  },
+  {
+   "id": "F028",
+   "texto": "qué pasó ayer en Tailandia",
+   "esperado": "fuera_de_alcance/noticias"
+  },
+  {
+   "id": "F029",
+   "texto": "que paso ayer en tailandia",
+   "esperado": "fuera_de_alcance/noticias"
+  },
+  {
+   "id": "F030",
+   "texto": "cuáles son las noticias de hoy",
+   "esperado": "fuera_de_alcance/noticias"
+  },
+  {
+   "id": "F031",
+   "texto": "ultimas noticias de colombia",
+   "esperado": "fuera_de_alcance/noticias"
+  },
+  {
+   "id": "F032",
+   "texto": "qué está pasando en Ucrania",
+   "esperado": "fuera_de_alcance/noticias"
+  },
+  {
+   "id": "F033",
+   "texto": "quien gano las elecciones en estados unidos",
+   "esperado": "fuera_de_alcance/noticias"
+  },
+  {
+   "id": "F034",
+   "texto": "cuanto esta el dolar hoy",
+   "esperado": "fuera_de_alcance/noticias"
+  },
+  {
+   "id": "F035",
+   "texto": "que dijo el presidente de colombia ayer",
+   "esperado": "fuera_de_alcance/noticias"
+  },
+  {
+   "id": "F036",
+   "texto": "Noticias del mundo",
+   "esperado": "fuera_de_alcance/noticias"
+  },
+  {
+   "id": "F037",
+   "texto": "que paso en gaza esta semana",
+   "esperado": "fuera_de_alcance/noticias"
+  },
+  {
+   "id": "F038",
+   "texto": "va a llover hoy en manizales?",
+   "esperado": "fuera_de_alcance/clima"
+  },
+  {
+   "id": "F039",
+   "texto": "como esta el clima en manizales",
+   "esperado": "fuera_de_alcance/clima"
+  },
+  {
+   "id": "F040",
+   "texto": "¿Qué tiempo hará mañana en Bogotá?",
+   "esperado": "fuera_de_alcance/clima"
+  },
+  {
+   "id": "F041",
+   "texto": "pronostico del clima para el fin de semana",
+   "esperado": "fuera_de_alcance/clima"
+  },
+  {
+   "id": "F042",
+   "texto": "cual es el clima de hoy",
+   "esperado": "fuera_de_alcance/clima"
+  },
+  {
+   "id": "F043",
+   "texto": "esta lloviendo en manizales?",
+   "esperado": "fuera_de_alcance/clima"
+  },
+  {
+   "id": "F044",
+   "texto": "cuantos grados hace en manizales",
+   "esperado": "fuera_de_alcance/clima"
+  },
+  {
+   "id": "F045",
+   "texto": "clima en medellin",
+   "esperado": "fuera_de_alcance/clima"
+  },
+  {
+   "id": "F046",
+   "texto": "receta de arepas",
+   "esperado": "fuera_de_alcance/recetas"
+  },
+  {
+   "id": "F047",
+   "texto": "Dame una receta de pollo",
+   "esperado": "fuera_de_alcance/recetas"
+  },
+  {
+   "id": "F048",
+   "texto": "como preparo un sancocho",
+   "esperado": "fuera_de_alcance/recetas"
+  },
+  {
+   "id": "F049",
+   "texto": "como se hace una torta de chocolate",
+   "esperado": "fuera_de_alcance/recetas"
+  },
+  {
+   "id": "F050",
+   "texto": "que cocino para el almuerzo",
+   "esperado": "fuera_de_alcance/recetas"
+  },
+  {
+   "id": "F051",
+   "texto": "receta para hacer pan",
+   "esperado": "fuera_de_alcance/recetas"
+  },
+  {
+   "id": "F052",
+   "texto": "como hago unas empanadas",
+   "esperado": "fuera_de_alcance/recetas"
+  },
+  {
+   "id": "F053",
+   "texto": "como se prepara el ajiaco",
+   "esperado": "fuera_de_alcance/recetas"
+  },
+  {
+   "id": "F054",
+   "texto": "quien gano el partido del once caldas",
+   "esperado": "fuera_de_alcance/deportes"
+  },
+  {
+   "id": "F055",
+   "texto": "como quedo el partido de ayer",
+   "esperado": "fuera_de_alcance/deportes"
+  },
+  {
+   "id": "F056",
+   "texto": "resultado del partido de la seleccion colombia",
+   "esperado": "fuera_de_alcance/deportes"
+  },
+  {
+   "id": "F057",
+   "texto": "cuando juega el Once Caldas",
+   "esperado": "fuera_de_alcance/deportes"
+  },
+  {
+   "id": "F058",
+   "texto": "quien gano la champions",
+   "esperado": "fuera_de_alcance/deportes"
+  },
+  {
+   "id": "F059",
+   "texto": "como va la liga betplay",
+   "esperado": "fuera_de_alcance/deportes"
+  },
+  {
+   "id": "F060",
+   "texto": "cuantos goles lleva messi",
+   "esperado": "fuera_de_alcance/deportes"
+  },
+  {
+   "id": "F061",
+   "texto": "quien gano el tour de francia",
+   "esperado": "fuera_de_alcance/deportes"
+  },
+  {
+   "id": "F062",
+   "texto": "cuentame un chiste",
+   "esperado": "fuera_de_alcance/entretenimiento"
+  },
+  {
+   "id": "F063",
+   "texto": "Cuéntame un chiste!",
+   "esperado": "fuera_de_alcance/entretenimiento"
+  },
+  {
+   "id": "F064",
+   "texto": "hola, cuentame un chiste",
+   "esperado": "fuera_de_alcance/entretenimiento"
+  },
+  {
+   "id": "F065",
+   "texto": "dime un chiste de medicos",
+   "esperado": "fuera_de_alcance/entretenimiento"
+  },
+  {
+   "id": "F066",
+   "texto": "recomiendame una pelicula",
+   "esperado": "fuera_de_alcance/entretenimiento"
+  },
+  {
+   "id": "F067",
+   "texto": "que serie de netflix me recomiendas",
+   "esperado": "fuera_de_alcance/entretenimiento"
+  },
+  {
+   "id": "F068",
+   "texto": "juguemos a algo",
+   "esperado": "fuera_de_alcance/entretenimiento"
+  },
+  {
+   "id": "F069",
+   "texto": "cantame una cancion",
+   "esperado": "fuera_de_alcance/entretenimiento"
+  },
+  {
+   "id": "F070",
+   "texto": "dime una adivinanza",
+   "esperado": "fuera_de_alcance/entretenimiento"
+  },
+  {
+   "id": "F071",
+   "texto": "cual es mi horoscopo de hoy",
+   "esperado": "fuera_de_alcance/entretenimiento"
+  },
+  {
+   "id": "F072",
+   "texto": "como hago un for en python",
+   "esperado": "fuera_de_alcance/programacion"
+  },
+  {
+   "id": "F073",
+   "texto": "escribe un programa en python que sume dos numeros",
+   "esperado": "fuera_de_alcance/programacion"
+  },
+  {
+   "id": "F074",
+   "texto": "codigo en javascript para un boton",
+   "esperado": "fuera_de_alcance/programacion"
+  },
+  {
+   "id": "F075",
+   "texto": "como programo en java",
+   "esperado": "fuera_de_alcance/programacion"
+  },
+  {
+   "id": "F076",
+   "texto": "ayudame con un script en python",
+   "esperado": "fuera_de_alcance/programacion"
+  },
+  {
+   "id": "F077",
+   "texto": "que es un bucle while en python",
+   "esperado": "fuera_de_alcance/programacion"
+  },
+  {
+   "id": "F078",
+   "texto": "hazme un hola mundo en c",
+   "esperado": "fuera_de_alcance/programacion"
+  },
+  {
+   "id": "F079",
+   "texto": "escribeme un correo para mi jefe",
+   "esperado": "fuera_de_alcance/redaccion"
+  },
+  {
+   "id": "F080",
+   "texto": "Redacta una carta de renuncia",
+   "esperado": "fuera_de_alcance/redaccion"
+  },
+  {
+   "id": "F081",
+   "texto": "hazme un poema de amor",
+   "esperado": "fuera_de_alcance/redaccion"
+  },
+  {
+   "id": "F082",
+   "texto": "escribe un correo pidiendo vacaciones",
+   "esperado": "fuera_de_alcance/redaccion"
+  },
+  {
+   "id": "F083",
+   "texto": "ayudame a redactar un oficio",
+   "esperado": "fuera_de_alcance/redaccion"
+  },
+  {
+   "id": "F084",
+   "texto": "redactame un mensaje de cumpleaños",
+   "esperado": "fuera_de_alcance/redaccion"
+  },
+  {
+   "id": "F085",
+   "texto": "traduce al ingles buenos dias",
+   "esperado": "fuera_de_alcance/redaccion"
+  },
+  {
+   "id": "F086",
+   "texto": "como se dice gracias en ingles",
+   "esperado": "fuera_de_alcance/redaccion"
+  },
+  {
+   "id": "F087",
+   "texto": "escribe un cuento corto",
+   "esperado": "fuera_de_alcance/redaccion"
+  },
+  {
+   "id": "F088",
+   "texto": "hazme una hoja de vida",
+   "esperado": "fuera_de_alcance/redaccion"
+  },
+  {
+   "id": "F089",
+   "texto": "cual es la capital de francia",
+   "esperado": "fuera_de_alcance/conocimiento"
+  },
+  {
+   "id": "F090",
+   "texto": "quien invento la bombilla",
+   "esperado": "fuera_de_alcance/conocimiento"
+  },
+  {
+   "id": "F091",
+   "texto": "quien escribio cien años de soledad",
+   "esperado": "fuera_de_alcance/conocimiento"
+  },
+  {
+   "id": "F092",
+   "texto": "cuantos planetas hay en el sistema solar",
+   "esperado": "fuera_de_alcance/conocimiento"
+  },
+  {
+   "id": "F093",
+   "texto": "que hora es",
+   "esperado": "fuera_de_alcance/conocimiento"
+  },
+  {
+   "id": "F094",
+   "texto": "quien fue simon bolivar",
+   "esperado": "fuera_de_alcance/conocimiento"
+  },
+  {
+   "id": "F095",
+   "texto": "cuantos habitantes tiene china",
+   "esperado": "fuera_de_alcance/conocimiento"
+  },
+  {
+   "id": "F096",
+   "texto": "que es la fotosintesis",
+   "esperado": "fuera_de_alcance/conocimiento"
+  },
+  {
+   "id": "F097",
+   "texto": "que le doy a mi hijo para la fiebre",
+   "esperado": "fuera_de_alcance/clinico"
+  },
+  {
+   "id": "F098",
+   "texto": "¿Qué dosis de acetaminofén le doy a un niño de 5 años?",
+   "esperado": "fuera_de_alcance/clinico"
+  },
+  {
+   "id": "F099",
+   "texto": "me duele la cabeza, que me tomo?",
+   "esperado": "fuera_de_alcance/clinico"
+  },
+  {
+   "id": "F100",
+   "texto": "tengo fiebre y tos que hago",
+   "esperado": "fuera_de_alcance/clinico"
+  },
+  {
+   "id": "F101",
+   "texto": "que antibiotico le doy a un paciente con neumonia",
+   "esperado": "fuera_de_alcance/clinico"
+  },
+  {
+   "id": "F102",
+   "texto": "puedo tomar ibuprofeno con alcohol?",
+   "esperado": "fuera_de_alcance/clinico"
+  },
+  {
+   "id": "F103",
+   "texto": "mi mama tiene la presion alta que le doy",
+   "esperado": "fuera_de_alcance/clinico"
+  },
+  {
+   "id": "F104",
+   "texto": "cual es la dosis de amoxicilina para un adulto",
+   "esperado": "fuera_de_alcance/clinico"
+  },
+  {
+   "id": "F105",
+   "texto": "como se trata la diabetes",
+   "esperado": "fuera_de_alcance/clinico"
+  },
+  {
+   "id": "F106",
+   "texto": "sintomas del dengue",
+   "esperado": "fuera_de_alcance/clinico"
+  },
+  {
+   "id": "F107",
+   "texto": "que tratamiento le doy a un paciente con hipertension",
+   "esperado": "fuera_de_alcance/clinico"
+  },
+  {
+   "id": "F108",
+   "texto": "Diagnosticame: tengo dolor en el pecho",
+   "esperado": "fuera_de_alcance/clinico"
+  },
+  {
+   "id": "F109",
+   "texto": "cuantos mg de ibuprofeno puedo tomar cada 8 horas",
+   "esperado": "fuera_de_alcance/clinico"
+  },
+  {
+   "id": "F110",
+   "texto": "cómo hace las cirugías el hospital Santa Sofía",
+   "esperado": "fuera_de_alcance/otra_institucion"
+  },
+  {
+   "id": "F111",
+   "texto": "como hace el hospital santa sofia los triages",
+   "esperado": "fuera_de_alcance/otra_institucion"
+  },
+  {
+   "id": "F112",
+   "texto": "cuantas camas tiene el santa sofia",
+   "esperado": "fuera_de_alcance/otra_institucion"
+  },
+  {
+   "id": "F113",
+   "texto": "como es la ocupacion en la clinica avidanti",
+   "esperado": "fuera_de_alcance/otra_institucion"
+  },
+  {
+   "id": "F114",
+   "texto": "cuantas cirugias hacen en la clinica san marcel",
+   "esperado": "fuera_de_alcance/otra_institucion"
+  },
+  {
+   "id": "F115",
+   "texto": "que indicadores maneja el hospital san vicente",
+   "esperado": "fuera_de_alcance/otra_institucion"
+  },
+  {
+   "id": "F116",
+   "texto": "como manejan el triage en otros hospitales",
+   "esperado": "fuera_de_alcance/otra_institucion"
+  },
+  {
+   "id": "F117",
+   "texto": "cual es la ocupacion de la clinica versalles",
+   "esperado": "fuera_de_alcance/otra_institucion"
+  },
+  {
+   "id": "F118",
+   "texto": "tiempo de espera en urgencias de la fundacion valle del lili",
+   "esperado": "fuera_de_alcance/otra_institucion"
+  },
+  {
+   "id": "F119",
+   "texto": "asdfgh",
+   "esperado": "fuera_de_alcance/sin_sentido"
+  },
+  {
+   "id": "F120",
+   "texto": "jajaja",
+   "esperado": "fuera_de_alcance/sin_sentido"
+  },
+  {
+   "id": "F121",
+   "texto": "???",
+   "esperado": "fuera_de_alcance/sin_sentido"
+  },
+  {
+   "id": "F122",
+   "texto": "...",
+   "esperado": "fuera_de_alcance/sin_sentido"
+  },
+  {
+   "id": "F123",
+   "texto": "qwerty",
+   "esperado": "fuera_de_alcance/sin_sentido"
+  },
+  {
+   "id": "F124",
+   "texto": "asdasdasd",
+   "esperado": "fuera_de_alcance/sin_sentido"
+  },
+  {
+   "id": "F125",
+   "texto": "jsjsjs",
+   "esperado": "fuera_de_alcance/sin_sentido"
+  },
+  {
+   "id": "F126",
+   "texto": "xd",
+   "esperado": "fuera_de_alcance/sin_sentido"
+  },
+  {
+   "id": "F127",
+   "texto": "hjkl ñlkj",
+   "esperado": "fuera_de_alcance/sin_sentido"
+  },
+  {
+   "id": "F128",
+   "texto": "😂😂",
+   "esperado": "fuera_de_alcance/sin_sentido"
+  },
+  {
+   "id": "N001",
+   "texto": "hazme un reporte de la ocupación de camas",
+   "esperado": null
+  },
+  {
+   "id": "N002",
+   "texto": "hazme un reporte",
+   "esperado": null
+  },
+  {
+   "id": "N003",
+   "texto": "dame un resumen",
+   "esperado": null
+  },
+  {
+   "id": "N004",
+   "texto": "hazme un grafico",
+   "esperado": null
+  },
+  {
+   "id": "N005",
+   "texto": "hazme un informe de urgencias del mes pasado",
+   "esperado": null
+  },
+  {
+   "id": "N006",
+   "texto": "necesito informacion de camas",
+   "esperado": null
+  },
+  {
+   "id": "N007",
+   "texto": "tengo una pregunta sobre las cirugias",
+   "esperado": null
+  },
+  {
+   "id": "N008",
+   "texto": "cual es el antibiotico que mas se esta usando?",
+   "esperado": null
+  },
+  {
+   "id": "N009",
+   "texto": "cuantos pacientes activos con antibiotico hay",
+   "esperado": null
+  },
+  {
+   "id": "N010",
+   "texto": "dosis de antibioticos por servicio",
+   "esperado": null
+  },
+  {
+   "id": "N011",
+   "texto": "que medicamentos se vencen este mes",
+   "esperado": null
+  },
+  {
+   "id": "N012",
+   "texto": "pacientes con fiebre en urgencias",
+   "esperado": null
+  },
+  {
+   "id": "N013",
+   "texto": "cuantos pacientes remitimos al santa sofia",
+   "esperado": null
+  },
+  {
+   "id": "N014",
+   "texto": "remisiones a la clinica avidanti el mes pasado",
+   "esperado": null
+  },
+  {
+   "id": "N015",
+   "texto": "cuantos pacientes llegan del hospital santa sofia",
+   "esperado": null
+  },
+  {
+   "id": "N016",
+   "texto": "pacientes trasladados a la clinica san marcel",
+   "esperado": null
+  },
+  {
+   "id": "N017",
+   "texto": "compara el hospital de caldas con el santa sofia",
+   "esperado": null
+  },
+  {
+   "id": "N018",
+   "texto": "como hace el hospital de caldas las cirugias",
+   "esperado": null
+  },
+  {
+   "id": "N019",
+   "texto": "que significa NEDOCS?",
+   "esperado": null
+  },
+  {
+   "id": "N020",
+   "texto": "como se calcula la estancia promedio",
+   "esperado": null
+  },
+  {
+   "id": "N021",
+   "texto": "cual es la formula dax del giro cama",
+   "esperado": null
+  },
+  {
+   "id": "N022",
+   "texto": "pq",
+   "esperado": null
+  },
+  {
+   "id": "N023",
+   "texto": "x",
+   "esperado": null
+  },
+  {
+   "id": "N024",
+   "texto": "q",
+   "esperado": null
+  },
+  {
+   "id": "N025",
+   "texto": "la 2",
+   "esperado": null
+  },
+  {
+   "id": "N026",
+   "texto": "sí",
+   "esperado": null
+  },
+  {
+   "id": "N027",
+   "texto": "bn",
+   "esperado": null
+  },
+  {
+   "id": "N028",
+   "texto": "cvc",
+   "esperado": null
+  },
+  {
+   "id": "N029",
+   "texto": "uci",
+   "esperado": null
+  },
+  {
+   "id": "N030",
+   "texto": "ok",
+   "esperado": null
+  },
+  {
+   "id": "N031",
+   "texto": "y ayer?",
+   "esperado": null
+  },
+  {
+   "id": "N032",
+   "texto": "y en manizales?",
+   "esperado": null
+  },
+  {
+   "id": "N033",
+   "texto": "cuanto es el total de cirugias",
+   "esperado": null
+  },
+  {
+   "id": "N034",
+   "texto": "cuanto es la ocupacion de hoy",
+   "esperado": null
+  },
+  {
+   "id": "N035",
+   "texto": "calcula el promedio de estancia",
+   "esperado": null
+  },
+  {
+   "id": "N036",
+   "texto": "cuantos triages hubo ayer",
+   "esperado": null
+  },
+  {
+   "id": "N037",
+   "texto": "que paso ayer en urgencias",
+   "esperado": null
+  },
+  {
+   "id": "N038",
+   "texto": "que paso ayer en la noche",
+   "esperado": null
+  },
+  {
+   "id": "N039",
+   "texto": "que paso con las cirugias",
+   "esperado": null
+  },
+  {
+   "id": "N040",
+   "texto": "noticias del hospital",
+   "esperado": null
+  },
+  {
+   "id": "N041",
+   "texto": "novedades de la semana",
+   "esperado": null
+  },
+  {
+   "id": "N042",
+   "texto": "receta de antibioticos",
+   "esperado": null
+  },
+  {
+   "id": "N043",
+   "texto": "cuantas recetas se dispensaron",
+   "esperado": null
+  },
+  {
+   "id": "N044",
+   "texto": "cuantas formulas se despacharon en farmacia",
+   "esperado": null
+  },
+  {
+   "id": "N045",
+   "texto": "el clima laboral del area",
+   "esperado": null
+  },
+  {
+   "id": "N046",
+   "texto": "temperatura de la nevera de farmacia",
+   "esperado": null
+  },
+  {
+   "id": "N047",
+   "texto": "como se dice triage en el tablero",
+   "esperado": null
+  },
+  {
+   "id": "N048",
+   "texto": "quien es el medico con mas cirugias",
+   "esperado": null
+  },
+  {
+   "id": "N049",
+   "texto": "que le doy de alta a los pacientes",
+   "esperado": null
+  },
+  {
+   "id": "N050",
+   "texto": "pacientes dados de alta hoy",
+   "esperado": null
+  },
+  {
+   "id": "N051",
+   "texto": "cual es el diagnostico mas frecuente",
+   "esperado": null
+  },
+  {
+   "id": "N052",
+   "texto": "tratamientos de quimioterapia del mes",
+   "esperado": null
+  },
+  {
+   "id": "N053",
+   "texto": "cuantas dosis de amoxicilina se suministraron",
+   "esperado": null
+  },
+  {
+   "id": "N054",
+   "texto": "cuanto tiempo duran los pacientes en urgencias",
+   "esperado": null
+  },
+  {
+   "id": "N055",
+   "texto": "que tiempo promedio tiene el triage",
+   "esperado": null
+  },
+  {
+   "id": "N056",
+   "texto": "escribe los indicadores de camas",
+   "esperado": null
+  },
+  {
+   "id": "N057",
+   "texto": "redacta un resumen de la ocupacion",
+   "esperado": null
+  },
+  {
+   "id": "N058",
+   "texto": "dame la lista de tableros",
+   "esperado": null
+  },
+  {
+   "id": "N059",
+   "texto": "en que hospital estoy",
+   "esperado": null
+  },
+  {
+   "id": "N060",
+   "texto": "que hospitales tienen datos",
+   "esperado": null
+  },
+  {
+   "id": "N061",
+   "texto": "pacientes de otros hospitales",
+   "esperado": null
+  },
+  {
+   "id": "N062",
+   "texto": "cuantos pacientes vienen de otras instituciones",
+   "esperado": null
+  },
+  {
+   "id": "N063",
+   "texto": "y en el santa sofia?",
+   "esperado": null
+  },
+  {
+   "id": "N064",
+   "texto": "hay chistes en el tablero?",
+   "esperado": null
+  },
+  {
+   "id": "N065",
+   "texto": "partos del mes pasado",
+   "esperado": null
+  },
+  {
+   "id": "N066",
+   "texto": "cuantos partos van este año",
+   "esperado": null
+  },
+  {
+   "id": "N067",
+   "texto": "cuantas cesareas se hicieron",
+   "esperado": null
+  },
+  {
+   "id": "N068",
+   "texto": "programacion de cirugias de mañana",
+   "esperado": null
+  },
+  {
+   "id": "N069",
+   "texto": "cirugias programadas para hoy",
+   "esperado": null
+  },
+  {
+   "id": "N070",
+   "texto": "cuantas citas hay programadas",
+   "esperado": null
+  },
+  {
+   "id": "N071",
+   "texto": "informe de lavanderia",
+   "esperado": null
+  },
+  {
+   "id": "N072",
+   "texto": "peso de ropa por servicio",
+   "esperado": null
+  },
+  {
+   "id": "N073",
+   "texto": "cual es la capital del indicador",
+   "esperado": null
+  },
+  {
+   "id": "N074",
+   "texto": "jajaja y las camas?",
+   "esperado": null
+  },
+  {
+   "id": "N075",
+   "texto": "asdf cuantas camas hay",
+   "esperado": null
+  },
+  {
+   "id": "N076",
+   "texto": "eps con mas atenciones",
+   "esperado": null
+  },
+  {
+   "id": "N077",
+   "texto": "atenciones de nueva eps",
+   "esperado": null
+  },
+  {
+   "id": "N078",
+   "texto": "pacientes de venezuela atendidos este año",
+   "esperado": null
+  },
+  {
+   "id": "N079",
+   "texto": "cuantos pacientes extranjeros hubo ayer",
+   "esperado": null
+  },
+  {
+   "id": "N080",
+   "texto": "cuantas atenciones a pacientes de tailandia",
+   "esperado": null
   }
  ]
 }
