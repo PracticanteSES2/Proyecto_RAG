@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img">
+  <title>Barranquero estilizado, inspirado en el Monumento al Buen Acto del SES-HUC (concepto, no oficial)</title>
+  <path d="M168 150Q186 192 194 222" fill="none" stroke="#096CB5" stroke-width="7" stroke-linecap="round"/>
+  <ellipse cx="197" cy="234" rx="9" ry="15" transform="rotate(-14 197 234)" fill="#3A96D3"/>
+  <path d="M60 186H204" fill="none" stroke="#024573" stroke-width="9" stroke-linecap="round"/>
+  <ellipse cx="132" cy="134" rx="52" ry="38" transform="rotate(-28 132 134)" fill="#8BC160"/>
+  <ellipse cx="116" cy="150" rx="30" ry="22" transform="rotate(-28 116 150)" fill="#AED289"/>
+  <path d="M120 112Q170 82 206 104Q178 150 136 156Z" fill="#3A96D3"/>
+  <path d="M150 112Q182 104 202 108Q182 140 152 146Z" fill="#096CB5"/>
+  <path d="M112 176V188M126 176V188" stroke="#1E2A36" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="90" cy="90" r="32" fill="#8BC160"/>
+  <path d="M60 82Q72 50 106 54Q124 58 122 76Q96 64 60 82Z" fill="#3A96D3"/>
+  <path d="M76 70Q92 60 108 64Q96 70 76 70Z" fill="#024573"/>
+  <path d="M56 96Q78 84 104 92Q80 104 56 96Z" fill="#1E2A36"/>
+  <circle cx="82" cy="92" r="7" fill="#FFFFFF"/>
+  <circle cx="81" cy="92" r="4" fill="#E56558"/>
+  <path d="M62 92L26 104L62 102Z" fill="#1E2A36"/>
+</svg>

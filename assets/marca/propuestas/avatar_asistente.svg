@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-160 -160 320 320" width="64" height="64" role="img">
+  <title>Avatar del asistente: una sonrisa del isotipo S.E.S. en blanco sobre círculo azul (propuesta)</title>
+  <circle r="160" fill="#096CB5"/>
+  <g transform="translate(0 -32) scale(0.78)" fill="#FFFFFF">
+    <path d="M-111 0A111 111 0 0 0 111 0" fill="none" stroke="#FFFFFF" stroke-width="52"/>
+    <circle cx="-111" r="26"/><circle cx="111" r="26"/>
+    <circle cx="-36.8" cy="-29.7" r="24"/><circle cx="36.8" cy="-29.7" r="24"/>
+  </g>
+</svg>

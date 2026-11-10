@@ -1,0 +1,247 @@
+/*
+ * Tokens de diseño — Asistente de tableros, S.E.S. Hospital Universitario de Caldas
+ * Fuente y justificación: docs/diseno/tokens.md (contrastes WCAG calculados) e identidad_visual.md.
+ * Listo para copiar a frontend/app/tokens.css e importarlo antes de Tailwind.
+ *
+ * Capas:
+ *   1. --ses-*        primitivos de marca (no usar directo en componentes salvo ilustraciones/gráficos)
+ *   2. --color-*      tokens semánticos (los que usan los componentes); cambian en modo oscuro
+ *   3. --font-*, --text-*, --radius-*, --space-*, --shadow-*, --motion-*  escalas
+ *
+ * Modo oscuro: sigue al sistema (prefers-color-scheme) salvo que <html data-theme="light|dark"> lo fuerce.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ---------- 1. Primitivos de marca (medidos del isotipo oficial y del CSS del sitio) ---------- */
+  --ses-azul: #3a96d3;          /* "S.E.S." del logotipo; web #3894D1 */
+  --ses-azul-arco: #3c8fcd;     /* arco del isotipo */
+  --ses-azul-medio: #096cb5;    /* puntos fuertes / "Hospital Universitario"; web #096CB4 */
+  --ses-azul-profundo: #024573; /* encabezado del sitio web */
+  --ses-azul-cielo: #7dccf3;    /* puntos claros; web #7DCBF2 */
+  --ses-morado: #8d77b1;
+  --ses-morado-fuerte: #6d509b;
+  --ses-morado-claro: #ae92c4;
+  --ses-coral: #f08480;
+  --ses-coral-fuerte: #e56558;
+  --ses-coral-claro: #f4b8b3;
+  --ses-verde: #8bc160;
+  --ses-verde-fuerte: #44ab43;
+  --ses-verde-claro: #aed289;
+  --ses-tinta: #1e2a36;         /* neutro oscuro para texto largo */
+
+  /* ---------- 2. Semánticos — modo claro ---------- */
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;          /* tarjetas, burbuja del asistente */
+  --color-surface-2: #f1f7fc;        /* barra lateral, zonas hundidas */
+  --color-surface-3: #eaf4fb;        /* burbuja del usuario, chips */
+  --color-surface-code: #f4f6f9;     /* bloques DAX / JSON */
+
+  --color-fg: #1e2a36;             /* 14.59:1 sobre #fff */
+  --color-fg-muted: #4a5866;       /* 7.29:1 sobre #fff, 6.54:1 sobre surface-3 */
+  --color-fg-heading: #024573;          /* 9.99:1 sobre #fff */
+
+  --color-primary: #096cb5;          /* blanco encima 5.49:1 */
+  --color-primary-hover: #075a97;    /* blanco encima 7.20:1 */
+  --color-primary-active: #024573;   /* blanco encima 9.99:1 */
+  --color-on-primary: #ffffff;
+  --color-link: #096cb5;             /* 5.49:1 sobre #fff; 4.92:1 sobre surface-3 */
+
+  --color-border: #d3e3f0;           /* separadores decorativos (sin requisito de contraste) */
+  --color-border-strong: #71889d;    /* bordes de inputs: 3.68:1 sobre #fff, 3.41:1 sobre surface-2 */
+  --color-focus: #096cb5;            /* anillo de foco 5.49:1 sobre #fff */
+
+  --color-success: #2f7a2e;          /* 4.80:1 sobre su fondo */
+  --color-success-bg: #edf6e6;
+  --color-success-border: #8bc160;
+  --color-warning: #8a5300;          /* 5.79:1 sobre su fondo */
+  --color-warning-bg: #fff4db;
+  --color-warning-border: #ef9b00;
+  --color-danger: #b3362c;           /* 5.28:1 sobre su fondo */
+  --color-danger-bg: #fdecea;
+  --color-danger-border: #f08480;
+  --color-info: #096cb5;             /* 4.92:1 sobre su fondo */
+  --color-info-bg: #eaf4fb;
+  --color-info-border: #7dccf3;
+  --color-diag: #6d509b;             /* modo diagnóstico: 5.66:1 sobre su fondo */
+  --color-diag-bg: #f3eff8;
+  --color-diag-border: #ae92c4;
+
+  /* Gráficos (3:1 mínimo contra el fondo; ver tokens.md) */
+  --color-chart-1: #096cb5;
+  --color-chart-2: #3a8a39;
+  --color-chart-3: #6d509b;
+  --color-chart-4: #d9564b;
+  --color-chart-5: #3a96d3;
+  --color-chart-6: #024573;
+
+  /* Filete tricolor de marca (decorativo) */
+  --gradient-marca: linear-gradient(90deg, #3a96d3 0 25%, #8d77b1 25% 50%, #f08480 50% 75%, #8bc160 75% 100%);
+
+  /* ---------- 3. Tipografía ---------- */
+  --font-heading: var(--font-montserrat, "Montserrat"), "Segoe UI", system-ui, sans-serif;
+  --font-body: var(--font-mulish, "Mulish"), "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains, "JetBrains Mono"), ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  /* Escala 1.200 (tercera menor) sobre 16px */
+  --text-xs: 0.75rem;    /* 12px  — metadatos, pie de burbuja */
+  --text-sm: 0.875rem;   /* 14px  — chips, etiquetas, sidebar */
+  --text-base: 1rem;     /* 16px  — cuerpo del chat */
+  --text-lg: 1.2rem;     /* 19.2px — h4, título de tarjeta */
+  --text-xl: 1.44rem;    /* 23px  — h3 */
+  --text-2xl: 1.728rem;  /* 27.6px — h2 */
+  --text-3xl: 2.074rem;  /* 33.2px — h1 / título de estado vacío */
+  --leading-tight: 1.2;
+  --leading-normal: 1.55;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* ---------- Radios (sitio web: tarjetas 18px, botones píldora 33px) ---------- */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+  --radius-bubble: 18px;
+  --radius-bubble-tail: 6px;  /* esquina "cola" de la burbuja */
+
+  /* ---------- Espaciado (base 4px) ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-14: 56px;
+  --chat-max-width: 760px;
+  --sidebar-width: 280px;
+
+  /* ---------- Sombras (tinte azul profundo, suaves) ---------- */
+  --shadow-sm: 0 1px 2px rgb(2 69 115 / 0.08);
+  --shadow-md: 0 1px 2px rgb(2 69 115 / 0.06), 0 4px 12px rgb(2 69 115 / 0.10);
+  --shadow-lg: 0 2px 4px rgb(2 69 115 / 0.06), 0 12px 32px rgb(2 69 115 / 0.14);
+  --focus-ring: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-focus);
+
+  /* ---------- Movimiento ---------- */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 1400ms;   /* ciclo del indicador "pensando" */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ---------- Modo oscuro: sistema, salvo que se fuerce claro ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-bg: #0e1b26;
+    --color-surface: #122231;
+    --color-surface-2: #16293a;
+    --color-surface-3: #1b3a55;
+    --color-surface-code: #1a2633;
+    --color-fg: #e6eef5;
+    --color-fg-muted: #a9bacb;
+    --color-fg-heading: #cfe6f7;
+    --color-primary: #7dccf3;
+    --color-primary-hover: #a5dcf7;
+    --color-primary-active: #cfe6f7;
+    --color-on-primary: #0e1b26;
+    --color-link: #7dccf3;
+    --color-border: #2a4257;
+    --color-border-strong: #7f98ae;
+    --color-focus: #7dccf3;
+    --color-success: #8fd18e;
+    --color-success-bg: #16301f;
+    --color-success-border: #3a8a39;
+    --color-warning: #f5c26b;
+    --color-warning-bg: #33270f;
+    --color-warning-border: #8a5300;
+    --color-danger: #f59a92;
+    --color-danger-bg: #3a1d1c;
+    --color-danger-border: #b3362c;
+    --color-info: #7dccf3;
+    --color-info-bg: #16293a;
+    --color-info-border: #3a96d3;
+    --color-diag: #c3b1db;
+    --color-diag-bg: #251e35;
+    --color-diag-border: #6d509b;
+    --color-chart-1: #7dccf3;
+    --color-chart-2: #8bc160;
+    --color-chart-3: #ae92c4;
+    --color-chart-4: #f08480;
+    --color-chart-5: #3a96d3;
+    --color-chart-6: #cfe6f7;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.40);
+    --shadow-md: 0 1px 2px rgb(0 0 0 / 0.40), 0 4px 12px rgb(0 0 0 / 0.35);
+    --shadow-lg: 0 2px 4px rgb(0 0 0 / 0.40), 0 12px 32px rgb(0 0 0 / 0.45);
+  }
+}
+
+/* ---------- Modo oscuro forzado por la app (<html data-theme="dark">) ---------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #0e1b26;
+  --color-surface: #122231;
+  --color-surface-2: #16293a;
+  --color-surface-3: #1b3a55;
+  --color-surface-code: #1a2633;
+  --color-fg: #e6eef5;
+  --color-fg-muted: #a9bacb;
+  --color-fg-heading: #cfe6f7;
+  --color-primary: #7dccf3;
+  --color-primary-hover: #a5dcf7;
+  --color-primary-active: #cfe6f7;
+  --color-on-primary: #0e1b26;
+  --color-link: #7dccf3;
+  --color-border: #2a4257;
+  --color-border-strong: #7f98ae;
+  --color-focus: #7dccf3;
+  --color-success: #8fd18e;
+  --color-success-bg: #16301f;
+  --color-success-border: #3a8a39;
+  --color-warning: #f5c26b;
+  --color-warning-bg: #33270f;
+  --color-warning-border: #8a5300;
+  --color-danger: #f59a92;
+  --color-danger-bg: #3a1d1c;
+  --color-danger-border: #b3362c;
+  --color-info: #7dccf3;
+  --color-info-bg: #16293a;
+  --color-info-border: #3a96d3;
+  --color-diag: #c3b1db;
+  --color-diag-bg: #251e35;
+  --color-diag-border: #6d509b;
+  --color-chart-1: #7dccf3;
+  --color-chart-2: #8bc160;
+  --color-chart-3: #ae92c4;
+  --color-chart-4: #f08480;
+  --color-chart-5: #3a96d3;
+  --color-chart-6: #cfe6f7;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.40);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 0.40), 0 4px 12px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 2px 4px rgb(0 0 0 / 0.40), 0 12px 32px rgb(0 0 0 / 0.45);
+}
+
+/* ---------- Base mínima (en @layer base para que las utilidades de Tailwind la sobrescriban) ---------- */
+@layer base {
+  html { background: var(--color-bg); color: var(--color-fg); }
+  body {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+  h1, h2, h3, h4 { font-family: var(--font-heading); color: var(--color-fg-heading); line-height: var(--leading-tight); }
+  a { color: var(--color-link); }
+  :focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-xs); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+  }
+}
