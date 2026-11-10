@@ -22,7 +22,7 @@ de tableros. Los tokens que salen de aquí están en [`tokens.md`](tokens.md) y 
 | Historia de los logos | `…/wp-content/uploads/2023/04/historia-logos-ses-hospital-de-caldas.jpg` | Evolución de la marca |
 | Banner con el barranquero (sep. 2026) | `…/wp-content/uploads/2026/09/ave-banner-azul.png` | Símbolo del ave |
 | Página "Monumento al Buen Acto" | https://seshospitaluniversitariodecaldas.com/monumento-al-buen-acto/ | Historia del barranquero (la mascota) |
-| `pajaro-coloreado.svg`, entregado por el usuario (2026-11-10) | Archivo local, no público | Vector del barranquero con la paleta del isotipo: base de `assets/marca/mascota/` |
+| `pajaro-coloreado.svg`, entregado por el usuario (2026-11-10) | Archivo local, no público | Vector del barranquero con la paleta del isotipo: base de `frontend/public/marca/mascota/` |
 | Informe de gestión y sostenibilidad 2025 (PDF y portada) | `…/wp-content/uploads/2026/04/INFORME-DE-GESTION-2025-baja.pdf` y `INFORME-DE-GESTION-2025.png` | Tipografías de las piezas impresas, fotografía, lema |
 | Plataforma estratégica / Nuestra historia | `/plataforma-estrategica/`, `/nuestra-historia/` | Misión, tono, historia |
 | Redes enlazadas desde el sitio | Facebook `seshospitaldecaldas`, Instagram `ses_huc`, X `ses_huc`, YouTube `@seshospitaldecaldas`, LinkedIn | Facebook e Instagram no se pudieron leer sin sesión (conexión rechazada o reiniciada) |
@@ -50,9 +50,9 @@ lanzamiento". La web real es `seshospitaluniversitariodecaldas.com`, y `hospital
 - **Vector oficial:** **no hay ninguno público** (no se encontró SVG, EPS ni AI). Por eso se hizo una
   **recreación vectorial** del isotipo con la geometría medida sobre el PNG oficial. Se comparó la imagen generada con
   el original y coinciden. Archivos:
-  - `assets/marca/isotipo_ses.svg`: a color, fiel al oficial.
-  - `assets/marca/isotipo_ses_monocromo.svg`: una sola tinta, `currentColor`.
-  - `assets/marca/oficial/isotipo_ses_oficial.png` y `logo_ses_horizontal_oficial.png`: los PNG oficiales,
+  - `frontend/public/marca/isotipo_ses.svg`: a color, fiel al oficial.
+  - `frontend/public/marca/isotipo_ses_monocromo.svg`: una sola tinta, `currentColor`.
+  - `frontend/public/marca/oficial/isotipo_ses_oficial.png` y `logo_ses_horizontal_oficial.png`: los PNG oficiales,
     recodificados con Pillow para quitarles los metadatos.
   - **Comunicaciones debe validar la recreación.** Si el hospital entrega el vector oficial, se reemplaza.
 - `assets/logo_ses.png` (el que usa la app hoy) es la misma marca, pero salió de un JPG. Conviene reemplazarlo por
@@ -179,7 +179,7 @@ La versión natural combina esas muestras con la coloración del ave real. Valor
 antifaz `#16181D` con borde `#3DB6C8`, iris `#D0342C`, pico `#1B2530`, pecho `#A3BC3C`→`#B48A43`, ala y dorso
 `#3C8F3E`→`#2F8A6A`→`#1E63AE`→`#173F8A`, cola `#2C7FA8`→`#1C5DA8`→`#1A3F86`→`#121A26`, rama `#6E4B2C` y musgo `#4F8F3A`.
 
-### 7.2 Archivos (`assets/marca/mascota/`)
+### 7.2 Archivos (`frontend/public/marca/mascota/`)
 
 Origen común: **`pajaro-coloreado.svg`, entregado por el usuario**. Es un vector de potrace: la silueta del ave
 sobre una rama con musgo, rellena con franjas onduladas y manchas en los colores del isotipo (`#1791D0`, `#8C6FAF`,
@@ -214,9 +214,9 @@ clipPath y degradados, con id prefijado.
 
 ### 7.3 Descartadas
 
-`assets/marca/propuestas/descartadas/` guarda las propuestas previas, hechas cuando todavía no se sabía de la
-mascota: avatar de "sonrisa", estados de sonrisa y boceto del barranquero. No se usan. Se conservan solo como
-referencia del glifo de sonrisa del isotipo, que sigue siendo útil como viñeta.
+Las propuestas previas, hechas cuando todavía no se sabía de la mascota (avatar de "sonrisa", estados de sonrisa y
+boceto del barranquero), se eliminaron del repositorio al mover la marca a `frontend/public/marca/`; quedan en el
+historial de git (commit `d409776`) por si se quiere recuperar el glifo de sonrisa como viñeta.
 
 ### 7.4 Pendiente de validar con Comunicaciones
 
