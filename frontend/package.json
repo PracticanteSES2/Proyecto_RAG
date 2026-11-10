@@ -2,7 +2,7 @@
   "name": "asistente-hucaldas-web",
   "version": "0.1.0",
   "private": true,
-  "description": "Chat web del Asistente de GestiÃ³n ClÃ­nica (SES Hospital Universitario de Caldas).",
+  "description": "Chat web del Asistente de Gestión Clínica (SES Hospital Universitario de Caldas).",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
