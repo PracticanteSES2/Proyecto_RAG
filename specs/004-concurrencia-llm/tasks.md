@@ -34,6 +34,16 @@
 - [x] T012 [US1] `docs/arquitectura/concurrencia.md`: diagnóstico, temores con evidencia, resultados,
   opciones por costo/beneficio, Redis sí/no, decisiones del usuario, comando real.
 
+## Phase 4b: Cambio de rumbo (API FastAPI + workers + Redis)
+
+- [x] T015 Pruebas rojas `tests/perf/test_gate_redis.py` (fakeredis): capacidad global entre procesos,
+  FIFO entre procesos, préstamo vencido, ticket huérfano, rendición, caída a memoria, SSE.
+- [x] T016 `src/llm/gate_backends.py` (MemoriaBackend, RedisBackend) y selección por
+  `LLM_GATE_BACKEND`/`REDIS_URL` en `llm_gate.py`; `evento_cola()`, `add_queue_observer()`.
+- [x] T017 `STATS.llm_pressure()`; `redis` en requirements.txt, `fakeredis` en requirements-dev.txt.
+- [x] T018 Perfil `sonda`, paralelismo observado y parada por errores en `tools/carga`.
+- [ ] T019 Medición real (bloqueada por el control de permisos; comando en el documento, sección 4).
+
 ## Phase 5: Cierre
 
 - [x] T013 Verificación final (todas las pruebas tocadas) y commits en `agente/carga`.

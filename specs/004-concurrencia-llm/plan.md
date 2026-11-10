@@ -13,6 +13,9 @@
 3. Modo con progreso en la puerta: `llm_gate.ui_progress(on_queue, queue_wait)` (ContextVar) → espera
    `MEDGEMMA_QUEUE_WAIT_UI` (30 s) y callback con la posición; la espera no resta presupuesto a la llamada.
 4. `MedGemmaProvider` devuelve `done_reason` (aditivo) → detectar truncado por `num_predict`.
+6. Cambio de rumbo (API FastAPI + workers + Redis): backend enchufable de la puerta
+   (`src/llm/gate_backends.py`: `memoria` | `redis`, semáforo distribuido justo con préstamos TTL),
+   `evento_cola()` para SSE, `STATS.llm_pressure()`, `add_queue_observer()`.
 5. `tools/carga/` (CLI `python -m tools.carga`): simulador de servidor Ollama en proceso, modos `llm` y
    `e2e`, rampas, métricas, tabla + JSON en `tools/carga/salidas/` (ignorada).
 

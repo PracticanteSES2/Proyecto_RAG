@@ -100,6 +100,11 @@ con progreso, contrato de `call_llm`).
 - **FR-007**: `MedGemmaProvider` MUST informar `done_reason` (additivo) para detectar respuestas cortadas
   por `num_predict`.
 
+- **FR-008** (cambio de rumbo 2026-11-10: API FastAPI + workers + Redis): la puerta MUST tener backend
+  enchufable `memoria` | `redis` (`LLM_GATE_BACKEND`, `REDIS_URL`): semáforo justo entre procesos con
+  tickets FIFO, préstamos con TTL y posición consultable; sin Redis, cae a memoria con advertencia.
+- **FR-009**: MUST exponer `evento_cola()` (SSE `cola` {posicion, en_curso}) y `STATS.llm_pressure()`.
+
 ### Key Entities
 
 - **Fila justa (FifoLine)**: tickets en orden de llegada con hilo y dueño; posición 1 = la siguiente.
