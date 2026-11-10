@@ -227,6 +227,32 @@ def _accepted_kwargs(provider, kwargs):
     return {key: value for key, value in kwargs.items() if key in params}
 
 
+def _with_tokens(provider, call_kwargs, on_token, box):
+    """Streaming opcional: si hay `on_token` y el proveedor acepta `stream` y
+    `on_token` (MedGemmaProvider), se le pide streaming con un reenvío
+    protegido: si `on_token` lanza se ignora, y tras abandonar la llamada por
+    tiempo (`box["abandoned"]`) ya no se reenvía nada. Si el proveedor no los
+    acepta, la llamada es la de siempre (sin tokens)."""
+    if not callable(on_token):
+        return call_kwargs
+    accepted = _accepted_kwargs(provider, dict(call_kwargs, stream=True, on_token=on_token))
+    if "stream" not in accepted or "on_token" not in accepted:
+        return call_kwargs
+
+    def forward(text):
+        # Bajo el candado del abandono: ningún token llega después del
+        # llm_timeout (el reenvío debe ser rápido, p. ej. poner en una cola).
+        with _ABANDON_LOCK:
+            if box.get("abandoned"):
+                return
+            try:
+                on_token(text)
+            except Exception:
+                pass  # la vista en vivo nunca tumba la llamada
+
+    return dict(call_kwargs, stream=True, on_token=forward)
+
+
 _OBSERVERS = []
 
 
@@ -285,7 +311,11 @@ def call_llm(provider, messages, purpose="otro", timeout=None, queue_wait=None, 
 
     Si el proveedor declara `enforces_timeout = True` (MedGemmaProvider) recibe
     `timeout` y lo aplica él (cierra la conexión al vencer). Si no, se espera
-    en un hilo y, al vencer, la llamada queda abandonada (como antes)."""
+    en un hilo y, al vencer, la llamada queda abandonada (como antes).
+
+    `on_token(texto)` (opcional): streaming de la respuesta (ver `_with_tokens`).
+    No cambia el contrato: nunca lanza, mismos status, mismo tiempo límite, y
+    el dict devuelto trae el texto completo."""
     progress = _PROGRESS.get()
     ui_mode = progress is not None and queue_wait is None
     started = time.perf_counter()
@@ -339,6 +369,7 @@ def call_llm(provider, messages, purpose="otro", timeout=None, queue_wait=None, 
             ),
         }
 
+    on_token = kwargs.pop("on_token", None)
     call_kwargs = dict(kwargs, messages=messages)
     if not timeout:
         budget = None
@@ -349,10 +380,10 @@ def call_llm(provider, messages, purpose="otro", timeout=None, queue_wait=None, 
     native = bool(getattr(provider, "enforces_timeout", False))
     if budget is not None and native:
         call_kwargs["timeout"] = budget
-    call_kwargs = _accepted_kwargs(provider, call_kwargs)
+    box = {}
+    call_kwargs = _with_tokens(provider, _accepted_kwargs(provider, call_kwargs), on_token, box)
     STATS.llm_begin(purpose)
     call_started = time.perf_counter()
-    box = {}
 
     def run():
         status = "llm_error"

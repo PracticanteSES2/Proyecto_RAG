@@ -2,6 +2,7 @@ import os
 import re
 import unicodedata
 
+from src.chatbot.respuesta_en_vivo import FiltroBorrador
 from src.llm.llm_gate import call_llm
 
 from src.rag.grounding import ground_answer, has_content
@@ -411,8 +412,13 @@ REGLAS OBLIGATORIAS:
         question,
         sources,
         history=None,
+        on_token=None,
     ):
         """Respuesta documental con MedGemma.
+
+        `on_token(texto)` (opcional): streaming del borrador de la respuesta
+        (src/chatbot/respuesta_en_vivo.py). El resultado no cambia: el
+        post-proceso se aplica al texto completo, que reemplaza al borrador.
 
         `history` (opcional) son los últimos turnos de la conversación
         ([{"role", "text", "meta"}]); entra al prompt como «CONVERSACIÓN
@@ -468,6 +474,8 @@ Usa únicamente el CONTEXTO. Solo si el CONTEXTO no contiene nada que
 responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
 """.strip()
 
+        stream = {"on_token": FiltroBorrador(on_token, (NO_EVIDENCE_ANSWER,), self._LEADING_FILLER_RE)
+                  } if on_token else {}
         result = self._chat_with_timeout(
             messages=[
                 {
@@ -484,6 +492,7 @@ responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
             temperature=0.1,
             max_tokens=self.max_tokens,
             think=False,
+            **stream,
         )
 
         if (

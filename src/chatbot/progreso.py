@@ -9,7 +9,8 @@ segundos visibles, nombres de modelos, DAX ni pasos internos:
 
     progreso  {"etapa": str, "frase": str, "t": float}
     espera    {"nivel": int, "frase": str, "t": float}
-    cola      {"posicion": int, "en_curso": int}
+    token     {"texto": str}
+    cola      {"posicion": int, "en_curso": int}     (solo modo diagnóstico)
     aviso     {"motivo": str, "texto": str}
 
 `t` (segundos desde el inicio del turno) es para ordenar y medir; la interfaz
@@ -17,12 +18,19 @@ NO lo muestra. El backend (FastAPI) envía cada evento por SSE con
 `event: <evento>` y `data: <JSON de datos>`; el contrato completo está en
 specs/003-progreso-chat/contracts/eventos.md.
 
+Decisión del usuario (specs/009-experiencia-espera): la espera se siente como
+trabajo sobre SU pregunta. Ningún texto habla de colas, filas, turnos,
+posiciones, otras consultas, el servidor ni saturación: esperar un hueco del
+LLM o el turno de otro NO cambia la etapa visible, y la frase rota despacio
+(`ROTACION_S`) para que nunca se vea congelada.
+
 Uso típico en el backend, por turno:
 
     traductor = TraductorProgreso(recientes=memoria_de_la_sesion)
     enviar(traductor.iniciar())
     engine.set_progress_listener(lambda e: enviar(traductor.traducir(e)))
-    ... mientras el motor trabaja, cada ~1 s: enviar(traductor.tic())
+    with escuchar_tokens(lambda t: enviar(traductor.token(t))):   # src/chatbot/respuesta_en_vivo.py
+        ... motor; mientras trabaja, cada ~1 s: enviar(traductor.tic())
     enviar(traductor.finalizar())
     enviar(traductor.aviso(result))   # lista vacía si no hay aviso
 
@@ -78,11 +86,6 @@ FRASES = {
         "Poniendo en palabras lo que encontré",
         "Preparando la respuesta con lo que encontré",
     ),
-    "en_cola": (
-        "Hay otras consultas en curso; la tuya sigue enseguida",
-        "Tu pregunta está en fila; enseguida la atiendo",
-        "Esperando un turno libre para responderte",
-    ),
     "finalizando": (
         "Ya casi está",
         "Dando los últimos toques a la respuesta",
@@ -92,13 +95,58 @@ FRASES = {
 ETAPAS = tuple(FRASES)
 ETAPA_INICIAL = "entendiendo"
 
+# Si una etapa se alarga (p. ej. mientras MedGemma se libera para redactar),
+# cada ROTACION_S segundos se muestra la siguiente frase de su seguimiento:
+# en orden de avance y cíclica, siempre sobre el trabajo con SU pregunta.
+ROTACION_S = 8.0
+SEGUIMIENTO = {
+    "entendiendo": (
+        "Pensando…",
+        "Precisando qué dato necesitas",
+        "Pensando en la mejor forma de responderte",
+    ),
+    "buscando_indicador": (
+        "Comparando los indicadores que podrían servir",
+        "Revisando el periodo y los filtros",
+        "Pensando…",
+    ),
+    "preparando_opciones": (
+        "Revisando cada opción",
+        "Describiendo cada opción con claridad",
+        "Pensando…",
+    ),
+    "conectando_powerbi": (
+        "Esperando la conexión con los tableros",
+        "Preparando la consulta del dato",
+    ),
+    "consultando_powerbi": (
+        "Esperando las cifras del tablero",
+        "Revisando las cifras que llegan",
+        "Pensando…",
+    ),
+    "revisando_documentacion": (
+        "Revisando los datos que encontré",
+        "Organizando la respuesta",
+        "Redactando la respuesta",
+        "Pensando…",
+    ),
+    "redactando": (
+        "Organizando la respuesta",
+        "Pensando…",
+        "Puliendo la redacción",
+    ),
+    "finalizando": (
+        "Dando los últimos toques",
+        "Revisando que todo cuadre",
+    ),
+}
+
 # Prefijo del título de la actividad del motor (normalizado: minúsculas, sin
 # tildes) → etapa. Títulos emitidos hoy por src/chatbot/query_engine.py
 # (`_activity`) y src/providers/powerbi_provider.py (`_notify_activity`).
-# «llm en cola» y «redactando» son ganchos para avisos futuros del motor o
-# del gestor de carga del LLM (ver contracts/eventos.md).
+# «redactando» es un gancho para un aviso futuro del motor. «LLM en cola…»
+# (llm_gate.add_queue_observer) NO cambia la etapa: es solo diagnóstico.
 _PREFIJOS = (
-    ("llm en cola", "en_cola"),
     ("redactando", "redactando"),
     ("interpretando", "entendiendo"),
     ("buscando el indicador", "buscando_indicador"),
@@ -174,36 +222,24 @@ class SelectorFrases:
 # Esperas largas
 # ======================================================================
 
-# (segundos desde el inicio del turno, mensaje). El del nivel 2 depende de la
-# etapa y de la carga del LLM (ver frase_espera).
+# (segundos desde el inicio del turno, mensaje). Tranquilizan hablando del
+# trabajo con la pregunta, nunca de otros ni de la carga. El del nivel 2
+# depende de la etapa (ver frase_espera).
 UMBRALES_ESPERA = (
-    (10, "Esto está tomando un poco más de lo normal…"),
-    (25, "Sigo trabajando en tu respuesta; gracias por la paciencia."),
-    (50, "Sigue en marcha: no hace falta volver a enviar la pregunta."),
-    (90, "Está tardando más de lo habitual; sigo esperando la respuesta."),
+    (10, "Sigo trabajando en tu pregunta…"),
+    (25, "Estoy armando una respuesta completa; ya casi la tengo…"),
+    (50, "Sigo con tu pregunta; no hace falta volver a enviarla."),
+    (90, "Me está tomando más de lo habitual, pero sigo en ello."),
 )
 
-ESPERA_POWERBI = "Power BI está tardando en responder; sigo esperando los datos."
-ESPERA_FILA = "Hay varias consultas en curso; la tuya está en fila, ya casi…"
-ESPERA_TURNO = "Hay otra consulta en curso; la tuya sigue enseguida."
-
-# Etapas en las que el turno espera a MedGemma.
-_ETAPAS_LLM = ("entendiendo", "preparando_opciones", "revisando_documentacion", "redactando")
+ESPERA_POWERBI = "Las cifras de Power BI están tardando un poco; sigo pendiente."
 
 
-def frase_espera(nivel, etapa, carga=None):
-    """Mensaje del nivel de espera (1..len(UMBRALES_ESPERA)) para la etapa
-    actual. `carga` es lo que devuelve leer_carga_llm (o None)."""
-    texto = UMBRALES_ESPERA[nivel - 1][1]
-    if nivel != 2:
-        return texto
-    if etapa in ("consultando_powerbi", "conectando_powerbi"):
+def frase_espera(nivel, etapa):
+    """Mensaje del nivel de espera (1..len(UMBRALES_ESPERA)) para la etapa actual."""
+    if nivel == 2 and etapa in ("consultando_powerbi", "conectando_powerbi"):
         return ESPERA_POWERBI
-    if etapa == "en_cola":
-        return ESPERA_TURNO
-    if (carga or {}).get("ocupado") and etapa in _ETAPAS_LLM:
-        return ESPERA_FILA
-    return texto
+    return UMBRALES_ESPERA[nivel - 1][1]
 
 
 def nivel_espera(transcurrido):
@@ -226,7 +262,8 @@ def _capacidad_llm():
 
 
 def leer_carga_llm(stats=None, capacidad=None):
-    """PUNTO DE ENGANCHE con la carga del LLM (src/chatbot/runtime_stats.py).
+    """PUNTO DE ENGANCHE con la carga del LLM (src/chatbot/runtime_stats.py),
+    solo para el modo diagnóstico: ningún texto para el usuario depende de él.
 
     Devuelve {"en_curso", "en_cola", "capacidad", "ocupado"}. Si `stats`
     expone `llm_pressure()` → {"in_flight", "waiting", "capacity",
@@ -257,21 +294,16 @@ def leer_carga_llm(stats=None, capacidad=None):
 # Respuesta degradada
 # ======================================================================
 
-AVISO_SATURADO = (
-    "Ahora mismo hay muchas consultas a la vez, así que te muestro directamente lo que dice "
-    "la documentación, sin redactarlo. Si quieres una explicación más elaborada, vuelve a "
-    "preguntar en un momento."
-)
-AVISO_SIN_REDACCION = (
-    "Esta vez no pude redactar la respuesta, así que te muestro directamente lo que dice "
-    "la documentación."
-)
+# Nota neutra para el resumen extractivo, sea cual sea el motivo: la respuesta
+# se presenta como normal y nunca se culpa a la carga. `motivo` queda para el
+# modo diagnóstico.
+AVISO_EXTRACTIVO = "Te muestro lo que dice la documentación."
 
 
 def aviso_degradacion(result):
     """{"motivo", "texto"} si la respuesta documental salió como resumen
     extractivo (MedGemma saturado, sin respuesta a tiempo o no disponible),
-    o None."""
+    o None. `motivo` ("saturado" | "sin_redaccion") es solo diagnóstico."""
     if not isinstance(result, dict):
         return None
     if result.get("status") != "success" or result.get("route") != "rag":
@@ -282,9 +314,8 @@ def aviso_degradacion(result):
     for paso in ((result.get("reasoning") or {}).get("steps") or []):
         partes.append(str(paso.get("title") or ""))
         partes.extend(str(linea) for linea in paso.get("lines") or [])
-    if "saturad" in " ".join(partes).lower():
-        return {"motivo": "saturado", "texto": AVISO_SATURADO}
-    return {"motivo": "sin_redaccion", "texto": AVISO_SIN_REDACCION}
+    motivo = "saturado" if "saturad" in " ".join(partes).lower() else "sin_redaccion"
+    return {"motivo": motivo, "texto": AVISO_EXTRACTIVO}
 
 
 # ======================================================================
@@ -298,30 +329,40 @@ def _evento(nombre, datos):
 
 
 def evento_cola(posicion, en_curso):
-    """Evento `cola`: posición del turno en la fila (1 = el siguiente) y
-    consultas en curso delante. Valores negativos se llevan a 0."""
+    """Evento `cola` (SOLO modo diagnóstico): posición del turno en la fila
+    (1 = el siguiente) y consultas en curso delante. Valores negativos se
+    llevan a 0. El modo normal nunca lo convierte en texto."""
     return _evento("cola", {"posicion": max(0, int(posicion or 0)), "en_curso": max(0, int(en_curso or 0))})
+
+
+def evento_token(texto):
+    """Evento `token`: fragmento de la respuesta que se está redactando (se
+    AÑADE al borrador de la burbuja; la respuesta final lo reemplaza)."""
+    return _evento("token", {"texto": str(texto or "")})
 
 
 class TraductorProgreso:
     """Traduce, para UN turno, los eventos del motor a eventos para la
     interfaz. Cada método devuelve una LISTA de sobres
-    {"evento": "progreso"|"espera"|"cola"|"aviso", "datos": {...}} (vacía si
-    no hay nada nuevo que mostrar). Nunca lanza.
+    {"evento": "progreso"|"espera"|"token"|"cola"|"aviso", "datos": {...}}
+    (vacía si no hay nada nuevo que mostrar). Nunca lanza.
 
-    - Solo emite `progreso` cuando la etapa CAMBIA (los pasos internos y las
-      actividades repetidas de la misma etapa no generan ruido).
-    - `tic()` emite `espera` al cruzar cada umbral de UMBRALES_ESPERA (el
-      backend lo llama periódicamente mientras el motor trabaja)."""
+    - `progreso` cuando la etapa CAMBIA (los pasos internos y las actividades
+      repetidas de la misma etapa no generan ruido) y, si la etapa se alarga,
+      cada ROTACION_S con la siguiente frase de SEGUIMIENTO (vía `tic()`).
+    - `tic()` emite además `espera` al cruzar cada umbral de UMBRALES_ESPERA
+      (el backend lo llama periódicamente mientras el motor trabaja).
+    - Tras el primer `token`, `tic()` calla: la respuesta visible ya avanza."""
 
-    def __init__(self, recientes=None, reloj=time.monotonic, rng=None, carga=leer_carga_llm):
+    def __init__(self, recientes=None, reloj=time.monotonic, rng=None):
         self._reloj = reloj
         self.inicio = reloj()
         self._selector = SelectorFrases(recientes, rng=rng)
-        self._carga = carga
         self.etapa = None
         self.nivel = 0
-        self._cola_avisada = False
+        self._frase_desde = self.inicio
+        self._rotacion = {}
+        self._escribiendo = False
 
     @property
     def recientes(self):
@@ -330,17 +371,15 @@ class TraductorProgreso:
     def _t(self):
         return round(max(0.0, self._reloj() - self.inicio), 1)
 
-    def _leer_carga(self):
-        try:
-            return self._carga() if callable(self._carga) else None
-        except Exception:
-            return None
+    def _progreso(self, frase):
+        self._frase_desde = self._reloj()
+        return [_evento("progreso", {"etapa": self.etapa, "frase": frase, "t": self._t()})]
 
     def _cambiar(self, etapa):
         if etapa is None or etapa == self.etapa:
             return []
         self.etapa = etapa
-        return [_evento("progreso", {"etapa": etapa, "frase": self._selector.elegir(etapa), "t": self._t()})]
+        return self._progreso(self._selector.elegir(etapa))
 
     def iniciar(self):
         return self._cambiar(ETAPA_INICIAL)
@@ -353,28 +392,48 @@ class TraductorProgreso:
 
     def esperando_turno(self, posicion=1, en_curso=1):
         """El turno espera a otro (hoy: candado «un turno a la vez» de
-        runtime_stats.turn_slot; mañana: la cola de Redis). La etapa se avisa
-        una vez; `cola` se emite en cada llamada para que la interfaz
-        actualice la posición si cambia."""
-        eventos = self._cambiar("en_cola")
+        runtime_stats.turn_slot; mañana: la cola de Redis). La etapa visible
+        NO cambia (si el turno no había empezado, se muestra la inicial);
+        `cola` se emite en cada llamada solo para el modo diagnóstico."""
+        eventos = self._cambiar(ETAPA_INICIAL) if self.etapa is None else []
         eventos.append(evento_cola(posicion, en_curso))
         return eventos
 
+    def _rotar(self):
+        seguimiento = SEGUIMIENTO.get(self.etapa)
+        if not seguimiento or self._reloj() - self._frase_desde < ROTACION_S:
+            return []
+        indice = self._rotacion.get(self.etapa, 0)
+        self._rotacion[self.etapa] = indice + 1
+        return self._progreso(seguimiento[indice % len(seguimiento)])
+
+    def _esperar(self):
+        alcanzado = nivel_espera(self._reloj() - self.inicio)
+        if alcanzado <= self.nivel:
+            return []
+        self.nivel = alcanzado
+        return [_evento("espera", {
+            "nivel": alcanzado, "frase": frase_espera(alcanzado, self.etapa), "t": self._t(),
+        })]
+
     def tic(self):
-        """Mensaje de espera larga si se cruzó un umbral nuevo. Si se
-        cruzaron varios desde el último tic (backend ocupado), solo se emite
-        el más alto: cada mensaje reemplaza al anterior en la interfaz."""
+        """Rotación de la frase de la etapa (cada ROTACION_S) y mensaje de
+        espera larga si se cruzó un umbral nuevo. Si se cruzaron varios desde
+        el último tic (backend ocupado), solo se emite el más alto: cada
+        mensaje reemplaza al anterior en la interfaz."""
+        if self._escribiendo:
+            return []
         try:
-            alcanzado = nivel_espera(self._reloj() - self.inicio)
-            if alcanzado <= self.nivel:
-                return []
-            self.nivel = alcanzado
-            carga = self._leer_carga() if alcanzado == 2 else None
-            return [_evento("espera", {
-                "nivel": alcanzado, "frase": frase_espera(alcanzado, self.etapa, carga), "t": self._t(),
-            })]
+            return self._rotar() + self._esperar()
         except Exception:
             return []
+
+    def token(self, texto):
+        """Fragmento de la respuesta en redacción (streaming de MedGemma)."""
+        if not texto:
+            return []
+        self._escribiendo = True
+        return [evento_token(texto)]
 
     def finalizar(self):
         """El motor terminó y la respuesta se está armando para enviarla."""
