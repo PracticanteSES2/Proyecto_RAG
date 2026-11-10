@@ -424,7 +424,7 @@ binario_permitido = ["assets/**", "docs/**", "frontend/public/**", "tests/**/fix
 
 [estructura.subcarpetas]
 tools = ["local_data", "manual", "doctor", "carga"]
-docs = ["superpowers", "diseno", "adr", "calidad"]
+docs = ["superpowers", "diseno", "adr", "calidad", "arquitectura"]
 infra = ["redis", "scripts", "servicios", "docker"]
 backend = ["app", "motor", "tests"]
 "backend/app" = ["core", "api", "schemas", "services", "models"]
