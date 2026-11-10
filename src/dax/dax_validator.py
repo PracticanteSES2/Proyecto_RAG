@@ -2,6 +2,7 @@ import re
 
 from src.comun.texto import llave
 from src.comun.json_io import leer_json
+from src.dax.validacion_detalle import validate_detail_dax
 
 
 class DAXValidator:
@@ -387,8 +388,6 @@ class DAXValidator:
     ):
         """Consulta del listado de detalle (TOPN + SUMMARIZECOLUMNS): columnas
         del modelo, tope de filas y sin construcciones prohibidas."""
-        from src.semantic.detail_list import validate_detail_dax
-
         return validate_detail_dax(dax, columns, self.catalog, limit)
 
     # ========================================================

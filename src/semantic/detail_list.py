@@ -37,6 +37,12 @@ import re
 
 from src.semantic.answer_shape import detail_request
 from src.comun.texto import plegar
+from src.dax.validacion_detalle import (  # noqa: F401  (reexportados: tests/detalle, DAXValidator)
+    FORBIDDEN_PATTERNS,
+    validate_detail_dax,
+)
+from src.dax.validacion_detalle import columnas_de_tabla as _table_columns
+from src.dax.validacion_detalle import mismo_nombre as _same
 
 DEFAULT_MAX_ROWS = 50
 DEFAULT_TIMEOUT_S = 30
@@ -150,10 +156,6 @@ def is_technical_column(column, header=None):
     if not key or _TECHNICAL_RE.match(key):
         return True
     return header is not None and not str(header).strip()
-
-
-def _same(a, b):
-    return compact(a) == compact(b)
 
 
 # ---------------------------------------------------------------------------
@@ -286,13 +288,6 @@ def readable_header(table, column, names, fallback=None):
 # ---------------------------------------------------------------------------
 # Plan del listado
 # ---------------------------------------------------------------------------
-
-def _table_columns(technical_catalog, table):
-    for item in (technical_catalog or {}).get("tables") or []:
-        if _same(item.get("name"), table):
-            return [c for c in item.get("columns") or [] if c.get("name")]
-    return []
-
 
 def _is_location(column, header):
     found = words(column) | words(header) | {compact(column)}
@@ -519,32 +514,7 @@ def plan_detail(plan, builder=None, visual_catalog=None, question=None):
 # Validación de la consulta del listado
 # ---------------------------------------------------------------------------
 
-FORBIDDEN_PATTERNS = (r"\bDEFINE\b", r"\bINFO\.", r"\bEVALUATEANDLOG\b")
-
-
-def validate_detail_dax(dax, columns, technical_catalog, limit):
-    """Validación de la consulta del listado (estructura fija generada por
-    QueryPlanDAXGenerator.generate_detail): EVALUATE + TOPN con el tope,
-    sin construcciones prohibidas y con columnas que existen en el modelo."""
-    errors = []
-    text = str(dax or "").strip()
-    if not text.upper().startswith("EVALUATE"):
-        errors.append("La consulta DAX debe comenzar con EVALUATE.")
-    if not re.search(r"\bTOPN\s*\(\s*" + str(int(limit)) + r"\s*,", text):
-        errors.append("La consulta del listado debe limitar las filas con TOPN.")
-    if not re.search(r"\bSUMMARIZECOLUMNS\s*\(", text):
-        errors.append("La consulta del listado no usa SUMMARIZECOLUMNS.")
-    for pattern in FORBIDDEN_PATTERNS:
-        if re.search(pattern, text, flags=re.IGNORECASE):
-            errors.append(f"La consulta contiene una construcción no permitida: {pattern}")
-    if technical_catalog:
-        for column in columns or []:
-            if not any(_same(c.get("name"), column.get("column"))
-                       for c in _table_columns(technical_catalog, column.get("table"))):
-                errors.append(f"La columna {column.get('table')}[{column.get('column')}] no existe en el modelo.")
-    if not columns:
-        errors.append("El listado no tiene columnas.")
-    return {"valid": not errors, "errors": errors, "dax": dax}
+# FORBIDDEN_PATTERNS y validate_detail_dax viven en src/dax/validacion_detalle.py (reexportados arriba).
 
 
 # ---------------------------------------------------------------------------
