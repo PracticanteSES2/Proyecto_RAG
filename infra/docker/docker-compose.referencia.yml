@@ -1,0 +1,26 @@
+# REFERENCIA — NO PROBADO (en el equipo de desarrollo no hay Docker ni Redis).
+# Esquema de despliegue con Redis para el propietario: Redis + 1 trabajador
+# (dueño de Qdrant local, MiniLM, ADOMD y MedGemma) + API con varios procesos.
+# Power BI (ADOMD/pythonnet) necesita Windows: en la práctica el trabajador corre
+# en Windows fuera de Docker; este archivo sirve solo para Redis y como guía.
+services:
+  redis:
+    image: redis:7.4
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb",
+              "--maxmemory-policy", "volatile-lru"]
+    ports: ["6379:6379"]
+    volumes: ["redis-datos:/data"]
+    restart: unless-stopped
+
+  # api:
+  #   build: ../..
+  #   command: python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --workers 4
+  #   environment:
+  #     REDIS_URL: redis://redis:6379/0
+  #     MOTOR_MODO: externo
+  #     BACKEND_SECRETO: ${BACKEND_SECRETO}
+  #   depends_on: [redis]
+  #   ports: ["8000:8000"]
+
+volumes:
+  redis-datos:

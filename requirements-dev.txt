@@ -1,3 +1,4 @@
 # Dependencias de desarrollo y pruebas (no van a producción)
 -r requirements.txt
 fakeredis
+httpx
