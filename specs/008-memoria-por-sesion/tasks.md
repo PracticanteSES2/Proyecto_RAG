@@ -25,6 +25,9 @@
 - [x] T007 `ConversationManager.state`/`candidate_dashboards` sobre la sesión activa.
 - [x] T008 `app.py`: estado por pestaña, `sesion=`, «Nueva conversación» solo la propia.
 
+- [x] T012 Backend: `SesionExplicita` reemplaza `SesionPorAtributos` (misma forma), `SerializadorEstado` JSON
+  firmado; motor doble con el andamiaje de sesión; `tests/backend` y `tests/api`.
+
 ## Phase 4: Verificación
 
 - [x] T009 Suites: sesion, context (conversation, context), clarification, routing, portero, stability,

@@ -82,16 +82,18 @@ pasos en vivo solo para ese turno (mismo formato que `set_progress_listener`).
   una contrapregunta abierta; se responde tras el botón.
 - `intencion` y `tableros_candidatos`: estado del `ConversationManager` (analizador de intención).
 
-## Uso desde el backend (recomendado)
+## Uso desde el backend
+
+Implementado en `backend/app/services/motor.py::SesionExplicita` (reemplaza el parche `SesionPorAtributos`):
 
 ```python
-datos = redis.get(clave)                                   # None si expiró
-estado = EstadoConversacion.from_json(datos) if datos else EstadoConversacion(id=id_conversacion)
-resultado = motor.process(texto, sesion=estado, progreso=enviar_evento)
-redis.set(clave, estado.to_json(), ex=TTL)                  # guardar SIEMPRE tras el turno
+result, estado_nuevo = SesionExplicita().ejecutar(instancia, estado_previo, texto, opcion, on_token=...)
+# estado_previo / estado_nuevo: dict de EstadoConversacion.to_dict() (o None = conversación nueva)
+SesionExplicita.sin_contexto(estado)   # True sin pendientes, seguimiento, memoria ni aclaración abierta
 ```
 
-Si `from_json` lanza `ValueError` (versión incompatible o datos corruptos), empezar una conversación nueva.
+`SerializadorEstado` guarda ese dict como JSON firmado con HMAC-SHA256 (sin pickle). Un estado de otra versión
+o ilegible se descarta y la conversación sigue sin contexto. Si el motor lanza, el estado previo no cambia.
 
 ## Concurrencia del motor
 
