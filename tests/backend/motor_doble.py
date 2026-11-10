@@ -47,6 +47,9 @@ class GestorDoble:
 class MotorDoble:
     def __init__(self, demora_s: float = 0.0):
         self.demora_s = demora_s
+        # «bloquea» espera esta compuerta: las pruebas de concurrencia la abren
+        # cuando quieren (sin depender de tiempos).
+        self.compuerta = threading.Event()
         self.progress_listener = None
         self.last_reasoning = None
         self._trace = None
@@ -157,7 +160,10 @@ class MotorDoble:
                     "synthesis_issue": "MedGemma saturado" if extractiva else None,
                     "sources": [{"dashboard": "Tablero Camas", "page": "Ocupación", "chunk_type": "page"},
                                 {"dashboard": "Tablero Camas", "page": "Ocupación", "chunk_type": "visual"}]}
-        if texto == "lento":
+        if texto == "bloquea":
+            self._avisar("Consultando Power BI (Camas)")
+            self.compuerta.wait(60)
+        elif texto == "lento":
             for _ in range(3):
                 self._avisar("Consultando Power BI (Camas)")
                 time.sleep(self.demora_s / 3)

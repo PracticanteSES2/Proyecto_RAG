@@ -40,6 +40,7 @@ class AlmacenMemoria:
         self._limites: dict[str, list[float]] = {}
         self._motor: dict[str, tuple[dict, float | None]] = {}
         self._secuencia = itertools.count(1)
+        self._llegada = itertools.count(1)
 
     # ------------------------------------------------------------ utilidades
     def _ahora(self) -> float:
@@ -128,7 +129,8 @@ class AlmacenMemoria:
             datos["_expira"] = self._ahora() + ttl_s
             self._turnos[turno["turno_id"]] = datos
             self._eventos[turno["turno_id"]] = {"lista": [], "expira": self._ahora() + ttl_s}
-            self._espera[turno["turno_id"]] = self._ms()
+            # Orden de llegada (no la hora: dos turnos del mismo milisegundo empatarían).
+            self._espera[turno["turno_id"]] = next(self._llegada)
             self._cola.append(turno["turno_id"])
             self._hay_turno.notify_all()
             return True
@@ -167,7 +169,7 @@ class AlmacenMemoria:
             return turno_id in self._eventos
 
     def _posicion(self, turno_id):
-        orden = sorted(self._espera.items(), key=lambda par: (par[1], par[0]))
+        orden = sorted(self._espera.items(), key=lambda par: par[1])
         ids = [t for t, _ in orden]
         posicion = ids.index(turno_id) + 1 if turno_id in self._espera else 0
         return posicion, len(self._en_curso)

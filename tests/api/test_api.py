@@ -15,7 +15,7 @@ from tests.backend.motor_doble import piscina_doble
 V1 = "/api/v1"
 
 
-def leer_sse(cliente, url, cabeceras=None, maximo_s=60.0):
+def leer_sse(cliente, url, cabeceras=None, maximo_s=60.0, al_evento=None):
     """Lista de {"event", "data", "id"?} hasta `fin` (o fin del flujo)."""
     eventos, actual = [], {}
     limite = time.time() + maximo_s
@@ -29,6 +29,8 @@ def leer_sse(cliente, url, cabeceras=None, maximo_s=60.0):
                 if "event" in actual:
                     actual["data"] = json.loads(actual.get("data") or "{}")
                     eventos.append(actual)
+                    if al_evento:
+                        al_evento(actual)
                     if actual["event"] == "fin":
                         break
                 actual = {}
@@ -226,29 +228,40 @@ class APIRedisTest(FlujosAPI, unittest.TestCase):
 
 
 class ConcurrenciaAPI(BaseAPI):
-    demora_s = 0.9
-    cambios = {"limite_turnos": 3}
+    # Sin caché: ningún turno puede saltarse la fila (ni por coincidencia de pregunta).
+    cambios = {"limite_turnos": 3, "cache_habilitada": False}
 
     def test_turno_en_curso_cola_y_limite(self):
+        """Determinista: el turno A («bloquea») retiene la única instancia del motor
+        hasta que el SSE de B (diagnóstico) recibe su primer `cola`; recién entonces
+        se abre la compuerta. Sin dependencia de tiempos."""
+        compuerta = self.piscina.principal.engine.compuerta
+        self.addCleanup(compuerta.set)
         cid_a, cid_b = self.conversacion(), self.conversacion()
-        lento = self.enviar(cid_a, "lento")
+        bloqueado = self.enviar(cid_a, "bloquea")
         self.enviar(cid_a, "hola", esperado=409)
-        segundo = self.enviar(cid_b, "lento", diagnostico=True)
-        normal = self.cliente.post(f"{V1}/conversaciones/{self.conversacion()}/turnos", json={"mensaje": "lento"},
+        segundo = self.enviar(cid_b, "hola", diagnostico=True)
+        normal = self.cliente.post(f"{V1}/conversaciones/{self.conversacion()}/turnos", json={"mensaje": "hola"},
                                    headers={"X-Cliente-Id": "navegador-prueba-3"}).json()
-        eventos_b = leer_sse(self.cliente, segundo["eventos_url"])
+
+        def abrir_al_ver_cola(evento):
+            if evento["event"] == "cola":
+                compuerta.set()
+
+        eventos_b = leer_sse(self.cliente, segundo["eventos_url"], al_evento=abrir_al_ver_cola)
         eventos_normal = leer_sse(self.cliente, normal["eventos_url"])
-        # Modo normal: aunque esperó en la fila, nunca ve `cola` y lo primero es `progreso`.
+        # Modo diagnóstico: recibió su posición mientras A retenía el motor.
+        cola = self.de(eventos_b, "cola")
+        self.assertTrue(cola, eventos_b)
+        # {2,0} si el trabajador aún no había tomado A; {1,1} si ya lo tenía.
+        self.assertIn(cola[0], ({"posicion": 1, "en_curso": 1}, {"posicion": 2, "en_curso": 0}))
+        self.assertNotIn("en_cola", [d["etapa"] for d in self.de(eventos_b, "progreso")])
+        # Modo normal: también esperó en la fila, pero nunca ve `cola` y lo primero es `progreso`.
         self.assertNotIn("cola", [e["event"] for e in eventos_normal])
         self.assertEqual(eventos_normal[0]["event"], "progreso")
         self.assertTrue(all("id" in e for e in eventos_normal))
-        # Modo diagnóstico: sí recibe la posición en la fila.
-        cola = self.de(eventos_b, "cola")
-        self.assertTrue(cola, eventos_b)
-        # Los valores dependen de cuándo el trabajador toma y suelta el primer turno ({2,0}, {1,1}, {1,0}…).
-        self.assertTrue(all(1 <= d["posicion"] <= 3 and 0 <= d["en_curso"] <= 1 for d in cola), cola)
-        self.assertNotIn("en_cola", [d["etapa"] for d in self.de(eventos_b, "progreso")])
-        self.assertEqual(self.de(leer_sse(self.cliente, lento["eventos_url"]), "respuesta")[0]["estado"], "success")
+        self.assertEqual(self.de(leer_sse(self.cliente, bloqueado["eventos_url"]), "respuesta")[0]["estado"],
+                         "success")
         # El límite cuenta cada intento del navegador (también el rechazado con 409): el cuarto es 429.
         demasiadas = self.cliente.post(f"{V1}/conversaciones/{self.conversacion()}/turnos", json={"mensaje": "hola"},
                                        headers={"X-Cliente-Id": "navegador-prueba-1"})
