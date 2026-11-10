@@ -235,6 +235,9 @@ class MedGemmaProvider:
                 "done_reason": done_reason,
                 "truncated": done_reason == "length",
                 "eval_count": getattr(response, "eval_count", None),
+                # Tokens de entrada reales: calibran la estimación de
+                # src/llm/presupuesto_tokens.py (recorte contra num_ctx).
+                "prompt_eval_count": getattr(response, "prompt_eval_count", None),
             }
 
         except ResponseError as exc:

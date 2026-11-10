@@ -1,5 +1,7 @@
 import inspect
 
+from src.chatbot.respuesta_completa import describir, linea_aviso
+from src.providers.powerbi_links import enlace_para_resultado
 from src.rag.extractive import readable_fallback
 from src.rag.grounding import ground_answer, has_content
 
@@ -141,21 +143,26 @@ class RAGAnswerEngine:
         """Por qué no se usó el LLM (texto para el razonamiento) o None."""
         details = synthesis.get("details") or {}
         status = details.get("status") or synthesis.get("status")
-        if status == "llm_timeout":
-            return (f"MedGemma no respondió en {details.get('timeout_seconds') or '-'} s "
-                    "(se cortó la llamada): se usa el resumen extractivo")
-        if status == "llm_saturated":
-            return (f"MedGemma estaba saturado ({details.get('error') or 'sin hueco libre'}): "
-                    "se usa el resumen extractivo sin esperar")
-        if status:
-            error = details.get("error")
-            return f"MedGemma no disponible ({status}{': ' + str(error)[:120] if error else ''}): "                    "se usa el resumen extractivo"
-        return None
+        if not status:
+            return None
+        known = {
+            "llm_timeout": f"MedGemma no respondió en {details.get('timeout_seconds') or '-'} s "
+                           "(se cortó la llamada): se usa el resumen extractivo",
+            "llm_saturated": f"MedGemma estaba saturado ({details.get('error') or 'sin hueco libre'}): "
+                             "se usa el resumen extractivo sin esperar",
+            "llm_truncated": f"MedGemma llegó al tope de {details.get('num_predict') or '-'} tokens sin "
+                             "ninguna frase completa: se usa el resumen extractivo",
+        }
+        if status in known:
+            return known[status]
+        error = details.get("error")
+        return f"MedGemma no disponible ({status}{': ' + str(error)[:120] if error else ''}): "                    "se usa el resumen extractivo"
 
     def _synthesize_answer(self, question, results, history=None):
         """(respuesta, modo, sin_evidencia). Si no se usa el LLM, el motivo
         queda en self.last_synthesis_issue (lo muestra el razonamiento)."""
         self.last_synthesis_issue = None
+        self.last_synthesis = {}
         if self.answer_synthesizer is None:
             return self._fallback_answer(results, question), "extractive", False
 
@@ -165,6 +172,7 @@ class RAGAnswerEngine:
         if history:
             kwargs["history"] = history
         synthesis = self.answer_synthesizer.synthesize_rag(**kwargs)
+        self.last_synthesis = synthesis if isinstance(synthesis, dict) else {}
 
         if synthesis.get("status") == "success":
             return synthesis.get("answer"), "llm", bool(synthesis.get("no_evidence"))
@@ -187,7 +195,7 @@ class RAGAnswerEngine:
             "synthesis_mode": synthesis_mode,
         }
 
-    def _build_context_response(self, question, results, history=None):
+    def _build_context_response(self, question, results, history=None, dashboard=None):
         if not results:
             return self._not_found_response()
 
@@ -207,13 +215,36 @@ class RAGAnswerEngine:
 
         return {
             "status": "success",
-            "answer": answer,
             "contexts": [r.get("text", "") for r in results if r.get("text")],
             "sources": results,
             "retrieval_mode": "open",
             "synthesis_mode": synthesis_mode,
             "synthesis_issue": getattr(self, "last_synthesis_issue", None),
+            **self._completeness(answer, synthesis_mode, results, dashboard),
         }
+
+    def _completeness(self, answer, synthesis_mode, results, dashboard):
+        """answer (con la línea del tablero si quedó incompleta), traza y `cacheable`."""
+        synthesis = getattr(self, "last_synthesis", None) or {}
+        incomplete = synthesis_mode == "llm" and bool(synthesis.get("incompleta"))
+        if incomplete:
+            # Después del anclaje de cifras: la URL del enlace no es una cifra afirmada.
+            answer = f"{answer}\n\n{linea_aviso(self._powerbi_link(results, dashboard))}"
+        diagnostic = synthesis.get("diagnostico")
+        return {
+            "answer": answer,
+            # Traza: truncada sí/no, tokens, recorte de la entrada y reparación.
+            "synthesis_detail": f"Respuesta del LLM: {describir(diagnostic)}" if diagnostic else None,
+            "respuesta_llm": diagnostic,
+            # Una caché nunca guarda una respuesta incompleta ni degradada.
+            "cacheable": not incomplete and not getattr(self, "last_synthesis_issue", None),
+        }
+
+    @staticmethod
+    def _powerbi_link(results, dashboard):
+        """Enlace «Abrir en Power BI» de la respuesta (None si no hay catálogo o tablero)."""
+        return enlace_para_resultado({"route": "rag", "status": "success", "sources": results,
+                                      "dashboard": dashboard})
 
     @staticmethod
     def _evidence_texts(results):
@@ -232,7 +263,7 @@ class RAGAnswerEngine:
     def _answer_general(self, intent_data, history=None):
         question = intent_data.get("original_question") or ""
         results = self._retrieve_general_context(intent_data)
-        return self._build_context_response(question, results, history)
+        return self._build_context_response(question, results, history, intent_data.get("dashboard"))
 
     def answer(self, intent_data, history=None):
         """Respuesta documental. `history` (opcional): últimos turnos de la

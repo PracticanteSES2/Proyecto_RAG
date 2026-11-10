@@ -384,6 +384,7 @@ Antes de escribir una función utilitaria: `Grep` por el verbo (`normaliz`, `fol
 | Slug `a_b_c` | `src.comun.texto.slug` (`repositorio.slug` = `slug(t) or "pagina"`) | — |
 | Rótulos: NFKD sin combinantes, sin cambiar mayúsculas | `src.comun.texto.sin_tildes` | — |
 | Variantes que difieren a propósito (no unificar) | `dax.column_guard._fold` (casefold), `docs_md.formato.normalizar_nombre`, `semantic.document_normalizer.normalize_heading`, `semantic.request_phrases.fold` (misma longitud) | Pendientes en archivos de otros agentes: `specs/012-refactor-motor/tasks.md` T022 |
+| Tokens canónicos | `src.semantic.resolucion.texto.canonical_token(s)` | versión distinta en `query_semantic_planner` |
 | Leer / escribir JSON | `src.comun.json_io.leer_json(ruta, defecto, bom=)` · `escribir_json(datos, ruta, atomico=, default=)` | — |
 | `None`/valor/lista → lista | `src.comun.colecciones.como_lista` | — |
 | Variables de entorno numéricas | `src.comun.entorno.env_int` / `env_float` | `src.chatbot.runtime_stats` las reexporta |
