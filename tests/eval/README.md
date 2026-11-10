@@ -41,10 +41,10 @@ formas de respuesta) se ejecutan juntos en ~2 grupos de motor:
 
 ```bash
 python -m tests.eval.run --harness realistic --llm fake --quiet \
-    --case "*hospital*,d_pacientes_observados_por_aseguradora,v_*" --out tests/eval/out/hospital
+    --case "*hospital*,d_pacientes_observados_por_aseguradora,v_*" --out var/out/eval/hospital
 ```
 
-PowerShell: `python -m tests.eval.run --harness realistic --llm fake --quiet --case "*hospital*,d_pacientes_observados_por_aseguradora,v_*" --out tests/eval/out/hospital`.
+PowerShell: `python -m tests.eval.run --harness realistic --llm fake --quiet --case "*hospital*,d_pacientes_observados_por_aseguradora,v_*" --out var/out/eval/hospital`.
 El resumen final cuenta pasan / XFAIL / XPASS: un XPASS es un arreglo que ya funciona (quita su `xfail`).
 Las variantes `v_*` se agrupan por forma de respuesta:
 
@@ -57,7 +57,7 @@ Las variantes `v_*` se agrupan por forma de respuesta:
 | `v_listado_*` | «cuántos… y cuáles», «lista de…», «qué… están/hay»: total + listado con columnas de negocio, sin datos personales |
 | `v_control_*` | Controles negativos: deben seguir siendo un solo valor aunque la tarjeta esté en una página «DETALLE…» |
 
-Salida por defecto: `tests/eval/out/<arnés>-<fecha>/` (ignorada por git). Con datos reales el informe puede
+Salida por defecto: `var/out/eval/<arnés>-<fecha>/` (`var/` está ignorada por git). Con datos reales el informe puede
 contener cifras y nombres del modelo: no lo subas al repositorio ni lo compartas fuera.
 
 El arnés se importa de forma perezosa: `--harness realistic` necesita `tests/realistic/harness.py` con la misma API

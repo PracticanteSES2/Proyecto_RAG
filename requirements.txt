@@ -9,3 +9,4 @@ ollama
 streamlit
 msal
 truststore
+redis
