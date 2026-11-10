@@ -7152,7 +7152,7 @@ class QueryEngine:
             self._think(
                 "Búsqueda en la documentación (RAG)",
                 f"estado: {rag_result.get('status')} · síntesis: {rag_result.get('synthesis_mode')}",
-                rag_result.get("synthesis_issue"),
+                rag_result.get("synthesis_issue"), rag_result.get("synthesis_detail"),
                 *[
                     f"fuente: {source_label(source) or '-'} · {source.get('chunk_type') or '-'}"
                     f" · puntaje {format_score(source.get('score'))}"

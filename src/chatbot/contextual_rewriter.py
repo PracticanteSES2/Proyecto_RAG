@@ -24,6 +24,7 @@ import re
 import time
 
 from src.llm.llm_gate import call_llm
+from src.llm.presupuesto_tokens import num_predict
 from src.semantic.request_phrases import fold
 
 
@@ -305,7 +306,7 @@ Asistente: CIRUGÍAS PROGRAMADAS: 6.803. Filtros: 2024
         response = call_llm(
             self.llm_provider, messages, purpose="reescritura contextual",
             timeout=timeout, queue_wait=min(1.0, timeout) if timeout else 1.0,
-            temperature=0.0, max_tokens=80, think=False,
+            temperature=0.0, max_tokens=num_predict("reescritura"), think=False,
         )
         if response.get("status") == "llm_timeout":
             # Nombre histórico del estado (lo muestra el razonamiento).
@@ -407,6 +408,10 @@ Asistente: CIRUGÍAS PROGRAMADAS: 6.803. Filtros: 2024
             return {"status": response.get("status") or "error", "question": None,
                     "reason": response.get("error") or response.get("status"), "elapsed": elapsed}
         question = self.clean(response.get("answer"))
+        if response.get("truncated"):
+            # Llegó a num_predict: la pregunta puede estar a medias.
+            return {"status": "rejected", "question": question or None,
+                    "reason": "reescritura cortada por longitud", "elapsed": elapsed}
         ok, reason = self.validate(
             question, message, f"{allowed_text} {message}", metric_words,
             metric_text=None if metric_text is None else f"{metric_text} {message}",
