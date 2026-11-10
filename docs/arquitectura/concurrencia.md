@@ -149,9 +149,10 @@ cayendo a reglas/catálogo, que es lo deseado. Con muchos usuarios a la vez, la 
 
 ## 4. Medición real (pendiente de ejecutar)
 
-La corrida contra el servidor real **no se ejecutó**: el control de permisos de Claude Code la bloqueó
-(«interferir con cargas de trabajo» de un servidor compartido). Queda lista para que el usuario la corra
-(o autorice la regla de permisos). Es corta: 58 peticiones de 64 tokens con texto fijo.
+La corrida contra el servidor real **no se ejecutó**: aunque el usuario la autorizó (con la puerta en
+memoria), el control de permisos de Claude Code la bloqueó («interferir con cargas de trabajo» de un
+servidor compartido) y no se intentó rodearlo. Queda lista para que el usuario la corra él mismo o añada
+una regla de permisos que la permita. Es corta: 58 peticiones de 64 tokens con texto fijo.
 
 ```powershell
 cd C:\Users\ad6708\Documents\Proyecto_RAG
@@ -227,6 +228,37 @@ Contrato para el backend (SSE `cola`): la llamada al LLM corre en un hilo del th
 `loop.call_soon_threadsafe(cola.put_nowait, llm_gate.evento_cola(evento))`; al terminar llega un evento con
 `done: True`. Variables: `LLM_GATE_BACKEND`, `REDIS_URL`, `LLM_GATE_LEASE_S` (120), `LLM_GATE_WAITER_TTL_S`
 (10), `LLM_GATE_POLL_S` (0,2), `MEDGEMMA_QUEUE_WAIT_UI` (30).
+
+### 6.1 Estado en este equipo y qué configurar al montar Redis en el servidor
+
+En el equipo de desarrollo **no hay Redis, Docker ni WSL**: el backend `redis` de la puerta está terminado y
+probado solo con `fakeredis` (`tests/perf/test_gate_redis.py`), y por defecto rige
+`LLM_GATE_BACKEND=memoria` (no hace falta configurar nada). Al montar Redis en el servidor de producción,
+el propietario debe:
+
+1. **Instalar Redis ≥ 6** en el servidor (o en uno cercano a la API, en la misma red) y el cliente
+   Python: `pip install -r requirements.txt` (incluye `redis`). Para pruebas: `requirements-dev.txt`.
+2. **Variables de entorno de cada worker/réplica de la API** (en su `.env`):
+   - `LLM_GATE_BACKEND=redis`
+   - `REDIS_URL=redis://:CONTRASEÑA@HOST:6379/0` (o `rediss://` con TLS si cruza la red)
+   - `MEDGEMMA_MAX_CONCURRENT=P` **igual en todas las réplicas** (capacidad global medida, sección 4)
+   - Opcionales: `LLM_GATE_LEASE_S` (120: vencimiento de un hueco si el worker muere; el de cada llamada ya
+     es su tiempo límite + espera + 30 s), `LLM_GATE_WAITER_TTL_S` (10), `LLM_GATE_POLL_S` (0,2),
+     `MEDGEMMA_QUEUE_WAIT_UI` (30).
+3. **Seguridad de Redis**: contraseña (`requirepass` o ACL con un usuario solo para la app), escuchar solo
+   en la red interna (`bind`, cortafuegos al puerto 6379), `protected-mode yes`. Las claves de la puerta
+   (`llm_gate:medgemma:*`) no contienen preguntas ni datos de pacientes, solo identificadores de tickets.
+4. **Persistencia**: no hace falta para la puerta (si Redis reinicia, los tickets y préstamos se pierden y
+   la fila empieza de cero). La caché de respuestas y las conversaciones del backend sí pueden querer AOF;
+   lo decide el agente del backend.
+5. **Memoria**: `maxmemory` con política `volatile-lru` o `allkeys-lru` si se comparte con la caché; las
+   claves de la puerta pesan unos pocos KB.
+6. **Comprobar**: al arrancar, el log `llm_gate` no debe mostrar «Redis no disponible …»;
+   `llm_gate.backend_name()` debe devolver `redis` y `STATS.snapshot()["llm_queue"]` debe sumar las
+   llamadas de todas las réplicas. Si Redis cae, la app sigue en memoria (con la advertencia) y reintenta
+   cada 30 s; mientras tanto conviene que `MEDGEMMA_MAX_CONCURRENT` no multiplique la carga (ver arriba).
+7. **Reloj**: los vencimientos usan el reloj del servidor Redis (`TIME`), no hace falta sincronizar los
+   workers entre sí.
 
 ## 7. Lo que le toca decidir al usuario
 
