@@ -1,4 +1,4 @@
-﻿# =====================================================================
+# =====================================================================
 # .gitignore del monorepo (ver docs/ARQUITECTURA.md, Â«Lugares para lo efÃ­meroÂ»).
 # Regla: nada que se genere al correr el cÃ³digo se versiona. Si un programa
 # necesita escribir algo, lo escribe en var/ (efÃ­mero) o en data/ (estado local).
