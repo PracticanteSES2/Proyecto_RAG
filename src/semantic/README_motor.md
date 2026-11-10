@@ -169,7 +169,7 @@ Tamaños: `query_plan_builder.py` pasó de 12 274 líneas (646 KB) a 930 (48 KB)
 
 Validación tras el último paso: golden master **idéntico** (0 diferencias en los 411 turnos, ni siquiera
 en `dax_log`); simulador 130/164 sin cambios por caso; todas las suites en verde (las de la lista del
-HANDOFF + `tests/docs_md`).
+`docs/HANDOFF.md` + `tests/docs_md`).
 
 Tiempo por turno (golden master, 411 turnos, corridas alternadas sin otra carga, mismo día): original
 0,875 s y 1,148 s de media (p95 2,27 / 2,97 s); refactor 0,939 s y 0,881 s (p95 2,26 / 2,14 s). La
@@ -225,7 +225,7 @@ plan de reglas. Variable `INTENCION_LLM=off|respaldo|siempre` (por defecto `resp
   `CALCULATE` por periodo (`_temporal_grouped`) y la frase «De A a B, X subió/bajó N %» calculada con las
   cifras del DAX (`frase_comparacion`, `comparison_text` en el resultado).
 - Pruebas: `tests/resolution/test_intencion_llm.py` (LLM falso). Sondeo con MedGemma real:
-  `tests/real/sondeo_intencion.py`.
+  `tools/manual/sondeo_intencion.py`.
 
 ### Ciclo 2 (rama `agente/llm-intencion-2`): carga sobre el servidor y validación
 

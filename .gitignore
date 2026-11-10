@@ -1,21 +1,60 @@
+# =====================================================================
+# .gitignore del monorepo (ver docs/ARQUITECTURA.md, «Lugares para lo efímero»).
+# Regla: nada que se genere al correr el código se versiona. Si un programa
+# necesita escribir algo, lo escribe en var/ (efímero) o en data/ (estado local).
+# =====================================================================
+
+# --- Secretos y configuración local (NUNCA se versionan) --------------
+.env
+.env.*
+!.env.example
+
+# --- Efímero: salidas, logs y temporales (se puede borrar entero) -----
+#   var/out/<suite>/  informes de evaluadores, bancos y regresiones
+#   var/logs/         logs de procesos y tareas programadas
+#   var/tmp/          temporales y sondeos de un solo uso
+/var/
+*.log
+*.tmp
+*.bak
+
+# --- Estado local regenerable (catálogos, Qdrant, metadata, caché del token)
+/data
+/tableros
+
+# --- Entornos y cachés de herramientas Python -------------------------
 .venv/
 __pycache__/
 *.pyc
-.env
-/data
-tableros
-# Salidas del evaluador (tests/eval)
-/tests/eval/out/
-# Salidas del evaluador del actualizador (tests/docs_md)
-/tests/docs_md/out/
-# Locales: config de Claude Code, salida de graphify, descargas y zips de documentación
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- Frontend (Next.js) ------------------------------------------------
+node_modules/
+.next/
+/frontend/out/
+*.tsbuildinfo
+next-env.d.ts
+.turbo/
+.vercel/
+
+# --- Herramientas de agentes y descargas locales ----------------------
 /.claude/
+/.superpowers/
 /graphify-out/
 /__data/
 /Documentacion/
 /Documentacion.zip
 /OneDrive_*.zip
-# Bloqueo y metadatos que genera Qdrant al abrir la base de fixtures
+
+# --- Salidas heredadas (antes de var/; borrar cuando ya no existan) ---
+/tests/eval/out/
+/tests/docs_md/out/
+# (tests/real/.gitignore ignora tests/real/out*/)
+
+# --- Qdrant de los fixtures: bloqueo y metadatos que crea al abrirse ---
 /tests/sim/fixtures/data/vector_db/qdrant/.lock
 /tests/sim/fixtures/data/vector_db/qdrant/meta.json
-/.superpowers/

@@ -7,7 +7,7 @@ real (del .env, lo lee la aplicación) y el RAG/catálogos de data/.
     python -X utf8 -m tests.real.run_real "egresos" --then 1            # pulsa el botón 1
     python -X utf8 -m tests.real.run_real "egresos" --then "UCI"         # botón cuya etiqueta contiene «UCI»
     python -X utf8 -m tests.real.run_real "egresos" --then "texto: y en 2025?"   # mensaje nuevo
-    python -X utf8 -m tests.real.run_real "..." --out tests/real/out/manual
+    python -X utf8 -m tests.real.run_real "..." --out var/out/real/manual
 
 Cada turno guarda: pregunta, respuesta (tal como la vería la UI), estado,
 ruta, botones de contrapregunta, métrica/modelo, DAX enviados a Power BI
@@ -32,6 +32,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from src.comun.rutas import ruta_salida, ruta_tmp  # noqa: E402
 from tests.real import env as real_env  # noqa: E402
 
 SYSTEM = {}
@@ -57,7 +58,7 @@ def _safe_first_row(result):
 def qdrant_copy(source):
     import shutil
 
-    target = Path(__file__).resolve().parent / "out" / "_qdrant_copia"
+    target = ruta_tmp("qdrant_copia")
     stamp = target / ".origen"
 
     def signature():
@@ -286,7 +287,7 @@ def main(argv=None):
     parser.add_argument("question")
     parser.add_argument("--then", action="append", default=[],
                         help="siguiente turno: número/etiqueta de botón, __none__, o «texto: ...»")
-    parser.add_argument("--out", default=None, help="carpeta de salida (por defecto tests/real/out/<fecha>)")
+    parser.add_argument("--out", default=None, help="carpeta de salida (por defecto var/out/real/manual/<fecha>)")
     parser.add_argument("--sim", action="store_true", help="Power BI simulado + LLM falso (validación sin producción)")
     args = parser.parse_args(argv)
     SIM["on"] = args.sim
@@ -304,7 +305,7 @@ def main(argv=None):
             print(f"  [{i}] {b['label']}")
         for d in t["dax"]:
             print(f"  [DAX {d['semantic_model']} {d['status']} filas={d['row_count']}]")
-    out = args.out or (Path(__file__).resolve().parent / "out" / datetime.now().strftime("%Y%m%d_%H%M%S"))
+    out = args.out or ruta_salida("real", "manual", datetime.now().strftime("%Y%m%d_%H%M%S"))
     print("\nGuardado en", save(turns, out, meta))
     return 0
 
