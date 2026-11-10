@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 
 from backend.app.core.dependencias import AjustesDep, ConversacionesDep, ServiciosDep
 from backend.app.schemas.comunes import RESPUESTAS_ERROR
-from backend.app.schemas.turnos import Calificacion, CalificacionGuardada
+from backend.app.schemas.turnos import Calificacion, CalificacionGuardada, CatalogoEventosSSE
 from backend.app.services.eventos import flujo_eventos
 
 router = APIRouter(prefix="/turnos", tags=["turnos"], responses=RESPUESTAS_ERROR)
@@ -20,7 +20,8 @@ DESCRIPCION_SSE = (
 
 
 @router.get("/{turno_id}/eventos", summary="Eventos del turno (SSE)", description=DESCRIPCION_SSE,
-            response_class=StreamingResponse, responses={200: {"content": {"text/event-stream": {}}}})
+            response_class=StreamingResponse,
+            responses={200: {"model": CatalogoEventosSSE, "content": {"text/event-stream": {}}}})
 async def eventos(turno_id: str, request: Request, servicio: ConversacionesDep, servicios: ServiciosDep,
                   ajustes: AjustesDep,
                   desde: Annotated[str | None, Query(description="Id del último evento recibido")] = None,

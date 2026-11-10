@@ -53,22 +53,26 @@ def turno_a_hash(turno: dict) -> dict[str, str]:
     return salida
 
 
+def _texto(valor):
+    return valor.decode() if isinstance(valor, bytes) else valor
+
+
+def _convertidor(clave: str):
+    """Cómo se lee cada campo del hash (todos llegan como texto)."""
+    if clave in CAMPOS_JSON_TURNO:
+        return lambda valor: json.loads(valor) if valor else None
+    if clave == "diagnostico":
+        return lambda valor: valor == "1"
+    if clave.endswith("_ms"):
+        return lambda valor: int(valor) if valor else None
+    return lambda valor: valor or None
+
+
 def turno_de_hash(campos: dict) -> dict | None:
     if not campos:
         return None
-    turno = {}
-    for clave, valor in campos.items():
-        clave = clave.decode() if isinstance(clave, bytes) else clave
-        valor = valor.decode() if isinstance(valor, bytes) else valor
-        if clave in CAMPOS_JSON_TURNO:
-            turno[clave] = json.loads(valor) if valor else None
-        elif clave == "diagnostico":
-            turno[clave] = valor == "1"
-        elif clave.endswith("_ms"):
-            turno[clave] = int(valor) if valor else None
-        else:
-            turno[clave] = valor or None
-    return turno
+    textos = {_texto(clave): _texto(valor) for clave, valor in campos.items()}
+    return {clave: _convertidor(clave)(valor) for clave, valor in textos.items()}
 
 
 @runtime_checkable

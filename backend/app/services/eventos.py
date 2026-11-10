@@ -63,18 +63,25 @@ async def flujo_eventos(almacen, turno_id: str, desde: str | None, desconectado:
                 return
         if eventos:
             continue
-        turno = await almacen.turno(turno_id)
-        if turno is None:
-            yield formatear("error", ERROR_EXPIRADO)
-            yield formatear("fin", {})
+        trozos, terminar = await _mientras_no_hay_eventos(almacen, turno_id, cola)
+        for trozo in trozos:
+            yield trozo
+        if terminar:
             return
-        if turno.get("estado") in ESTADOS_FINALES and not await almacen.eventos_existen(turno_id):
-            for trozo in _reconstruir(turno):
-                yield trozo
-            return
-        if turno.get("estado") == "en_cola":
-            for trozo in cola.eventos(*await almacen.posicion(turno_id)):
-                yield trozo
         if time.monotonic() - ultimo_ping >= ping_s:
             ultimo_ping = time.monotonic()
             yield ": ping\n\n"
+
+
+async def _mientras_no_hay_eventos(almacen, turno_id: str, cola: _Cola) -> tuple[list[str], bool]:
+    """(trozos SSE, terminar) cuando el stream no trae nada nuevo."""
+    turno = await almacen.turno(turno_id)
+    if turno is None:
+        return [formatear("error", ERROR_EXPIRADO), formatear("fin", {})], True
+    if turno.get("estado") in ESTADOS_FINALES and not await almacen.eventos_existen(turno_id):
+        return _reconstruir(turno), True
+    # `cola` solo en modo diagnóstico: en modo normal el primer evento visible es
+    # `progreso` (la interfaz nunca habla de filas ni de otras consultas).
+    if turno.get("estado") == "en_cola" and turno.get("diagnostico"):
+        return cola.eventos(*await almacen.posicion(turno_id)), False
+    return [], False

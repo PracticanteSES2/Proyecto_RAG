@@ -4,8 +4,10 @@ import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from difflib import SequenceMatcher
 
+from src.chatbot.respuesta_completa import cortar_en_limite_seguro
 from src.chatbot.runtime_stats import env_float
 from src.llm.llm_gate import call_llm
+from src.llm.presupuesto_tokens import num_predict
 
 
 class OptionDescriber:
@@ -228,6 +230,13 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
                 return text
         return ""
 
+    @staticmethod
+    def _complete_answer(response):
+        """Respuesta utilizable: si llegó a num_predict, solo hasta su última
+        frase completa ("" si no queda ninguna → descripción del catálogo)."""
+        answer = response.get("answer")
+        return cortar_en_limite_seguro(answer) if response.get("truncated") else answer
+
     def _describe_one(self, option):
         return call_llm(
             self.llm_provider,
@@ -239,7 +248,7 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
             purpose="descripción de opciones",
             timeout=self.timeout if self.timeout and self.timeout > 0 else None,
             temperature=0.1,
-            max_tokens=60,
+            max_tokens=num_predict("opciones"),
             think=False,
         )
 
@@ -306,7 +315,7 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
                 errors.append(f"{option['id']}: {response.get('error') or response.get('status')}")
                 continue
             raw.append(f"[{option['id']}] {answer}")
-            text = self.parse(answer, option.get("label"))
+            text = self.parse(self._complete_answer(response), option.get("label"))
             invented = self.invented_concepts(text, option) if text else []
             if invented:
                 # Habla de algo que el indicador no tiene («personal» en una

@@ -380,7 +380,7 @@ Antes de escribir una función utilitaria: `Grep` por el verbo (`normaliz`, `fol
 | Escribir JSON atómico | `src.docs_md.repositorio` (escritura con `os.replace`) | `catalog_utils`, `chunk_builder`, `semantic_merge`, `document_normalizer`, `visual_catalog_builder`, `tools/sync_*` |
 | Slug de nombre | `src.docs_md.repositorio.slug` | `slugify` en `document_parser`, `powerbi_catalog_manager`, `tools/import_documentation_batch`, `tools/local_data/metadata_format`, `tools/sync_powerbi_metadata` |
 | Clave canónica de fila de catálogo | — | `_canonical_key` idéntica en `global_master_metric_builder` y `visual_catalog_builder` |
-| Variables de entorno numéricas | `src.chatbot.runtime_stats.env_int/env_float` | (destino `src/comun/entorno.py`) |
+| Variables de entorno numéricas | `src.comun.entorno.env_int/env_float` (reexportadas en `src.chatbot.runtime_stats`) | — |
 | Logging | `logging.getLogger(__name__)` | 142 `print()` en 11 módulos de `src` |
 
 ---

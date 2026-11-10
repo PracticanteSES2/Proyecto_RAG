@@ -25,18 +25,19 @@ from backend.app.services.almacen import ahora_iso
 LOG = logging.getLogger(__name__)
 REVISION_HUERFANOS_S = 60.0
 REFRESCO_MEDGEMMA_S = 60.0
+LIMITE_CHEQUEO_S = 3.0
 
 
 class Trabajador:
     def __init__(self, almacen, procesador, piscina, ajustes, version: str = "", huella=None,
-                 raiz_datos=None, nombre: str | None = None, ejemplos_fijos: list[str] | None = None):
+                 nombre: str | None = None):
         self.almacen = almacen
         self.procesador = procesador
         self.piscina = piscina
         self.ajustes = ajustes
         self.version = version
         self.huella = huella
-        self.raiz_datos = raiz_datos
+        self.raiz_datos = ajustes.rag_raiz_datos
         self.nombre = nombre or f"{socket.gethostname()}-{os.getpid()}"
         self.iniciado = ahora_iso()
         self._parar = threading.Event()
@@ -44,7 +45,9 @@ class Trabajador:
         self._hilos: list[threading.Thread] = []
         self._ejecutor = ThreadPoolExecutor(max_workers=piscina.total, thread_name_prefix="turno")
         self._capacidades = None
-        self.ejemplos_fijos = list(ejemplos_fijos or [])
+        self.ejemplos_fijos = list(ajustes.capacidades_ejemplos or [])
+        # Salud de MedGemma en segundo plano y cacheada: el latido nunca espera un ping lento.
+        self._medgemma = info.chequeo_medgemma(piscina, REFRESCO_MEDGEMMA_S, LIMITE_CHEQUEO_S)
 
     # ------------------------------------------------------------ ciclo de vida
     def iniciar(self) -> None:
@@ -127,13 +130,19 @@ class Trabajador:
         except Exception:
             LOG.exception("No se pudo publicar el estado del trabajador")
 
+    def _salud_medgemma(self) -> None:
+        if self._medgemma is None:
+            return
+        self._medgemma.refrescar()
+        ultimo = self._medgemma.ultimo()
+        if ultimo is not None:
+            self.piscina.principal.estado_medgemma = ultimo
+
     def _bucle_latido(self) -> None:
-        ultima_revision = ultimo_refresco = time.monotonic()
+        ultima_revision = time.monotonic()
         while not self._parar.wait(self.ajustes.latido_s):
             ahora = time.monotonic()
-            if ahora - ultimo_refresco >= REFRESCO_MEDGEMMA_S:
-                info.refrescar_medgemma(self.piscina)
-                ultimo_refresco = ahora
+            self._salud_medgemma()
             if ahora - ultima_revision >= REVISION_HUERFANOS_S:
                 self.cerrar_huerfanos(int(self.ajustes.turno_max_s * 1000))
                 ultima_revision = ahora

@@ -66,69 +66,83 @@ def construir_sistema(project_root, qdrant_path=None, source_registry=None, visu
     """Arma el motor. `retriever` permite compartir uno ya abierto (Qdrant local
     admite un solo cliente por carpeta y por proceso)."""
     project_root = Path(project_root)
-    defecto = rutas_por_defecto(project_root)
-    qdrant_path = qdrant_path or defecto["qdrant_path"]
-    source_registry = source_registry or defecto["source_registry"]
-    visual_metrics = visual_metrics or defecto["visual_metrics"]
-    master_metrics = master_metrics or defecto["master_metrics"]
-
+    dadas = {"qdrant_path": qdrant_path, "source_registry": source_registry, "visual_metrics": visual_metrics,
+             "master_metrics": master_metrics}
+    rutas = {clave: dadas[clave] or defecto for clave, defecto in rutas_por_defecto(project_root).items()}
     if retriever is None:
-        retriever = HybridRetriever(qdrant_path)
+        retriever = HybridRetriever(rutas["qdrant_path"])
     intent_parser = IntentParser(retriever)
     conversation_manager = ConversationManager(intent_parser)
-    metric_resolver = MetricResolver(retriever, debug=False)
     powerbi_provider = PowerBIProvider()
     # Conservamos la conexión inicial que ya estaba estable.
     powerbi_connection = powerbi_provider.connect()
-    modelo_defecto = powerbi_provider.default_semantic_model
+    source_router = _enrutador(rutas, project_root, retriever, intent_parser, powerbi_provider)
+    medgemma_provider, medgemma_status, listo = _medgemma()
+    answer_synthesizer = AnswerSynthesizer(llm_provider=medgemma_provider, max_sources=5, max_context_chars=7000)
+    engine = QueryEngine(
+        conversation_manager=conversation_manager, powerbi_provider=powerbi_provider, source_router=source_router,
+        rag_answer_engine=RAGAnswerEngine(retriever=retriever, answer_synthesizer=answer_synthesizer,
+                                          default_limit=5, min_score=0.35),
+        # MedGemma describe en una frase qué consultaría cada opción.
+        option_describer=OptionDescriber(medgemma_provider) if listo else None,
+        **_piezas_semanticas(rutas, project_root, retriever, source_router, powerbi_provider),
+    )
+    _precalentar_portero(engine)
+    LOG.info("Motor listo · modelos semánticos enrutables: %s", source_router.semantic_models())
+    return SistemaMotor(engine=engine, conversation_manager=conversation_manager, retriever=retriever,
+                        source_router=source_router, medgemma_status=medgemma_status,
+                        powerbi_connection=powerbi_connection or {})
+
+
+def _enrutador(rutas: dict, project_root: Path, retriever, intent_parser, powerbi_provider):
     source_router = SourceModelRouter(
-        source_registry_path=source_registry, visual_catalog_path=visual_metrics,
-        project_root=project_root, default_semantic_model=modelo_defecto,
+        source_registry_path=rutas["source_registry"], visual_catalog_path=rutas["visual_metrics"],
+        project_root=project_root, default_semantic_model=powerbi_provider.default_semantic_model,
     )
     # El analizador de intención reconoce los tableros también por los alias
     # del registro de fuentes («tablero de lavandería»).
     intent_parser.source_router = source_router
     # Tableros documentados («TRIAGE», «CIRUGÍAS») con su grupo de fuentes.
     source_router.register_documentation_dashboards(documentation_dashboards_from_retriever(retriever))
-    filter_resolver = MultiModelFilterResolver(source_router=source_router, default_semantic_model=modelo_defecto)
+    return source_router
+
+
+def _medgemma():
+    """(proveedor, estado, listo). Si responde, se precalienta."""
+    proveedor = MedGemmaProvider()
+    estado = proveedor.healthcheck() or {}
+    listo = estado.get("status") == "ready"
+    if listo and callable(getattr(proveedor, "warmup", None)):
+        proveedor.warmup()
+    return proveedor, estado, listo
+
+
+def _piezas_semanticas(rutas: dict, project_root: Path, retriever, source_router, powerbi_provider) -> dict:
+    """Resolutores, planificadores y generadores DAX del QueryEngine (argumentos por nombre)."""
+    modelo_defecto = powerbi_provider.default_semantic_model
     business_filter_resolver = MultiModelBusinessFilterResolver(
         source_router=source_router, powerbi_provider=powerbi_provider, default_semantic_model=modelo_defecto,
     )
-    dax_validator = MultiModelDAXValidator(source_router=source_router, default_semantic_model=modelo_defecto)
-    medgemma_provider = MedGemmaProvider()
-    medgemma_status = medgemma_provider.healthcheck()
-    master_metric_resolver = MasterMetricResolver(master_metrics)
-    query_semantic_planner = QuerySemanticPlanner(
-        master_metric_resolver=master_metric_resolver, business_filter_resolver=business_filter_resolver,
-        powerbi_provider=powerbi_provider, source_router=source_router,
-    )
-    query_plan_builder = QueryPlanBuilder(
-        master_metrics_path=master_metrics, visual_catalog_path=visual_metrics, source_router=source_router,
-        powerbi_provider=powerbi_provider, project_root=project_root,
-    )
-    listo = (medgemma_status or {}).get("status") == "ready"
-    if listo and callable(getattr(medgemma_provider, "warmup", None)):
-        medgemma_provider.warmup()
-    answer_synthesizer = AnswerSynthesizer(llm_provider=medgemma_provider, max_sources=5, max_context_chars=7000)
-    rag_answer_engine = RAGAnswerEngine(
-        retriever=retriever, answer_synthesizer=answer_synthesizer, default_limit=5, min_score=0.35,
-    )
-    engine = QueryEngine(
-        conversation_manager=conversation_manager, metric_resolver=metric_resolver,
-        filter_resolver=filter_resolver, business_filter_resolver=business_filter_resolver,
-        dax_generator=DAXGenerator(), dax_validator=dax_validator, powerbi_provider=powerbi_provider,
-        rag_answer_engine=rag_answer_engine, master_metric_resolver=master_metric_resolver,
-        master_metric_dax_generator=MasterMetricDAXGenerator(), query_semantic_planner=query_semantic_planner,
-        source_router=source_router, query_plan_builder=query_plan_builder,
-        query_plan_dax_generator=QueryPlanDAXGenerator(),
-        # MedGemma describe en una frase qué consultaría cada opción.
-        option_describer=OptionDescriber(medgemma_provider) if listo else None,
-    )
-    _precalentar_portero(engine)
-    LOG.info("Motor listo · modelos semánticos enrutables: %s", source_router.semantic_models())
-    return SistemaMotor(engine=engine, conversation_manager=conversation_manager, retriever=retriever,
-                        source_router=source_router, medgemma_status=medgemma_status or {},
-                        powerbi_connection=powerbi_connection or {})
+    master_metric_resolver = MasterMetricResolver(rutas["master_metrics"])
+    return {
+        "metric_resolver": MetricResolver(retriever, debug=False),
+        "filter_resolver": MultiModelFilterResolver(source_router=source_router,
+                                                    default_semantic_model=modelo_defecto),
+        "business_filter_resolver": business_filter_resolver,
+        "dax_generator": DAXGenerator(),
+        "dax_validator": MultiModelDAXValidator(source_router=source_router, default_semantic_model=modelo_defecto),
+        "master_metric_resolver": master_metric_resolver,
+        "master_metric_dax_generator": MasterMetricDAXGenerator(),
+        "query_semantic_planner": QuerySemanticPlanner(
+            master_metric_resolver=master_metric_resolver, business_filter_resolver=business_filter_resolver,
+            powerbi_provider=powerbi_provider, source_router=source_router,
+        ),
+        "query_plan_builder": QueryPlanBuilder(
+            master_metrics_path=rutas["master_metrics"], visual_catalog_path=rutas["visual_metrics"],
+            source_router=source_router, powerbi_provider=powerbi_provider, project_root=project_root,
+        ),
+        "query_plan_dax_generator": QueryPlanDAXGenerator(),
+    }
 
 
 def _precalentar_portero(engine) -> None:

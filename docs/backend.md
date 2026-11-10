@@ -12,7 +12,9 @@ Diseño y decisiones: [`specs/006-api-backend/plan.md`](../specs/006-api-backend
 .\infra\scripts\iniciar_backend.ps1                       # http://127.0.0.1:8000/api/v1/docs
 .\infra\scripts\iniciar_backend.ps1 -ArchivoEntorno .env  # carga MedGemma/Power BI desde un archivo de entorno
 # equivalente a mano:
-.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --port 8000
+.\.venv\Scripts\python.exe -m backend api --port 8000            # o: -m uvicorn backend.app.main:app --port 8000
+# con Redis, además (un solo proceso trabajador):
+.\.venv\Scripts\python.exe -m backend trabajador                 # o: -m backend.worker
 ```
 
 - **Un solo proceso** uvicorn. El motor (Qdrant local, MiniLM, Power BI/ADOMD, MedGemma) se arma en un hilo al
@@ -45,7 +47,13 @@ Diseño y decisiones: [`specs/006-api-backend/plan.md`](../specs/006-api-backend
   a Power BI). Cada turno corre dentro de `llm_gate.ui_progress`, así las síntesis esperan hueco en MedGemma hasta
   `MEDGEMMA_QUEUE_WAIT_UI` (30 s) en lugar de caer enseguida al resumen extractivo.
 - Los turnos esperan en una **cola FIFO compartida**; el trabajador solo toma uno cuando tiene una instancia libre.
-  El SSE emite `cola {posicion, en_curso}` mientras espera (la interfaz lo muestra solo en modo diagnóstico).
+  Con `diagnostico: true` el SSE emite `cola {posicion, en_curso}` mientras espera; en modo normal no (el primer
+  evento visible es `progreso`).
+- **Salud sin pings lentos**: `GET /salud` y `/salud/listo` solo leen el último latido del trabajador. La salud de
+  MedGemma se chequea en un hilo aparte cada 60 s, con límite de 3 s y resultado cacheado (si tarda, figura
+  `caido` y el estado general `degradado`, pero `listo` no cambia: depende del almacén, del latido y del índice). El
+  único ping síncrono es el del arranque del motor (`MEDGEMMA_HEALTH_TIMEOUT`, 15 s por defecto; en el servidor
+  conviene bajarlo, p. ej. a 3).
 
 ## Variables de entorno (todas opcionales)
 
@@ -82,6 +90,11 @@ Sin red ni servicios: memoria y `fakeredis` (mismo servidor falso para la API as
 doble (`tests/backend/motor_doble.py`) y una prueba con el motor REAL sobre el arnés simulado
 (`tests/backend/test_motor_simulado.py`, Power BI/Ollama/Qdrant falsos de `tests/sim`). Las calificaciones de las
 pruebas van a una carpeta temporal (`FEEDBACK_DIR`).
+
+Son **herméticas** (`tests/backend/apoyo.py`): dan lo mismo en cualquier checkout, con o sin `.env` y `data/`
+reales. Los ajustes de prueba ignoran las variables de entorno del proceso; la raíz de datos es una carpeta temporal
+vacía (sin catálogos, Qdrant ni `docs_tableros`); el motor doble nunca crea `MedGemmaProvider` (que hace
+`load_dotenv()`), y la prueba con el motor real reemplaza `dotenv` por el doble de `tests/sim` antes de armarlo.
 
 ## Despliegue con Redis (para el propietario)
 

@@ -18,6 +18,10 @@ from collections import deque
 from backend.app.services.almacen import ESTADOS_FINALES, ahora_iso
 
 
+def _vencido(expira: float | None, ahora: float) -> bool:
+    return expira is not None and expira <= ahora
+
+
 class AlmacenMemoria:
     modo = "memoria"
 
@@ -44,20 +48,23 @@ class AlmacenMemoria:
     def _ms(self) -> int:
         return int(self._ahora() * 1000)
 
+    # Cómo se lee el vencimiento de cada colección (None = no vence).
+    _VENCIMIENTOS = (
+        ("_conv", lambda valor: valor["expira"]),
+        ("_activos", lambda valor: valor[1]),
+        ("_turnos", lambda valor: valor["_expira"]),
+        ("_eventos", lambda valor: valor["expira"]),
+        ("_cache", lambda valor: valor[1]),
+        ("_motor", lambda valor: valor[1]),
+    )
+
     def _purgar(self) -> None:
+        """Borra lo vencido (equivale al TTL de Redis)."""
         ahora = self._ahora()
-        for cid in [c for c, d in self._conv.items() if d["expira"] <= ahora]:
-            del self._conv[cid]
-        for cid in [c for c, (_, e) in self._activos.items() if e <= ahora]:
-            del self._activos[cid]
-        for tid in [t for t, d in self._turnos.items() if d["_expira"] <= ahora]:
-            del self._turnos[tid]
-        for tid in [t for t, d in self._eventos.items() if d["expira"] is not None and d["expira"] <= ahora]:
-            del self._eventos[tid]
-        for clave in [k for k, (_, e) in self._cache.items() if e <= ahora]:
-            del self._cache[clave]
-        for nombre in [n for n, (_, e) in self._motor.items() if e is not None and e <= ahora]:
-            del self._motor[nombre]
+        for atributo, vence in self._VENCIMIENTOS:
+            coleccion = getattr(self, atributo)
+            for clave in [c for c, valor in coleccion.items() if _vencido(vence(valor), ahora)]:
+                del coleccion[clave]
 
     @staticmethod
     def _id_num(evento_id: str) -> int:
