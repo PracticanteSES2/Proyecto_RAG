@@ -42,7 +42,8 @@ next-env.d.ts
 .vercel/
 
 # --- Herramientas de agentes y descargas locales ----------------------
-/.claude/
+/.claude/*
+!/.claude/agents/
 /.superpowers/
 /graphify-out/
 /__data/
