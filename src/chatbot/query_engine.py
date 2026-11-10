@@ -7247,10 +7247,9 @@ class QueryEngine:
                     + str(answer)
                 )
             return {
-                "status":
-                    rag_result.get(
-                        "status"
-                    ),
+                "status": rag_result.get("status"),
+                # False si la síntesis quedó truncada sin completar (spec 011): no va a caché.
+                "cacheable": rag_result.get("cacheable", True),
                 "pages_without_metrics": missing_pages or [],
                 "route":
                     "rag",

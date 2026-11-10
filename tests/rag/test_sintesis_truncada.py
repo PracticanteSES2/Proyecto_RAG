@@ -159,6 +159,33 @@ class SintesisTruncadaTests(unittest.TestCase):
         self.assertIn("entrada recortada: sí", resultado["synthesis_detail"])
 
 
+class TurnoCompletoTests(unittest.TestCase):
+    """Turno real del motor (arnés tests/sim, Ollama falso) con la síntesis truncada."""
+
+    def test_el_turno_no_es_cacheable_y_la_traza_lo_dice(self):
+        from tests.sim import fakes, harness
+
+        engine, manager, formatter, *_ = harness.build_engine()
+        original = fakes.FakeOllamaClient.chat
+
+        def truncada(self, model=None, messages=None, **kwargs):
+            respuesta = original(self, model=model, messages=messages, **kwargs)
+            contenido = respuesta.message.content
+            if contenido.startswith("[FakeLLM]") and "CONTEXTO RECUPERADO" in messages[-1]["content"]:
+                return fakes._Obj(message=fakes._Obj(content=contenido[: len(contenido) * 2 // 3]),
+                                  done_reason="length", eval_count=600, prompt_eval_count=1800)
+            return respuesta
+
+        with mock.patch.object(fakes.FakeOllamaClient, "chat", truncada), \
+                mock.patch.object(R, "presion_llm", return_value=OCUPADO):
+            resultado, _ = harness.ask(engine, manager, formatter,
+                                       "¿Qué significa el indicador cirugías programadas?")
+        self.assertEqual(resultado.get("route"), "rag", resultado.get("answer"))
+        self.assertFalse(resultado["cacheable"])
+        lineas = [linea for paso in resultado["reasoning"]["steps"] for linea in paso["lines"]]
+        self.assertTrue(any("truncada: sí" in linea for linea in lineas), lineas)
+
+
 class OtrosPropositosTests(unittest.TestCase):
     def test_reescritura_truncada_se_rechaza(self):
         proveedor = _Proveedor(_resp("¿Cuántos pacientes ingresaron a urgencias en el mes de", truncated=True,

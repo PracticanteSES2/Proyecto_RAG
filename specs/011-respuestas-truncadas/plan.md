@@ -57,6 +57,8 @@ Margen fijo de 64 tokens (plantilla de chat). Entrada máxima = `num_ctx - num_p
 ## Coordinación
 
 - `agente/ux-espera` (streaming `on_token`): el borrador es provisional; la final reparada lo reemplaza.
+- Caché de la API (`backend/app/services/cache.puede_guardar`): no guarda si el resultado del turno trae
+  `cacheable=False` (ya aplicado tras integrar `desarrollo`).
 - `agente/rendimiento-llm` (prompts, contexto, caché): no guardar en caché si `cacheable` es False; el recorte
   de contexto de esa rama sigue mandando, aquí solo se garantiza no pasar de `num_ctx`.
 - `agente/memoria-sesion`: sin cambios en el estado de conversación; en `query_engine` solo una línea.

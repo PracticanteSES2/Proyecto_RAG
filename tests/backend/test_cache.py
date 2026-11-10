@@ -49,6 +49,8 @@ class ReglasTest(unittest.TestCase):
             ({"status": "error", "route": None}, self.respuesta),
             ({"status": "empty_result", "route": "powerbi"}, self.respuesta),
             (self.exito, {"degradada": True}),
+            # Truncada por num_predict y no completada (spec 011): nunca va a caché.
+            ({"status": "success", "route": "rag", "synthesis_mode": "llm", "cacheable": False}, self.respuesta),
         ]
         for result, respuesta in casos:
             with self.subTest(result=result, respuesta=respuesta):

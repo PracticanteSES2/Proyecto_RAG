@@ -28,6 +28,10 @@
 - [x] T008 Reescritura truncada rechazada; descripción de opción truncada cortada o descartada; `num_predict`
   configurable en opciones, reescritura e intención.
 
+- [x] T008b Tras integrar `desarrollo` (API con caché): `cacheable` llega al resultado del turno
+  (`query_engine`) y `backend/app/services/cache.puede_guardar` no guarda si es False (pruebas en
+  `tests/backend/test_cache.py` y turno completo con el arnés `tests/sim`).
+
 ## Phase 5: Verificación
 
 - [x] T009 Suites `tests.rag`, `tests.redaccion`, `tests.sim`, `tests.perf`, `tests.context`, `tests.stability`.
