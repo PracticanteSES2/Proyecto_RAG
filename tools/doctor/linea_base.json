@@ -3,6 +3,19 @@
  "fecha": "2026-11-10",
  "puntaje_global": 65.8414,
  "perfiles": {
+  "frontend": {
+   "puntaje": 100.0,
+   "categorias": {
+    "estructura": 100.0,
+    "tipos": 100.0,
+    "compilacion": 100.0,
+    "lint": 100.0,
+    "arquitectura": 100.0,
+    "higiene": 100.0
+   },
+   "huellas": {},
+   "legado": {}
+  },
   "backend": {
    "puntaje": 65.8414,
    "categorias": {
@@ -1331,7 +1344,6 @@
      "lineas": 102
     }
    }
-  },
-  "frontend": null
+  }
  }
 }
