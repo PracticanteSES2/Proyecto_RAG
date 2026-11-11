@@ -28,6 +28,9 @@ class Ajustes(BaseSettings):
     motor_instancias: int = Field(default=1, ge=1, le=8)
     # Raíz de los datos (data/, docs_tableros/). Por defecto la del repositorio.
     rag_raiz_datos: Path = RAIZ_REPO
+    # Raíz de la documentación .md de los tableros (DOCS_MD_ROOT, la misma que
+    # usa src/docs_md). Sin valor: <rag_raiz_datos>/docs_tableros.
+    docs_md_root: Path | None = None
     # Secreto para firmar el estado del motor guardado en Redis (HMAC-SHA256).
     # Sin él se genera uno por proceso: el contexto no sobrevive a reinicios.
     backend_secreto: str | None = None

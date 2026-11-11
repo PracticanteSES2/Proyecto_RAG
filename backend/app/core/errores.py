@@ -32,6 +32,26 @@ NO_CALIFICABLE = (409, "turno_no_calificable", "Esa respuesta todavía no se pue
 SERVICIO_OCUPADO = (503, "servicio_ocupado",
                     "No pude recibir tu pregunta en este momento. Intenta de nuevo en un momento, por favor.")
 FORMATO_NO_SOPORTADO = (400, "formato_no_soportado", "Por ahora solo puedo exportar en formato Markdown (md).")
+# Documentación viva (specs/013-documentacion-web/contracts/api-documentacion.md)
+GRUPO_NO_ENCONTRADO = (404, "grupo_no_encontrado", "No encontré la documentación de ese tablero.")
+PAGINA_NO_ENCONTRADA = (404, "pagina_no_encontrada", "No encontré esa página en la documentación del tablero.")
+PROPUESTA_NO_ENCONTRADA = (404, "propuesta_no_encontrada",
+                           "No encontré esa propuesta; puede haber expirado. Vuelve a proponer el cambio, por favor.")
+PROPUESTA_EN_CURSO = (409, "propuesta_en_curso",
+                      "MedGemma todavía está preparando la propuesta. Espera a que termine, por favor.")
+PROPUESTA_NO_APROBABLE = (409, "propuesta_no_aprobable",
+                          "Esta propuesta no se puede aprobar. Revísala o vuelve a proponer el cambio.")
+PROPUESTA_NO_EDITABLE = (409, "propuesta_no_editable", "Solo se pueden corregir propuestas listas para aprobar.")
+
+
+def documento_modificado(detalle: str) -> ErrorAPI:
+    return ErrorAPI(409, "documento_modificado", detalle or "No se guardó el cambio. Vuelve a proponerlo, por favor.")
+
+
+def correccion_invalida(detalle: str) -> ErrorAPI:
+    return ErrorAPI(422, "correccion_invalida", f"No se pudo aplicar tu corrección: {detalle}")
+
+
 PETICION_INVALIDA = "peticion_invalida"
 ERROR_INTERNO = "error_interno"
 MENSAJE_INVALIDO = "La petición no es válida. Revisa el mensaje e intenta de nuevo."

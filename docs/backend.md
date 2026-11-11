@@ -1,7 +1,9 @@
 # Backend FastAPI del asistente
 
 API para el frontend Next.js (y cualquier cliente) que reemplaza a Streamlit (`app.py`, legado congelado).
-Contrato: [`specs/006-api-backend/contracts/api-v1.md`](../specs/006-api-backend/contracts/api-v1.md) ·
+Contrato: [`specs/006-api-backend/contracts/api-v1.md`](../specs/006-api-backend/contracts/api-v1.md) (chat) y
+[`specs/013-documentacion-web/contracts/api-documentacion.md`](../specs/013-documentacion-web/contracts/api-documentacion.md)
+(documentación viva: explorar, proponer con MedGemma, revisar, aprobar y reindexar) ·
 OpenAPI en vivo: `http://localhost:8000/api/v1/docs` (`/api/v1/openapi.json`).
 Diseño y decisiones: [`specs/006-api-backend/plan.md`](../specs/006-api-backend/plan.md).
 
@@ -54,6 +56,19 @@ Diseño y decisiones: [`specs/006-api-backend/plan.md`](../specs/006-api-backend
   `caido` y el estado general `degradado`, pero `listo` no cambia: depende del almacén, del latido y del índice). El
   único ping síncrono es el del arranque del motor (`MEDGEMMA_HEALTH_TIMEOUT`, 15 s por defecto; en el servidor
   conviene bajarlo, p. ej. a 3).
+
+## Documentación viva (`/api/v1/documentacion/**`)
+
+- Lee y escribe las páginas `.md` de `<RAG_RAIZ_DATOS>/docs_tableros/` (o `DOCS_MD_ROOT`) con `src/docs_md`.
+- **Proponer** es asíncrono: `POST /propuestas` responde 202 y el cliente sondea `GET /propuestas/{id}` (1 s). La
+  propuesta la genera `actualizador.proponer_cambio` en un hilo (MedGemma por `call_llm`, propósito
+  «documentación»); el progreso muestra la etapa real (leer nota, elegir página, redactar, revisar) con frases de
+  trabajo y las mismas esperas del chat, nunca colas. Las propuestas viven en memoria de la API (24 h).
+- **Aprobar** guarda con `aplicar_propuesta` (falla si el archivo cambió) y lanza la reindexación del tablero en un
+  hilo propio que **retiene todas las instancias de la piscina** del motor embebido (los turnos en curso terminan;
+  los nuevos esperan), reutiliza su retriever (cliente Qdrant + MiniLM; Qdrant local admite un solo cliente),
+  recarga su corpus e invalida la huella de la caché de respuestas. Con el motor en el proceso trabajador (Redis)
+  responde `no_disponible`: el cambio queda guardado y hay que reiniciar el trabajador.
 
 ## Variables de entorno (todas opcionales)
 

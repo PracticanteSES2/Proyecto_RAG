@@ -43,6 +43,9 @@ class InstanciaMotor:
     estado_medgemma: dict = field(default_factory=dict)
     estado_powerbi: dict = field(default_factory=dict)
     estado_indice: dict = field(default_factory=dict)
+    # HybridRetriever del motor (Qdrant + MiniLM): la reindexación de la
+    # documentación lo reutiliza (Qdrant local admite un solo cliente).
+    retriever: object | None = None
 
 
 # ======================================================================
@@ -234,7 +237,7 @@ def construir_instancia_real(raiz: Path, nombre: str = "motor-1", retriever=None
     return InstanciaMotor(
         engine=sistema.engine, conversation_manager=sistema.conversation_manager, formatter=ResponseFormatter(),
         nombre=nombre, estado_medgemma=dict(sistema.medgemma_status or {}),
-        estado_powerbi=dict(sistema.powerbi_connection or {}), estado_indice=indice,
+        estado_powerbi=dict(sistema.powerbi_connection or {}), estado_indice=indice, retriever=recuperador,
     )
 
 

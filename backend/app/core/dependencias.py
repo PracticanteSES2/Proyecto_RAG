@@ -20,6 +20,11 @@ def ajustes(request: Request) -> Any:
     return request.app.state.servicios.ajustes
 
 
+def documentacion(request: Request) -> Any:
+    return request.app.state.documentacion
+
+
 ServiciosDep = Annotated[Any, Depends(servicios)]
 ConversacionesDep = Annotated[Any, Depends(conversaciones)]
 AjustesDep = Annotated[Any, Depends(ajustes)]
+DocumentacionDep = Annotated[Any, Depends(documentacion)]
