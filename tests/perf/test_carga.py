@@ -213,6 +213,47 @@ class RunnerLLMTests(unittest.TestCase):
             self.assertEqual([level["usuarios"] for level in data["niveles"]], [1, 2])
 
 
+class RunnerComponentesTests(unittest.TestCase):
+    """Modo `componentes`: síntesis y opciones reales con la caché del motor."""
+
+    FAST = dict(gen_tps=2000.0, prompt_tps=500000.0, escala=0.01, largo_max=0.9)
+
+    def _run(self, **kwargs):
+        from tools.carga import runner
+        return runner.correr(modo="componentes", rampa=[6], turnos=4, perfil="mixto",
+                             servidor=ServidorConfig(**self.FAST), log=None, banco=5, **kwargs)
+
+    def test_palancas_reducen_las_llamadas_por_turno(self):
+        antes = self._run(sin_palancas=True)["niveles"][0]
+        despues = self._run()["niveles"][0]
+        self.assertGreater(antes["costo"]["calls_por_turno"], despues["costo"]["calls_por_turno"])
+        self.assertGreater(despues["costo"]["cache"]["hits"] + despues["costo"]["cache"]["shared"], 0)
+        self.assertEqual(antes["costo"]["cache"]["hits"], 0)
+        self.assertIn("redactadas_por_min", despues["turnos"])
+        self.assertGreater(despues["costo"]["prompt_tokens_est_por_turno"], 0)
+
+    def test_sin_palancas_no_deja_la_cache_apagada(self):
+        self._run(sin_palancas=True)
+        self.assertNotEqual(os.environ.get("LLM_CACHE"), "off")
+
+
+class CapasYSalidasTests(unittest.TestCase):
+    def test_salidas_en_var_out_carga(self):
+        from src.comun.rutas import ruta_salida
+        from tools.carga import runner
+        self.assertEqual(runner.SALIDAS, ruta_salida("carga"))
+
+    def test_tools_carga_no_importa_tests(self):
+        import ast
+        for path in (ROOT / "tools" / "carga").glob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                names = ([alias.name for alias in node.names] if isinstance(node, ast.Import)
+                         else [node.module or ""] if isinstance(node, ast.ImportFrom) else [])
+                for name in names:
+                    self.assertFalse(name == "tests" or name.startswith("tests."), f"{path.name}: {name}")
+
+
 class CliTests(unittest.TestCase):
     def test_real_without_confirmation_makes_no_call(self):
         from tools.carga import __main__ as cli

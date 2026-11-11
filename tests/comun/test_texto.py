@@ -243,6 +243,20 @@ def o_powerbi_links(texto):
     return " ".join(texto.split())
 
 
+def o_words(text):
+    # chatbot/answer_synthesizer.AnswerSynthesizer._words
+    text = unicodedata.normalize("NFKD", str(text or "").lower())
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return [word for word in re.findall(r"[a-z0-9ñ_]+", text) if len(word) >= 3]
+
+
+def o_option_plain(text):
+    # chatbot/option_describer.OptionDescriber._plain (sin strip)
+    text = unicodedata.normalize("NFD", str(text or "").lower())
+    text = "".join(char for char in text if unicodedata.category(char) != "Mn")
+    return re.sub(r"[^a-z0-9]+", " ", text)
+
+
 # Pares (oráculo, función canónica que lo reemplaza).
 EQUIVALENCIAS = [
     ("fold lento", o_fold_lento, T.plegar),
@@ -270,6 +284,9 @@ EQUIVALENCIAS = [
     ("slug repositorio", o_slug_repositorio, lambda v: T.slug(v) or "pagina"),
     ("source_labels", o_source_labels, lambda v: re.sub(r"\s+", " ", T.sin_tildes(v)).strip().upper()),
     ("norm_label", o_norm_label, lambda v: T.sin_tildes(" ".join(str(v or "").split()).lower())),
+    ("answer_synthesizer._words", o_words,
+     lambda v: [w for w in re.findall(r"[a-z0-9ñ_]+", T.sin_tildes(str(v or "").lower())) if len(w) >= 3]),
+    ("option_describer._plain", o_option_plain, lambda v: re.sub(r"[^a-z0-9]+", " ", T.plegar(v))),
     ("powerbi_links", o_powerbi_links,
      lambda v: " ".join(re.sub(r"[_\-.]+", " ", T.sin_tildes(v).upper()).split())),
 ]

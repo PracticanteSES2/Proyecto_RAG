@@ -1,9 +1,10 @@
 import os
 import re
 import time
-import unicodedata
 
+from src.chatbot import cache_llm
 from src.chatbot.respuesta_completa import completar
+from src.comun.texto import sin_tildes
 from src.llm import presupuesto_tokens as P
 from src.llm.llm_gate import call_llm
 
@@ -462,7 +463,19 @@ REGLAS OBLIGATORIAS:
             }
 
         started = time.perf_counter()
-        result = self._chat_with_timeout(messages=messages, temperature=0.1, max_tokens=self.max_tokens, think=False)
+        # Misma pregunta normalizada + mismas fuentes + mismo prompt: la
+        # respuesta CRUDA sale de la caché del motor (src/chatbot/cache_llm.py);
+        # el completado y el post-proceso de abajo se aplican igual. Nunca se
+        # guarda una truncada (ni, por tanto, una que acabe incompleta).
+        result = cache_llm.llamar_con_cache(
+            cache_llm.clave("síntesis RAG", question, fuentes=context, prompt=[
+                self.SYSTEM_PROMPT, task_lines, conversation], modelo=cache_llm.modelo_de(self.llm_provider),
+                max_tokens=self.max_tokens),
+            lambda: self._chat_with_timeout(messages=messages, temperature=0.1, max_tokens=self.max_tokens,
+                                            think=False),
+            proposito="síntesis RAG",
+            es_guardable=lambda raw: not self.is_no_evidence(self._clean_answer(raw.get("answer"))),
+        )
 
         if (
             result.get("status")
@@ -505,6 +518,7 @@ REGLAS OBLIGATORIAS:
             "incompleta": diagnostico["incompleta"],
             "cacheable": not diagnostico["incompleta"],
             "diagnostico": diagnostico,
+            "cache": result.get("cache"),  # "hit" | "compartida" | None (caché del motor)
         }
 
     def _postprocess(self, raw, context, question, previous_turns):
@@ -607,8 +621,7 @@ responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
 
     @staticmethod
     def _words(text):
-        text = unicodedata.normalize("NFKD", str(text or "").lower())
-        text = "".join(ch for ch in text if not unicodedata.combining(ch))
+        text = sin_tildes(str(text or "").lower())
         return [word for word in re.findall(r"[a-z0-9ñ_]+", text) if len(word) >= 3]
 
     @classmethod

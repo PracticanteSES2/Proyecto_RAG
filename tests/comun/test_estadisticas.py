@@ -31,6 +31,8 @@ class TestReexporte(unittest.TestCase):
             "_Ticket", "_duration", "_empty_queue_state", "_turn_queue_state", "degradation_lines",
             "diagnostics_lines", "env_float", "env_int", "open_connections", "queue_snapshot", "status_line",
             "turn_lock_busy", "turn_slot", "turn_wait_limit",
+            # specs/010-rendimiento-llm (costo por propósito, llamadas evitadas, caché del LLM)
+            "CHARS_PER_TOKEN", "_COST_FIELDS", "_CACHE_EVENTS",
         }
         for nombre in sorted(api):
             self.assertTrue(hasattr(runtime_stats, nombre), nombre)

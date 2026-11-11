@@ -125,3 +125,39 @@ def paralelismo_observado(calls):
         return None
     return {"generando_max": _max_overlap(generating) if generating else None,
             "en_servidor_max": _max_overlap(inside)}
+
+
+def por_minuto(count, wall_s):
+    return round(count / wall_s * 60.0, 2) if wall_s else 0.0
+
+
+def _delta(after, before, *path):
+    a, b = after, before
+    for key in path:
+        a, b = (a or {}).get(key, {}), (b or {}).get(key, {})
+    if isinstance(a, dict):
+        return {k: _delta(a, b, k) for k in a}
+    return (a or 0) - (b if isinstance(b, (int, float)) else 0)
+
+
+_COSTO = ("calls", "prompt_tokens_est", "num_predict", "eval_tokens")
+
+
+def resumen_costo(antes, despues, n_turnos):
+    """Dónde se gastó MedGemma en el escalón (diferencia de STATS.snapshot()):
+    llamadas, tokens de entrada estimados, num_predict pedido y tokens
+    generados, en total y por turno, más llamadas evitadas y la caché."""
+    by_purpose = {
+        purpose: {k: v for k, v in values.items() if k in _COSTO}
+        for purpose, values in _delta(despues, antes, "llm_cost_by_purpose").items()
+    }
+    totals = {k: sum(v.get(k, 0) for v in by_purpose.values()) for k in _COSTO}
+    avoided = {k: v for k, v in _delta(despues, antes, "llm_avoided").items() if v}
+    per_turn = {f"{k}_por_turno": _por_turno(v, n_turnos) for k, v in totals.items()}
+    return {"por_uso": by_purpose, "total": totals, **per_turn, "evitadas": avoided,
+            "evitadas_por_turno": _por_turno(sum(avoided.values()), n_turnos),
+            "cache": _delta(despues, antes, "llm_cache")}
+
+
+def _por_turno(value, n_turnos):
+    return round(value / n_turnos, 2) if n_turnos else None

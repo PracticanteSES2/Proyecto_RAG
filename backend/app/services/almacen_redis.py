@@ -113,10 +113,13 @@ class AlmacenRedis:
         if await self.r.zcard(self.k.espera) >= cola_max:
             return False
         turno_id = turno["turno_id"]
+        # Puntaje = número de llegada (INCR atómico), no la hora: dos turnos del
+        # mismo milisegundo empataban y ZRANK los desempataba por id (aleatorio).
+        llegada = await self.r.incr(self.k.llegadas)
         async with self.r.pipeline(transaction=True) as tubo:
             tubo.hset(self.k.turno(turno_id), mapping=turno_a_hash(turno))
             tubo.expire(self.k.turno(turno_id), ttl_s)
-            tubo.zadd(self.k.espera, {turno_id: turno.get("creado_ms") or _ms()})
+            tubo.zadd(self.k.espera, {turno_id: llegada})
             tubo.xadd(self.k.cola, {"turno_id": turno_id}, maxlen=MAXLEN_COLA, approximate=True)
             await tubo.execute()
         return True

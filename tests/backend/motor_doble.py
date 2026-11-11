@@ -10,6 +10,7 @@ Guion por texto del mensaje:
 - «y en 2025?»                   → seguimiento: usa _last_success o no entiende
 - «documentacion»                → RAG redactado · «documentacion saturada» → RAG extractivo (degradado)
 - «explota»                      → excepción · «lento» → tarda `demora_s` con actividades
+- «bloquea»                      → retiene la instancia hasta que la prueba abre `compuerta`
 - cualquier otro texto           → dato de Power BI «Total atenciones»
 """
 from __future__ import annotations
@@ -35,6 +36,9 @@ class GestorDoble:
 class MotorDoble(SesionMotorMixin):
     def __init__(self, demora_s: float = 0.0):
         self.demora_s = demora_s
+        # «bloquea» espera esta compuerta: las pruebas de concurrencia la abren
+        # cuando quieren (sin depender de tiempos).
+        self.compuerta = threading.Event()
         self.powerbi_provider = None
         self.source_router = None
         self.llamadas = []
@@ -125,7 +129,10 @@ class MotorDoble(SesionMotorMixin):
                     "synthesis_issue": "MedGemma saturado" if extractiva else None,
                     "sources": [{"dashboard": "Tablero Camas", "page": "Ocupación", "chunk_type": "page"},
                                 {"dashboard": "Tablero Camas", "page": "Ocupación", "chunk_type": "visual"}]}
-        if texto == "lento":
+        if texto == "bloquea":
+            self._avisar("Consultando Power BI (Camas)")
+            self.compuerta.wait(60)
+        elif texto == "lento":
             for _ in range(3):
                 self._avisar("Consultando Power BI (Camas)")
                 time.sleep(self.demora_s / 3)
