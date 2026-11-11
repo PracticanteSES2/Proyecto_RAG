@@ -7,13 +7,12 @@ export function iniciarSondeo(tarea: () => Promise<number>): () => void {
   let vigente = true;
   let temporizador: ReturnType<typeof setTimeout> | undefined;
 
-  const ejecutar = async () => {
-    const esperaMs = await tarea();
-    if (!vigente) return;
-    temporizador = setTimeout(() => void ejecutar(), esperaMs);
+  const programar = (esperaMs: number) => {
+    if (vigente) temporizador = setTimeout(() => void ejecutar(), esperaMs);
   };
+  const ejecutar = async () => programar(await tarea());
 
-  temporizador = setTimeout(() => void ejecutar(), 0);
+  programar(0);
   return () => {
     vigente = false;
     if (temporizador !== undefined) clearTimeout(temporizador);

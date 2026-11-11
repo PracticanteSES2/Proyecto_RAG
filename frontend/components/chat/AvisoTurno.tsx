@@ -1,20 +1,14 @@
-import type { FaseTurno } from "@/lib/turno/maquina";
+import type { FaseProblema } from "@/lib/turno/maquina";
 import { IconoReintentar } from "@/components/ui/Iconos";
 import { Mascota } from "@/components/ui/Mascota";
 
-type FaseProblema = Extract<FaseTurno, "error" | "saturado" | "fallo_envio" | "desconectado" | "detenido">;
-
-export const TEXTOS_PROBLEMA: Record<FaseProblema, string> = {
+const TEXTOS_PROBLEMA: Record<FaseProblema, string> = {
   saturado: "No pude recibir tu pregunta en este momento. Intenta de nuevo en unos segundos.",
   error: "No pude completar esta consulta. Puedes intentarlo de nuevo en un momento.",
   fallo_envio: "No logré comunicarme con el asistente. Revisa tu conexión e intenta de nuevo.",
   desconectado: "Se interrumpió la conexión mientras preparaba tu respuesta.",
   detenido: "Detuviste esta consulta.",
 };
-
-export function esFaseProblema(fase: FaseTurno): fase is FaseProblema {
-  return fase in TEXTOS_PROBLEMA;
-}
 
 interface Props {
   fase: FaseProblema;

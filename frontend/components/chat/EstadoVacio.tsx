@@ -7,7 +7,7 @@ import type { Capacidades } from "@/lib/api/tipos";
 import { Mascota } from "@/components/ui/Mascota";
 
 /** Contenido de respaldo si GET /capacidades no responde: el estado vacío nunca queda vacío. */
-export const CAPACIDADES_RESPALDO: Capacidades = {
+const CAPACIDADES_RESPALDO: Capacidades = {
   capacidades: [
     {
       titulo: "Cifras de los tableros",

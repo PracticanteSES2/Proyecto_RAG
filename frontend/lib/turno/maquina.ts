@@ -22,6 +22,20 @@ export type FaseTurno =
   | "desconectado" // el flujo de eventos se cortó sin respuesta
   | "detenido"; // el usuario detuvo la consulta
 
+/** Fases finales sin respuesta: la interfaz muestra un aviso amable (components/chat/AvisoTurno.tsx). */
+export type FaseProblema = Extract<FaseTurno, "error" | "saturado" | "fallo_envio" | "desconectado" | "detenido">;
+const FASES_PROBLEMA: ReadonlySet<FaseTurno> = new Set([
+  "error",
+  "saturado",
+  "fallo_envio",
+  "desconectado",
+  "detenido",
+]);
+
+export function esFaseProblema(fase: FaseTurno): fase is FaseProblema {
+  return FASES_PROBLEMA.has(fase);
+}
+
 export interface EtapaRegistrada {
   etapa: Etapa;
   frase: string;

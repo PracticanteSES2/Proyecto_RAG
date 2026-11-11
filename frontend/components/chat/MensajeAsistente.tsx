@@ -2,10 +2,10 @@
 
 import type { ValorCalificacion } from "@/lib/api/tipos";
 import type { MensajeAsistente as TipoMensajeAsistente } from "@/lib/chat/reductor";
-import { avisosVisibles, turnoActivo } from "@/lib/turno/maquina";
+import { avisosVisibles, esFaseProblema, turnoActivo } from "@/lib/turno/maquina";
 import { AvatarAsistente } from "@/components/ui/Mascota";
 import { IconoInfo } from "@/components/ui/Iconos";
-import { AvisoTurno, esFaseProblema } from "./AvisoTurno";
+import { AvisoTurno } from "./AvisoTurno";
 import { Calificacion } from "./Calificacion";
 import { IndicadorPensando } from "./IndicadorPensando";
 import { PanelDiagnostico } from "./PanelDiagnostico";
