@@ -8,8 +8,12 @@ También: reescritura y descripción de opciones truncadas.
 Ejecutar:
   python -X utf8 -m unittest tests.rag.test_sintesis_truncada
 """
+import json
 import os
+import subprocess
+import sys
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from src.chatbot import respuesta_completa as R
@@ -18,6 +22,8 @@ from src.chatbot.contextual_rewriter import LLMContextRewriter
 from src.chatbot.option_describer import OptionDescriber
 from src.chatbot.rag_answer_engine import RAGAnswerEngine
 
+RAIZ = Path(__file__).resolve().parents[2]
+ARG_TURNO = "--turno-completo"
 LIBRE = {"in_flight": 0, "waiting": 0, "capacity": 3, "saturated_recent": 0}
 OCUPADO = dict(LIBRE, waiting=2)
 
@@ -159,31 +165,52 @@ class SintesisTruncadaTests(unittest.TestCase):
         self.assertIn("entrada recortada: sí", resultado["synthesis_detail"])
 
 
+def _turno_truncado():
+    """Turno real del motor con el arnés tests/sim (Ollama falso que trunca la
+    síntesis). Corre en un proceso propio (ver TurnoCompletoTests)."""
+    from tests.sim import fakes, harness
+
+    engine, manager, formatter, *_ = harness.build_engine()
+    original = fakes.FakeOllamaClient.chat
+
+    def truncada(self, model=None, messages=None, **kwargs):
+        respuesta = original(self, model=model, messages=messages, **kwargs)
+        contenido = respuesta.message.content
+        if contenido.startswith("[FakeLLM]") and "CONTEXTO RECUPERADO" in messages[-1]["content"]:
+            return fakes._Obj(message=fakes._Obj(content=contenido[: len(contenido) * 2 // 3]),
+                              done_reason="length", eval_count=600, prompt_eval_count=1800)
+        return respuesta
+
+    with mock.patch.object(fakes.FakeOllamaClient, "chat", truncada), \
+            mock.patch.object(R, "presion_llm", return_value=OCUPADO):
+        resultado, _ = harness.ask(engine, manager, formatter, "¿Qué significa el indicador cirugías programadas?")
+    return {
+        "route": resultado.get("route"), "answer": resultado.get("answer"), "cacheable": resultado.get("cacheable"),
+        "lineas": [linea for paso in (resultado.get("reasoning") or {}).get("steps") or [] for linea in paso["lines"]],
+    }
+
+
 class TurnoCompletoTests(unittest.TestCase):
-    """Turno real del motor (arnés tests/sim, Ollama falso) con la síntesis truncada."""
+    """Turno real del motor (arnés tests/sim) con la síntesis truncada.
+
+    Corre en OTRO proceso, como la prueba con AppTest de tests/stability: el
+    arnés instala módulos falsos en sys.modules (sentence_transformers, ollama,
+    qdrant_client, dotenv...) y, en el mismo proceso, chocaría con los módulos
+    reales que ya importaron otras pruebas (y los dejaría para las siguientes).
+    Así la prueba es hermética e independiente del orden del discover."""
 
     def test_el_turno_no_es_cacheable_y_la_traza_lo_dice(self):
-        from tests.sim import fakes, harness
-
-        engine, manager, formatter, *_ = harness.build_engine()
-        original = fakes.FakeOllamaClient.chat
-
-        def truncada(self, model=None, messages=None, **kwargs):
-            respuesta = original(self, model=model, messages=messages, **kwargs)
-            contenido = respuesta.message.content
-            if contenido.startswith("[FakeLLM]") and "CONTEXTO RECUPERADO" in messages[-1]["content"]:
-                return fakes._Obj(message=fakes._Obj(content=contenido[: len(contenido) * 2 // 3]),
-                                  done_reason="length", eval_count=600, prompt_eval_count=1800)
-            return respuesta
-
-        with mock.patch.object(fakes.FakeOllamaClient, "chat", truncada), \
-                mock.patch.object(R, "presion_llm", return_value=OCUPADO):
-            resultado, _ = harness.ask(engine, manager, formatter,
-                                       "¿Qué significa el indicador cirugías programadas?")
-        self.assertEqual(resultado.get("route"), "rag", resultado.get("answer"))
-        self.assertFalse(resultado["cacheable"])
-        lineas = [linea for paso in resultado["reasoning"]["steps"] for linea in paso["lines"]]
-        self.assertTrue(any("truncada: sí" in linea for linea in lineas), lineas)
+        completed = subprocess.run(
+            [sys.executable, "-X", "utf8", "-m", "tests.rag.test_sintesis_truncada", ARG_TURNO], check=False,
+            cwd=str(RAIZ), capture_output=True, text=True, encoding="utf-8", errors="replace",
+            env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8"), timeout=600,
+        )
+        cola = "\n".join((completed.stdout + completed.stderr).splitlines()[-40:])
+        self.assertEqual(completed.returncode, 0, cola)
+        resultado = json.loads(completed.stdout.strip().splitlines()[-1])
+        self.assertEqual(resultado["route"], "rag", resultado["answer"])
+        self.assertIs(resultado["cacheable"], False)
+        self.assertTrue(any("truncada: sí" in linea for linea in resultado["lineas"]), resultado["lineas"])
 
 
 class OtrosPropositosTests(unittest.TestCase):
@@ -211,4 +238,8 @@ class OtrosPropositosTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    if ARG_TURNO in sys.argv:
+        # Proceso hijo de TurnoCompletoTests: la última línea es el resultado en JSON.
+        print(json.dumps(_turno_truncado(), ensure_ascii=False))
+    else:
+        unittest.main()
