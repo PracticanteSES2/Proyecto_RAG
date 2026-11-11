@@ -1,3 +1,57 @@
+# Handoff — 2026-11-10 (pausa de la sesión de orquestación)
+
+**Retomar aquí.** `desarrollo` local en `7824c9c`, SIN push a GitHub (el usuario quiere revisarlo antes).
+GitHub (`origin/desarrollo` = `origin/main`) sigue en `567c10d`.
+
+### Decisiones del usuario (2026-11-10)
+- Se abandona Streamlit: nuevo stack **FastAPI (`backend/`) + Next.js (`frontend/`) + Redis**. Streamlit (`app.py`)
+  queda congelado como legado hasta la paridad.
+- En este PC **no** se instala Redis, Docker ni WSL (sin admin): Redis va detrás de interfaces, probado con fakeredis;
+  el propietario lo montará en el servidor (`docs/backend.md`, `docs/arquitectura/concurrencia.md` §6.1).
+- La UI **nunca** menciona colas, otras consultas ni saturación: la espera se muestra como trabajo sobre la pregunta
+  («Pensando…») y la respuesta aparece de a poco (streaming).
+- Mascota oficial: el **barranquero** (`frontend/public/marca/mascota/`).
+- Nada de push hasta revisar la integración local.
+
+### Integrado en `desarrollo` hoy
+progreso (`src/chatbot/progreso.py`), estética + mascota, carga (`tools/carga`, fila justa, puerta del LLM enchufable),
+estructura (`docs/ARQUITECTURA.md`, reglas en CLAUDE.md, `var/`, `src/comun/rutas.py`), portero de alcance (0 falsos
+positivos en 728 preguntas reales), doctor (`python -X utf8 -m tools.doctor --verificar`; global 80,7, frontend 100),
+backend FastAPI (API v1, SSE, worker, caché, límites, `src/chatbot/fabrica.py`), frontend Next.js, respuestas
+truncadas (`src/chatbot/respuesta_completa.py`) y **memoria por sesión** (`src/chatbot/estado_conversacion.py`;
+corrige la fuga de conversación entre usuarios).
+
+### Pendiente al retomar (en orden)
+1. **Verificar `desarrollo` tras integrar memoria-sesion** (la verificación se interrumpió al pausar): `tests/sesion`,
+   `tests/backend`, `tests/api`, `tests/rag` (unittest discover -s ... -t .), `tests.context.test_conversation`,
+   `tests.sim.test_smoke`, `tests.stability.test_stability` y el doctor `--verificar`; luego
+   `--actualizar-linea-base` si sube.
+2. Ramas con trabajo SIN integrar (worktrees en `.claude/worktrees/<nombre>`):
+   - `agente/ux-espera` (4 commits + 1 WIP sin verificar): textos sin colas, streaming `token`, frontend; pendiente
+     también que las tarjetas del estado vacío no queden tapadas por la barra de entrada.
+   - `agente/rendimiento-llm` (6 commits): menos llamadas/tokens a MedGemma, caché de síntesis, Redis fuera de `src/`,
+     `tools/carga` → `var/`. Falta su informe y verificación.
+   - `agente/refactor-motor` (11 commits): fases 0, 1, 3 y 4 del plan; fase 2 (partir query_engine) preparada en
+     `specs/012-refactor-motor/fase2.md`. Estaba corriendo suites y golden master.
+   - `agente/backend-api` (1 WIP sin verificar): pruebas intermitentes `test_cola_fifo_posicion_y_eventos` y
+     `test_turno_en_curso_cola_y_limite`.
+3. Integrar en orden: backend (pruebas) → ux-espera → rendimiento-llm → refactor-motor; luego ejecutar la fase 2.
+4. Para turnos en paralelo: arreglar temporales por llamada en colaboradores compartidos
+   (`QueryPlanBuilder._date_metric`, `_resolution_notes`, `IntentParser.last_dashboard_reason`, etc.; ver
+   `specs/008-memoria-por-sesion/research.md`). Hasta entonces, un turno a la vez.
+5. Decisiones abiertas del usuario: lista de otras instituciones del portero (Santa Sofía, Avidanti, San Marcel,
+   San Vicente), respuesta propia para consejo clínico, respuesta a «tengo una pregunta» a mitad de conversación,
+   y la prueba de carga real (la corre el usuario: comando en `docs/arquitectura/concurrencia.md`).
+
+### Cómo levantar los servicios
+- Backend: `.\infra\scripts\iniciar_backend.ps1 -ArchivoEntorno .env -Puerto 8000` (con `POWERBI_AUTH=device_code`).
+- Frontend real: en `frontend/`, `NEXT_PUBLIC_API_MOCK=0`, `NEXT_PUBLIC_API_URL=http://localhost:8000`,
+  `npx next dev --port 3000` (CORS del backend solo admite :3000). Mock: `NEXT_PUBLIC_API_MOCK=1`.
+- Node 24 está en `%LOCALAPPDATA%\Microsoft\WinGet\Packages\OpenJS.NodeJS.LTS_...\node-v24.20.0-win-x64`
+  (anteponer al PATH si no aparece).
+
+---
+
 # Handoff — 2026-10-29 (pausa)
 
 Estado para retomar el trabajo sobre el asistente administrativo (RAG + Power BI).

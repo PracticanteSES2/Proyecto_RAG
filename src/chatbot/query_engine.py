@@ -6,10 +6,10 @@ from datetime import date
 
 from src.chatbot import contextual_rewriter
 from src.chatbot.contextual_rewriter import LLMContextRewriter
-from src.chatbot.conversation_memory import ConversationMemory
 from src.chatbot.intent_parser import ordinal_choice_index
 from src.chatbot.reasoning_trace import ReasoningTrace, format_score, short
 from src.chatbot.runtime_stats import STATS, degradation_lines, status_line
+from src.chatbot.sesion_motor import SesionMotorMixin, con_sesion
 from src.dax.column_guard import GuardedQueryPlanDAXGenerator, ModelSchema, unknown_references
 from src.chatbot.response_formatter import (
     NONE_OF_THE_ABOVE_ID, format_filters_line, format_number_es, format_value_es, group_header,
@@ -19,7 +19,7 @@ from src.rag.source_labels import source_label
 from src.semantic import plan_budget
 from src.semantic.request_phrases import requester, rewrite_request, without_requester
 
-class QueryEngine:
+class QueryEngine(SesionMotorMixin):
 
     def __init__(
         self,
@@ -116,63 +116,15 @@ class QueryEngine:
         # contrapregunta. Sin él se usa la descripción del catálogo.
         self.option_describer = option_describer
 
-        # Razonamiento del turno en curso y del último turno terminado.
-        self._trace = None
-        self.progress_listener = None
-        self.last_reasoning = None
-
-        # Estado de conversación para una ambigüedad
-        # producida por MasterMetricResolver.
-        self._pending_master_metric = None
-        self._pending_query_plan = None
-        self._pending_dashboard_clarification = None
-
-        # Última consulta numérica exitosa (pregunta + indicador + filtros +
-        # agrupación). Permite seguimientos como «¿y en 2025?». Sobrevive a
-        # reset() (app.py lo llama tras cada respuesta final) y solo se borra
-        # con reset(full=True) («Nueva conversación») o tras una respuesta
-        # final que no sea un dato de Power BI.
-        self._last_success = None
-
-        # Memoria de la conversación (últimos turnos: lo que dijo el usuario,
-        # lo que respondió el asistente y con qué datos). Sobrevive a reset()
-        # y se borra con reset(full=True). La usa la reescritura contextual
-        # («y en el mes pasado?») y se pasa a la redacción del RAG.
-        self.conversation_memory = conversation_memory or ConversationMemory()
+        # El estado de conversación (memoria, seguimiento, contrapreguntas y
+        # planes pendientes) y el del turno (razonamiento, interpretación) no
+        # viven en el motor: ver src/chatbot/sesion_motor.py (spec 008).
+        if conversation_memory is not None:
+            self.conversation_memory = conversation_memory  # memoria de la sesión propia (legado)
         # LLM para reescribir mensajes que dependen del contexto cuando las
         # reglas no bastan. Sin él se usa el de OptionDescriber (MedGemma,
         # que app.py solo crea si el servidor está disponible).
         self.context_llm = context_llm
-        self._turn_interpretation = None
-        # Mensaje que depende de una contrapregunta pendiente («y en el mes
-        # pasado?» antes de elegir el indicador): se responde tras el botón.
-        self._deferred_context_message = None
-        self._applying_deferred = None
-
-    # ========================================================
-    # ESTADO
-    # ========================================================
-
-    def reset(self, full=False):
-        """Limpia las contrapreguntas pendientes. Con full=True («Nueva
-        conversación») también olvida el contexto de seguimiento y la memoria
-        de la conversación."""
-        self._pending_master_metric = None
-        self._pending_query_plan = None
-        self._pending_dashboard_clarification = None
-        self._deferred_context_message = None
-        if full:
-            self._last_success = None
-            memory = getattr(self, "conversation_memory", None)
-            if memory is not None:
-                memory.clear()
-
-    def conversation_history(self, limit=6):
-        """Últimos `limit` turnos como mensajes [{"role": "user"|"assistant",
-        "text": str, "meta": {...}}] (cada turno aporta dos mensajes). Lo usa
-        la redacción de respuestas (RAGAnswerEngine / AnswerSynthesizer)."""
-        memory = getattr(self, "conversation_memory", None)
-        return memory.history(limit) if memory is not None else []
 
     # Turnos de historial que se pasan a la redacción del RAG.
     _RAG_HISTORY_TURNS = 3
@@ -227,22 +179,6 @@ class QueryEngine:
         """Operación que empieza y puede tardar: solo para la vista en vivo."""
         if self._trace is not None:
             self._trace.activity(title, *lines)
-
-    def set_progress_listener(self, listener):
-        """Función que recibe en vivo los pasos del turno (o None). También
-        engancha las consultas DAX del proveedor de Power BI, incluidas las de
-        exploración de valores que hace el Query Plan."""
-        self.progress_listener = listener
-        provider = self.powerbi_provider
-        if provider is not None and hasattr(provider, "query_listener"):
-            provider.query_listener = self._on_powerbi_query if listener else None
-        if provider is not None and hasattr(provider, "activity_listener"):
-            # Aperturas/reconexiones (posible ventana de inicio de sesión).
-            provider.activity_listener = self._activity if listener else None
-
-    def _on_powerbi_query(self, semantic_model, dax):
-        self._activity(f"Consultando Power BI ({semantic_model or 'modelo por defecto'})",
-                       short(" ".join(str(dax or "").split()), 160))
 
     def _traced(self, kind, text, runner):
         """Ejecuta un turno registrando su razonamiento en result["reasoning"]."""
@@ -3290,7 +3226,7 @@ class QueryEngine:
                  if (item.get("metric") or {}).get("metric_id") == choices[0]["id"]),
                 None,
             ) or {}
-            by_range = self.__dict__.get("_range_choice") == metric.get("metric_id")
+            by_range = getattr(self, "_range_choice", None) == metric.get("metric_id")
             direct = self._answer_single_option(
                 plan, metric, why="es el único tramo que contiene el rango pedido" if by_range else None,
             )
@@ -3432,6 +3368,7 @@ class QueryEngine:
             return self._execute_query_plan(plan)
         return self._query_plan_failure(plan)
 
+    @con_sesion
     def select_clarification_option(self, option_id, label=None):
         """Resuelve una contrapregunta pendiente con la opción elegida (botón).
         `label` (texto del botón) solo se usa en el razonamiento."""
@@ -6683,6 +6620,7 @@ class QueryEngine:
         self._pending_dashboard_clarification = None
         return result
 
+    @con_sesion
     def process(self, message):
         from src.semantic.question_normalizer import normalize_question, vocabulary_for
 
@@ -7152,7 +7090,7 @@ class QueryEngine:
             self._think(
                 "Búsqueda en la documentación (RAG)",
                 f"estado: {rag_result.get('status')} · síntesis: {rag_result.get('synthesis_mode')}",
-                rag_result.get("synthesis_issue"),
+                rag_result.get("synthesis_issue"), rag_result.get("synthesis_detail"),
                 *[
                     f"fuente: {source_label(source) or '-'} · {source.get('chunk_type') or '-'}"
                     f" · puntaje {format_score(source.get('score'))}"
@@ -7247,10 +7185,9 @@ class QueryEngine:
                     + str(answer)
                 )
             return {
-                "status":
-                    rag_result.get(
-                        "status"
-                    ),
+                "status": rag_result.get("status"),
+                # False si la síntesis quedó truncada sin completar (spec 011): no va a caché.
+                "cacheable": rag_result.get("cacheable", True),
                 "pages_without_metrics": missing_pages or [],
                 "route":
                     "rag",

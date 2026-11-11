@@ -10,8 +10,9 @@ los datos con los que se respondió:
 - documentación (RAG): tablero, páginas y fuentes;
 - contrapregunta: opciones ofrecidas y, cuando el usuario elige, la elegida.
 
-Vive en `QueryEngine`: sobrevive a `reset()` (que app.py llama tras cada
-respuesta final) y se borra con `reset(full=True)` («Nueva conversación»).
+Vive en la `EstadoConversacion` de cada conversación (spec 008), no en el
+motor compartido: sobrevive al cierre de cada turno y se borra con
+`EstadoConversacion.reiniciar()` / `reset(full=True)` («Nueva conversación»).
 No guarda filas completas ni el razonamiento: solo lo necesario para entender
 el siguiente mensaje y para que la redacción use el hilo de la conversación.
 """
@@ -174,8 +175,17 @@ class ConversationMemory:
     def __len__(self):
         return len(self._turns)
 
+    @property
+    def max_turns(self):
+        return self._turns.maxlen
+
     def clear(self):
         self._turns.clear()
+
+    def load(self, turns):
+        """Reemplaza los turnos (restaurar una conversación serializada)."""
+        self._turns.clear()
+        self._turns.extend(copy.deepcopy(turn) for turn in turns or [] if isinstance(turn, dict))
 
     def turns(self):
         """Copia de los turnos, del más antiguo al más reciente."""

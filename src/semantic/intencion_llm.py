@@ -33,6 +33,7 @@ import threading
 import time
 from datetime import date, timedelta
 
+from src.llm.presupuesto_tokens import num_predict
 from src.providers.domain_cache import identifier_column
 from src.semantic.period_parser import MONTHS as PERIOD_MONTHS, as_date
 from src.semantic.resolucion.texto import (
@@ -80,8 +81,8 @@ MAX_DESCRIPCION = 55
 MAX_POR_TABLERO = 3
 # Tamaño máximo del prompt (sistema + catálogo + pregunta): el servidor de MedGemma es compartido.
 MAX_PROMPT = 2000
-# Tokens de salida: el JSON sin campos vacíos cabe holgado.
-MAX_TOKENS_SALIDA = 160
+# Tokens de salida: num_predict("intencion") (LLM_NUM_PREDICT_INTENCION, 160): el JSON sin
+# campos vacíos cabe holgado; si se corta, el JSON sale inválido y hay un reintento.
 
 # ===================================================================== cuándo llamar
 
@@ -880,7 +881,7 @@ def extraer_intencion(provider, pregunta, catalogo, tiempo_total=None, call=None
             attempt_messages = [*messages, {"role": "assistant", "content": str(result["crudo"][-1])[:300]},
                                 {"role": "user", "content": "Responde SOLO el objeto JSON."}]
         response = call(provider, attempt_messages, purpose="intención", timeout=remaining,
-                        queue_wait=min(1.0, remaining), temperature=0.0, max_tokens=MAX_TOKENS_SALIDA,
+                        queue_wait=min(1.0, remaining), temperature=0.0, max_tokens=num_predict("intencion"),
                         think=False, format=formato_salida())
         result["llamadas"] += 1
         status = (response or {}).get("status")

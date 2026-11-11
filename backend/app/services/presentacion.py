@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import logging
-import traceback
 from pathlib import PurePath
 
 LOG = logging.getLogger(__name__)
@@ -30,33 +29,56 @@ MAX_FUENTES = 6
 # Texto de la respuesta (puerto de app.py::get_display_answer)
 # ----------------------------------------------------------------------
 
-def texto_respuesta(result: dict, formatter) -> str:
-    from src.chatbot.response_formatter import clarification_prompt, format_empty_result
+NO_ENCONTRADO = "No encontré información relacionada con esa pregunta."
+SIN_INDICADOR = "No identifiqué el indicador que buscas. Escribe el nombre del indicador o del tablero donde lo ves."
+POWERBI_RECHAZO = ("La métrica se identificó, pero Power BI rechazó la consulta. "
+                   "Intenta de nuevo en un momento o reformula la pregunta.")
+SIN_COMPLETAR = "No pude completar la consulta. Intenta reformular la pregunta o vuelve a intentarlo."
 
-    status = result.get("status")
-    route = result.get("route")
-    if status == "needs_clarification":
+
+def texto_respuesta(result: dict, formatter) -> str:
+    """Mismo orden de decisión que app.py::get_display_answer."""
+    from src.chatbot.response_formatter import clarification_prompt
+
+    if result.get("status") == "needs_clarification":
         return clarification_prompt(result)
+    texto = _texto_por_ruta(result, formatter)
+    return texto if texto is not None else _texto_por_estado(result)
+
+
+def _texto_por_ruta(result: dict, formatter) -> str | None:
+    status, route = result.get("status"), result.get("route")
     if status == "not_found":
-        return result.get("answer") or "No encontré información relacionada con esa pregunta."
+        return result.get("answer") or NO_ENCONTRADO
     if route == "rag":
         return result.get("answer") or "No encontré información suficiente."
     if route == "conversacion":
         return result.get("answer") or ""
     if route == "powerbi" and status == "success":
         return _texto_dato(result, formatter)
-    if status == "metric_not_resolved":
-        return result.get("answer") or (
-            "No identifiqué el indicador que buscas. Escribe el nombre del indicador o del tablero donde lo ves."
-        )
-    if status == "unsupported_filter":
-        return _texto_filtro_no_soportado(result)
-    if status == "powerbi_error":
-        return ("La métrica se identificó, pero Power BI rechazó la consulta. "
-                "Intenta de nuevo en un momento o reformula la pregunta.")
-    if status == "empty_result":
-        return format_empty_result(result)
-    return "No pude completar la consulta. Intenta reformular la pregunta o vuelve a intentarlo."
+    return None
+
+
+def _texto_por_estado(result: dict) -> str:
+    from src.chatbot.response_formatter import format_empty_result
+
+    por_estado = {
+        "metric_not_resolved": lambda r: r.get("answer") or SIN_INDICADOR,
+        "unsupported_filter": _texto_filtro_no_soportado,
+        "powerbi_error": lambda r: POWERBI_RECHAZO,
+        "empty_result": format_empty_result,
+    }
+    funcion = por_estado.get(result.get("status"))
+    return funcion(result) if funcion else SIN_COMPLETAR
+
+
+def _texto_formateado(result: dict, formatter) -> str | None:
+    try:
+        answer = formatter.format(result) if formatter is not None else None
+    except Exception:
+        LOG.debug("ResponseFormatter no pudo formatear el resultado", exc_info=True)
+        return None
+    return answer if answer and "None" not in answer else None
 
 
 def _texto_dato(result: dict, formatter) -> str:
@@ -67,12 +89,9 @@ def _texto_dato(result: dict, formatter) -> str:
         return format_query_plan_answer(result)
     if result.get("result_type") == "table" and result.get("answer"):
         return result.get("answer")
-    try:
-        answer = formatter.format(result) if formatter is not None else None
-        if answer and "None" not in answer:
-            return answer
-    except Exception:
-        pass
+    formateado = _texto_formateado(result, formatter)
+    if formateado:
+        return formateado
     metric, value = result.get("metric"), result.get("value")
     if value is None:
         return "No hay datos para esos filtros."
@@ -110,7 +129,8 @@ def _seguro(funcion, *args):
     try:
         return funcion(*args)
     except Exception:
-        traceback.print_exc()
+        LOG.warning("%s falló; la respuesta sale sin ese extra", getattr(funcion, "__name__", funcion),
+                    exc_info=True)
         return None
 
 
@@ -157,55 +177,66 @@ def _nombre_archivo(valor) -> str | None:
     return PurePath(str(valor).replace("\\", "/")).stem or None
 
 
+def _titulo_compuesto(tablero, pagina):
+    return f"{tablero} › {pagina}" if tablero and pagina else tablero
+
+
+def _fuente_documental(fuente: dict) -> tuple:
+    """(titulo, tablero, pagina) de un fragmento de documentación recuperado."""
+    tablero = fuente.get("dashboard")
+    pagina = fuente.get("page") or fuente.get("page_display_name") or fuente.get("page_name")
+    archivo = _nombre_archivo(fuente.get("source_file") or fuente.get("relative_path"))
+    titulo = fuente.get("title") or fuente.get("section_title") or _titulo_compuesto(tablero, pagina) or archivo
+    return titulo, tablero, pagina
+
+
+def _fuente_dato(result: dict) -> tuple:
+    """(titulo, tablero, pagina) del informe de Power BI que respondió."""
+    informe, pagina = result.get("report"), result.get("dashboard")
+    if str(pagina or "").casefold() == str(informe or "").casefold():
+        pagina = None
+    return _titulo_compuesto(informe, pagina) or pagina, informe or pagina, pagina
+
+
+def _candidatas(result: dict) -> list[tuple]:
+    status, route = result.get("status"), result.get("route")
+    if route == "rag" and status == "success":
+        crudas = result.get("sources") or result.get("rag_sources") or []
+        return [_fuente_documental(f) for f in crudas if isinstance(f, dict)]
+    if route == "powerbi" and status in ("success", "empty_result"):
+        return [_fuente_dato(result)]
+    return []
+
+
 def fuentes(result: dict) -> list[dict]:
+    """Fuentes legibles y sin repetir (sin rutas de archivo internas)."""
     salida, vistos = [], set()
-
-    def agregar(titulo, tablero=None, pagina=None):
+    for titulo, tablero, pagina in _candidatas(result):
         titulo = " ".join(str(titulo or "").split())
-        if not titulo:
-            return
         clave = (titulo.casefold(), str(tablero or "").casefold(), str(pagina or "").casefold())
-        if clave in vistos or len(salida) >= MAX_FUENTES:
-            return
+        if not titulo or clave in vistos or len(salida) >= MAX_FUENTES:
+            continue
         vistos.add(clave)
-        item = {"titulo": titulo}
-        if tablero:
-            item["tablero"] = str(tablero)
-        if pagina:
-            item["pagina"] = str(pagina)
-        salida.append(item)
-
-    if result.get("route") == "rag" and result.get("status") == "success":
-        for fuente in result.get("sources") or result.get("rag_sources") or []:
-            if not isinstance(fuente, dict):
-                continue
-            tablero = fuente.get("dashboard")
-            pagina = fuente.get("page") or fuente.get("page_display_name") or fuente.get("page_name")
-            titulo = (fuente.get("title") or fuente.get("section_title")
-                      or (f"{tablero} › {pagina}" if tablero and pagina else tablero)
-                      or _nombre_archivo(fuente.get("source_file") or fuente.get("relative_path")))
-            agregar(titulo, tablero, pagina)
-    elif result.get("route") == "powerbi" and result.get("status") in ("success", "empty_result"):
-        informe, pagina = result.get("report"), result.get("dashboard")
-        if pagina and informe and str(pagina).casefold() == str(informe).casefold():
-            pagina = None
-        agregar(f"{informe} › {pagina}" if informe and pagina else (informe or pagina), informe or pagina, pagina)
+        item = {"titulo": titulo, "tablero": tablero, "pagina": pagina}
+        salida.append({k: str(v) for k, v in item.items() if v})
     return salida
+
+
+def _filtros_tablero(result: dict) -> list[str]:
+    filtros = ((result.get("query_plan") or {}).get("metric") or {}).get("visual_filters") or []
+    return [f"{f.get('table')}[{f.get('column')}]: {f.get('text')}" for f in filtros if isinstance(f, dict)]
 
 
 def detalles(result: dict) -> dict | None:
     """«Detalles de la consulta» de Streamlit (solo respuestas exitosas que no son charla)."""
     if result.get("status") != "success" or result.get("route") == "conversacion":
         return None
-    filtros = ((result.get("query_plan") or {}).get("metric") or {}).get("visual_filters") or []
     datos = {
         "informe": result.get("report"),
         "tablero": result.get("dashboard"),
         "modelo_semantico": result.get("semantic_model"),
         "metrica": result.get("metric"),
-        "filtros_tablero": [
-            f"{f.get('table')}[{f.get('column')}]: {f.get('text')}" for f in filtros if isinstance(f, dict)
-        ],
+        "filtros_tablero": _filtros_tablero(result),
         "sintesis": result.get("synthesis_mode"),
     }
     return {k: v for k, v in datos.items() if v not in (None, "", [])} or None

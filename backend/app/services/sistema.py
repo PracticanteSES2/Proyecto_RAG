@@ -99,9 +99,7 @@ def crear_trabajador(ajustes: Ajustes, almacen_trabajador, fabrica_piscina: Call
     cache_llm.fijar_version(huella.valor())
     procesador = ProcesadorTurnos(almacen_trabajador, piscina, SerializadorEstado(ajustes.backend_secreto), ajustes,
                                   huella=huella, raiz_datos=raiz)
-    trabajador = Trabajador(almacen_trabajador, procesador, piscina, ajustes, version=huella.version, huella=huella,
-                            raiz_datos=raiz, ejemplos_fijos=ajustes.capacidades_ejemplos)
-    return trabajador
+    return Trabajador(almacen_trabajador, procesador, piscina, ajustes, version=huella.version, huella=huella)
 
 
 def crear_servicios(ajustes: Ajustes, redis_api=None, redis_trabajador=None) -> Servicios:

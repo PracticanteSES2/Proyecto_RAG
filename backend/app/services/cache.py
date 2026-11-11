@@ -49,8 +49,8 @@ def puede_guardar(result: dict, respuesta: dict, estado_previo, turno: dict,
                   habilitada: bool = True, vacio=sin_contexto) -> bool:
     if not habilitada or turno.get("opcion_id") or not vacio(estado_previo):
         return False
-    if not isinstance(result, dict) or result.get("status") != "success":
-        return False
+    if not isinstance(result, dict) or result.get("status") != "success" or result.get("cacheable") is False:
+        return False   # cacheable=False: respuesta truncada sin completar (spec 011)
     if result.get("route") not in ("powerbi", "rag"):
         return False
     if result.get("synthesis_mode") == "extractive" or respuesta.get("degradada"):

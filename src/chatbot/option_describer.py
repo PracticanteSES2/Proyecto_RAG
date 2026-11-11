@@ -6,8 +6,10 @@ from concurrent.futures import ThreadPoolExecutor
 from difflib import SequenceMatcher
 
 from src.chatbot import cache_llm
+from src.chatbot.respuesta_completa import cortar_en_limite_seguro
 from src.chatbot.runtime_stats import STATS, env_float
 from src.llm.llm_gate import call_llm
+from src.llm.presupuesto_tokens import num_predict
 
 
 class OptionDescriber:
@@ -232,23 +234,31 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
 
     def _usable(self, raw, option):
         """¿La respuesta cruda da una descripción aceptable? (si no, no se cachea)."""
-        text, reasons = self._judge(raw.get("answer"), option)
+        text, reasons = self._judge(self._complete_answer(raw), option)
         return bool(text) and not reasons
+
+    @staticmethod
+    def _complete_answer(response):
+        """Respuesta utilizable: si llegó a num_predict, solo hasta su última
+        frase completa ("" si no queda ninguna → descripción del catálogo)."""
+        answer = response.get("answer")
+        return cortar_en_limite_seguro(answer) if response.get("truncated") else answer
 
     def _describe_one(self, option):
         # La pregunta del usuario no entra en el prompt: la descripción de un
         # indicador es la misma en cualquier contrapregunta (caché del motor).
         system, user = self.SYSTEM_PROMPT.format(max_words=self.max_words), self.build_prompt(option)
+        max_tokens = num_predict("opciones")
         return cache_llm.llamar_con_cache(
             cache_llm.clave("descripción de opciones", fuentes=user, prompt=system,
-                            modelo=cache_llm.modelo_de(self.llm_provider), max_tokens=60),
+                            modelo=cache_llm.modelo_de(self.llm_provider), max_tokens=max_tokens),
             lambda: call_llm(
                 self.llm_provider,
                 [{"role": "system", "content": system}, {"role": "user", "content": user}],
                 purpose="descripción de opciones",
                 timeout=self.timeout if self.timeout and self.timeout > 0 else None,
                 temperature=0.1,
-                max_tokens=60,
+                max_tokens=max_tokens,
                 think=False,
             ),
             proposito="descripción de opciones",
@@ -369,7 +379,7 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
                 errors.append(f"{option['id']}: {response.get('error') or response.get('status')}")
                 continue
             raw.append(f"[{option['id']}] {answer}")
-            text, reasons = self._judge(answer, option)
+            text, reasons = self._judge(self._complete_answer(response), option)
             if reasons:
                 rejected[option["id"]] = reasons
             elif text:

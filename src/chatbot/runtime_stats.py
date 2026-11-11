@@ -55,13 +55,15 @@ num_predict, prompt_eval_tokens, eval_tokens, truncated y promedios *_avg},
 "llm_avoided" {motivo: llamadas evitadas} y "llm_cache" (hits, misses, stores,
 not_stored, shared, errors) de la caché del motor (src/chatbot/cache_llm.py).
 """
-import os
 import re
 import threading
 import time
 from collections import deque
 from contextlib import contextmanager
 from datetime import datetime
+
+# env_float/env_int viven en src/comun/entorno.py; se reexportan con su nombre de siempre.
+from src.comun.entorno import env_float, env_int  # noqa: F401
 
 # Latencias recientes que se promedian (llamadas al LLM).
 RECENT_LATENCIES = 20
@@ -72,22 +74,6 @@ CHARS_PER_TOKEN = 4
 _COST_FIELDS = ("calls", "prompt_chars", "prompt_tokens_est", "num_predict", "prompt_eval_tokens",
                 "eval_tokens", "truncated")
 _CACHE_EVENTS = ("hits", "misses", "stores", "not_stored", "shared", "errors")
-
-
-def env_float(name, default):
-    try:
-        value = float(os.getenv(name, default))
-    except (TypeError, ValueError):
-        return float(default)
-    return value if value > 0 else float(default)
-
-
-def env_int(name, default):
-    try:
-        value = int(float(os.getenv(name, default)))
-    except (TypeError, ValueError):
-        return int(default)
-    return value if value > 0 else int(default)
 
 
 # ======================================================================

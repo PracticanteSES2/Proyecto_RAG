@@ -105,6 +105,23 @@ class EventoError(BaseModel):
     codigo: str
 
 
+class EventoToken(BaseModel):
+    texto: str
+
+
+class CatalogoEventosSSE(BaseModel):
+    """Datos (`data:`) de cada evento del SSE, por nombre de evento (`event:`).
+    Solo documenta el contrato en OpenAPI; el flujo es `text/event-stream`."""
+    cola: EventoCola | None = Field(default=None, description="Solo en modo diagnóstico")
+    progreso: EventoProgreso | None = None
+    espera: EventoEspera | None = None
+    token: EventoToken | None = None
+    aviso: EventoAviso | None = None
+    respuesta: Respuesta | None = None
+    error: EventoError | None = None
+    fin: dict | None = Field(default=None, description="{} — último evento")
+
+
 class Calificacion(BaseModel):
     valor: Literal["buena", "mala"]
     comentario: str | None = Field(default=None, max_length=2000,

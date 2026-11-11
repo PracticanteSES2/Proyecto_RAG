@@ -244,8 +244,9 @@ class MedGemmaProvider:
                 "done_reason": done_reason,
                 "truncated": done_reason == "length",
                 "eval_count": getattr(response, "eval_count", None),
-                # Tokens de entrada que evaluó el servidor: si es mucho menor
-                # que el prompt, num_ctx lo recortó (runtime_stats los suma).
+                # Tokens de entrada reales: calibran la estimación de
+                # src/llm/presupuesto_tokens.py (recorte contra num_ctx) y
+                # runtime_stats los suma por propósito.
                 "prompt_eval_count": getattr(response, "prompt_eval_count", None),
             }
 
