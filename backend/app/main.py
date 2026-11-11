@@ -21,6 +21,7 @@ from backend.app.core import errores
 from backend.app.core.config import Ajustes, obtener_ajustes
 from backend.app.core.registro import configurar_registro
 from backend.app.services.conversaciones import ServicioConversaciones
+from backend.app.services.documentacion import crear_servicio_documentacion
 from backend.app.services.sistema import crear_servicios, crear_trabajador
 
 LOG = logging.getLogger(__name__)
@@ -69,8 +70,9 @@ def _registrar_errores(app: FastAPI) -> None:
 
 
 def create_app(ajustes: Ajustes | None = None, redis_api=None, redis_trabajador=None, fabrica_piscina=None,
-               iniciar_motor: bool = True) -> FastAPI:
-    """`redis_*` y `fabrica_piscina` permiten inyectar fakeredis y un motor doble."""
+               iniciar_motor: bool = True, fabrica_documentacion=None) -> FastAPI:
+    """`redis_*`, `fabrica_piscina` y `fabrica_documentacion` permiten inyectar
+    fakeredis, un motor doble y un servicio de documentación con dobles."""
     ajustes = ajustes or obtener_ajustes()
     configurar_registro(ajustes.backend_log_nivel)
 
@@ -79,12 +81,14 @@ def create_app(ajustes: Ajustes | None = None, redis_api=None, redis_trabajador=
         servicios = crear_servicios(ajustes, redis_api, redis_trabajador)
         app.state.servicios = servicios
         app.state.conversaciones = ServicioConversaciones(servicios.almacen, ajustes)
+        app.state.documentacion = (fabrica_documentacion or crear_servicio_documentacion)(servicios)
         LOG.info("API lista · almacén %s · motor %s", servicios.modo, "embebido" if servicios.embebido else "externo")
         if servicios.embebido and iniciar_motor:
             _arrancar_trabajador(app, fabrica_piscina)
         try:
             yield
         finally:
+            app.state.documentacion.cerrar()
             if servicios.trabajador is not None:
                 servicios.trabajador.detener()
             await servicios.almacen.cerrar()

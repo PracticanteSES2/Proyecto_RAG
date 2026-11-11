@@ -104,3 +104,10 @@ class Huella:
                 self._valor = self._calcular()
                 self._calculada = ahora
             return self._valor
+
+    def invalidar(self) -> None:
+        """Fuerza a recalcular la huella en la próxima lectura (p. ej. tras
+        reindexar la documentación: la caché de respuestas no debe servir la
+        versión anterior durante el intervalo)."""
+        with self._candado:
+            self._valor = None
