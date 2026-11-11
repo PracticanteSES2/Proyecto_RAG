@@ -5,17 +5,19 @@ import os
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from fastapi.testclient import TestClient
 
 from backend.app.main import create_app
+from backend.app.services import eventos as eventos_sse
 from tests.backend.apoyo import ajustes_prueba
 from tests.backend.motor_doble import piscina_doble
 
 V1 = "/api/v1"
 
 
-def leer_sse(cliente, url, cabeceras=None, maximo_s=60.0, al_evento=None):
+def leer_sse(cliente, url, cabeceras=None, maximo_s=60.0):
     """Lista de {"event", "data", "id"?} hasta `fin` (o fin del flujo)."""
     eventos, actual = [], {}
     limite = time.time() + maximo_s
@@ -29,8 +31,6 @@ def leer_sse(cliente, url, cabeceras=None, maximo_s=60.0, al_evento=None):
                 if "event" in actual:
                     actual["data"] = json.loads(actual.get("data") or "{}")
                     eventos.append(actual)
-                    if al_evento:
-                        al_evento(actual)
                     if actual["event"] == "fin":
                         break
                 actual = {}
@@ -233,22 +233,30 @@ class ConcurrenciaAPI(BaseAPI):
 
     def test_turno_en_curso_cola_y_limite(self):
         """Determinista: el turno A («bloquea») retiene la única instancia del motor
-        hasta que el SSE de B (diagnóstico) recibe su primer `cola`; recién entonces
-        se abre la compuerta. Sin dependencia de tiempos."""
+        hasta que el SSE de B (diagnóstico) EMITE su primer `cola`; recién entonces
+        se abre la compuerta. Sin dependencia de tiempos.
+
+        La compuerta se abre desde el servidor (envolviendo `_Cola.eventos`), no al
+        leer el evento: el TestClient de Starlette entrega el cuerpo del SSE al
+        terminar el flujo, así que la prueba no puede reaccionar a mitad de él."""
         compuerta = self.piscina.principal.engine.compuerta
         self.addCleanup(compuerta.set)
+        original = eventos_sse._Cola.eventos
+
+        def eventos_y_abrir(cola, posicion, en_curso):
+            trozos = original(cola, posicion, en_curso)
+            if trozos:
+                compuerta.set()
+            return trozos
+
         cid_a, cid_b = self.conversacion(), self.conversacion()
         bloqueado = self.enviar(cid_a, "bloquea")
         self.enviar(cid_a, "hola", esperado=409)
         segundo = self.enviar(cid_b, "hola", diagnostico=True)
         normal = self.cliente.post(f"{V1}/conversaciones/{self.conversacion()}/turnos", json={"mensaje": "hola"},
                                    headers={"X-Cliente-Id": "navegador-prueba-3"}).json()
-
-        def abrir_al_ver_cola(evento):
-            if evento["event"] == "cola":
-                compuerta.set()
-
-        eventos_b = leer_sse(self.cliente, segundo["eventos_url"], al_evento=abrir_al_ver_cola)
+        with mock.patch.object(eventos_sse._Cola, "eventos", eventos_y_abrir):
+            eventos_b = leer_sse(self.cliente, segundo["eventos_url"])
         eventos_normal = leer_sse(self.cliente, normal["eventos_url"])
         # Modo diagnóstico: recibió su posición mientras A retenía el motor.
         cola = self.de(eventos_b, "cola")
