@@ -2,6 +2,7 @@ import inspect
 import os
 import re
 
+from src.chatbot.respuesta_en_vivo import oyente_tokens
 from src.chatbot.respuesta_completa import describir, linea_aviso
 from src.chatbot.runtime_stats import STATS
 from src.providers.powerbi_links import enlace_para_resultado
@@ -163,6 +164,14 @@ class RAGAnswerEngine:
         error = details.get("error")
         return f"MedGemma no disponible ({status}{': ' + str(error)[:120] if error else ''}): "                    "se usa el resumen extractivo"
 
+    @staticmethod
+    def _accepts(function, name):
+        try:
+            parameters = inspect.signature(function).parameters
+        except (TypeError, ValueError):
+            return False
+        return name in parameters or any(p.kind == p.VAR_KEYWORD for p in parameters.values())
+
     # Tipos de fuente cuya descripción puede ser, tal cual, la definición.
     _DIRECT_TYPES = ("measure", "documented_measure", "indicator", "calculated_column")
 
@@ -198,9 +207,11 @@ class RAGAnswerEngine:
         STATS.llm_call_avoided("extracto: síntesis RAG")
         return answer
 
-    def _synthesize_answer(self, question, results, history=None):
+    def _synthesize_answer(self, question, results, history=None, on_token=None):
         """(respuesta, modo, sin_evidencia). Si no se usa el LLM, el motivo
-        queda en self.last_synthesis_issue (lo muestra el razonamiento)."""
+        queda en self.last_synthesis_issue (lo muestra el razonamiento).
+        `on_token` (o el de `escuchar_tokens`) recibe el borrador en vivo si el
+        sintetizador lo acepta."""
         self.last_synthesis_issue = None
         self.last_synthesis = {}
         if self.answer_synthesizer is None:
@@ -215,6 +226,9 @@ class RAGAnswerEngine:
         kwargs = {"question": question, "sources": results}
         if history:
             kwargs["history"] = history
+        on_token = on_token if on_token is not None else oyente_tokens()
+        if on_token is not None and self._accepts(self.answer_synthesizer.synthesize_rag, "on_token"):
+            kwargs["on_token"] = on_token
         synthesis = self.answer_synthesizer.synthesize_rag(**kwargs)
         self.last_synthesis = synthesis if isinstance(synthesis, dict) else {}
 
@@ -239,11 +253,11 @@ class RAGAnswerEngine:
             "synthesis_mode": synthesis_mode,
         }
 
-    def _build_context_response(self, question, results, history=None, dashboard=None):
+    def _build_context_response(self, question, results, history=None, dashboard=None, on_token=None):
         if not results:
             return self._not_found_response()
 
-        answer, synthesis_mode, no_evidence = self._synthesize_answer(question, results, history)
+        answer, synthesis_mode, no_evidence = self._synthesize_answer(question, results, history, on_token)
 
         # El LLM leyó las fuentes y no halló respuesta: es «no encontrado»
         # (QueryEngine lo trata como fuera de alcance / sin evidencia).
@@ -304,14 +318,16 @@ class RAGAnswerEngine:
                     texts.extend(str(item) for item in value if isinstance(item, (str, int, float)))
         return texts
 
-    def _answer_general(self, intent_data, history=None):
+    def _answer_general(self, intent_data, history=None, on_token=None):
         question = intent_data.get("original_question") or ""
         results = self._retrieve_general_context(intent_data)
-        return self._build_context_response(question, results, history, intent_data.get("dashboard"))
+        return self._build_context_response(question, results, history, intent_data.get("dashboard"), on_token)
 
-    def answer(self, intent_data, history=None):
+    def answer(self, intent_data, history=None, on_token=None):
         """Respuesta documental. `history` (opcional): últimos turnos de la
         conversación [{"role": "user"|"assistant", "text": str, "meta": {}}];
         solo orienta la redacción (referencias, no repetir), nunca es
-        evidencia: la respuesta se respalda únicamente en lo recuperado."""
-        return self._answer_general(intent_data, history)
+        evidencia: la respuesta se respalda únicamente en lo recuperado.
+        `on_token(texto)` (opcional; si no, el de `escuchar_tokens`): borrador
+        en vivo de la redacción; la respuesta devuelta es la misma."""
+        return self._answer_general(intent_data, history, on_token)

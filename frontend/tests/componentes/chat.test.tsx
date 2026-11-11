@@ -83,10 +83,10 @@ describe("Chat (flujo completo contra un cliente falso)", () => {
     });
     montar(cliente);
     await userEvent.type(screen.getByLabelText("Escribe tu pregunta"), "egresos{Enter}");
-    expect(await screen.findByText(/Hay muchas consultas en este momento/)).toBeInTheDocument();
+    expect(await screen.findByText(/No pude recibir tu pregunta en este momento/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
     await waitFor(() => expect(cliente.eventosTurno).toHaveBeenCalledWith("t2", expect.anything()));
-    expect(screen.queryByText(/Hay muchas consultas/)).toBeNull();
+    expect(screen.queryByText(/No pude recibir tu pregunta/)).toBeNull();
     expect(screen.getAllByText("egresos")).toHaveLength(1);
   });
 

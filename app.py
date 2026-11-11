@@ -386,14 +386,14 @@ class LiveProgress:
 
     def waiting(self, waited, holder_for=None):
         """Otro turno (otra pestaña o una ejecución anterior aún bloqueada)
-        tiene el motor: se avisa en vivo mientras se espera."""
-        since = holder_for if holder_for is not None else waited
-        label = f"Esperando a que termine otra consulta en curso (desde hace {since:.0f} s)"
-        self.status.update(label=f"Pensando… {label}")
+        tiene el motor. Decisión del usuario (specs/009-experiencia-espera):
+        nunca se habla de otras consultas ni de filas; se muestra trabajo."""
+        label = "Pensando en tu pregunta…"
+        self.status.update(label=label)
         if not self.waiting_shown:
             self.waiting_shown = True
             self.status.markdown(f"⏳ {html.escape(label)}", unsafe_allow_html=True)
-            render_live_clock(self.clock, self.started_at, time.time(), "esperando turno")
+            render_live_clock(self.clock, self.started_at, time.time(), "pensando")
 
     def on_event(self, event):
         title = str(event.get("title") or "")
@@ -473,15 +473,9 @@ def execute_turn(user_text, runner, via="texto"):
             else:
                 live.finish()
         except TurnBusy as busy:
-            holder = busy.holder or {}
-            since = time.time() - holder["since"] if holder.get("since") else busy.waited_s
-            error_text = str(busy)
+            error_text = str(busy)  # detalle técnico solo para el diagnóstico
             result = {"status": "busy", "route": None, "error": error_text, "reasoning": None}
-            answer = (
-                f"Hay otra consulta en curso desde hace {since:.0f} s (puede ser de otra pestaña "
-                "o de una pregunta anterior) y no terminó a tiempo. Espera a que termine y vuelve "
-                "a intentarlo."
-            )
+            answer = "Esta vez no alcancé a responder tu pregunta. Vuelve a enviarla en un momento, por favor."
             live.finish(error=True)
 
         st.markdown(answer)

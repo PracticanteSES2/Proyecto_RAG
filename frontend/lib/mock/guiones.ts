@@ -4,9 +4,12 @@
  * Palabras clave para probar cada caso desde el chat:
  *   «hola», «gracias»          → saludo instantáneo (el indicador nunca llega a verse)
  *   «ocupación», «cuál»        → contrapregunta con opciones
- *   «qué es», «documentación»  → respuesta documental degradada + evento `aviso`
- *   «cola»                     → eventos `cola` antes de empezar
- *   «lento»                    → esperas largas con eventos `espera` del servidor
+ *   «qué es», «explica»        → respuesta documental que aparece de a poco (eventos `token`)
+ *   «salvaguarda»              → streaming cuyo borrador trae una cifra sin respaldo: la final la quita (fundido)
+ *   «documentación»            → respuesta documental extractiva + `aviso` con la nota neutra
+ *   «cola»                     → espera larga por carga: eventos `cola` (solo diagnóstico) y, a la vista,
+ *                                 solo trabajo sobre la pregunta (rotación de frases y espera tranquila)
+ *   «lento»                    → esperas largas con eventos `espera` del servidor y rotación de frases
  *   «respaldo»                 → espera larga SIN eventos `espera` (frases generadas por el cliente)
  *   «error»                    → evento `error`
  *   «429»                      → POST /turnos responde 429 (lo decide la ruta, ver `debeSaturar`)
@@ -15,16 +18,19 @@
 import type { EventoTurno } from "@/lib/api/tipos";
 import {
   armar,
+  AVISO_EXTRACTIVO,
   diagnosticoDe,
   espera,
   normalizar,
   progreso,
   respuestaBase,
+  rotaciones,
   TABLA_EGRESOS,
   type EntradaGuion,
   type Paso,
   type PasoGuion,
 } from "./contenido";
+import { guionStreaming } from "./guionStreaming";
 
 export type { EntradaGuion, PasoGuion } from "./contenido";
 
@@ -134,7 +140,11 @@ export function guionPara(entrada: EntradaGuion): PasoGuion[] {
     ]);
   }
 
-  if (tiene("que es", "documentacion", "definicion", "explica")) {
+  if (!tiene("documentacion") && tiene("que es", "definicion", "explica", "salvaguarda")) {
+    return guionStreaming(entrada, tiene("salvaguarda"));
+  }
+
+  if (tiene("documentacion")) {
     const pasos: Paso[] = [
       progreso(50, "entendiendo"),
       progreso(1000, "revisando_documentacion"),
@@ -157,15 +167,7 @@ export function guionPara(entrada: EntradaGuion): PasoGuion[] {
           diagnostico: diagnosticoDe(entrada, "rag", pasos),
         }),
       ],
-      [
-        4250,
-        "aviso",
-        {
-          motivo: "sin_redaccion",
-          texto:
-            "Hay mucha demanda en este momento: te muestro los fragmentos de la documentación tal como están, sin redactarlos.",
-        },
-      ],
+      [4250, "aviso", { motivo: "saturado", texto: AVISO_EXTRACTIVO }],
       [4270, "fin", {}],
     ]);
   }
@@ -173,25 +175,31 @@ export function guionPara(entrada: EntradaGuion): PasoGuion[] {
   let desfase = 0;
   const previos: Paso[] = [];
   if (tiene("cola")) {
-    previos.push(
-      [30, "cola", { posicion: 3, en_curso: 1 }],
-      [2500, "cola", { posicion: 2, en_curso: 1 }],
-      [5000, "cola", { posicion: 1, en_curso: 1 }],
-    );
-    desfase = 7000;
+    // Espera por carga. Como el backend: `cola` solo llega con diagnóstico; a la vista, trabajo sobre la pregunta.
+    desfase = 12000;
+    const colas: Paso[] = entrada.diagnostico
+      ? [
+          [30, "cola", { posicion: 3, en_curso: 3 }],
+          [4000, "cola", { posicion: 2, en_curso: 3 }],
+          [8000, "cola", { posicion: 1, en_curso: 3 }],
+        ]
+      : [];
+    previos.push(progreso(20, "entendiendo"), ...colas, ...rotaciones(20, desfase, "entendiendo"), espera(10000, 1));
   }
   const lento = tiene("lento");
   const respaldo = tiene("respaldo");
   const escala = lento ? 5.5 : respaldo ? 2.6 : 1;
   const pasos: Paso[] = [
-    progreso(desfase + 40, "entendiendo"),
+    ...(desfase ? [] : [progreso(40, "entendiendo")]),
     progreso(desfase + 1200 * escala, "buscando_indicador"),
     progreso(desfase + 2200 * escala, "conectando_powerbi"),
     progreso(desfase + 3000 * escala, "consultando_powerbi"),
     progreso(desfase + 4600 * escala, "redactando"),
     progreso(desfase + 5400 * escala, "finalizando"),
   ];
-  const esperas: Paso[] = lento ? [espera(10000, 1), espera(25000, 2)] : [];
+  const esperas: Paso[] = lento
+    ? [espera(10000, 1), espera(25000, 2), ...rotaciones(3000 * escala, 4600 * escala, "consultando_powerbi")]
+    : [];
   const fin = desfase + 5800 * escala;
   return armar([
     ...previos,

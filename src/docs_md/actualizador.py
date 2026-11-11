@@ -626,7 +626,7 @@ def _mensaje_fallo(respuesta: dict) -> str:
         return (f"MedGemma no respondió en {TIMEOUT_LLM:.0f} s. El servidor puede estar ocupado o apagado; "
                 "intente de nuevo en unos minutos.")
     if estado == "llm_saturated":
-        return "MedGemma está ocupado con otras consultas en este momento; intente de nuevo en unos segundos."
+        return "MedGemma no alcanzó a revisar la propuesta esta vez; intente de nuevo en unos segundos."
     if estado == "empty_response":
         return "MedGemma devolvió una respuesta vacía."
     detalle = respuesta.get("error") or estado or "sin detalle"

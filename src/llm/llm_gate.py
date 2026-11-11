@@ -45,7 +45,8 @@ En FastAPI la llamada al LLM corre en un hilo del threadpool: abre
 `queue_state(ident=None)` → {"capacity", "in_flight", "waiting", "position",
 "ahead"} de la fila de MedGemma para el hilo `ident` (por defecto el actual).
 `position` 1 = la siguiente en entrar, None = ese hilo no espera; `ahead` =
-in_flight + position - 1 («hay N consultas antes que la tuya»). También en
+in_flight + position - 1 (solo para el modo diagnóstico: la interfaz normal
+nunca habla de filas ni de otras consultas). También en
 `runtime_stats.queue_snapshot()["llm"]`.
 
 `ui_progress(on_queue=None, queue_wait=None)` — gestor de contexto que la UI
@@ -58,7 +59,7 @@ Dentro, las llamadas SIN `queue_wait` explícito (síntesis RAG, descripción de
 opciones si corre en ese hilo) esperan hueco hasta `queue_wait` o
 MEDGEMMA_QUEUE_WAIT_UI (30 s) en lugar de MEDGEMMA_QUEUE_WAIT (3 s), y esa
 espera NO le resta presupuesto a la generación (recibe su `timeout` completo:
-el usuario está viendo su posición). Las que pasan `queue_wait` explícito
+la interfaz muestra que trabaja en la pregunta). Las que pasan `queue_wait` explícito
 (reescritura contextual, intención LLM: 1 s, son opcionales) no cambian.
 `on_queue(evento)` se llama en el MISMO hilo que abrió el contexto (el de la
 sesión de Streamlit; nunca desde hilos auxiliares) mientras espera, cada
@@ -245,6 +246,32 @@ def _accepted_kwargs(provider, kwargs):
     return {key: value for key, value in kwargs.items() if key in params}
 
 
+def _with_tokens(provider, call_kwargs, on_token, box):
+    """Streaming opcional: si hay `on_token` y el proveedor acepta `stream` y
+    `on_token` (MedGemmaProvider), se le pide streaming con un reenvío
+    protegido: si `on_token` lanza se ignora, y tras abandonar la llamada por
+    tiempo (`box["abandoned"]`) ya no se reenvía nada. Si el proveedor no los
+    acepta, la llamada es la de siempre (sin tokens)."""
+    if not callable(on_token):
+        return call_kwargs
+    accepted = _accepted_kwargs(provider, dict(call_kwargs, stream=True, on_token=on_token))
+    if "stream" not in accepted or "on_token" not in accepted:
+        return call_kwargs
+
+    def forward(text):
+        # Bajo el candado del abandono: ningún token llega después del
+        # llm_timeout (el reenvío debe ser rápido, p. ej. poner en una cola).
+        with _ABANDON_LOCK:
+            if box.get("abandoned"):
+                return
+            try:
+                on_token(text)
+            except Exception:  # la vista en vivo nunca tumba la llamada
+                LOG.debug("on_token falló; la llamada sigue", exc_info=True)
+
+    return dict(call_kwargs, stream=True, on_token=forward)
+
+
 _OBSERVERS = []
 
 
@@ -303,7 +330,11 @@ def call_llm(provider, messages, purpose="otro", timeout=None, queue_wait=None, 
 
     Si el proveedor declara `enforces_timeout = True` (MedGemmaProvider) recibe
     `timeout` y lo aplica él (cierra la conexión al vencer). Si no, se espera
-    en un hilo y, al vencer, la llamada queda abandonada (como antes)."""
+    en un hilo y, al vencer, la llamada queda abandonada (como antes).
+
+    `on_token(texto)` (opcional): streaming de la respuesta (ver `_with_tokens`).
+    No cambia el contrato: nunca lanza, mismos status, mismo tiempo límite, y
+    el dict devuelto trae el texto completo."""
     progress = _PROGRESS.get()
     ui_mode = progress is not None and queue_wait is None
     started = time.perf_counter()
@@ -357,6 +388,7 @@ def call_llm(provider, messages, purpose="otro", timeout=None, queue_wait=None, 
             ),
         }
 
+    on_token = kwargs.pop("on_token", None)
     call_kwargs = dict(kwargs, messages=messages)
     if not timeout:
         budget = None
@@ -367,11 +399,11 @@ def call_llm(provider, messages, purpose="otro", timeout=None, queue_wait=None, 
     native = bool(getattr(provider, "enforces_timeout", False))
     if budget is not None and native:
         call_kwargs["timeout"] = budget
-    call_kwargs = _accepted_kwargs(provider, call_kwargs)
+    box = {}
+    call_kwargs = _with_tokens(provider, _accepted_kwargs(provider, call_kwargs), on_token, box)
     STATS.llm_payload(purpose, messages, kwargs.get("max_tokens"))
     STATS.llm_begin(purpose)
     call_started = time.perf_counter()
-    box = {}
 
     def run():
         status = "llm_error"

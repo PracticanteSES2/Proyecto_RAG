@@ -66,7 +66,8 @@ describe("MensajeAsistente", () => {
   it("429: aviso amable con Reintentar y sin jerga", async () => {
     const alReintentar = vi.fn();
     render(<MensajeAsistente {...props} alReintentar={alReintentar} mensaje={mensaje([{ tipo: "saturado" }])} />);
-    expect(screen.getByText(/Hay muchas consultas en este momento/)).toBeInTheDocument();
+    expect(screen.getByText(/No pude recibir tu pregunta en este momento/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/consultas|fila|cola/i);
     await userEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
     expect(alReintentar).toHaveBeenCalled();
   });

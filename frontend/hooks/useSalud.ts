@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { ClienteApi } from "@/lib/api/cliente";
+import { iniciarSondeo } from "@/lib/sondeo";
 
 export type EstadoSalud = "desconocido" | "ok" | "caido";
 
@@ -16,10 +17,11 @@ export function useSalud(cliente: ClienteApi) {
   const [estado, setEstado] = useState<EstadoSalud>("desconocido");
   const [ciclo, setCiclo] = useState(0);
 
+  // El ciclo vive en lib/sondeo.ts: el efecto devuelve su `cancelar`, que limpia el temporizador pendiente y
+  // descarta la respuesta en vuelo al desmontar o al reiniciar con `verificar()`.
   useEffect(() => {
     let vigente = true;
-    let temporizador: ReturnType<typeof setTimeout>;
-    const comprobar = async () => {
+    const cancelar = iniciarSondeo(async () => {
       let nuevo: EstadoSalud;
       try {
         await cliente.salud();
@@ -27,14 +29,12 @@ export function useSalud(cliente: ClienteApi) {
       } catch {
         nuevo = "caido";
       }
-      if (!vigente) return;
-      setEstado(nuevo);
-      temporizador = setTimeout(comprobar, nuevo === "ok" ? CADA_MS_OK : CADA_MS_CAIDO);
-    };
-    temporizador = setTimeout(comprobar, 0);
+      if (vigente) setEstado(nuevo);
+      return nuevo === "ok" ? CADA_MS_OK : CADA_MS_CAIDO;
+    });
     return () => {
       vigente = false;
-      clearTimeout(temporizador);
+      cancelar();
     };
   }, [cliente, ciclo]);
 

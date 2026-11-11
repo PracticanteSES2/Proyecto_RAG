@@ -23,9 +23,10 @@ Cada evento lleva `id:` incremental (para `Last-Event-ID`), `event:` y `data:` J
 
 | Evento | Datos |
 |---|---|
-| `cola` | `{posicion, en_curso}` |
-| `progreso` | `{etapa, frase, t}` — etapas: entendiendo, buscando_indicador, preparando_opciones, conectando_powerbi, consultando_powerbi, revisando_documentacion, redactando, en_cola, finalizando |
+| `cola` | `{posicion, en_curso}` — **solo modo diagnóstico**; nunca se convierte en texto (specs/009-experiencia-espera) |
+| `progreso` | `{etapa, frase, t}` — etapas: entendiendo, buscando_indicador, preparando_opciones, conectando_powerbi, consultando_powerbi, revisando_documentacion, redactando, finalizando (puede repetirse la etapa con otra frase: rotación) |
 | `espera` | `{nivel, frase, t}` |
+| `token` | `{texto}` — fragmento de la redacción en vivo; se añade al borrador y `respuesta` lo reemplaza |
 | `respuesta` | `{turno_id, texto_markdown, ruta, fuentes: [{titulo, tablero?, pagina?}], enlaces_powerbi: [{titulo, url}], contrapregunta?: {pregunta, opciones: [{id, texto, descripcion?}]}, degradada, aviso?, diagnostico?}` |
 | `aviso` | `{motivo: "saturado"\|"sin_redaccion", texto}` (puede llegar tras `respuesta`) |
 | `error` | `{mensaje, codigo}` |

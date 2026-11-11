@@ -1,4 +1,5 @@
 """Pruebas del progreso del turno (src/chatbot/progreso.py): lógica pura, sin interfaz."""
+import itertools
 import json
 import random
 import re
@@ -8,12 +9,15 @@ from src.chatbot import progreso
 from src.chatbot.progreso import (
     ETAPAS,
     FRASES,
+    ROTACION_S,
+    SEGUIMIENTO,
     UMBRALES_ESPERA,
     SelectorFrases,
     TraductorProgreso,
     aviso_degradacion,
     etapa_de_evento,
     evento_cola,
+    evento_token,
     frase_espera,
     leer_carga_llm,
     nivel_espera,
@@ -21,7 +25,7 @@ from src.chatbot.progreso import (
 from src.chatbot.reasoning_trace import ReasoningTrace
 
 # Títulos de actividad que emite hoy el motor (query_engine, powerbi_provider)
-# y los ganchos reservados («LLM en cola», «Redactando»).
+# y el gancho reservado «Redactando».
 ACTIVIDADES = {
     "Interpretando la pregunta": "entendiendo",
     "Interpretando la pregunta con MedGemma (intención estructurada)": "entendiendo",
@@ -36,20 +40,26 @@ ACTIVIDADES = {
     "Abriendo conexión con Power BI (modelo X). Si en el servidor aparece una ventana de inicio de sesión, complétala.": "conectando_powerbi",
     "Reabriendo conexión con Power BI (modelo X). Si en el servidor aparece una ventana de inicio de sesión, complétala.": "conectando_powerbi",
     "Buscando en la documentación y redactando la respuesta con MedGemma": "revisando_documentacion",
-    "LLM en cola": "en_cola",
     "Redactando la respuesta": "redactando",
 }
 
 TECNICOS = ("medgemma", "dax", "query plan", "modelo sem", "llm", "ollama", "rag", "pasos")
 
+# Decisión del usuario: la espera nunca habla de otros, de filas ni de carga.
+VOCABULARIO_DE_COLA = re.compile(
+    r"\b(colas?|filas?|turnos?|posici[oó]n|ocupad\w*|saturad\w*|servidor\w*|en curso|"
+    r"otras? consultas?|muchas consultas|varias consultas|usuarios?|personas?|antes que la tuya)\b",
+    re.IGNORECASE,
+)
+
 
 def _textos_visibles():
     textos = [frase for variantes in FRASES.values() for frase in variantes]
+    textos += [frase for variantes in SEGUIMIENTO.values() for frase in variantes]
     for etapa in ETAPAS:
-        for ocupado in (False, True):
-            for nivel in range(1, len(UMBRALES_ESPERA) + 1):
-                textos.append(frase_espera(nivel, etapa, {"ocupado": ocupado}))
-    textos += [progreso.AVISO_SATURADO, progreso.AVISO_SIN_REDACCION]
+        for nivel in range(1, len(UMBRALES_ESPERA) + 1):
+            textos.append(frase_espera(nivel, etapa))
+    textos += [progreso.AVISO_EXTRACTIVO]
     return textos
 
 
@@ -66,15 +76,34 @@ class TestEtapas(unittest.TestCase):
         self.assertIsNone(etapa_de_evento(None))
         self.assertIsNone(etapa_de_evento({"kind": "activity", "title": "algo que no existe"}))
 
+    def test_esperar_hueco_del_llm_no_cambia_la_etapa(self):
+        # «LLM en cola…» (llm_gate.add_queue_observer) es diagnóstico: el usuario
+        # sigue viendo la etapa de trabajo sobre SU pregunta.
+        for titulo in ("LLM en cola", "LLM en cola: posición 2, 3 en curso", "LLM en cola: entró tras 4.0 s"):
+            self.assertIsNone(etapa_de_evento({"kind": "activity", "title": titulo}))
+
     def test_catalogo_de_etapas(self):
         for etapa in ("entendiendo", "buscando_indicador", "consultando_powerbi",
-                      "revisando_documentacion", "en_cola", "redactando", "finalizando"):
+                      "revisando_documentacion", "redactando", "finalizando"):
             self.assertIn(etapa, ETAPAS)
+        self.assertNotIn("en_cola", ETAPAS)
 
-    def test_cada_etapa_tiene_al_menos_tres_variantes(self):
+    def test_cada_etapa_tiene_al_menos_tres_variantes_y_seguimiento(self):
         for etapa in ETAPAS:
             with self.subTest(etapa=etapa):
                 self.assertGreaterEqual(len(set(FRASES[etapa])), 3)
+                self.assertGreaterEqual(len(set(SEGUIMIENTO[etapa])), 2)
+                self.assertFalse(set(SEGUIMIENTO[etapa]) & set(FRASES[etapa]))
+
+    def test_textos_visibles_nunca_hablan_de_colas_ni_de_otros(self):
+        for texto in _textos_visibles():
+            with self.subTest(texto=texto):
+                self.assertIsNone(VOCABULARIO_DE_COLA.search(texto))
+
+    def test_la_espera_del_llm_suena_a_trabajo_sobre_la_pregunta(self):
+        seguimiento = " ".join(SEGUIMIENTO["revisando_documentacion"])
+        for frase in ("Revisando los datos que encontré", "Organizando la respuesta", "Redactando la respuesta"):
+            self.assertIn(frase, seguimiento)
 
     def test_textos_visibles_sin_digitos_ni_tecnicismos(self):
         for texto in _textos_visibles():
@@ -132,16 +161,16 @@ class TestEsperas(unittest.TestCase):
         self.assertEqual(nivel_espera(segundo + 1), 2)
         self.assertEqual(nivel_espera(10_000), len(UMBRALES_ESPERA))
 
-    def test_nivel_dos_segun_etapa_y_carga(self):
+    def test_nivel_dos_segun_etapa(self):
         self.assertIn("Power BI", frase_espera(2, "consultando_powerbi"))
         self.assertEqual(frase_espera(2, "conectando_powerbi"), frase_espera(2, "consultando_powerbi"))
-        self.assertIn("fila", frase_espera(2, "revisando_documentacion", {"ocupado": True}))
-        self.assertNotIn("fila", frase_espera(2, "revisando_documentacion", {"ocupado": False}))
-        self.assertNotIn("fila", frase_espera(2, "buscando_indicador", {"ocupado": True}))  # sin LLM
-        self.assertIn("otra consulta", frase_espera(2, "en_cola"))
+        self.assertIn("ya casi la tengo", frase_espera(2, "revisando_documentacion"))
+        self.assertNotIn("Power BI", frase_espera(2, "revisando_documentacion"))
 
-    def test_nivel_tres_pide_no_reenviar(self):
-        self.assertIn("volver a enviar", frase_espera(3, "buscando_indicador"))
+    def test_esperas_tranquilizan_hablando_de_la_pregunta(self):
+        self.assertEqual(frase_espera(1, "revisando_documentacion"), "Sigo trabajando en tu pregunta…")
+        self.assertIn("volver a enviarla", frase_espera(3, "buscando_indicador"))
+        self.assertIn("sigo en ello", frase_espera(4, "entendiendo"))
 
 
 class _StatsFalso:
@@ -190,15 +219,15 @@ class TestAvisoDegradacion(unittest.TestCase):
             "reasoning": {"steps": [{"title": "Búsqueda en la documentación (RAG)", "lines": list(lineas)}]},
         }
 
-    def test_extractiva_por_saturacion(self):
+    def test_extractiva_por_saturacion_nota_neutra(self):
         aviso = aviso_degradacion(self._rag("MedGemma estaba saturado (sin hueco libre): se usa el resumen extractivo"))
-        self.assertEqual(aviso["motivo"], "saturado")
-        self.assertIn("muchas consultas a la vez", aviso["texto"])
+        self.assertEqual(aviso["motivo"], "saturado")  # solo para el modo diagnóstico
+        self.assertEqual(aviso["texto"], "Te muestro lo que dice la documentación.")
 
-    def test_extractiva_por_otro_motivo(self):
+    def test_extractiva_por_otro_motivo_misma_nota(self):
         aviso = aviso_degradacion(self._rag("MedGemma no respondió en 60 s (se cortó la llamada)"))
         self.assertEqual(aviso["motivo"], "sin_redaccion")
-        self.assertIn("no pude redactar", aviso["texto"])
+        self.assertEqual(aviso["texto"], progreso.AVISO_EXTRACTIVO)
 
     def test_respuesta_normal_sin_aviso(self):
         self.assertIsNone(aviso_degradacion({"status": "success", "route": "rag", "synthesis_mode": "llm"}))
@@ -220,13 +249,18 @@ class _Reloj:
         return self.ahora
 
 
-def _traductor(carga=None):
+def _traductor():
     reloj = _Reloj()
-    traductor = TraductorProgreso(
-        recientes=[], reloj=reloj, rng=random.Random(0),
-        carga=(lambda: carga) if carga is not None else (lambda: {"ocupado": False}),
-    )
+    traductor = TraductorProgreso(recientes=[], reloj=reloj, rng=random.Random(0))
     return traductor, reloj
+
+
+def _esperas(eventos):
+    return [e for e in eventos if e["evento"] == "espera"]
+
+
+def _progresos(eventos):
+    return [e for e in eventos if e["evento"] == "progreso"]
 
 
 class TestTraductor(unittest.TestCase):
@@ -263,15 +297,21 @@ class TestTraductor(unittest.TestCase):
         segunda = traductor.traducir({"kind": "activity", "title": "Consultando Power BI (B)"})[0]["datos"]["frase"]
         self.assertNotEqual(primera, segunda)
 
-    def test_esperando_turno_y_cola(self):
+    def test_esperando_turno_no_cambia_la_etapa_y_solo_emite_cola(self):
         traductor, _ = _traductor()
         traductor.iniciar()
         eventos = traductor.esperando_turno(posicion=2, en_curso=1)
-        self.assertEqual([e["evento"] for e in eventos], ["progreso", "cola"])
-        self.assertEqual(eventos[0]["datos"]["etapa"], "en_cola")
-        self.assertEqual(eventos[1]["datos"], {"posicion": 2, "en_curso": 1})
-        # Siguiente aviso de espera: solo la cola (la etapa ya se dijo).
+        # La etapa visible sigue siendo de trabajo; `cola` es solo para diagnóstico.
+        self.assertEqual([e["evento"] for e in eventos], ["cola"])
+        self.assertEqual(eventos[0]["datos"], {"posicion": 2, "en_curso": 1})
+        self.assertEqual(traductor.etapa, "entendiendo")
         self.assertEqual([e["evento"] for e in traductor.esperando_turno(1, 1)], ["cola"])
+
+    def test_esperando_turno_antes_de_iniciar_muestra_entendiendo(self):
+        traductor, _ = _traductor()
+        eventos = traductor.esperando_turno(1, 1)
+        self.assertEqual([e["evento"] for e in eventos], ["progreso", "cola"])
+        self.assertEqual(eventos[0]["datos"]["etapa"], "entendiendo")
 
     def test_evento_cola_sin_negativos(self):
         self.assertEqual(evento_cola(-1, None)["datos"], {"posicion": 0, "en_curso": 0})
@@ -281,23 +321,63 @@ class TestTraductor(unittest.TestCase):
         traductor.iniciar()
         self.assertEqual(traductor.tic(), [])
         reloj.ahora += UMBRALES_ESPERA[0][0]
-        eventos = traductor.tic()
+        eventos = _esperas(traductor.tic())
         self.assertEqual([(e["evento"], e["datos"]["nivel"]) for e in eventos], [("espera", 1)])
         self.assertEqual(set(eventos[0]["datos"]), {"nivel", "frase", "t"})
-        self.assertEqual(traductor.tic(), [])  # mismo nivel: nada nuevo
+        self.assertEqual(_esperas(traductor.tic()), [])  # mismo nivel: nada nuevo
 
     def test_tic_atrasado_emite_solo_el_nivel_mas_alto(self):
         traductor, reloj = _traductor()
         traductor.iniciar()
         reloj.ahora += UMBRALES_ESPERA[2][0] + 1
-        eventos = traductor.tic()
+        eventos = _esperas(traductor.tic())
         self.assertEqual([e["datos"]["nivel"] for e in eventos], [3])
 
-    def test_tic_nivel_dos_con_carga_ocupada_habla_de_fila(self):
-        traductor, reloj = _traductor(carga={"ocupado": True})
+    def test_rotacion_lenta_de_frases_en_la_misma_etapa(self):
+        traductor, reloj = _traductor()
         traductor.traducir({"kind": "activity", "title": "Buscando en la documentación y redactando la respuesta con MedGemma"})
+        reloj.ahora += ROTACION_S - 0.5
+        self.assertEqual(_progresos(traductor.tic()), [])  # todavía no
+        frases = []
+        for _ in range(len(SEGUIMIENTO["revisando_documentacion"]) + 2):
+            reloj.ahora += ROTACION_S
+            rotacion = _progresos(traductor.tic())
+            self.assertEqual(len(rotacion), 1)
+            self.assertEqual(set(rotacion[0]["datos"]), {"etapa", "frase", "t"})
+            self.assertEqual(rotacion[0]["datos"]["etapa"], "revisando_documentacion")
+            frases.append(rotacion[0]["datos"]["frase"])
+        # En orden de avance, sin repetir la frase anterior, y cíclica.
+        largo = len(SEGUIMIENTO["revisando_documentacion"])
+        self.assertEqual(frases[:largo], list(SEGUIMIENTO["revisando_documentacion"]))
+        self.assertTrue(all(a != b for a, b in itertools.pairwise(frases)))
+
+    def test_cambio_de_etapa_reinicia_la_rotacion(self):
+        traductor, reloj = _traductor()
+        traductor.iniciar()
+        reloj.ahora += ROTACION_S - 1
+        traductor.traducir({"kind": "activity", "title": "Consultando Power BI (A)"})
+        reloj.ahora += 2
+        self.assertEqual(_progresos(traductor.tic()), [])
+
+    def test_espera_del_llm_mantiene_la_etapa_y_rota(self):
+        traductor, reloj = _traductor()
+        traductor.traducir({"kind": "activity", "title": "Buscando en la documentación y redactando la respuesta con MedGemma"})
+        self.assertEqual(traductor.traducir({"kind": "activity", "title": "LLM en cola: posición 3, 3 en curso"}), [])
         reloj.ahora += UMBRALES_ESPERA[1][0]
-        self.assertIn("fila", traductor.tic()[0]["datos"]["frase"])
+        eventos = traductor.tic()
+        texto = json.dumps(eventos, ensure_ascii=False)
+        self.assertIsNone(VOCABULARIO_DE_COLA.search(texto))
+        self.assertEqual(_esperas(eventos)[0]["datos"]["nivel"], 2)
+
+    def test_token_emite_evento_y_silencia_las_esperas(self):
+        traductor, reloj = _traductor()
+        traductor.iniciar()
+        self.assertEqual(traductor.token(""), [])
+        eventos = traductor.token("El indicador")
+        self.assertEqual(eventos, [{"evento": "token", "datos": {"texto": "El indicador"}}])
+        self.assertEqual(evento_token(" mide")["datos"], {"texto": " mide"})
+        reloj.ahora += 100
+        self.assertEqual(traductor.tic(), [])  # la respuesta visible ya es el avance
 
     def test_finalizar_y_aviso(self):
         traductor, _ = _traductor()
@@ -314,26 +394,16 @@ class TestTraductor(unittest.TestCase):
         for titulo in ACTIVIDADES:
             eventos += traductor.traducir({"kind": "activity", "title": titulo})
         reloj.ahora += 100
-        eventos += traductor.tic() + traductor.finalizar()
+        eventos += traductor.tic() + traductor.finalizar() + traductor.token("Hola")
         eventos += traductor.aviso({"status": "success", "route": "rag", "synthesis_mode": "extractive"})
         self.assertEqual(json.loads(json.dumps(eventos, ensure_ascii=False)), eventos)
         for sobre in eventos:
-            self.assertIn(sobre["evento"], ("progreso", "espera", "cola", "aviso"))
+            self.assertIn(sobre["evento"], ("progreso", "espera", "cola", "aviso", "token"))
 
     def test_evento_malformado_no_lanza(self):
         traductor, _ = _traductor()
         self.assertEqual(traductor.traducir("no es un dict"), [])
         self.assertEqual(traductor.traducir({"kind": "activity", "title": None}), [])
-
-    def test_carga_que_lanza_no_tumba(self):
-        def rota():
-            raise RuntimeError("boom")
-
-        reloj = _Reloj()
-        traductor = TraductorProgreso(reloj=reloj, rng=random.Random(0), carga=rota)
-        traductor.traducir({"kind": "activity", "title": "Interpretando la pregunta"})
-        reloj.ahora += UMBRALES_ESPERA[1][0]
-        self.assertEqual(traductor.tic()[0]["datos"]["nivel"], 2)
 
     def test_con_la_traza_real_del_motor(self):
         # El listener del motor (ReasoningTrace) alimenta al traductor.
