@@ -54,7 +54,7 @@ Power BI y su estado; queda desactivado por defecto hasta validarlo con `tools/c
 | Clave | Tipo | Contenido | TTL |
 |---|---|---|---|
 | `rag:cola:turnos` | Stream + grupo `motores` | `{turno_id}` | recortado (MAXLEN ~10000) |
-| `rag:cola:espera` | ZSET | turno_id → ms de encolado (posición = ZRANK+1) | — (se limpia al tomar) |
+| `rag:cola:espera` | ZSET | turno_id → número de llegada (`INCR rag:cola:llegadas`; posición = ZRANK+1) | — (se limpia al tomar) |
 | `rag:cola:en_curso` | ZSET | turno_id → ms de inicio | — (se limpia al terminar; huérfanos > `TURNO_MAX_S`) |
 | `rag:turno:{id}` | HASH | conversación, mensaje/opción, diagnóstico, estado, tiempos, respuesta (JSON), snapshot (JSON), calificación | `TURNO_TTL_S` (24 h) |
 | `rag:turno:{id}:eventos` | Stream | `{evento, datos}`; el id del stream es el `id:` del SSE | `EVENTOS_TTL_S` (1 h tras `fin`) |

@@ -17,6 +17,11 @@ class Claves:
         return f"{self.p}:cola:espera"
 
     @property
+    def llegadas(self) -> str:
+        """Contador (INCR) del orden de llegada a la fila."""
+        return f"{self.p}:cola:llegadas"
+
+    @property
     def en_curso(self) -> str:
         return f"{self.p}:cola:en_curso"
 

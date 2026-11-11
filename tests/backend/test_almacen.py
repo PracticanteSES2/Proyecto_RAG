@@ -71,6 +71,18 @@ class ContratoAlmacen:
         self.assertIsNone((await api.conversacion("c1"))["turno_activo"])
         self.assertEqual(await api.resumen_cola(), {"en_espera": 1, "en_curso": 0})
 
+    async def test_fifo_con_turnos_del_mismo_milisegundo(self):
+        """Regresión: dos turnos encolados en el mismo milisegundo empataban en el
+        ZSET de espera y el desempate por id (aleatorio) rompía el orden FIFO."""
+        if self.modo == "memoria":
+            self.api._reloj = lambda: 1000.0  # todos en el mismo instante
+        turnos = [turno_nuevo("c1", creado_ms=1_000_000) for _ in range(8)]
+        for turno in turnos:
+            self.assertTrue(await self.api.encolar_turno(turno, cola_max=20, ttl_s=60))
+        posiciones = [await self.api.posicion(t["turno_id"]) for t in turnos]
+        self.assertEqual(posiciones, [(n, 0) for n in range(1, 9)])
+        self.assertEqual(self.trabajador.tomar_turno("w1", 100)["turno_id"], turnos[0]["turno_id"])
+
     async def test_cola_llena(self):
         self.assertTrue(await self.api.encolar_turno(turno_nuevo("c1"), cola_max=1, ttl_s=60))
         self.assertFalse(await self.api.encolar_turno(turno_nuevo("c1"), cola_max=1, ttl_s=60))
