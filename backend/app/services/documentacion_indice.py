@@ -33,7 +33,7 @@ class IndiceNoDisponible(Exception):
 
 
 def _reindexar_real(source_group, qdrant_client=None, **opciones) -> dict:
-    from src.docs_md.indexacion import reindexar_grupo
+    from src.catalogo.indexacion import reindexar_grupo
 
     return reindexar_grupo(source_group, qdrant_client, **opciones)
 
