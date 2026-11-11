@@ -11,6 +11,7 @@ Ejecutar: python -X utf8 -m unittest tests.streaming.test_sintesis_stream
 import inspect
 import unittest
 
+from src.chatbot import cache_llm
 from src.chatbot.answer_synthesizer import NO_EVIDENCE_ANSWER, AnswerSynthesizer
 from src.chatbot.rag_answer_engine import RAGAnswerEngine
 from src.chatbot.respuesta_en_vivo import (
@@ -37,6 +38,7 @@ class _ProveedorStream:
     """LLM falso con la firma de MedGemmaProvider (stream + on_token)."""
 
     enforces_timeout = True
+    model = "medgemma-falso"  # clave estable de la caché del motor (src/chatbot/cache_llm.py)
 
     def __init__(self, answer=RESPUESTA):
         self.answer = answer
@@ -139,16 +141,40 @@ class TestConTokens(unittest.TestCase):
             self.assertIn("on_token", inspect.signature(metodo).parameters)
 
 
-class TestSintesisConTokens(unittest.TestCase):
+def _cache_limpia():
+    """Caché del motor (src/chatbot/cache_llm.py) vacía: cada llamada va al LLM."""
+    cache_llm.configurar_almacen(cache_llm.AlmacenMemoria())
+
+
+class _ConCacheLimpia(unittest.TestCase):
+    def setUp(self):
+        _cache_limpia()
+
+    def tearDown(self):
+        cache_llm.configurar_almacen(None)
+
+
+class TestSintesisConTokens(_ConCacheLimpia):
     def test_tokens_y_resultado_identico(self):
         tokens = []
         proveedor = _ProveedorStream()
         con = AnswerSynthesizer(proveedor, timeout_seconds=5).synthesize_rag("qué mide", SOURCES,
                                                                              on_token=tokens.append)
+        _cache_limpia()
         sin = AnswerSynthesizer(_ProveedorStream(), timeout_seconds=5).synthesize_rag("qué mide", SOURCES)
         self.assertEqual(con, sin)
         self.assertEqual("".join(tokens), RESPUESTA)
         self.assertTrue(proveedor.pedidos[0]["stream"])
+
+    def test_acierto_de_cache_llega_completo_sin_tokens(self):
+        primero = AnswerSynthesizer(_ProveedorStream(), timeout_seconds=5).synthesize_rag("qué mide", SOURCES)
+        tokens = []
+        proveedor = _ProveedorStream()
+        segundo = AnswerSynthesizer(proveedor, timeout_seconds=5).synthesize_rag("qué mide", SOURCES,
+                                                                                 on_token=tokens.append)
+        self.assertEqual(segundo["answer"], primero["answer"])
+        self.assertEqual(segundo.get("cache"), "hit")
+        self.assertEqual((tokens, proveedor.pedidos), ([], []))
 
     def test_sin_on_token_no_hay_streaming(self):
         proveedor = _ProveedorStream()
@@ -163,7 +189,7 @@ class TestSintesisConTokens(unittest.TestCase):
         self.assertEqual(tokens, [])
 
 
-class TestRAGConTokens(unittest.TestCase):
+class TestRAGConTokens(_ConCacheLimpia):
     def _motor(self, answer=RESPUESTA):
         return RAGAnswerEngine(retriever=_Recuperador(),
                                answer_synthesizer=AnswerSynthesizer(_ProveedorStream(answer), timeout_seconds=5))
@@ -172,6 +198,7 @@ class TestRAGConTokens(unittest.TestCase):
         tokens = []
         with escuchar_tokens(tokens.append):
             con = self._motor().answer({"original_question": "qué mide"})
+        _cache_limpia()
         sin = self._motor().answer({"original_question": "qué mide"})
         self.assertEqual(con, sin)
         self.assertEqual("".join(tokens), RESPUESTA)
@@ -198,6 +225,7 @@ class TestRAGConTokens(unittest.TestCase):
         tokens = []
         with escuchar_tokens(tokens.append):
             con = self._motor(inventada).answer({"original_question": "qué mide"})
+        _cache_limpia()
         sin = self._motor(inventada).answer({"original_question": "qué mide"})
         self.assertEqual(con, sin)
         self.assertIn("37", "".join(tokens))

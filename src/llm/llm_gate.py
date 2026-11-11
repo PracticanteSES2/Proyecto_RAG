@@ -18,17 +18,17 @@ Backend de coordinación (enchufable, src/llm/gate_backends.py)
 --------------------------------------------------------------
     LLM_GATE_BACKEND=memoria   (por defecto) fila FIFO dentro del proceso.
     LLM_GATE_BACKEND=redis     semáforo distribuido y justo entre procesos y
-                               réplicas (REDIS_URL, por defecto
-                               redis://localhost:6379/0): tickets FIFO,
-                               préstamos con TTL (LLM_GATE_LEASE_S; el de cada
-                               llamada = timeout + espera + 30 s) para que un
-                               proceso caído no deje huecos ocupados, latido de
-                               los que esperan (LLM_GATE_WAITER_TTL_S, 10 s).
-Si Redis no responde al elegirlo, se usa memoria con una advertencia en el log
-(logger "llm_gate") y se reintenta cada 30 s; si falla a mitad de una llamada,
-esa llamada sigue en memoria. `MEDGEMMA_MAX_CONCURRENT` es la capacidad
-GLOBAL con Redis (todas las réplicas deben usar el mismo valor).
-`set_backend(b)` fija uno a mano (pruebas); `backend_name()` dice cuál rige.
+                               réplicas. `src` no importa `redis`: el adaptador
+                               vive en backend/app/services/puerta_llm_redis.py
+                               y el API lo registra al arrancar con
+                               `puerta_llm_redis.instalar(url)` (que llama a
+                               `registrar_backend("redis", fabrica)`).
+Si no hay adaptador registrado o Redis no responde al elegirlo, se usa memoria
+con una advertencia en el log (logger "llm_gate") y se reintenta cada 30 s; si
+falla a mitad de una llamada, esa llamada sigue en memoria.
+`MEDGEMMA_MAX_CONCURRENT` es la capacidad GLOBAL con Redis (todas las réplicas
+deben usar el mismo valor). `set_backend(b)` fija uno a mano (pruebas);
+`backend_name()` dice cuál rige.
 
 API para la UI de progreso y el API (FastAPI: eventos SSE `cola`)
 -----------------------------------------------------------------
@@ -86,9 +86,10 @@ import os
 import threading
 import time
 from contextlib import contextmanager
+from typing import Callable
 
 from src.chatbot.runtime_stats import STATS, env_float, env_int
-from src.llm.gate_backends import MemoriaBackend, RedisBackend, redis_desde_entorno
+from src.llm.gate_backends import GateBackend, MemoriaBackend
 
 LOG = logging.getLogger("llm_gate")
 _ABANDON_LOCK = threading.Lock()
@@ -119,9 +120,23 @@ _BACKEND_LOCK = threading.Lock()
 REDIS_RETRY_S = 30.0
 
 
+_FABRICAS = {}  # nombre -> fabrica(capacity_fn) -> GateBackend (las registra la infraestructura)
+
+
+def registrar_backend(nombre: str, fabrica: Callable[[Callable[[], int]], GateBackend]) -> None:
+    """Registra la fábrica de un backend distribuido («redis»): la llama la
+    capa de infraestructura del API (backend/app/services/puerta_llm_redis.py).
+    `fabrica(capacity_fn)` devuelve un `GateBackend` o lanza si no conecta."""
+    with _BACKEND_LOCK:
+        _FABRICAS[str(nombre)] = fabrica
+        if not _BACKEND["forced"]:
+            _BACKEND.update(instance=None, key=None, retry_at=0.0)
+
+
 def _configured():
     name = str(os.getenv("LLM_GATE_BACKEND") or "memoria").strip().lower()
-    return name if name in ("memoria", "redis") else "memoria", os.getenv("REDIS_URL", "")
+    name = name if name in ("memoria", "redis") else "memoria"
+    return name, id(_FABRICAS.get(name))
 
 
 def _backend():
@@ -138,7 +153,10 @@ def _backend():
         instance = _MEMORIA
         if key[0] == "redis":
             try:
-                instance = RedisBackend(redis_desde_entorno(), capacity_fn=max_concurrent)
+                fabrica = _FABRICAS.get("redis")
+                if fabrica is None:
+                    raise LookupError("no hay adaptador registrado (backend.app.services.puerta_llm_redis.instalar)")
+                instance = fabrica(max_concurrent)
             except Exception as error:
                 LOG.warning("llm_gate: Redis no disponible (%s: %s); se usa la cola en memoria "
                             "(solo coordina este proceso)", type(error).__name__, error)
@@ -383,6 +401,7 @@ def call_llm(provider, messages, purpose="otro", timeout=None, queue_wait=None, 
         call_kwargs["timeout"] = budget
     box = {}
     call_kwargs = _with_tokens(provider, _accepted_kwargs(provider, call_kwargs), on_token, box)
+    STATS.llm_payload(purpose, messages, kwargs.get("max_tokens"))
     STATS.llm_begin(purpose)
     call_started = time.perf_counter()
 
@@ -398,6 +417,7 @@ def call_llm(provider, messages, purpose="otro", timeout=None, queue_wait=None, 
                 result = {"status": "llm_error", "answer": None,
                           "error": f"respuesta inesperada: {result!r}"}
             status = result.get("status") or "llm_error"
+            STATS.llm_usage(purpose, result)
             box["result"] = result
         finally:
             with _ABANDON_LOCK:

@@ -118,7 +118,10 @@ class MedGemmaProvider:
             keep_alive
             or os.getenv(
                 "MEDGEMMA_KEEP_ALIVE",
-                "10m",
+                # 30 min: un hueco de media mañana no obliga a recargar el
+                # modelo (segundos por la primera respuesta). Ver
+                # docs/arquitectura/concurrencia.md (OLLAMA_KEEP_ALIVE).
+                "30m",
             )
         )
 
@@ -248,6 +251,12 @@ class MedGemmaProvider:
         }
         if format:
             request["format"] = format
+        # MEDGEMMA_NUM_CTX (opcional): ventana de contexto pedida. Sin ella
+        # rige la del servidor (OLLAMA_CONTEXT_LENGTH). Ojo: un num_ctx
+        # distinto al del modelo cargado obliga a Ollama a recargarlo.
+        num_ctx = os.getenv("MEDGEMMA_NUM_CTX", "").strip()
+        if num_ctx.isdigit():
+            request["options"]["num_ctx"] = int(num_ctx)
 
         try:
             try:
@@ -305,7 +314,8 @@ class MedGemmaProvider:
             "truncated": done_reason == "length",
             "eval_count": getattr(response, "eval_count", None),
             # Tokens de entrada reales: calibran la estimación de
-            # src/llm/presupuesto_tokens.py (recorte contra num_ctx).
+            # src/llm/presupuesto_tokens.py (recorte contra num_ctx) y
+            # runtime_stats los suma por propósito.
             "prompt_eval_count": getattr(response, "prompt_eval_count", None),
         }
 

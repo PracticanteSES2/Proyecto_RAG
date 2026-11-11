@@ -1,10 +1,15 @@
 import inspect
+import os
+import re
 
 from src.chatbot.respuesta_en_vivo import oyente_tokens
 from src.chatbot.respuesta_completa import describir, linea_aviso
+from src.chatbot.runtime_stats import STATS
 from src.providers.powerbi_links import enlace_para_resultado
 from src.rag.extractive import readable_fallback
 from src.rag.grounding import ground_answer, has_content
+from src.rag.ranking import detect_question_intent
+from src.semantic.question_normalizer import fold
 
 
 class RAGAnswerEngine:
@@ -167,6 +172,41 @@ class RAGAnswerEngine:
             return False
         return name in parameters or any(p.kind == p.VAR_KEYWORD for p in parameters.values())
 
+    # Tipos de fuente cuya descripción puede ser, tal cual, la definición.
+    _DIRECT_TYPES = ("measure", "documented_measure", "indicator", "calculated_column")
+
+    @staticmethod
+    def _compact(text):
+        return re.sub(r"[^a-z0-9]+", "", fold(text or ""))
+
+    @classmethod
+    def _names_its_definition(cls, question, top):
+        """«¿Qué es X?» y la fuente principal es la entrada documentada de X."""
+        named = cls._compact(top.get("measure"))
+        return (
+            (top.get("intent") or detect_question_intent(question)) == "definition"
+            and top.get("chunk_type") in cls._DIRECT_TYPES
+            and len(named) >= 4 and named in cls._compact(question)
+        )
+
+    @classmethod
+    def _direct_extract(cls, question, results, history=None):
+        """Respuesta extractiva que ya ES la respuesta (palanca OPCIONAL,
+        RAG_EXTRACTO_DIRECTO=on; specs/010-rendimiento-llm): «¿qué es X?» sin
+        conversación previa, cuando la mejor fuente es la entrada documentada
+        de X (la pregunta nombra su medida) y su descripción es una frase
+        completa. Ahorra la síntesis (1 llamada a MedGemma). Apagada por
+        defecto hasta compararla con MedGemma en los bancos reales."""
+        enabled = os.getenv("RAG_EXTRACTO_DIRECTO", "off").strip().lower() in ("on", "1", "si", "true")
+        if not enabled or history or not results or not cls._names_its_definition(question, results[0]):
+            return None
+        answer = readable_fallback([results[0]], question=question)
+        description = (answer or "").split(":", 1)[-1]
+        if not answer or "\n- " in answer or len(re.findall(r"\w{2,}", description)) < 6:
+            return None
+        STATS.llm_call_avoided("extracto: síntesis RAG")
+        return answer
+
     def _synthesize_answer(self, question, results, history=None, on_token=None):
         """(respuesta, modo, sin_evidencia). Si no se usa el LLM, el motivo
         queda en self.last_synthesis_issue (lo muestra el razonamiento).
@@ -176,6 +216,10 @@ class RAGAnswerEngine:
         self.last_synthesis = {}
         if self.answer_synthesizer is None:
             return self._fallback_answer(results, question), "extractive", False
+        direct = self._direct_extract(question, results, history)
+        if direct:
+            # No es un respaldo: el extracto ya responde (no se marca degradado).
+            return direct, "extracto", False
 
         # El historial solo se pasa si existe: los sintetizadores que no lo
         # aceptan (dobles de prueba antiguos) siguen funcionando.

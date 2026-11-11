@@ -1,11 +1,13 @@
+import os
 import re
 import time
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from difflib import SequenceMatcher
 
+from src.chatbot import cache_llm
 from src.chatbot.respuesta_completa import cortar_en_limite_seguro
-from src.chatbot.runtime_stats import env_float
+from src.chatbot.runtime_stats import STATS, env_float
 from src.llm.llm_gate import call_llm
 from src.llm.presupuesto_tokens import num_predict
 
@@ -230,6 +232,11 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
                 return text
         return ""
 
+    def _usable(self, raw, option):
+        """¿La respuesta cruda da una descripción aceptable? (si no, no se cachea)."""
+        text, reasons = self._judge(self._complete_answer(raw), option)
+        return bool(text) and not reasons
+
     @staticmethod
     def _complete_answer(response):
         """Respuesta utilizable: si llegó a num_predict, solo hasta su última
@@ -238,19 +245,48 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
         return cortar_en_limite_seguro(answer) if response.get("truncated") else answer
 
     def _describe_one(self, option):
-        return call_llm(
-            self.llm_provider,
-            [
-                {"role": "system",
-                 "content": self.SYSTEM_PROMPT.format(max_words=self.max_words)},
-                {"role": "user", "content": self.build_prompt(option)},
-            ],
-            purpose="descripción de opciones",
-            timeout=self.timeout if self.timeout and self.timeout > 0 else None,
-            temperature=0.1,
-            max_tokens=num_predict("opciones"),
-            think=False,
+        # La pregunta del usuario no entra en el prompt: la descripción de un
+        # indicador es la misma en cualquier contrapregunta (caché del motor).
+        system, user = self.SYSTEM_PROMPT.format(max_words=self.max_words), self.build_prompt(option)
+        max_tokens = num_predict("opciones")
+        return cache_llm.llamar_con_cache(
+            cache_llm.clave("descripción de opciones", fuentes=user, prompt=system,
+                            modelo=cache_llm.modelo_de(self.llm_provider), max_tokens=max_tokens),
+            lambda: call_llm(
+                self.llm_provider,
+                [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                purpose="descripción de opciones",
+                timeout=self.timeout if self.timeout and self.timeout > 0 else None,
+                temperature=0.1,
+                max_tokens=max_tokens,
+                think=False,
+            ),
+            proposito="descripción de opciones",
+            es_guardable=lambda raw: self._usable(raw, option),
         )
+
+    # Descripción del catálogo que basta (sin LLM): ya tiene la forma pedida al LLM (verbo de la tarea,
+    # >= 6 palabras, no repite el nombre, distinta de las demás). Hoy casi nunca la hay (las medidas no
+    # traen descripción); la documentación la irá completando. OPTION_DESCRIBER_CATALOGO=off la desactiva.
+    CATALOG_MIN_WORDS = 6
+    CATALOG_VERBS = ("cuenta", "suma", "calcula", "mide", "promedia", "muestra")
+
+    def catalog_sufficient(self, options):
+        """Ids de las opciones cuya descripción del catálogo basta."""
+        if str(os.getenv("OPTION_DESCRIBER_CATALOGO", "on")).strip().lower() in ("off", "0", "no", "false"):
+            return []
+        texts = {}
+        for option in options:
+            text = self._clean(option.get("description"), option.get("label"))
+            words = self._plain(text).split()
+            label_words = set(self._plain(option.get("label")).split())
+            if len(words) >= self.CATALOG_MIN_WORDS and words[0] in self.CATALOG_VERBS                     and not set(words) <= label_words:
+                texts[option["id"]] = text.rstrip(".").casefold()
+        return [
+            key for key, text in texts.items()
+            if not any(other != key and SequenceMatcher(None, text, texts[other]).ratio() >= 0.85
+                       for other in texts)
+        ]
 
     @staticmethod
     def _dax_hint(option):
@@ -294,43 +330,31 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
                 )
         return descriptions
 
+    def _split_catalog(self, options):
+        """(ids con descripción de catálogo suficiente, opciones que van al LLM)."""
+        catalog = self.catalog_sufficient(options)
+        if catalog:
+            STATS.llm_call_avoided("catálogo: descripción de opciones", len(catalog))
+        return catalog, [option for option in options if option["id"] not in catalog]
+
     def describe(self, question, options):
         """options: [{id, label, measure, dax_expression, description, report,
         page, visuals, semantic_model}]. `question` no se envía al LLM (sesga
         las descripciones); se conserva en la firma para el razonamiento.
         Devuelve {status, descriptions, raw, elapsed_s, error?}; `descriptions`
         es {id: frase} y `raw` las respuestas crudas por opción."""
-        if not options:
-            return {"status": "skipped", "descriptions": {}, "raw": None, "elapsed_s": 0.0}
+        catalog, pending = self._split_catalog(options or [])
+        if not pending:  # sin opciones, o todas con descripción de catálogo suficiente
+            return {"status": "catalog" if catalog else "skipped", "descriptions": {}, "raw": None,
+                    "elapsed_s": 0.0, "catalog": catalog}
         started = time.perf_counter()
-        with ThreadPoolExecutor(max_workers=max(1, min(self.max_workers, len(options)))) as pool:
-            responses = list(pool.map(self._describe_one, options))
+        with ThreadPoolExecutor(max_workers=max(1, min(self.max_workers, len(pending)))) as pool:
+            responses = list(pool.map(self._describe_one, pending))
         elapsed = round(time.perf_counter() - started, 2)
-
-        descriptions, raw, errors, model, rejected = {}, [], [], None, {}
-        for option, response in zip(options, responses):
-            model = model or response.get("model")
-            answer = response.get("answer")
-            if response.get("status") != "success" or not answer:
-                errors.append(f"{option['id']}: {response.get('error') or response.get('status')}")
-                continue
-            raw.append(f"[{option['id']}] {answer}")
-            text = self.parse(self._complete_answer(response), option.get("label"))
-            invented = self.invented_concepts(text, option) if text else []
-            if invented:
-                # Habla de algo que el indicador no tiene («personal» en una
-                # medida de camas): se usa la descripción del catálogo.
-                rejected[option["id"]] = invented
-                continue
-            if text and self.contradicts_filters(text, option):
-                # Nombra como incluido lo que la expresión excluye.
-                rejected[option["id"]] = ["filtro excluido"]
-                continue
-            if text:
-                descriptions[option["id"]] = text
+        descriptions, raw, errors, model, rejected = self._collect(pending, responses)
         descriptions = self._disambiguate(options, descriptions)
         if descriptions:
-            status = "success" if len(descriptions) == len(options) else "partial"
+            status = "success" if len(descriptions) == len(pending) else "partial"
         else:
             status = "unparsed" if raw else (
                 next((r.get("status") for r in responses if r.get("status")), None) or "error"
@@ -339,5 +363,37 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
             "status": status, "descriptions": descriptions,
             "raw": "\n".join(raw) or None, "elapsed_s": elapsed,
             "error": "; ".join(errors) or None, "model": model,
-            "rejected": rejected,
+            "rejected": rejected, "catalog": catalog,
         }
+
+    def _collect(self, pending, responses):
+        """(descripciones, crudas, errores, modelo, rechazadas) de las respuestas."""
+        descriptions, raw, errors, model, rejected = {}, [], [], None, {}
+        for option, response in zip(pending, responses):
+            model = model or response.get("model")
+            answer = response.get("answer")
+            if response.get("status") != "success" or not answer:
+                errors.append(f"{option['id']}: {response.get('error') or response.get('status')}")
+                continue
+            raw.append(f"[{option['id']}] {answer}")
+            text, reasons = self._judge(self._complete_answer(response), option)
+            if reasons:
+                rejected[option["id"]] = reasons
+            elif text:
+                descriptions[option["id"]] = text
+        return descriptions, raw, errors, model, rejected
+
+    def _judge(self, answer, option):
+        """(frase, motivos de rechazo) de una respuesta del LLM."""
+        text = self.parse(answer, option.get("label"))
+        if not text:
+            return "", []
+        invented = self.invented_concepts(text, option)
+        if invented:
+            # Habla de algo que el indicador no tiene («personal» en una
+            # medida de camas): se usa la descripción del catálogo.
+            return text, invented
+        if self.contradicts_filters(text, option):
+            # Nombra como incluido lo que la expresión excluye.
+            return text, ["filtro excluido"]
+        return text, []

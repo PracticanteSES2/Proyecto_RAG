@@ -4,6 +4,7 @@ import time
 import unicodedata
 
 from src.chatbot.respuesta_en_vivo import FiltroBorrador
+from src.chatbot import cache_llm
 from src.chatbot.respuesta_completa import completar
 from src.llm import presupuesto_tokens as P
 from src.llm.llm_gate import call_llm
@@ -469,9 +470,20 @@ REGLAS OBLIGATORIAS:
 
         started = time.perf_counter()
         # Borrador en vivo (src/chatbot/respuesta_en_vivo.py): la respuesta final reparada lo reemplaza.
+        # Un acierto de la caché llega completo, sin tokens (el frontend lo revela con escritura rápida).
         stream = {"on_token": FiltroBorrador(on_token, (NO_EVIDENCE_ANSWER,), self._LEADING_FILLER_RE)} if on_token else {}
-        result = self._chat_with_timeout(
-            messages=messages, temperature=0.1, max_tokens=self.max_tokens, think=False, **stream,
+        # Misma pregunta normalizada + mismas fuentes + mismo prompt: la
+        # respuesta CRUDA sale de la caché del motor (src/chatbot/cache_llm.py);
+        # el completado y el post-proceso de abajo se aplican igual. Nunca se
+        # guarda una truncada (ni, por tanto, una que acabe incompleta).
+        result = cache_llm.llamar_con_cache(
+            cache_llm.clave("síntesis RAG", question, fuentes=context, prompt=[
+                self.SYSTEM_PROMPT, task_lines, conversation], modelo=cache_llm.modelo_de(self.llm_provider),
+                max_tokens=self.max_tokens),
+            lambda: self._chat_with_timeout(messages=messages, temperature=0.1, max_tokens=self.max_tokens,
+                                            think=False, **stream),
+            proposito="síntesis RAG",
+            es_guardable=lambda raw: not self.is_no_evidence(self._clean_answer(raw.get("answer"))),
         )
 
         if (
@@ -515,6 +527,7 @@ REGLAS OBLIGATORIAS:
             "incompleta": diagnostico["incompleta"],
             "cacheable": not diagnostico["incompleta"],
             "diagnostico": diagnostico,
+            "cache": result.get("cache"),  # "hit" | "compartida" | None (caché del motor)
         }
 
     def _postprocess(self, raw, context, question, previous_turns):

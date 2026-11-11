@@ -1,7 +1,8 @@
 # Concurrencia con MedGemma: diagnóstico, medición y opciones
 
 > Rama `agente/carga` · 2026-11-10 · spec: `specs/004-concurrencia-llm/`
-> Herramienta: `python -m tools.carga` (salidas en `tools/carga/salidas/`, ignorada por git).
+> Herramienta: `python -m tools.carga` (salidas en `var/out/carga/`, ignorada por git).
+> Actualizado 2026-11-10 por `agente/rendimiento-llm` (spec `specs/010-rendimiento-llm/`): sección 8.
 
 **Resumen para decidir.** Hoy, con un solo proceso Streamlit, 10 personas a la vez **no tumban el
 bot ni saturan MedGemma**: el motor está compartido y atiende **un turno a la vez** (`turn_slot`), así
@@ -78,7 +79,7 @@ Un turno típico hace **0 a 2 llamadas** (máximo 3 a la vez con el descriptor).
 - **Fila justa (FIFO) con posición** para el turno (`turn_slot`) y para MedGemma (`call_llm`), sin
   cambiar contratos: `call_llm` nunca lanza y devuelve los mismos status; `turn_slot` conserva firma,
   `on_wait(waited, since)` y `TurnBusy`.
-- **Backend enchufable de la puerta** (`src/llm/gate_backends.py`): `LLM_GATE_BACKEND=memoria` (por
+- **Backend enchufable de la puerta** (`src/llm/gate_backends.py` = memoria + `Protocol`; el de Redis vive en `backend/app/services/puerta_llm_redis.py`, ver §8.4): `LLM_GATE_BACKEND=memoria` (por
   defecto) o `redis` (`REDIS_URL`). Redis = semáforo distribuido y justo entre procesos/réplicas: tickets
   FIFO (`INCR` + ZSET), préstamos con TTL (un worker caído no deja huecos ocupados para siempre), latido de
   los que esperan (un worker caído esperando no bloquea la fila), reloj del servidor Redis, WATCH/MULTI
@@ -101,7 +102,7 @@ Un turno típico hace **0 a 2 llamadas** (máximo 3 a la vez con el descriptor).
 Servidor **simulado** (supuestos a calibrar con la medición real): 3 generaciones a la vez, 20 tokens/s por
 petición sola, cada generación simultánea frena a las demás (degradación 0,5), prompt a 1500 tokens/s,
 largo de respuesta entre 30 % y 110 % de `max_tokens`. Tiempos en segundos simulados; 2 turnos por usuario.
-Archivos: `tools/carga/salidas/carga_*_sim_*.json`.
+Archivos: `var/out/carga/carga_*.json` (antes `tools/carga/salidas/`).
 
 ### 3.1 Extremo a extremo, arquitectura actual (Streamlit: motor compartido, un turno a la vez)
 
@@ -188,7 +189,7 @@ Después, repetir la simulación con los valores calibrados
 | `OLLAMA_NUM_PARALLEL` | servidor (administrador) | Subirlo solo si la VRAM alcanza `num_ctx × NUM_PARALLEL` de caché KV **sin descargar capas a CPU**; medir con la corrida 1 que los tokens/s totales suben. Si la degradación es ≈ 1 (cada una va a 1/k), subirlo no aporta: hace falta otra GPU/réplica. |
 | `OLLAMA_MAX_QUEUE` | servidor | Bajarlo (p. ej. 16-32) para que una sobrecarga falle rápido con 503 en lugar de esperas mudas; la cola justa y visible la lleva la API. |
 | `OLLAMA_CONTEXT_LENGTH` / `num_ctx` | servidor | ≥ 4096, idealmente 8192: la síntesis envía ~2.400-2.800 tokens de prompt + 600 de salida (+ historial). Con 2048 Ollama recorta la entrada en silencio. |
-| `OLLAMA_KEEP_ALIVE` | servidor | Largo (p. ej. 30m-24h) en horario laboral: evita recargas en frío (la app ya pide `keep_alive` 10m). |
+| `OLLAMA_KEEP_ALIVE` | servidor | Largo (p. ej. 30m-24h) en horario laboral: evita recargas en frío (la app pide `keep_alive` 30m desde specs/010; antes 10m). |
 | `OLLAMA_MAX_LOADED_MODELS` | servidor | Si el servidor sirve otros modelos, que MedGemma no sea desalojado por ellos. |
 
 ## 5. Opciones ordenadas por costo/beneficio
@@ -232,7 +233,7 @@ Contrato para el backend (SSE `cola`): la llamada al LLM corre en un hilo del th
 ### 6.1 Estado en este equipo y qué configurar al montar Redis en el servidor
 
 En el equipo de desarrollo **no hay Redis, Docker ni WSL**: el backend `redis` de la puerta está terminado y
-probado solo con `fakeredis` (`tests/perf/test_gate_redis.py`), y por defecto rige
+probado solo con `fakeredis` (`tests/perf/test_gate_redis.py`; adaptador en `backend/app/services/puerta_llm_redis.py`, lo instala `backend/app/services/sistema.py`), y por defecto rige
 `LLM_GATE_BACKEND=memoria` (no hace falta configurar nada). Al montar Redis en el servidor de producción,
 el propietario debe:
 
@@ -272,3 +273,139 @@ el propietario debe:
    una segunda GPU/réplica; Redis y la caché solo lo posponen.
 5. **`max_tokens` de la síntesis** (600): medir cuántas salen `truncated` y decidir si se acortan las
    respuestas o se sube el límite.
+6. **Extracto directo** (sección 8.2): activarlo (`RAG_EXTRACTO_DIRECTO=on`) solo tras comparar en los bancos
+   reales que las definiciones puntuales no pierden calidad frente a MedGemma.
+
+## 8. Rendimiento: menos trabajo para MedGemma por turno (specs/010-rendimiento-llm)
+
+> Rama `agente/rendimiento-llm` · 2026-11-10. Sin GPU nueva, el techo de **llamadas** que MedGemma atiende
+> por minuto (~4-8 en el simulador) no cambia; lo que sí se puede subir es el techo de **respuestas
+> redactadas** por minuto, pidiéndole menos generación por turno. `num_predict` y las truncadas son de
+> `agente/truncado` (no se tocaron).
+
+### 8.1 Dónde se gasta (evidencia y contadores)
+
+Contadores nuevos (solo se AÑADIERON campos) en `STATS.snapshot()`: `llm_cost_by_purpose` (llamadas, caracteres
+y tokens estimados del prompt, `num_predict` pedido, `prompt_eval_count`/`eval_count` que informa Ollama,
+truncadas y promedios), `llm_avoided` (llamadas evitadas por motivo) y `llm_cache`. Los registra la puerta
+(`src/llm/llm_gate.py` `llm_payload` antes de llamar y `llm_usage` al terminar); el proveedor ahora informa
+`prompt_eval_count` (`src/llm/medgemma_provider.py`). Tamaños medidos con el código actual y chunks reales
+(`data/rag/knowledge_chunks.json`, 200 muestras de 5 fuentes de un mismo tablero):
+
+| Llamada | Cuándo | Llamadas/turno | Prompt (entrada) | `num_predict` (salida) | Evidencia |
+|---|---|---|---|---|---|
+| Síntesis RAG | Pregunta documental | 1 | p50 4.739 car. ≈ **1.185 tok** (p90 5.292, máx. 7.252); solo el prompt de sistema son 2.345 car. ≈ 586 tok (49 %) | 600 | `answer_synthesizer.py:247-250` (5 fuentes, 7.000 car., 2.500 por fuente), `:473-490` |
+| Reescritura contextual | Seguimiento que las reglas NO resuelven | 0-1 | ≈ 1.024 car. ≈ 256 tok | 80 | `query_engine.py:6515-6540` (solo tras el análisis por reglas), `contextual_rewriter.py:300-308` |
+| Descripción de opciones | Contrapregunta | hasta 3 a la vez (1 por opción) | ≈ 1.449 car. ≈ 362 tok c/u | 60 c/u | `option_describer.py:47` (`max_workers=3`), `:237-256` |
+| Intención con LLM | Apagada (`INTENCION_LLM=off`) | 0 | — | 160 | `semantic/intencion_llm.py:49-54` |
+| Respuesta numérica (Power BI) | — | 0 | — | — | `synthesize_powerbi` no se usa |
+
+**Lectura.** La salida domina: con los supuestos del simulador (prompt a 1.500 tok/s, generación a 20 tok/s por
+petición sola) una síntesis típica gasta ≈ 0,8 s en leer 1.185 tokens y ≈ 20 s en generar ~400. Acortar el prompt
+un 30 % ahorraría ≈ 1 % del tiempo de la llamada; no generar ahorra el 100 %. Por eso las palancas aplicadas
+evitan generaciones (8.2) y la de prompts se midió y se dejó como estaba (8.3).
+
+### 8.2 Palancas aplicadas
+
+| Palanca | Qué hace | Dónde | Se apaga con |
+|---|---|---|---|
+| **Caché de llamadas del motor** | Guarda la respuesta CRUDA del LLM; el post-proceso (limpieza, grounding, el futuro de truncado) corre siempre. Clave = sha256(formato · versión de índice/datos · propósito · pregunta normalizada · huella de las fuentes · huella del prompt · modelo · `max_tokens`). Nunca guarda saturadas, tiempo agotado, vacías, truncadas (`done_reason=length`), «sin evidencia» ni descripciones rechazadas | `src/chatbot/cache_llm.py`; síntesis `answer_synthesizer.py:473-490`; opciones `option_describer.py:237-256` | `LLM_CACHE=off` |
+| **Peticiones idénticas agrupadas** | Dos turnos simultáneos con la misma clave: una sola generación; la otra espera su resultado (si falla, llama por su cuenta) | `cache_llm.llamar_con_cache` | `LLM_CACHE=off` |
+| **Opciones desde el catálogo** | Si la descripción del catálogo ya tiene la forma pedida al LLM (empieza con Cuenta/Suma/Calcula/Mide/Promedia/Muestra, ≥ 6 palabras, no repite el nombre, distinta de las demás), esa opción no va al LLM y la UI usa la del catálogo. **Hoy no se dispara**: `master_metrics.json` no trae descripciones (0 de 709); ahorrará cuando la documentación las complete | `option_describer.catalog_sufficient` | `OPTION_DESCRIBER_CATALOGO=off` |
+| **Extracto directo** (opcional) | «¿Qué es X?» sin conversación previa, cuando la mejor fuente es la entrada documentada de X y su descripción es una frase completa: responde el extracto (`synthesis_mode="extracto"`, no cuenta como respaldo) | `rag_answer_engine._direct_extract` | **Apagada** por defecto (`RAG_EXTRACTO_DIRECTO=on` para activarla) |
+| Reescritura por reglas | Ya existía: el LLM solo entra si las reglas no bastan (`query_engine.py:4776`, `:6515`); no se tocó (archivo de `agente/memoria-sesion`) | — | — |
+| `keep_alive` 30m | La app pide 30 min (antes 10): un hueco de media mañana no obliga a recargar el modelo; el arranque ya precalienta (`warmup`) | `medgemma_provider.py:71-78` | `MEDGEMMA_KEEP_ALIVE` |
+| `num_ctx` opcional | `MEDGEMMA_NUM_CTX` lo envía por petición; sin él rige el del servidor. No se fija por defecto: un `num_ctx` distinto al del modelo cargado obliga a Ollama a recargarlo (en un servidor compartido, recargas en cadena). Recomendación: `OLLAMA_CONTEXT_LENGTH` ≥ 4096 en el servidor (la síntesis pide ≈ 1.200 + 600 tok; el máximo medido ≈ 1.800 + 600) y vigilar `prompt_eval_tokens` frente a `prompt_tokens_est` en `llm_cost_by_purpose` (si es mucho menor, hubo recorte) | `medgemma_provider.py:199-204` | — |
+
+### 8.3 Medición antes y después (simulador, `--modo componentes`)
+
+`python -m tools.carga --modo componentes --rampa 5,10,20 [--sin-palancas]`: turnos por los componentes REALES
+(`AnswerSynthesizer`, `OptionDescriber`, reescritura) con la mezcla del perfil `mixto` (45 % síntesis, 15 %
+seguimiento, 20 % contrapregunta, 20 % Power BI), sobre el servidor simulado de la sección 3 (3 a la vez, 20 tok/s,
+degradación 0,5). **Supuesto de repetición**: 40 preguntas documentales y 15 contrapreguntas con popularidad Zipf
+(s = 1); la caché **empieza vacía en cada escalón**. «Antes» = `--sin-palancas` (`LLM_CACHE=off`,
+`OPTION_DESCRIBER_CATALOGO=off`): mismo código, mismas semillas. Promedio de 2-3 semillas; salidas en
+`var/out/carga/`. «Llamadas LLM/turno» = las que llegaron al servidor (las saturadas no cuentan).
+
+**A. Puerta como hoy (espera de hueco 3 s), 6 turnos por usuario:**
+
+| Usuarios | Llamadas LLM/turno (antes → después) | Evitadas/turno | Tokens de entrada/turno | `num_predict`/turno | Redactadas/min | Respaldo extractivo en síntesis |
+|---|---|---|---|---|---|---|
+| 5 | 0,88 → 0,89 | 0 → 0,08 | 604 → 620 | 273 → 282 | 1,7 → **2,4** | 74 % → **64 %** |
+| 10 | 0,39 → 0,32 | 0 → 0,12 | 231 → 211 | 96 → 97 | 1,2 → **2,3** | 91 % → **82 %** |
+| 20 | 0,20 → 0,17 | 0 → 0,14 | 119 → 114 | 48 → 51 | 1,0 → **3,6** | 96 % → **84 %** |
+
+**B. Con la cola visible del API (`ui_progress`, espera hasta 30 s), 6 turnos por usuario:**
+
+| Usuarios | Llamadas LLM/turno | Evitadas/turno | Redactadas/min | Respaldo extractivo en síntesis | Turno p95 |
+|---|---|---|---|---|---|
+| 5 | 0,83 → 0,80 | 0 → 0,08 | 2,8 → **3,2** | 50 % → **47 %** | 60 s → 59 s |
+| 10 | 0,37 → 0,38 | 0 → 0,11 | 2,9 → **3,8** | 61 % → **58 %** | 66 s → 65 s |
+| 20 | 0,18 → 0,21 | 0 → 0,11 | 1,4 → **4,3** | 89 % → **71 %** | 64 s → 67 s |
+
+**C. Caché fría y solo 2 turnos por usuario (lo más pesimista; 3 semillas):** redactadas/min 1,9 → 4,0 (5
+usuarios), 2,4 → 2,6 (10), 1,5 → 1,1 (20, dentro del ruido); respaldo en síntesis 65 % → 32 % (5), 72 % → 71 %
+(10), 94 % → 93 % (20).
+
+**Lectura.**
+
+- Las llamadas que SÍ llegan a MedGemma por minuto siguen en ~4-7 (el techo del servidor); lo que sube son las
+  **respuestas redactadas por minuto** (×1,3-3,6 en A y B) porque una parte se sirve de la caché o de una
+  generación compartida, y el respaldo extractivo de la síntesis baja 3-18 puntos.
+- Depende de cuánto se repiten las preguntas: con caché fría y pocas preguntas por persona (C) casi no se nota con
+  10-20 usuarios; a lo largo de un día (TTL de 6 h, misma documentación) se acerca a A/B o mejor. **Calibrar** con
+  el registro real de preguntas (`src/feedback`) cuánto se repiten.
+- Con 10-20 personas a la vez el respaldo sigue alto: estas palancas posponen la necesidad de capacidad, no la
+  eliminan (sección 5, opción 7). La siguiente palanca grande es la **longitud de la salida** (≈ 95 % del tiempo
+  de cada llamada): bajar `num_predict` donde baste (p. ej. 600 → 350 en preguntas puntuales) lo decide
+  `agente/truncado` con la tasa de truncadas medida; aquí no se tocó.
+- **Prompts más cortos (palanca b): medida y no aplicada.** El prompt típico es ≈ 1.185 tokens (la mitad, el de
+  sistema) y su evaluación es ≈ 4 % del tiempo de la síntesis; recortar fuentes o reglas ahorraría ~1-2 % a cambio
+  de riesgo de calidad (las reglas y la TAREA corrigen fallos reales de MedGemma). Queda medida en
+  `llm_cost_by_purpose` para revisarla con la corrida real (p. ej. si el servidor evalúa el prompt lento).
+- Las cifras de la sección 3 (modo `llm`) no son comparables con estas: allí el prompt de síntesis es el peor caso
+  (7.000 car.) y no pasa por los componentes.
+
+### 8.4 Interfaz de la caché y capas para Redis
+
+```python
+from src.chatbot import cache_llm
+k = cache_llm.clave("síntesis RAG", pregunta, fuentes=contexto, prompt=[sistema, tarea, conversacion],
+                    modelo=cache_llm.modelo_de(proveedor), max_tokens=600)
+r = cache_llm.llamar_con_cache(k, lambda: call_llm(...), proposito="síntesis RAG", es_guardable=pred)
+r.get("cache")                       # "hit" | "compartida" | None (llamada real)
+cache_llm.configurar_almacen(alm)    # AlmacenCache: leer(clave) -> dict | None; guardar(clave, valor, ttl_s)
+cache_llm.fijar_version(v)           # versión de índice/datos (el API pone su huella de datos y código)
+```
+
+Variables: `LLM_CACHE` (on), `LLM_CACHE_TTL_S` (21600 = 6 h), `LLM_CACHE_MAX` (512 entradas en memoria),
+`LLM_CACHE_ESPERA_S` (90). Normalizador ÚNICO: `src/semantic/question_normalizer.clave_pregunta` (el motor lo llama sin vocabulario porque la pregunta ya llega normalizada contra el catálogo, y así la clave no paga la construcción del vocabulario en frío); la caché de
+RESPUESTAS completas del API (`backend/app/services/cache.normalizar_pregunta`) ahora lo llama, así las dos
+cachés comparten la forma canónica de la pregunta. Claves Redis distintas: `rag:cache:<huella>` (respuestas del
+API) y `rag:llm:<sha256>` (llamadas del motor).
+
+**Redis fuera de `src`** (docs/ARQUITECTURA.md §4): `src` solo conoce `Protocol`s.
+
+| Pieza | En `src` (sin `redis`) | Adaptador Redis (`backend/app/services`) |
+|---|---|---|
+| Semáforo justo de MedGemma | `gate_backends.GateBackend` + `MemoriaBackend`; `llm_gate.registrar_backend("redis", fabrica)` | `puerta_llm_redis.RedisBackend` (movido tal cual: tickets FIFO, préstamos con TTL, latido) e `instalar(url=…, cliente=…)` |
+| Caché de llamadas | `cache_llm.AlmacenCache` + `AlmacenMemoria` | `cache_llm_redis.AlmacenRedis` (SET EX, JSON) e `instalar(cliente, prefijo)` |
+
+`backend/app/services/sistema.py` (`_instalar_redis_del_motor`) instala ambos al crear los almacenes en modo Redis
+y fija la versión de la caché con la huella de datos al crear el trabajador. La puerta sigue en memoria salvo
+`LLM_GATE_BACKEND=redis` (útil con varios trabajadores o réplicas contra el mismo MedGemma); si no hay adaptador
+registrado o Redis no responde, sigue en memoria con advertencia y reintenta cada 30 s, como antes. Streamlit
+(legado) ya no puede elegir la puerta Redis por variable: un solo proceso no la necesita.
+
+### 8.5 Coordinación
+
+- `agente/ux-espera` (streaming `on_token`): un acierto de caché devuelve la respuesta entera, sin tokens; la UI
+  debe aceptar que llegue de golpe. Si el streaming pasa por `call_llm`, la caché sigue envolviendo esa llamada
+  (el `on_token` va dentro del `lambda` de `synthesize_rag`).
+- `agente/truncado` (ya integrado): la caché envuelve solo la llamada cruda dentro de `synthesize_rag`, después de
+  `ajustar_a_contexto` (que sigue garantizando no pasar de `num_ctx`) y antes de `completar`/`_postprocess`. Una
+  cruda truncada nunca se guarda, así que una respuesta incompleta (`cacheable=False`) jamás sale de la caché; la
+  clave incluye `max_tokens` = `num_predict` del propósito (`src/llm/presupuesto_tokens.py`), de modo que cambiarlo
+  invalida lo guardado. En opciones, `_complete_answer` (corte seguro) se aplica también a lo cacheado.
+- `tools/carga` ya no importa `tests`: el motor del simulador para `--modo e2e` vive en `tools/manual/carga_e2e.py`
+  (carpeta exenta) y se inyecta con `runner.correr(..., fabrica_motor=...)`.

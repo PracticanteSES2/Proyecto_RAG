@@ -7,6 +7,8 @@ velocidad y degradación configurables): no sale nada a la red.
     python -m tools.carga --modo llm --rampa 1,3,5,10,20
     python -m tools.carga --modo e2e --rampa 1,3,5,10,20 --escala 0.1
     python -m tools.carga --modo llm --perfil sintesis --espera-ui 30   # cola con progreso
+    python -m tools.carga --modo componentes --rampa 5,10,20 --sin-palancas  # antes
+    python -m tools.carga --modo componentes --rampa 5,10,20                 # con caché y catálogo
 
 Modo real (servidor COMPARTIDO del hospital; pide confirmación escrita):
 
@@ -15,9 +17,14 @@ Modo real (servidor COMPARTIDO del hospital; pide confirmación escrita):
 Modos:
   llm  llamadas representativas (síntesis RAG, reescritura, descripción de
        opciones) por la puerta src/llm/llm_gate.py, sin el resto del motor.
+  componentes  turnos por los componentes reales que llaman al LLM
+       (AnswerSynthesizer, OptionDescriber, reescritura) con la caché del motor:
+       mide las palancas de specs/010-rendimiento-llm (ver tools/carga/componentes.py).
   e2e  turnos completos por el motor del simulador (tests/sim: Power BI y
-       Qdrant falsos), con el turno compartido de app.py (turn_slot). Con
-       --real solo el LLM es real; Power BI sigue simulado.
+       Qdrant falsos, armado en tools/manual/carga_e2e.py), con el turno
+       compartido de app.py (turn_slot). Con --real solo el LLM es real.
+
+Salidas (tabla + JSON) en var/out/carga/ (src.comun.rutas.ruta_salida).
 """
 import argparse
 import sys
@@ -40,7 +47,7 @@ def _rampa(text):
 def parser():
     p = argparse.ArgumentParser(prog="python -m tools.carga", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--modo", choices=("llm", "e2e"), default="llm")
+    p.add_argument("--modo", choices=("llm", "componentes", "e2e"), default="llm")
     p.add_argument("--rampa", type=_rampa, default=[1, 3, 5, 10, 20], help="usuarios simultáneos por nivel")
     p.add_argument("--turnos", type=int, default=2, help="turnos por usuario en cada nivel")
     p.add_argument("--perfil", choices=("sonda", "sintesis", "seguimiento", "opciones", "mixto"), default="mixto",
@@ -57,6 +64,12 @@ def parser():
                    help="activa ui_progress con esta espera (s): cola visible en lugar de saturar")
     g.add_argument("--espera-turno", type=float, default=120.0, help="TURN_WAIT_SECONDS (e2e)")
     g.add_argument("--sin-puerta", action="store_true", help="modo llm: llama al proveedor sin la puerta")
+    c = p.add_argument_group("modo componentes (supuestos de repetición; ver tools/carga/componentes.py)")
+    c.add_argument("--sin-palancas", action="store_true",
+                   help="LLM_CACHE=off y OPTION_DESCRIBER_CATALOGO=off (cómo era antes)")
+    c.add_argument("--banco", type=int, default=40, help="preguntas documentales distintas (popularidad Zipf)")
+    c.add_argument("--catalogo-documentado", type=float, default=0.0,
+                   help="fracción de indicadores con descripción suficiente en el catálogo (hoy 0)")
     s = p.add_argument_group("servidor simulado (supuestos; calíbralos con una corrida real de 1 usuario)")
     s.add_argument("--capacidad", type=int, default=3, help="OLLAMA_NUM_PARALLEL")
     s.add_argument("--cola-max", type=int, default=512, help="OLLAMA_MAX_QUEUE (503 al llenarse)")
@@ -72,7 +85,7 @@ def parser():
     r.add_argument("--real", action="store_true", help="usa el MedGemma REAL del .env (pide confirmación)")
     r.add_argument("--streaming", action="store_true", help="con --real: mide el primer token (stream=True)")
     o = p.add_argument_group("salida")
-    o.add_argument("--salida", default=None, help="carpeta de salida (por defecto tools/carga/salidas)")
+    o.add_argument("--salida", default=None, help="carpeta de salida (por defecto var/out/carga)")
     o.add_argument("--etiqueta", default=None, help="sufijo del archivo JSON")
     return p
 
@@ -81,7 +94,7 @@ def _estimar_llamadas(args):
     from tools.carga import escenarios
     if args.modo == "e2e":
         per_turn = 1.25  # mitad síntesis, un cuarto opciones (3 llamadas), un cuarto sin LLM
-    elif args.perfil == "mixto":
+    elif args.perfil == "mixto":  # llm y componentes (este, como máximo: sin caché)
         per_turn = sum(len(sum(escenarios.TURNOS[name], [])) * w for name, w in escenarios.MIXTO)
     else:
         per_turn = len(sum(escenarios.TURNOS[args.perfil], []))
@@ -133,8 +146,15 @@ def main(argv=None, entrada=input):
         if health.get("status") != "ready":
             print(f"El servidor no está listo ({health.get('status')}): no se corre la prueba.")
             return 3
+    if args.modo == "componentes" and args.perfil == "sonda":
+        print("El perfil «sonda» es del modo llm.")
+        return 2
     from tools.carga import runner
 
+    fabrica_motor = None
+    if args.modo == "e2e":
+        # El motor del simulador usa los arneses de tests/: vive en tools/manual (exento).
+        from tools.manual.carga_e2e import fabrica_motor_e2e as fabrica_motor
     servidor = ServidorConfig(
         num_parallel=args.capacidad, max_queue=args.cola_max, prompt_tps=args.prompt_tps, gen_tps=args.tps,
         degradacion=args.degradacion, largo_min=args.largo_min, largo_max=args.largo_max,
@@ -146,6 +166,8 @@ def main(argv=None, entrada=input):
         max_concurrent=args.max_concurrent, espera_cola=args.espera_cola, espera_ui=args.espera_ui,
         espera_turno=args.espera_turno, sin_puerta=args.sin_puerta, pausa=args.pausa, semilla=args.semilla,
         proveedor=provider, real=args.real, log=print, parar_si_error=args.parar_si_error,
+        fabrica_motor=fabrica_motor, sin_palancas=args.sin_palancas, banco=args.banco,
+        catalogo_documentado=args.catalogo_documentado,
     )
     print()
     print(runner.tabla(report))

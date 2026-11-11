@@ -1,7 +1,9 @@
 """
 Rampas de usuarios concurrentes en modo `llm` (solo el LLM, por la puerta
-src/llm/llm_gate.py) y `e2e` (a través del motor del simulador, con el turno
-compartido de app.py: `turn_slot`).
+src/llm/llm_gate.py), `componentes` (síntesis y descripción de opciones reales,
+con la caché del motor: tools/carga/componentes.py) y `e2e` (a través del motor
+del simulador, con el turno compartido de app.py: `turn_slot`; el motor lo
+arma tools/manual/carga_e2e.py y se inyecta con `fabrica_motor`).
 
 Los tiempos se reportan en segundos SIMULADOS (con `escala` < 1 todo corre
 más rápido y se divide al medir). Con el servidor real, escala = 1.
@@ -12,13 +14,15 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 
-from tools.carga import escenarios, metricas
+from src.comun.rutas import ruta_salida
+from tools.carga import componentes, escenarios, metricas
 from tools.carga.simulador import ProveedorSimulado, ServidorConfig, ServidorSimulado
 
-SALIDAS = Path(__file__).resolve().parent / "salidas"
+SALIDAS = ruta_salida("carga")  # var/out/carga (docs/ARQUITECTURA.md §6)
 
 
 class _EnvTemporal:
@@ -206,50 +210,6 @@ class _Grabadora:
         return result
 
 
-def _motor_e2e(provider, escala):
-    """Motor del simulador (Power BI, Qdrant y MiniLM falsos) con el LLM
-    cableado al proveedor dado y los tiempos límite escalados."""
-    import sys
-
-    from tests.sim import fakes, harness
-
-    # Con --real, medgemma_provider ya se importó con el cliente y el dotenv
-    # reales (el proveedor real se construyó antes): mientras se arma el motor
-    # simulado se usan los falsos, para que su MedGemmaProvider interno no lea
-    # el .env ni salga a la red. Sin --real aún no está importado y el arnés
-    # lo importa ya con los falsos.
-    mp = sys.modules.get("src.llm.medgemma_provider")
-    saved = (mp.Client, mp.ResponseError, mp.load_dotenv) if mp is not None else None
-    if mp is not None:
-        mp.Client, mp.ResponseError = fakes.FakeOllamaClient, fakes.FakeResponseError
-        mp.load_dotenv = lambda *a, **k: False
-    try:
-        engine, cm, formatter, _status, _pbi, _dax = harness.build_engine()
-    finally:
-        if mp is not None:
-            mp.Client, mp.ResponseError, mp.load_dotenv = saved
-    from src.chatbot import contextual_rewriter
-
-    synthesizer = engine.rag_answer_engine.answer_synthesizer
-    synthesizer.llm_provider = provider
-    synthesizer.timeout_seconds = escenarios.DEFAULT_SYNTHESIS_TIMEOUT * escala
-    describer = getattr(engine, "option_describer", None)
-    if describer is not None:
-        describer.llm_provider = provider
-        describer.timeout = 15.0 * escala
-    engine.context_llm = provider
-    init = contextual_rewriter.LLMContextRewriter.__init__
-    original_defaults = init.__defaults__
-    defaults = list(original_defaults)
-    defaults[0] = 8.0 * escala
-    init.__defaults__ = tuple(defaults)
-
-    def restaurar():
-        init.__defaults__ = original_defaults
-
-    return harness, engine, cm, formatter, restaurar
-
-
 def _nivel_e2e(usuarios, turnos, sistema, grabadora, escala, espera_turno, espera_ui, pausa):
     from src.chatbot.runtime_stats import STATS, TurnBusy, turn_slot
     from src.llm.llm_gate import ui_progress
@@ -296,70 +256,121 @@ def _nivel_e2e(usuarios, turnos, sistema, grabadora, escala, espera_turno, esper
 # corrida completa
 # ======================================================================
 
-def correr(modo="llm", rampa=(1, 3, 5, 10, 20), turnos=2, perfil="mixto", servidor=None,
-           max_concurrent=None, espera_cola=None, espera_ui=None, espera_turno=120.0,
-           sin_puerta=False, pausa=0.0, semilla=7, proveedor=None, real=False, log=print,
-           parar_si_error=None):
+@dataclass
+class Opciones:
+    max_concurrent: int | None = None
+    espera_cola: float | None = None
+    espera_ui: float | None = None
+    espera_turno: float = 120.0
+    sin_puerta: bool = False
+    pausa: float = 0.0
+    semilla: int = 7
+    real: bool = False
+    parar_si_error: float | None = None
+    banco: int = 40                     # componentes: preguntas distintas (Zipf)
+    catalogo_documentado: float = 0.0   # componentes: fracción con descripción suficiente
+    sin_palancas: bool = False          # LLM_CACHE=off y OPTION_DESCRIBER_CATALOGO=off
+
+
+def _sistema(modo, proveedor, escala, op, turnos, perfil, fabrica_motor):
+    """(correr_nivel(usuarios), restaurar) de cada modo."""
+    if modo == "e2e":
+        if fabrica_motor is None:
+            raise ValueError("modo e2e: falta fabrica_motor (tools/manual/carga_e2e.fabrica_motor_e2e)")
+        grabadora = _Grabadora(proveedor, escala)
+        harness, engine, cm, formatter, restaurar = fabrica_motor(grabadora, escala)
+        sistema = (harness, engine, cm, formatter)
+        return (lambda u: _nivel_e2e(u, turnos, sistema, grabadora, escala, op.espera_turno, op.espera_ui,
+                                     op.pausa)), restaurar
+    if modo == "componentes":
+        ctx = componentes.Turnos(componentes.Grabadora(proveedor, escala), escala, banco=op.banco,
+                                 catalogo_documentado=op.catalogo_documentado, semilla=op.semilla)
+        return (lambda u: componentes.nivel(u, turnos, perfil, ctx, op.semilla, op.pausa, op.espera_ui,
+                                            _arrancar)), None
+    llamador = _Llamador(proveedor, escala, op.espera_cola, op.espera_ui, op.sin_puerta)
+    return (lambda u: _nivel_llm(u, turnos, perfil, llamador, op.semilla, op.pausa)), None
+
+
+_ACUMULADOS = ("received", "completed", "rejected_503", "cancelled_queued", "cancelled_generating",
+               "truncated", "context_truncated")
+
+
+def _escalon(usuarios, correr_nivel, server):
+    from src.chatbot.runtime_stats import STATS
+
+    snap_before, stats_before = (server.snapshot() if server else None), STATS.snapshot()
+    calls, turns, wall = correr_nivel(usuarios)
+    level = {
+        "usuarios": usuarios, "duracion_s": round(wall, 2),
+        "llamadas": metricas.resumen_llamadas(calls, wall),
+        "turnos": metricas.resumen_turnos(turns, wall),
+        "costo": metricas.resumen_costo(stats_before, STATS.snapshot(), len(turns)),
+        "detalle_turnos": turns, "detalle_llamadas": calls,
+    }
+    level["turnos"]["redactadas_por_min"] = componentes.redactadas_por_min(turns, wall)
+    if server is not None:
+        after = server.snapshot()
+        level["servidor"] = {k: after[k] - snap_before.get(k, 0) if k in _ACUMULADOS else after[k] for k in after}
+        server.stats["max_active"] = server.stats["max_queued"] = 0
+    level["llamadas"]["paralelismo_observado"] = metricas.paralelismo_observado(calls)
+    return level
+
+
+def _detener(level, parar_si_error):
+    c = level["llamadas"]
+    failing = c["tasa_error"] + c["tasa_tiempo_agotado"]
+    if parar_si_error is None or not c["n"] or failing <= parar_si_error:
+        return None
+    return f"tasa de error + tiempo agotado {failing:.0%} > {parar_si_error:.0%}: se detiene la rampa"
+
+
+def _rampa(rampa, correr_nivel, server, op, log):
+    niveles = []
+    for usuarios in rampa:
+        level = _escalon(usuarios, correr_nivel, server)
+        niveles.append(level)
+        if log:
+            log(_fila(level))
+        stop = _detener(level, op.parar_si_error)
+        if stop:
+            level["detenido"] = stop
+            if log:
+                log(stop)
+            break
+    return niveles
+
+
+def _opciones(opciones):
+    """Opciones con los valores de la app donde no se dieron."""
+    from src.llm.llm_gate import default_queue_wait, max_concurrent
+
+    op = Opciones(**opciones)
+    op.espera_cola = float(op.espera_cola) if op.espera_cola is not None else default_queue_wait()
+    op.max_concurrent = int(op.max_concurrent or max_concurrent())
+    return op
+
+
+def correr(modo="llm", rampa=(1, 3, 5, 10, 20), turnos=2, perfil="mixto", servidor=None, proveedor=None,
+           log=print, fabrica_motor=None, **opciones):
     """Corre la rampa y devuelve el informe (dict). `proveedor` (real) sustituye
-    al simulado; con él la escala es 1."""
+    al simulado; con él la escala es 1. `opciones`: campos de `Opciones`."""
+    op = _opciones(opciones)
     servidor = servidor or ServidorConfig()
     escala = 1.0 if proveedor is not None else float(servidor.escala)
     server = None
     if proveedor is None:
         server = ServidorSimulado(servidor)
         proveedor = ProveedorSimulado(server)
-    from src.llm.llm_gate import default_queue_wait, max_concurrent as current_max
-    espera_cola = float(espera_cola) if espera_cola is not None else default_queue_wait()
-    max_concurrent = int(max_concurrent or current_max())
-    config = {
-        "modo": modo, "rampa": list(rampa), "turnos": turnos, "perfil": perfil if modo == "llm" else "preguntas_e2e",
-        "real": bool(real), "escala": escala, "max_concurrent": max_concurrent, "espera_cola_s": espera_cola,
-        "espera_ui_s": espera_ui, "espera_turno_s": espera_turno, "sin_puerta": sin_puerta, "pausa_s": pausa,
-        "semilla": semilla, "servidor_simulado": None if real else servidor.as_dict(),
-        "proveedor": type(proveedor).__name__, "fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    }
-    niveles = []
-    env = _EnvTemporal(MEDGEMMA_MAX_CONCURRENT=max_concurrent, MEDGEMMA_QUEUE_WAIT=espera_cola * escala,
-                       MEDGEMMA_QUEUE_WAIT_UI=(espera_ui * escala) if espera_ui else None)
-    with env:
-        sistema = restaurar = grabadora = None
-        if modo == "e2e":
-            grabadora = _Grabadora(proveedor, escala)
-            harness, engine, cm, formatter, restaurar = _motor_e2e(grabadora, escala)
-            sistema = (harness, engine, cm, formatter)
-        llamador = _Llamador(proveedor, escala, espera_cola, espera_ui, sin_puerta) if modo == "llm" else None
+    config = dict(asdict(op), modo=modo, rampa=list(rampa), turnos=turnos, escala=escala,
+                  perfil=perfil if modo != "e2e" else "preguntas_e2e", espera_cola_s=op.espera_cola,
+                  espera_ui_s=op.espera_ui, servidor_simulado=None if op.real else servidor.as_dict(),
+                  proveedor=type(proveedor).__name__, fecha=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    palancas = {"LLM_CACHE": "off", "OPTION_DESCRIBER_CATALOGO": "off"} if op.sin_palancas else {}
+    with _EnvTemporal(MEDGEMMA_MAX_CONCURRENT=op.max_concurrent, MEDGEMMA_QUEUE_WAIT=op.espera_cola * escala,
+                      MEDGEMMA_QUEUE_WAIT_UI=(op.espera_ui * escala) if op.espera_ui else None, **palancas):
+        correr_nivel, restaurar = _sistema(modo, proveedor, escala, op, turnos, perfil, fabrica_motor)
         try:
-            for usuarios in rampa:
-                snap_before = server.snapshot() if server else None
-                if modo == "llm":
-                    calls, turns, wall = _nivel_llm(usuarios, turnos, perfil, llamador, semilla, pausa)
-                else:
-                    calls, turns, wall = _nivel_e2e(usuarios, turnos, sistema, grabadora, escala,
-                                                    espera_turno, espera_ui, pausa)
-                level = {
-                    "usuarios": usuarios, "duracion_s": round(wall, 2),
-                    "llamadas": metricas.resumen_llamadas(calls, wall),
-                    "turnos": metricas.resumen_turnos(turns, wall),
-                    "detalle_turnos": turns, "detalle_llamadas": calls,
-                }
-                if server is not None:
-                    after = server.snapshot()
-                    level["servidor"] = {k: after[k] - snap_before.get(k, 0) if k in (
-                        "received", "completed", "rejected_503", "cancelled_queued", "cancelled_generating",
-                        "truncated", "context_truncated") else after[k] for k in after}
-                    server.stats["max_active"] = server.stats["max_queued"] = 0
-                level["llamadas"]["paralelismo_observado"] = metricas.paralelismo_observado(calls)
-                niveles.append(level)
-                if log:
-                    log(_fila(level))
-                c = level["llamadas"]
-                failing = c["tasa_error"] + c["tasa_tiempo_agotado"]
-                if parar_si_error is not None and c["n"] and failing > parar_si_error:
-                    level["detenido"] = (f"tasa de error + tiempo agotado {failing:.0%} > {parar_si_error:.0%}: "
-                                         "se detiene la rampa")
-                    if log:
-                        log(level["detenido"])
-                    break
+            niveles = _rampa(rampa, correr_nivel, server, op, log)
         finally:
             if restaurar:
                 restaurar()
@@ -374,6 +385,7 @@ COLUMNAS = [
     ("usuarios", 8), ("llamadas", 8), ("ok", 5), ("p50 s", 7), ("p95 s", 7), ("1er tok p95", 11),
     ("saturadas", 9), ("t.agotado", 9), ("error", 6), ("truncadas", 9), ("ok/min", 7),
     ("turno p95 s", 11), ("espera turno p95", 16), ("ocupado", 7), ("respaldo", 8), ("paralelo", 8),
+    ("llam/turno", 10), ("tok ent/turno", 13), ("redact/min", 10),
 ]
 
 
@@ -393,6 +405,8 @@ def _fila(level):
         _pct(c["tasa_truncadas"]), _num(c["throughput_ok_por_min"]), _num(t["total_p95_s"]),
         _num(t["espera_turno_p95_s"]), _pct(t["tasa_ocupado"]), _pct(t["tasa_respaldo_extractivo"]),
         str((c.get("paralelismo_observado") or {}).get("generando_max") or "-"),
+        _num(level["costo"]["calls_por_turno"]), _num(level["costo"]["prompt_tokens_est_por_turno"]),
+        _num(t.get("redactadas_por_min")),
     ]
     return " | ".join(value.rjust(width) for value, (_, width) in zip(values, COLUMNAS))
 
@@ -403,6 +417,7 @@ def tabla(report):
     cfg = report["config"]
     lines.append(
         f"modo={cfg['modo']} perfil={cfg['perfil']} real={cfg['real']} max_concurrent={cfg['max_concurrent']}"
+        f" sin_palancas={cfg.get('sin_palancas')}"
         f" espera_cola={cfg['espera_cola_s']} s espera_ui={cfg['espera_ui_s']} turnos/usuario={cfg['turnos']}"
         " · tiempos en segundos simulados; p50/p95 de llamadas exitosas; «truncadas» sobre las exitosas"
     )

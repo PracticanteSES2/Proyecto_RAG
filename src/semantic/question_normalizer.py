@@ -521,3 +521,21 @@ def normalize_question(text, vocabulary=None):
         changes.append({"kind": "agrupacion", "from": "por cada", "to": "por"})
         normalized = grouped
     return NormalizedQuestion(original=original, text=normalized, changes=changes)
+
+
+# ---------------------------------------------------------------- claves de caché
+_KEY_SIGNS_RE = re.compile(r"[¿?¡!.,;:«»\"'()\[\]]+")
+
+
+def clave_pregunta(text, vocabulary=None):
+    """Forma canónica de una pregunta para claves de caché: lenguaje de chat
+    y tipeos normalizados contra el catálogo (`normalize_question`), sin
+    mayúsculas, tildes ni signos. «¿Qué es NEDOCS?» y «que es nedocs» dan la
+    misma clave. Única definición: la usan la caché de llamadas del motor
+    (src/chatbot/cache_llm.py) y la caché de respuestas del API."""
+    try:
+        normalized = normalize_question(text, vocabulary if vocabulary is not None else vocabulary_for())
+        base = normalized.text if normalized is not None and normalized.text else str(text or "")
+    except Exception:
+        base = str(text or "")
+    return " ".join(_KEY_SIGNS_RE.sub(" ", fold(base)).split())
