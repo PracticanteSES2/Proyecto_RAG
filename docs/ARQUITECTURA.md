@@ -153,13 +153,14 @@ Prohibido:
 3. `backend/app/api` importa `src.*` directamente (pasa por `backend/app/services/motor.py`).
 4. `tools/` importa `tests/` (excepción prevista: `tools/manual/`, que usa los arneses de `tests.real`/`tests.realistic`;
    requiere la extensión `excepto` del doctor, §12).
-5. Capas bajas importan altas: `providers`/`llm` → `chatbot` (deuda: `runtime_stats` ya vive en `src/comun/estadisticas.py`;
-   falta que `src/llm/llm_gate.py` y `gate_backends.py` lo importen de ahí — `specs/012-refactor-motor/tasks.md` T011).
+5. Capas bajas importan altas: `providers`/`llm` → `chatbot` (resuelto el 2026-11-11: el estado de ejecución vive en
+   `src/comun/estadisticas.py` y `providers`/`llm` lo importan de ahí; `src/chatbot/runtime_stats.py` es solo reexporte).
 6. Frontend: `components/ui/` importa `lib/api/`, o hay `fetch` fuera de `lib/api/`, o se edita a mano `lib/api/generado/`.
 
 Ciclos rotos el 2026-11-10 (`agente/refactor-motor`): `ingestion ↔ docs_md` y `semantic ↔ docs_md` (la reindexación pasó a
-`src/catalogo/indexacion.py`), `semantic ↔ dax` (`src/dax/validacion_detalle.py`). Quedan: `chatbot ↔ llm` (solo por T011) y
-`docs_md ↔ catalogo` a través del legado `src/docs_md/interfaz.py` (UI Streamlit que se borra con la paridad).
+`src/catalogo/indexacion.py`), `semantic ↔ dax` (`src/dax/validacion_detalle.py`). `chatbot ↔ llm` se rompió el 2026-11-11 (`llm` importa
+`src.comun.estadisticas`). Queda solo `docs_md ↔ catalogo` a través del legado `src/docs_md/interfaz.py` (UI Streamlit que
+se borra con la paridad).
 
 ---
 
@@ -307,7 +308,7 @@ salidas redirigidas, reglas en `CLAUDE.md`. Pendiente: `pyproject.toml` en la ra
    (que usará la fábrica).
 2. `runtime_stats` → `src/comun/estadisticas.py` (o `src/observabilidad/`), con reexport en
    `src/chatbot/runtime_stats.py`. Rompe `providers/llm → chatbot`. Coordinar con el agente de carga.
-   **Hecho** (2026-11-10) para `providers`; falta cambiar el import en `src/llm/` (agente de LLM).
+   **Hecho** (2026-11-10 `providers`, 2026-11-11 `llm`).
 3. Las 15 raíces propias de `src`/`pages` pasan a `from src.comun.rutas import RAIZ_PROYECTO` (requisito de la
    fase 5: después solo cambia `rutas.py`). **Hecho** en 16 módulos de `src`; quedan `pages/` y `src/ui/estilo.py` (legado).
 

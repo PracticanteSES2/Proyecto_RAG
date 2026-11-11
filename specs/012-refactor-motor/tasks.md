@@ -9,7 +9,7 @@ Leyenda: [x] hecho en esta ronda · [ ] pendiente (con dueño o motivo).
 
 ## Fase 1 — Capas y raíz (sin `src/fabrica.py`, que es del agente de backend)
 - [x] T010 `runtime_stats` → `src/comun/estadisticas.py` (+ `src/comun/entorno.py`); reexporte en `src/chatbot/runtime_stats.py`; `powerbi_provider` importa de `src.comun`. Prueba: `tests/comun/test_estadisticas.py`.
-- [ ] T011 `src/llm/llm_gate.py` y `src/llm/gate_backends.py` → `src.comun.estadisticas` / `src.comun.entorno` (archivos del agente de LLM: cambio de una línea cada uno; quita los 2 hallazgos `capa_invertida` restantes).
+- [x] T011 `src/llm/llm_gate.py` y `src/llm/gate_backends.py` → `src.comun.estadisticas` / `src.comun.entorno` (archivos del agente de LLM: cambio de una línea cada uno; quita los 2 hallazgos `capa_invertida` restantes).
 - [x] T012 16 módulos de `src` usan `src.comun.rutas.RAIZ_PROYECTO` (legado `pages/` y `src/ui/estilo.py` congelados).
 
 ## Fase 3 — Utilidades canónicas
@@ -19,7 +19,8 @@ Leyenda: [x] hecho en esta ronda · [ ] pendiente (con dueño o motivo).
       probadas: `query_engine._normalize_text` ≡ `normalizar`, su `plain` local ≡ `plegar` (paso 0 de `fase2.md`),
       `conversation_manager._normalize` ≡ `normalizar`; candidatas (añadir oráculo al sustituir): `progreso._normalizar`
       ≈ `sin_tildes(lower).strip()`, `grounding._fold` ≈ `sin_tildes(lower)`. No equivalentes (se quedan): `portero.normalizar` (NFKD),
-      `portero_alcance.normalizar_operaciones`, `option_describer._plain` (sin `strip`), `answer_synthesizer._words`.
+      `portero_alcance.normalizar_operaciones`. Hechas el 2026-11-11 (con oráculo): `answer_synthesizer._words` → `sin_tildes`,
+      `option_describer._plain` → `plegar` (conserva su falta de `strip`).
 - [x] T023 `src/comun/json_io.py` (`leer_json`, `escribir_json`) y `src/comun/colecciones.py` (`como_lista`) + `tests/comun/test_json_io.py`.
 - [x] T024 `src/comun/registro.py` (`configurar_registro`, `mensajes_de`, `consola_utf8`); `print` → `logging` en los constructores; CLIs configuran el registro.
 - [ ] T025 `print` que quedan a propósito: `src/docs_md/diccionario.py` (salida del CLI `main`, que las pruebas leen por stdout: mover el CLI a `tools/` en la fase 4b) y `src/providers/powerbi_token.login` (mensaje del código de dispositivo para la persona).
@@ -28,7 +29,7 @@ Leyenda: [x] hecho en esta ronda · [ ] pendiente (con dueño o motivo).
 ## Fase 4 — Ciclos
 - [x] T030 `ingestion ↔ docs_md` y `semantic ↔ docs_md`: `src/docs_md/indexacion.py` → `src/catalogo/indexacion.py` (partida en etapas).
 - [x] T031 `semantic ↔ dax`: `validate_detail_dax` → `src/dax/validacion_detalle.py`.
-- [ ] T032 `chatbot ↔ llm` (aparece solo por T011).
+- [x] T032 `chatbot ↔ llm`: roto el 2026-11-11 con T011 (el doctor queda con Capas 100).
 - [ ] T033 Resto de la fase 4: constructores (`model_catalog_builder`, `visual_catalog_builder`, `powerbi_catalog_manager`, `global_master_metric_builder`, `document_normalizer`, `semantic_merge`) a `src/catalogo/`.
 
 ## Fase 2 — Partir `query_engine.py`
