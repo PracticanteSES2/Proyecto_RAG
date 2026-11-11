@@ -52,8 +52,14 @@ description: "Tareas de la experiencia de espera: textos sin colas y respuesta e
 
 ## Phase 6: Frontend (cuando `frontend/` esté en `desarrollo`)
 
-- [ ] T014 Quitar textos de cola de la máquina de estados y del indicador
-- [ ] T015 Pintar `token` en la burbuja con cursor sutil, sin saltos; reemplazo por la final (plan.md)
-- [ ] T016 Revelado rápido de respuestas completas (Power BI)
-- [ ] T017 Mock: cola larga sin mencionarla, streaming, degradada; Vitest
-- [ ] T018 `lint`, `typecheck`, `test`, `build` en verde; capturas de la espera y del streaming
+- [x] T014 Quitar textos de cola de la máquina de estados (`fraseCola`, etapa `en_cola`), del aviso 429 y del mock;
+  `cola` solo se guarda para el panel de diagnóstico
+- [x] T015 Pintar `token` en la burbuja con cursor sutil, sin saltos (`RespuestaTurno`: una sola burbuja del borrador
+  a la final; si la final empieza por el borrador sigue escribiendo, si no, fundido conservando el alto)
+- [x] T016 Revelado rápido de respuestas completas (`lib/turno/revelado.ts`, `hooks/useRevelado.ts`: ≤ 700 ms, por
+  palabras, tablas y código enteros, nada con `prefers-reduced-motion` ni en el historial)
+- [x] T017 Mock: «cola» (rotación y espera tranquila; `cola` solo con diagnóstico, como el backend), «qué es»
+  (streaming), «salvaguarda» (fundido), «documentación» (extractiva con nota neutra); Vitest
+- [x] T018 `lint`, `typecheck`, `test`, `build` en verde; capturas de la espera, el streaming y el estado vacío
+- [x] T019 Estado vacío compacto en alturas ≤ 940 px y sin tarjetas en el móvil: nada queda bajo la barra de entrada
+  en 1280×900, 1280×800, 1366×768 ni 390×844
