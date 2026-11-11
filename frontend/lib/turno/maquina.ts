@@ -160,14 +160,12 @@ export function reducirTurno(estado: EstadoTurno, accion: AccionTurno): EstadoTu
 
 /** Notas amables bajo la respuesta (degradada y eventos `aviso`), sin repetir textos. */
 export function avisosVisibles(estado: EstadoTurno): string[] {
-  const textos: string[] = [];
   const r = estado.respuesta;
-  if (r?.aviso?.trim()) textos.push(r.aviso.trim());
-  for (const aviso of estado.avisos) {
-    const texto = aviso.texto?.trim();
-    if (texto && !textos.includes(texto)) textos.push(texto);
+  const textos = new Set<string>();
+  for (const texto of [r?.aviso, ...estado.avisos.map((a) => a.texto)]) {
+    if (texto?.trim()) textos.add(texto.trim());
   }
   // Nota genérica solo si la respuesta vino degradada y nadie explicó por qué.
-  if (r?.degradada && textos.length === 0) textos.push(AVISO_DEGRADADA);
-  return textos;
+  if (r?.degradada && textos.size === 0) textos.add(AVISO_DEGRADADA);
+  return [...textos];
 }
