@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { IconoNueva } from "@/components/ui/IconosAjustes";
+import { NavegacionPrincipal } from "@/components/ui/NavegacionPrincipal";
 
 interface Props {
   diagnostico: boolean;
@@ -39,6 +40,7 @@ export function Encabezado({ diagnostico, puedeReiniciar, alNuevaConversacion, a
               <span className="hidden sm:inline">· Queremos devolver sonrisas</span>
             </p>
           </div>
+          <NavegacionPrincipal actual="chat" />
           <button
             type="button"
             onClick={alNuevaConversacion}

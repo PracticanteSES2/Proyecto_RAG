@@ -277,7 +277,15 @@ restantes) salvo que el mismo cambio extraiga más de lo que añade.
   5. Progreso por etapas y aviso de espera/cola.
   6. Razonamiento/traza visible y exportación de la conversación.
   7. Calificación de un turno (registro en `data/feedback/`).
-  8. Página de documentación: ver un tablero y proponer un cambio.
+  8. Documentación viva (`pages/1_Documentación.py` → `src/docs_md/interfaz.py`): ver un tablero y una página
+     (ficha, cuerpo, historial y el `.md` guardado); proponer un cambio desde una nota informal (con cambios del
+     PBIP opcionales) con espera sin hablar de colas; revisar operaciones con su texto actual, avisos y diff
+     antes/después; corregir el texto y actualizar la vista previa; aclarar una nota ambigua eligiendo la página;
+     descartar; aprobar con autor (rechazo si el archivo cambió); reindexar el RAG del tablero con el motor en uso
+     y reintentar si falla; errores amables. **Cubierto** en `/documentacion` + `/api/v1/documentacion/**`
+     (`specs/013-documentacion-web`, Vitest + `tests/backend/test_documentacion_*.py`); falta la prueba Playwright
+     contra el backend real. Pendiente para retirar el legado: reindexar con el motor en el proceso trabajador
+     (Redis), hoy responde `no_disponible`.
   9. Estado de servicios (MedGemma, Power BI) y tema institucional.
   10. Arneses (`tests/sim`, `tests/realistic`, `tests/real`) y golden master corriendo **sin** `app.py`.
 - Al alcanzar la paridad: commit único que borra el legado, mueve `assets/` a `frontend/public/` y quita

@@ -21,14 +21,35 @@ export class ErrorApi extends Error {
   readonly estado?: number;
   /** Segundos sugeridos por `Retry-After` en un 429 (no se muestran al usuario). */
   readonly reintentarEn?: number;
+  /** `codigo` estable del cuerpo de error del backend (`{mensaje, codigo}`), si vino. */
+  readonly codigo?: string;
+  /** `mensaje` amable del backend (en español, sin detalles internos), si vino. */
+  readonly mensajeServidor?: string;
 
-  constructor(tipo: TipoErrorApi, mensaje: string, estado?: number, reintentarEn?: number) {
+  constructor(
+    tipo: TipoErrorApi,
+    mensaje: string,
+    estado?: number,
+    reintentarEn?: number,
+    cuerpo: { codigo?: string; mensajeServidor?: string } = {},
+  ) {
     super(mensaje);
     this.name = "ErrorApi";
     this.tipo = tipo;
     this.estado = estado;
     this.reintentarEn = reintentarEn;
+    this.codigo = cuerpo.codigo;
+    this.mensajeServidor = cuerpo.mensajeServidor;
   }
+}
+
+/** `{mensaje, codigo}` del cuerpo de un error del backend (vacío si no es JSON con esa forma). */
+async function cuerpoError(respuesta: Response): Promise<{ codigo?: string; mensajeServidor?: string }> {
+  const datos = (await respuesta.json().catch(() => null)) as { mensaje?: unknown; codigo?: unknown } | null;
+  return {
+    codigo: typeof datos?.codigo === "string" ? datos.codigo : undefined,
+    mensajeServidor: typeof datos?.mensaje === "string" ? datos.mensaje : undefined,
+  };
 }
 
 export interface ClienteApi {
@@ -42,9 +63,10 @@ export interface ClienteApi {
   salud(): Promise<Salud>;
 }
 
-type Fetch = typeof fetch;
+export type Fetch = typeof fetch;
 
-export function crearClienteApi(base: string = urlBaseApi(), fetchFn: Fetch = (...a) => fetch(...a)): ClienteApi {
+/** Transporte HTTP común de los clientes de la API: URL, errores clasificados y JSON. */
+export function crearTransporte(base: string, fetchFn: Fetch) {
   const url = (ruta: string) => `${base}${PREFIJO_API}${ruta}`;
 
   async function pedir(ruta: string, init?: RequestInit): Promise<Response> {
@@ -62,6 +84,7 @@ export function crearClienteApi(base: string = urlBaseApi(), fetchFn: Fetch = (.
       throw new ErrorApi("red", causa instanceof Error ? causa.message : "Fallo de red");
     }
     if (respuesta.ok) return respuesta;
+    const cuerpo = await cuerpoError(respuesta);
     if (respuesta.status === 429) {
       const cabecera = Number(respuesta.headers.get("Retry-After"));
       throw new ErrorApi(
@@ -69,10 +92,11 @@ export function crearClienteApi(base: string = urlBaseApi(), fetchFn: Fetch = (.
         "Demasiadas consultas",
         429,
         Number.isFinite(cabecera) && cabecera > 0 ? cabecera : undefined,
+        cuerpo,
       );
     }
-    if (respuesta.status === 404) throw new ErrorApi("no_encontrado", "No encontrado", 404);
-    throw new ErrorApi("http", `HTTP ${respuesta.status}`, respuesta.status);
+    if (respuesta.status === 404) throw new ErrorApi("no_encontrado", "No encontrado", 404, undefined, cuerpo);
+    throw new ErrorApi("http", `HTTP ${respuesta.status}`, respuesta.status, undefined, cuerpo);
   }
 
   const json = async <T>(ruta: string, init?: RequestInit): Promise<T> =>
@@ -81,6 +105,11 @@ export function crearClienteApi(base: string = urlBaseApi(), fetchFn: Fetch = (.
     method: "POST",
     body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
   });
+  return { url, pedir, json, post };
+}
+
+export function crearClienteApi(base: string = urlBaseApi(), fetchFn: Fetch = (...a) => fetch(...a)): ClienteApi {
+  const { url, pedir, json, post } = crearTransporte(base, fetchFn);
   const id = encodeURIComponent;
 
   return {
