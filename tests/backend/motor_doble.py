@@ -1,6 +1,7 @@
 """Motor doble para las pruebas del backend: imita la forma de QueryEngine
-(estado por conversación en atributos, oyente de progreso, contrapreguntas,
-seguimientos) sin MiniLM, Qdrant, Power BI ni MedGemma.
+(estado por conversación en una EstadoConversacion pasada con `sesion=`, con
+el mismo andamiaje de src/chatbot/sesion_motor.py; oyente de progreso,
+contrapreguntas, seguimientos) sin MiniLM, Qdrant, Power BI ni MedGemma.
 
 Guion por texto del mensaje:
 - «hola»                         → portero (ruta conversacion)
@@ -9,6 +10,7 @@ Guion por texto del mensaje:
 - «y en 2025?»                   → seguimiento: usa _last_success o no entiende
 - «documentacion»                → RAG redactado · «documentacion saturada» → RAG extractivo (degradado)
 - «explota»                      → excepción · «lento» → tarda `demora_s` con actividades
+- «bloquea»                      → retiene la instancia hasta que la prueba abre `compuerta`
 - cualquier otro texto           → dato de Power BI «Total atenciones»
 """
 from __future__ import annotations
@@ -18,20 +20,7 @@ import time
 from types import SimpleNamespace
 
 from backend.app.services.motor import InstanciaMotor, PiscinaMotores
-
-
-class MemoriaDoble:
-    def __init__(self):
-        self.turnos = []
-
-    def __len__(self):
-        return len(self.turnos)
-
-    def clear(self):
-        self.turnos.clear()
-
-    def record(self, texto, result):
-        self.turnos.append((texto, result.get("status")))
+from src.chatbot.sesion_motor import SesionMotorMixin, con_sesion
 
 
 class GestorDoble:
@@ -44,24 +33,12 @@ class GestorDoble:
         self.candidate_dashboards = []
 
 
-class MotorDoble:
+class MotorDoble(SesionMotorMixin):
     def __init__(self, demora_s: float = 0.0):
         self.demora_s = demora_s
         # «bloquea» espera esta compuerta: las pruebas de concurrencia la abren
         # cuando quieren (sin depender de tiempos).
         self.compuerta = threading.Event()
-        self.progress_listener = None
-        self.last_reasoning = None
-        self._trace = None
-        self._pending_master_metric = None
-        self._pending_query_plan = None
-        self._pending_dashboard_clarification = None
-        self._deferred_context_message = None
-        self._applying_deferred = None
-        self._last_success = None
-        self._range_choice = None
-        self._turn_interpretation = None
-        self.conversation_memory = MemoriaDoble()
         self.powerbi_provider = None
         self.source_router = None
         self.llamadas = []
@@ -70,17 +47,7 @@ class MotorDoble:
         self._candado = threading.Lock()
 
     # --- API de QueryEngine que usa el backend ---------------------------
-    def set_progress_listener(self, oyente):
-        self.progress_listener = oyente
-
-    def reset(self, full=False):
-        self._pending_master_metric = None
-        self._pending_query_plan = None
-        self._pending_dashboard_clarification = None
-        self._deferred_context_message = None
-        if full:
-            self._last_success = None
-            self.conversation_memory.clear()
+    # set_progress_listener, reset y conversation_history: SesionMotorMixin.
 
     def _avisar(self, titulo):
         if self.progress_listener:
@@ -99,6 +66,7 @@ class MotorDoble:
         with self._candado:
             self.concurrentes -= 1
 
+    @con_sesion
     def process(self, texto, on_token=None):
         self._entrar()
         try:
@@ -114,6 +82,7 @@ class MotorDoble:
         finally:
             self._salir()
 
+    @con_sesion
     def select_clarification_option(self, opcion_id, etiqueta=None):
         self._entrar()
         try:

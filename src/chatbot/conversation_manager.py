@@ -1,7 +1,7 @@
 import re
 import unicodedata
 
-from src.chatbot.conversation_state import ConversationState
+from src.chatbot.estado_conversacion import EstadoConversacion, sesion_activa
 from src.chatbot.intent_parser import ordinal_choice_index
 
 _DASHBOARD_STOPWORDS = {
@@ -20,9 +20,38 @@ class ConversationManager:
 
     def __init__(self, intent_parser):
         self.intent_parser = intent_parser
-        self.state = ConversationState()
-        # Tableros ofrecidos en la última contrapregunta.
-        self.candidate_dashboards = []
+
+    # ========================================================
+    # ESTADO DE LA CONVERSACIÓN (spec 008)
+    # ========================================================
+    # `state` (ConversationState) y `candidate_dashboards` (tableros ofrecidos
+    # en la última contrapregunta) viven en la EstadoConversacion del turno en
+    # curso; sin ella (modo legado) en una sesión propia del gestor.
+
+    def _sesion(self):
+        activa = sesion_activa()
+        if activa is not None:
+            return activa
+        propia = self.__dict__.get("_sesion_propia")
+        if propia is None:
+            propia = self.__dict__["_sesion_propia"] = EstadoConversacion(id="legado")
+        return propia
+
+    @property
+    def state(self):
+        return self._sesion().intencion
+
+    @state.setter
+    def state(self, value):
+        self._sesion().intencion = value
+
+    @property
+    def candidate_dashboards(self):
+        return self._sesion().tableros_candidatos
+
+    @candidate_dashboards.setter
+    def candidate_dashboards(self, value):
+        self._sesion().tableros_candidatos = value
 
     # ========================================================
     # CAMPOS QUE TODAVÍA HACEN FALTA
