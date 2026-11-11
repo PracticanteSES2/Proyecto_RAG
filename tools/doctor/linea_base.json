@@ -1,7 +1,7 @@
 {
  "version": 2,
  "fecha": "2026-11-11",
- "puntaje_global": 80.2393,
+ "puntaje_global": 84.3582,
  "perfiles": {
   "backend": {
    "puntaje": 76.8701,
@@ -1117,15 +1117,15 @@
    }
   },
   "frontend": {
-   "puntaje": 93.216,
+   "puntaje": 95.5904,
    "categorias": {
     "estructura": 100.0,
     "tipos": 100.0,
+    "compilacion": 100.0,
+    "lint": 100.0,
     "react": 77.9519,
     "arquitectura": 100.0,
-    "higiene": 100.0,
-    "compilacion": 100.0,
-    "lint": 100.0
+    "higiene": 100.0
    },
    "huellas": {
     "react": {
