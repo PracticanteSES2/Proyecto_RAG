@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -12,17 +13,16 @@ from src.semantic.catalog_utils import (
     load_csv,
     save_json
 )
+from src.comun.rutas import RAIZ_PROYECTO
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
 # CONFIGURACIÓN
 # ============================================================
 
-PROJECT_ROOT = (
-    Path(__file__)
-    .resolve()
-    .parents[2]
-)
+PROJECT_ROOT = RAIZ_PROYECTO
 
 
 WORKSPACE_NAME = (
@@ -55,9 +55,7 @@ OUTPUT_DIR = (
 
 def load_metadata():
 
-    print(
-        "Leyendo metadata de Power BI...\n"
-    )
+    logger.info("Leyendo metadata de Power BI...\n")
 
     tables = load_csv(
         BASE_DIR / "tables.csv"
@@ -76,25 +74,17 @@ def load_metadata():
     )
 
 
-    print(
-        f"Tablas encontradas:       "
-        f"{len(tables)}"
-    )
+    logger.info(f"Tablas encontradas:       "
+        f"{len(tables)}")
 
-    print(
-        f"Columnas encontradas:     "
-        f"{len(columns)}"
-    )
+    logger.info(f"Columnas encontradas:     "
+        f"{len(columns)}")
 
-    print(
-        f"Medidas encontradas:      "
-        f"{len(measures)}"
-    )
+    logger.info(f"Medidas encontradas:      "
+        f"{len(measures)}")
 
-    print(
-        f"Relaciones encontradas:   "
-        f"{len(relationships)}"
-    )
+    logger.info(f"Relaciones encontradas:   "
+        f"{len(relationships)}")
 
 
     return {
@@ -155,13 +145,9 @@ def build_raw_catalog(
     )
 
 
-    print(
-        "\nCatálogo bruto generado:"
-    )
+    logger.info("\nCatálogo bruto generado:")
 
-    print(
-        output_file
-    )
+    logger.info(output_file)
 
 
     return catalog
@@ -306,13 +292,9 @@ def build_normalized_catalog(
     )
 
 
-    print(
-        "\nCatálogo normalizado generado:"
-    )
+    logger.info("\nCatálogo normalizado generado:")
 
-    print(
-        output_file
-    )
+    logger.info(output_file)
 
 
     return catalog
@@ -689,13 +671,9 @@ def build_rag_catalog(
     )
 
 
-    print(
-        "\nCatálogo RAG generado:"
-    )
+    logger.info("\nCatálogo RAG generado:")
 
-    print(
-        output_file
-    )
+    logger.info(output_file)
 
 
     return rag_catalog
@@ -735,45 +713,27 @@ def main():
     )
 
 
-    print(
-        "\n=============================="
-    )
+    logger.info("\n==============================")
 
-    print(
-        "RESUMEN DEL CATÁLOGO"
-    )
+    logger.info("RESUMEN DEL CATÁLOGO")
 
-    print(
-        "=============================="
-    )
+    logger.info("==============================")
 
-    print(
-        "Tablas útiles:",
-        len(
+    logger.info("Tablas útiles: %s", len(
             rag_catalog[
                 "tables"
             ]
-        )
-    )
+        ))
 
-    print(
-        "Columnas:",
-        total_columns
-    )
+    logger.info("Columnas: %s", total_columns)
 
-    print(
-        "Medidas:",
-        total_measures
-    )
+    logger.info("Medidas: %s", total_measures)
 
-    print(
-        "Relaciones:",
-        len(
+    logger.info("Relaciones: %s", len(
             rag_catalog[
                 "relationships"
             ]
-        )
-    )
+        ))
 
 
 
@@ -896,6 +856,9 @@ def build_model_catalog(
 
 
 if __name__ == "__main__":
+    from src.comun.registro import configurar_registro
+
+    configurar_registro()
     # Se conserva la ejecución legacy para no romper usos anteriores.
     # La ejecución multi-modelo oficial se realiza con:
     #     python tools/build_powerbi_catalogs.py

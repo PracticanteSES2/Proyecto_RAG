@@ -42,7 +42,7 @@ Secciones y orden (las vacías se omiten, salvo Propósito e Historial):
 | `formato.py` | parsear / serializar / validar / aplicar_operaciones / diferencias | base (hecho) |
 | `repositorio.py` | listar_tableros / listar_paginas / leer_pagina / guardar_pagina | base (hecho) |
 | `actualizador.py` | proponer_cambio(nota, source_group, pagina=None, llm=None, cambios_pbip=None) -> Propuesta; aplicar_propuesta(propuesta, autor) | agente actualizador |
-| `indexacion.py` | reindexar_grupo(source_group, qdrant_client=None, *, project_root=None, md_root=None, embedder=None, incremental=True) -> dict; cliente_qdrant_de_la_app() | agente ingesta (hecho) |
+| `indexacion.py` (ahora `src/catalogo/indexacion.py`) | reindexar_grupo(source_group, qdrant_client=None, *, project_root=None, md_root=None, embedder=None, incremental=True) -> dict; cliente_qdrant_de_la_app() | agente ingesta (hecho) |
 | `diccionario.py` | generar_esqueleto / cobertura / comparar_con_modelo (+ `uso.py`) | diccionario (hecho) |
 | `pbip.py` | extraer_hechos / comparar / esqueleto (+ guardar_instantanea / cambios_desde_instantanea; acepta PBIP o .pbix PBIR) | agente pbip (hecho) |
 | `src/ingestion` | leer `md/` y producir el JSON normalizado del RAG | agente ingesta |

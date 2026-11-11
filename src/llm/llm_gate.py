@@ -8,11 +8,11 @@ Puerta única para las llamadas al LLM (MedGemma) desde el chatbot.
     ocupando un hueco; esas llamadas abandonadas se acumulaban.
   * Concurrencia acotada y JUSTA: como mucho MEDGEMMA_MAX_CONCURRENT (3)
     llamadas a la vez; las demás esperan en una fila FIFO (`FifoLine` de
-    src/chatbot/runtime_stats.py): entra la primera en llegar. Si no hay hueco
+    src/comun/estadisticas.py): entra la primera en llegar. Si no hay hueco
     en `queue_wait` segundos, la llamada no se hace y se devuelve
     status="llm_saturated" para degradar rápido (p. ej. resumen extractivo en
     la síntesis RAG).
-  * Contadores para el diagnóstico (src/chatbot/runtime_stats.py).
+  * Contadores para el diagnóstico (src/comun/estadisticas.py).
 
 Backend de coordinación (enchufable, src/llm/gate_backends.py)
 --------------------------------------------------------------
@@ -32,7 +32,7 @@ deben usar el mismo valor). `set_backend(b)` fija uno a mano (pruebas);
 
 API para la UI de progreso y el API (FastAPI: eventos SSE `cola`)
 -----------------------------------------------------------------
-`STATS.llm_pressure()` (runtime_stats) → {"in_flight", "waiting", "capacity",
+`STATS.llm_pressure()` (src/comun/estadisticas.py) → {"in_flight", "waiting", "capacity",
 "saturated_recent"} para el indicador de presión. `add_queue_observer(fn)`
 recibe toda espera de hueco con un "titulo" que empieza por «LLM en cola»
 (para registrar la actividad en la traza sin acoplar la puerta al motor).
@@ -47,7 +47,7 @@ En FastAPI la llamada al LLM corre en un hilo del threadpool: abre
 `position` 1 = la siguiente en entrar, None = ese hilo no espera; `ahead` =
 in_flight + position - 1 (solo para el modo diagnóstico: la interfaz normal
 nunca habla de filas ni de otras consultas). También en
-`runtime_stats.queue_snapshot()["llm"]`.
+`estadisticas.queue_snapshot()["llm"]` (src/comun/estadisticas.py).
 
 `ui_progress(on_queue=None, queue_wait=None)` — gestor de contexto que la UI
 pone alrededor del turno cuando PUEDE mostrar progreso:
@@ -88,7 +88,8 @@ import time
 from contextlib import contextmanager
 from typing import Callable
 
-from src.chatbot.runtime_stats import STATS, env_float, env_int
+from src.comun.entorno import env_float, env_int
+from src.comun.estadisticas import STATS
 from src.llm.gate_backends import GateBackend, MemoriaBackend
 
 LOG = logging.getLogger("llm_gate")

@@ -7,7 +7,7 @@ dibujo para poder probarlos con AppTest.
 
 Servicios (contratos de README.md):
 - actualizador.proponer_cambio / actualizador.aplicar_propuesta
-- indexacion.reindexar_grupo
+- catalogo.indexacion.reindexar_grupo
 
 Para pruebas se pueden reemplazar por otro módulo con las mismas tres
 funciones: variable de entorno DOCS_MD_SERVICIOS=<modulo> (p. ej.
@@ -78,9 +78,9 @@ def cargar_servicios(nombre_modulo: str | None = None) -> Servicios:
         modulo = importlib.import_module(nombre)
         return Servicios(modulo.proponer_cambio, modulo.aplicar_propuesta, modulo.reindexar_grupo,
                          simulados=True, origen=nombre)
-    from . import actualizador, indexacion
-    return Servicios(actualizador.proponer_cambio, actualizador.aplicar_propuesta,
-                     indexacion.reindexar_grupo)
+    from src.catalogo.indexacion import reindexar_grupo  # antes src/docs_md/indexacion.py (fase 4)
+    from . import actualizador
+    return Servicios(actualizador.proponer_cambio, actualizador.aplicar_propuesta, reindexar_grupo)
 
 
 def retriever_del_chat():

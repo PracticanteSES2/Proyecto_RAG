@@ -26,7 +26,8 @@ memoria y nunca deja que una excepción llegue al chatbot.
 import time
 from typing import Callable, Protocol
 
-from src.chatbot.runtime_stats import FifoLine, env_int
+from src.comun.entorno import env_int
+from src.comun.estadisticas import FifoLine
 
 
 

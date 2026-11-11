@@ -1,9 +1,6 @@
+import logging
 import argparse
-import json
 import os
-import re
-import sys
-import unicodedata
 from pathlib import Path
 
 from src.semantic.model_catalog_builder import (
@@ -15,53 +12,23 @@ from src.semantic.visual_catalog_builder import (
 from src.semantic.global_master_metric_builder import (
     build_global_master_metrics,
 )
+from src.comun.rutas import RAIZ_PROYECTO
+from src.comun.texto import normalizar, slug
+from src.comun.registro import configurar_registro, consola_utf8
+from src.comun.json_io import escribir_json, leer_json
+
+logger = logging.getLogger(__name__)
 
 
-PROJECT_ROOT = (
-    Path(__file__)
-    .resolve()
-    .parents[2]
-)
+PROJECT_ROOT = RAIZ_PROYECTO
 
 
 def normalize_text(value):
-    value = str(
-        value or ""
-    ).strip().lower()
-
-    value = "".join(
-        char
-        for char in unicodedata.normalize(
-            "NFD",
-            value,
-        )
-        if unicodedata.category(char)
-        != "Mn"
-    )
-
-    value = re.sub(
-        r"[^a-z0-9]+",
-        " ",
-        value,
-    )
-
-    return re.sub(
-        r"\s+",
-        " ",
-        value,
-    ).strip()
+    return normalizar(value)
 
 
 def slugify(value):
-    return (
-        normalize_text(
-            value
-        ).replace(
-            " ",
-            "_",
-        )
-        or "sin_nombre"
-    )
+    return slug(value) or "sin_nombre"
 
 
 def display_name_from_slug(
@@ -80,37 +47,14 @@ def load_json(
     path,
     default=None,
 ):
-    path = Path(path)
-
-    if not path.exists():
-        return default
-
-    return json.loads(
-        path.read_text(
-            encoding="utf-8"
-        )
-    )
+    return leer_json(path, default)
 
 
 def save_json(
     data,
     path,
 ):
-    path = Path(path)
-
-    path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    path.write_text(
-        json.dumps(
-            data,
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+    escribir_json(data, path)
 
 
 class PowerBICatalogManager:
@@ -805,12 +749,9 @@ class PowerBICatalogManager:
             if not model:
                 continue
 
-            print(
-                "\nConstruyendo catálogo técnico:",
-                model[
+            logger.info("\nConstruyendo catálogo técnico: %s", model[
                     "semantic_model"
-                ],
-            )
+                ])
 
             result = build_model_catalog(
                 metadata_dir=
@@ -867,13 +808,9 @@ class PowerBICatalogManager:
                 or not semantic_model
                 or not metadata_path
             ):
-                print(
-                    "\nVisual omitido:",
-                    source.get(
+                logger.info("\nVisual omitido: %s | falta PBIR o metadata.", source.get(
                         "source_group"
-                    ),
-                    "| falta PBIR o metadata.",
-                )
+                    ))
                 continue
 
             pbir_path = Path(
@@ -881,22 +818,14 @@ class PowerBICatalogManager:
             )
 
             if not pbir_path.exists():
-                print(
-                    "\nVisual omitido:",
-                    source.get(
+                logger.info("\nVisual omitido: %s | PBIR no existe: %s", source.get(
                         "source_group"
-                    ),
-                    "| PBIR no existe:",
-                    pbir_path,
-                )
+                    ), pbir_path)
                 continue
 
-            print(
-                "\nProcesando PBIR:",
-                source.get(
+            logger.info("\nProcesando PBIR: %s", source.get(
                     "report"
-                ),
-            )
+                ))
 
             builder = (
                 PBIRVisualCatalogBuilder(
@@ -983,20 +912,15 @@ class PowerBICatalogManager:
                 semantic_model
             )
 
-            print(
-                "  [OK] Páginas:",
-                catalog.get(
+            logger.info("  [OK] Páginas: %s | métricas visuales: %s", catalog.get(
                     "stats",
                     {},
                 ).get(
                     "pages",
                     0,
-                ),
-                "| métricas visuales:",
-                len(
+                ), len(
                     enriched_metrics
-                ),
-            )
+                ))
 
         return (
             catalogs,
@@ -1428,27 +1352,15 @@ class PowerBICatalogManager:
                     f"{source_group}"
                 )
 
-        print(
-            "\n========================================"
-        )
-        print(
-            "CATÁLOGOS POWER BI MULTI-MODELO"
-        )
-        print(
-            "========================================"
-        )
-        print(
-            "Modelos con metadata:",
-            len(
+        logger.info("\n========================================")
+        logger.info("CATÁLOGOS POWER BI MULTI-MODELO")
+        logger.info("========================================")
+        logger.info("Modelos con metadata: %s", len(
                 models_by_key
-            ),
-        )
-        print(
-            "Fuentes seleccionadas:",
-            len(
+            ))
+        logger.info("Fuentes seleccionadas: %s", len(
                 sources
-            ),
-        )
+            ))
 
         self.build_technical_catalogs(
             sources,
@@ -1509,40 +1421,22 @@ class PowerBICatalogManager:
             )
         )
 
-        print(
-            "\n========================================"
-        )
-        print(
-            "CATÁLOGOS FINALIZADOS"
-        )
-        print(
-            "========================================"
-        )
-        print(
-            "PBIR reconstruidos/procesados:",
-            len(
+        logger.info("\n========================================")
+        logger.info("CATÁLOGOS FINALIZADOS")
+        logger.info("========================================")
+        logger.info("PBIR reconstruidos/procesados: %s", len(
                 new_visual_catalogs
-            ),
-        )
-        print(
-            "Modelos reconstruidos:",
-            len(
+            ))
+        logger.info("Modelos reconstruidos: %s", len(
                 rebuilt_models
-            ),
-        )
-        print(
-            "Métricas maestras:",
-            len(
+            ))
+        logger.info("Métricas maestras: %s", len(
                 master.get(
                     "metrics",
                     [],
                 )
-            ),
-        )
-        print(
-            "Registro:",
-            self.source_registry_path,
-        )
+            ))
+        logger.info("Registro: %s", self.source_registry_path)
 
         return {
             "source_registry":
@@ -1555,15 +1449,8 @@ class PowerBICatalogManager:
 
 
 def main():
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            try:
-                stream.reconfigure(
-                    encoding="utf-8",
-                    errors="replace",
-                )
-            except Exception:
-                pass
+    consola_utf8()
+    configurar_registro()
 
     parser = argparse.ArgumentParser(
         description=(

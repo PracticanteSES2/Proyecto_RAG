@@ -11,7 +11,8 @@ Lógica pura (sin Qdrant ni modelos): la usan el retriever, el resolvedor de
 métricas y la capa de presentación del chatbot.
 """
 import re
-import unicodedata
+
+from src.comun.texto import sin_tildes
 
 DICTIONARY_PREFIX = "DICCIONARIO"
 DICTIONARY_LABEL = "Diccionario de variables"
@@ -35,8 +36,7 @@ MAX_ENTRY_CHARS = 80
 
 
 def _plain(text):
-    text = unicodedata.normalize("NFKD", str(text or ""))
-    text = "".join(c for c in text if not unicodedata.combining(c))
+    text = sin_tildes(text)
     return re.sub(r"\s+", " ", text).strip().upper()
 
 

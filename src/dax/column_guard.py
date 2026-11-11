@@ -38,6 +38,8 @@ _REFERENCE_RE = re.compile(
 _STRING_RE = re.compile(r'"(?:[^"]|"")*"')
 
 
+# No es src.comun.texto.plegar: casefold («ß» → «ss») aplicado tras NFD y conserva los signos de los
+# nombres de columna; cambiarla altera qué columnas del modelo se consideran iguales.
 def _fold(value):
     text = unicodedata.normalize("NFD", str(value or "")).casefold()
     text = "".join(char for char in text if unicodedata.category(char) != "Mn")

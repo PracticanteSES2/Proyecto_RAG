@@ -1,13 +1,14 @@
 import argparse
 import csv
 import hashlib
-import json
-import re
 import sys
-import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote
+
+from src.comun.texto import normalizar, slug
+from src.comun.registro import consola_utf8
+from src.comun.json_io import escribir_json
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
@@ -20,12 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 def configure_console_utf8():
     """Evita UnicodeEncodeError con stdout cp1252 o redirigido."""
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            try:
-                stream.reconfigure(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
+    consola_utf8()
 
 
 INFO_VIEW_QUERIES = {
@@ -37,19 +33,11 @@ INFO_VIEW_QUERIES = {
 
 
 def normalize_text(value):
-    value = str(value or "").strip().lower()
-    value = "".join(
-        char
-        for char in unicodedata.normalize("NFD", value)
-        if unicodedata.category(char) != "Mn"
-    )
-    value = re.sub(r"[^a-z0-9]+", " ", value)
-    return re.sub(r"\s+", " ", value).strip()
+    return normalizar(value)
 
 
 def slugify(value):
-    text = normalize_text(value)
-    return text.replace(" ", "_") or "sin_nombre"
+    return slug(value) or "sin_nombre"
 
 
 def workspace_name_from_endpoint(endpoint):
@@ -71,16 +59,7 @@ def workspace_name_from_endpoint(endpoint):
 
 
 def save_json(data, path):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            data,
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+    escribir_json(data, path)
 
 
 def write_csv(path, result):

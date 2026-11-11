@@ -1,9 +1,15 @@
+import logging
 import json
 import re
-import sys
 import unicodedata
 from collections import Counter
 from pathlib import Path
+
+from src.comun.rutas import RAIZ_PROYECTO
+from src.comun.registro import consola_utf8
+from src.comun.colecciones import como_lista
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
@@ -19,6 +25,7 @@ def clean_text(text):
     return text.strip()
 
 
+# No es src.comun.texto: MAYÚSCULAS (upper antes de NFD) y conserva signos de los títulos del .docx.
 def normalize_heading(text):
     text = clean_text(text).upper()
     text = "".join(
@@ -105,11 +112,7 @@ def detect_section(text):
 
 
 def _as_list(value):
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return value
-    return [value]
+    return como_lista(value)
 
 
 # ============================================================
@@ -742,23 +745,18 @@ def remove_stale_docx_outputs(processed_dir, output_dir):
             if not (processed_dir / relative).exists():
                 path.unlink()
                 removed.append(str(relative))
-                print("  [AVISO] Eliminado JSON obsoleto (el grupo usa .md):", relative)
+                logger.warning("  [AVISO] Eliminado JSON obsoleto (el grupo usa .md): %s", relative)
     return removed
 
 
 def normalize_all_documents(processed_dir, output_dir):
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            try:
-                stream.reconfigure(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
+    consola_utf8()
 
     processed_dir = Path(processed_dir)
     output_dir = Path(output_dir)
 
     documents = sorted(processed_dir.rglob("*.json"))
-    print(f"JSON encontrados: {len(documents)}")
+    logger.info(f"JSON encontrados: {len(documents)}")
 
     total_dashboards = 0
     processed = 0
@@ -766,7 +764,7 @@ def normalize_all_documents(processed_dir, output_dir):
 
     for document_path in documents:
         relative_path = document_path.relative_to(processed_dir)
-        print(f"\nNormalizando: {relative_path}")
+        logger.info(f"\nNormalizando: {relative_path}")
 
         try:
             with open(document_path, "r", encoding="utf-8") as file:
@@ -794,22 +792,22 @@ def normalize_all_documents(processed_dir, output_dir):
                 "error_type": type(error).__name__,
                 "error": str(error),
             })
-            print(f"  [ERROR] {type(error).__name__}: {error}")
+            logger.warning(f"  [ERROR] {type(error).__name__}: {error}")
             continue
 
         # Los prints van fuera del try que decide éxito/fallo.
-        print(f"  [OK] Tableros normalizados: {count}")
+        logger.info(f"  [OK] Tableros normalizados: {count}")
         for dashboard in normalized.get("dashboards", []):
-            print("     ->", dashboard.get("name"))
+            logger.info("     -> %s", dashboard.get("name"))
 
     remove_stale_docx_outputs(processed_dir, output_dir)
 
-    print("\n===========================")
-    print("NORMALIZACION FINALIZADA")
-    print("===========================")
-    print("Documentos procesados:", processed)
-    print("Tableros:", total_dashboards)
-    print("Errores:", len(errors))
+    logger.info("\n===========================")
+    logger.info("NORMALIZACION FINALIZADA")
+    logger.info("===========================")
+    logger.info("Documentos procesados: %s", processed)
+    logger.info("Tableros: %s", total_dashboards)
+    logger.info("Errores: %s", len(errors))
 
     return {
         "documents_found": len(documents),
@@ -824,7 +822,10 @@ def normalize_all_documents(processed_dir, output_dir):
 # ============================================================
 
 if __name__ == "__main__":
-    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    from src.comun.registro import configurar_registro
+
+    configurar_registro()
+    PROJECT_ROOT = RAIZ_PROYECTO
     PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
     OUTPUT_DIR = PROJECT_ROOT / "data" / "semantic_documents"
 

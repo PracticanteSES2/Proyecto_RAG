@@ -1,3 +1,4 @@
+import logging
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,10 @@ from qdrant_client.models import (
     PointStruct,
     VectorParams,
 )
+
+from src.comun.rutas import RAIZ_PROYECTO
+
+logger = logging.getLogger(__name__)
 
 
 MODEL_NAME = (
@@ -322,9 +327,9 @@ def build_vector_index(
     qdrant_path = Path(qdrant_path)
     collection_name = collection_name or COLLECTION_NAME
 
-    print("Cargando chunks...")
+    logger.info("Cargando chunks...")
     chunks = load_chunks(chunks_file)
-    print("Chunks encontrados:", len(chunks))
+    logger.info("Chunks encontrados: %s", len(chunks))
 
     if not chunks:
         raise ValueError("No hay chunks para indexar.")
@@ -340,20 +345,20 @@ def build_vector_index(
     if any(not text for text in texts):
         raise ValueError("Todos los chunks deben tener texto no vacío.")
 
-    print("\nCargando modelo de embeddings...")
+    logger.info("\nCargando modelo de embeddings...")
     model = SentenceTransformer(MODEL_NAME)
     vector_size = model.get_sentence_embedding_dimension()
-    print("Dimensión del embedding:", vector_size)
+    logger.info("Dimensión del embedding: %s", vector_size)
 
     # Primero calculamos los embeddings. Si esto falla, Qdrant queda intacto.
-    print("\nGenerando embeddings...")
+    logger.info("\nGenerando embeddings...")
     embeddings = model.encode(
         texts,
         batch_size=batch_size,
         show_progress_bar=True,
         normalize_embeddings=True,
     )
-    print("Embeddings generados:", embeddings.shape)
+    logger.info("Embeddings generados: %s", embeddings.shape)
 
     qdrant_path.mkdir(parents=True, exist_ok=True)
     client = QdrantClient(path=str(qdrant_path))
@@ -366,9 +371,9 @@ def build_vector_index(
         )
 
         if created:
-            print("\nColección creada:", collection_name)
+            logger.info("\nColección creada: %s", collection_name)
         else:
-            print("\nColección existente:", collection_name)
+            logger.info("\nColección existente: %s", collection_name)
 
         source_groups = sorted({
             _chunk_source_group(chunk)
@@ -376,9 +381,9 @@ def build_vector_index(
         })
 
         if replace_source_groups:
-            print("\nActualizando grupos documentales:")
+            logger.info("\nActualizando grupos documentales:")
             for source_group in source_groups:
-                print("  -", source_group)
+                logger.info("  - %s", source_group)
                 _delete_source_group(
                     client,
                     collection_name,
@@ -394,16 +399,16 @@ def build_vector_index(
             )
 
             if removed_groups:
-                print("\nEliminando grupos obsoletos:")
+                logger.info("\nEliminando grupos obsoletos:")
                 for source_group in removed_groups:
-                    print("  -", source_group)
+                    logger.info("  - %s", source_group)
                     _delete_source_group(
                         client,
                         collection_name,
                         source_group,
                     )
 
-        print("\nGuardando vectores en Qdrant...")
+        logger.info("\nGuardando vectores en Qdrant...")
 
         total_upserted = _upsert_chunks(
             client,
@@ -415,13 +420,13 @@ def build_vector_index(
 
         collection_info = client.get_collection(collection_name)
 
-        print("\n============================")
-        print("INDEXACIÓN FINALIZADA")
-        print("============================")
-        print("Chunks indexados:", total_upserted)
-        print("Grupos actualizados:", len(source_groups))
-        print("Colección:", collection_name)
-        print("Base vectorial:", qdrant_path)
+        logger.info("\n============================")
+        logger.info("INDEXACIÓN FINALIZADA")
+        logger.info("============================")
+        logger.info("Chunks indexados: %s", total_upserted)
+        logger.info("Grupos actualizados: %s", len(source_groups))
+        logger.info("Colección: %s", collection_name)
+        logger.info("Base vectorial: %s", qdrant_path)
 
         return {
             "status": "success",
@@ -441,7 +446,10 @@ def build_vector_index(
 # ============================================================
 
 if __name__ == "__main__":
-    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    from src.comun.registro import configurar_registro
+
+    configurar_registro()
+    PROJECT_ROOT = RAIZ_PROYECTO
 
     CHUNKS_FILE = (
         PROJECT_ROOT

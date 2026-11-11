@@ -22,12 +22,14 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from src.comun.rutas import RAIZ_PROYECTO
+
 try:  # candado entre procesos (Windows); sin msvcrt solo queda el de hilos
     import msvcrt
 except ImportError:  # pragma: no cover
     msvcrt = None
 
-RAIZ = Path(__file__).resolve().parents[2]
+RAIZ = RAIZ_PROYECTO
 NOMBRE_LOG = "calificaciones.jsonl"
 VERSION = 1
 CALIFICACIONES = ("buena", "mala")

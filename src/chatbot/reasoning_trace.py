@@ -5,8 +5,11 @@ tomó cada decisión (ruta, candidatos y puntajes, filtros, DAX, opciones).
 La interfaz lo muestra en un desplegable como texto plano, para copiarlo y
 compartirlo cuando una respuesta falla con tableros reales.
 """
+import logging
 import time
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class ReasoningTrace:
@@ -37,7 +40,7 @@ class ReasoningTrace:
             self.listener(event)
         except Exception:
             # La vista en vivo nunca debe tumbar la respuesta.
-            pass
+            logger.debug("el oyente de la traza en vivo falló; la respuesta sigue", exc_info=True)
 
     def add(self, title, *lines):
         """Agrega un paso. Las líneas vacías o None se omiten."""

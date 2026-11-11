@@ -1,7 +1,8 @@
-import json
 import re
-import unicodedata
-from pathlib import Path
+
+from src.comun.texto import llave
+from src.comun.json_io import leer_json
+from src.dax.validacion_detalle import validate_detail_dax
 
 
 class DAXValidator:
@@ -45,39 +46,12 @@ class DAXValidator:
     # ========================================================
 
     def _load_json(self, path):
-
-        with open(
-            path,
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            return json.load(file)
+        return leer_json(path)
 
 
     def _normalize(self, value):
-
-        if value is None:
-            return ""
-
-        value = str(value).strip().lower()
-
-        value = "".join(
-            char
-            for char in unicodedata.normalize(
-                "NFD",
-                value
-            )
-            if unicodedata.category(char) != "Mn"
-        )
-
-        value = re.sub(
-            r"[^a-z0-9]",
-            "",
-            value
-        )
-
-        return value
+        # Solo None es vacío: 0 y False se comparan como «0» y «false».
+        return "" if value is None else llave(str(value))
 
 
     # ========================================================
@@ -414,8 +388,6 @@ class DAXValidator:
     ):
         """Consulta del listado de detalle (TOPN + SUMMARIZECOLUMNS): columnas
         del modelo, tope de filas y sin construcciones prohibidas."""
-        from src.semantic.detail_list import validate_detail_dax
-
         return validate_detail_dax(dax, columns, self.catalog, limit)
 
     # ========================================================

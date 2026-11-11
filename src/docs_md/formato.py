@@ -101,6 +101,8 @@ class ErrorOperacion(ValueError):
     """Una operación no se puede aplicar al documento."""
 
 
+# No es src.comun.texto: conserva signos y usa casefold al final (tras quitar tildes); es la clave de los
+# nombres de página y diccionario guardados en docs_tableros/, cambiarla reubicaría páginas.
 def normalizar_nombre(texto: str) -> str:
     """Clave de comparación: sin tildes, minúsculas y espacios simples."""
     texto = unicodedata.normalize("NFD", str(texto or ""))

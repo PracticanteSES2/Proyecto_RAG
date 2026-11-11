@@ -1,3 +1,4 @@
+import logging
 import os
 import weakref
 from pathlib import Path
@@ -26,6 +27,10 @@ from src.rag.source_labels import (  # noqa: F401  (reexportadas)
     is_dictionary_source,
     source_label,
 )
+from src.comun.rutas import RAIZ_PROYECTO
+from src.comun.colecciones import como_lista
+
+logger = logging.getLogger(__name__)
 
 
 MODEL_NAME = (
@@ -67,11 +72,7 @@ TECHNICAL_CHUNK_TYPES = {"sql_query", "table_context"}
 # ============================================================
 
 def _as_list(value):
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return value
-    return [value]
+    return como_lista(value)
 
 
 # ============================================================
@@ -178,10 +179,7 @@ class HybridRetriever:
             # Compatibilidad durante la migración. Una vez se construya
             # gestion_clinica_rag, el retriever usará automáticamente la nueva.
             self.collection_name = LEGACY_COLLECTION_NAME
-            print(
-                "ADVERTENCIA RAG: usando colección legacy:",
-                LEGACY_COLLECTION_NAME,
-            )
+            logger.warning("ADVERTENCIA RAG: usando colección legacy: %s", LEGACY_COLLECTION_NAME)
         else:
             raise RuntimeError(
                 "No existe una colección RAG utilizable. "
@@ -694,9 +692,9 @@ class HybridRetriever:
         if chunk_type is None:
             chunk_type = self.detect_chunk_type(question)
 
-        print("\nInterpretación de consulta")
-        print("Dashboard detectado:", dashboard)
-        print("Tipo esperado:", chunk_type)
+        logger.debug("\nInterpretación de consulta")
+        logger.debug("Dashboard detectado: %s", dashboard)
+        logger.debug("Tipo esperado: %s", chunk_type)
 
         query_vector = self.model.encode(
             question,
@@ -1046,7 +1044,10 @@ class HybridRetriever:
 # ============================================================
 
 if __name__ == "__main__":
-    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    from src.comun.registro import configurar_registro
+
+    configurar_registro()
+    PROJECT_ROOT = RAIZ_PROYECTO
     QDRANT_PATH = PROJECT_ROOT / "data" / "vector_db" / "qdrant"
 
     retriever = None

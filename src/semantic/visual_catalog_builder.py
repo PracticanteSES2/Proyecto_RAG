@@ -2,11 +2,10 @@ import csv
 import io
 import json
 import re
-import unicodedata
-from collections import defaultdict
 from pathlib import Path
 
 from src.semantic.visual_filters import UnsupportedCondition, parse_condition
+from src.comun.texto import normalizar
 
 
 PBIR_AGGREGATIONS = {
@@ -87,28 +86,7 @@ def read_csv_rows(path):
 
 
 def normalize_text(value):
-    value = str(value or "").strip().lower()
-
-    value = "".join(
-        char
-        for char in unicodedata.normalize(
-            "NFD",
-            value,
-        )
-        if unicodedata.category(char) != "Mn"
-    )
-
-    value = re.sub(
-        r"[^a-z0-9]+",
-        " ",
-        value,
-    )
-
-    return re.sub(
-        r"\s+",
-        " ",
-        value,
-    ).strip()
+    return normalizar(value)
 
 
 def safe_read_json(path):

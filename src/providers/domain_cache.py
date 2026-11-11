@@ -80,13 +80,17 @@ usaba QueryPlanBuilder:
     EVALUATE TOPN(2500, FILTER(SELECTCOLUMNS(VALUES('T'[c]), "Value", 'T'[c]),
                                NOT ISBLANK([Value])), [Value], ASC)
 """
+import logging
 import contextlib
 import inspect
 import os
 import re
 import threading
 import time
-import unicodedata
+
+from src.comun.texto import llave, plegar
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_LIMIT = 2500
 BATCH_MARKER = "__columna"
@@ -141,9 +145,7 @@ def _env_flag(name, default):
 
 
 def _compact(name):
-    text = unicodedata.normalize("NFD", str(name or "").lower())
-    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
-    return re.sub(r"[^a-z0-9]+", "", text)
+    return llave(name)
 
 
 def identifier_column(column):
@@ -162,8 +164,7 @@ def likely_high_cardinality(column):
 
 
 def _plain(text):
-    text = unicodedata.normalize("NFD", str(text or "").lower())
-    return "".join(c for c in text if unicodedata.category(c) != "Mn")
+    return plegar(text)
 
 
 def code_column(column):
@@ -879,5 +880,5 @@ def domain_cache_for(provider):
     try:
         provider.domain_cache = cache
     except Exception:
-        pass
+        logger.debug("el proveedor no admite atributos; la caché de dominios no se comparte", exc_info=True)
     return cache

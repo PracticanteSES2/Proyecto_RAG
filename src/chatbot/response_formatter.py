@@ -1,7 +1,7 @@
 import re
-import unicodedata
 
 from src.chatbot.detail_formatter import detail_lead, detail_notes, detail_table
+from src.comun.texto import sin_tildes
 
 class ResponseFormatter:
 
@@ -575,8 +575,7 @@ def _plain(text):
 
 
 def _norm_label(text):
-    text = unicodedata.normalize("NFKD", _plain(text).lower())
-    return "".join(ch for ch in text if not unicodedata.combining(ch))
+    return sin_tildes(_plain(text).lower())
 
 
 def period_phrase_es(label):

@@ -1,11 +1,11 @@
 import os
 import re
 import time
-import unicodedata
 
 from src.chatbot.respuesta_en_vivo import FiltroBorrador
 from src.chatbot import cache_llm
 from src.chatbot.respuesta_completa import completar
+from src.comun.texto import sin_tildes
 from src.llm import presupuesto_tokens as P
 from src.llm.llm_gate import call_llm
 
@@ -630,8 +630,7 @@ responda la pregunta, responde únicamente: "{NO_EVIDENCE_ANSWER}"
 
     @staticmethod
     def _words(text):
-        text = unicodedata.normalize("NFKD", str(text or "").lower())
-        text = "".join(ch for ch in text if not unicodedata.combining(ch))
+        text = sin_tildes(str(text or "").lower())
         return [word for word in re.findall(r"[a-z0-9ñ_]+", text) if len(word) >= 3]
 
     @classmethod

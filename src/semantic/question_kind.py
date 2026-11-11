@@ -11,17 +11,12 @@ el QueryEngine para enviarlas al RAG documental en vez de a Power BI.
 ninguna de estas frases aparece en ella.
 """
 import re
-import unicodedata
+
+from src.comun.texto import normalizar
 
 
 def normalize_question(value):
-    value = str(value or "").lower().strip()
-    value = "".join(
-        char for char in unicodedata.normalize("NFD", value)
-        if unicodedata.category(char) != "Mn"
-    )
-    value = re.sub(r"[^a-z0-9%]+", " ", value)
-    return re.sub(r"\s+", " ", value).strip()
+    return normalizar(value, "%")
 
 
 # Fórmula / método: valen en cualquier parte de la pregunta.

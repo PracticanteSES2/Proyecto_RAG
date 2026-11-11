@@ -77,6 +77,7 @@ from pathlib import Path
 
 from . import formato as F
 from .repositorio import ARCHIVO_GENERAL, raiz_documentos, slug
+from src.comun.json_io import leer_json
 
 VERSION_HECHOS = 1
 ARCHIVO_INSTANTANEA = "pbip_hechos.json"
@@ -150,7 +151,7 @@ CENTINELA = 999
 # ---------------------------------------------------------------------------
 
 def _leer_json(ruta: Path) -> dict:
-    return json.loads(ruta.read_text(encoding="utf-8-sig"))
+    return leer_json(ruta, bom=True)
 
 
 def _es_segmentador(tipo: str) -> bool:
