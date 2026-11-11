@@ -35,15 +35,16 @@ Hay dos esperas, ambas en orden de llegada (`FifoLine`):
     position   int|None  posición del hilo `ident` (por defecto el actual) en
                      esa fila: 1 = la siguiente en entrar; None = no espera
     ahead      int|None  consultas antes que la suya = in_flight + position - 1
-                     (lo que la UI muestra como «hay N consultas antes que la tuya»)
+                     (solo modo diagnóstico: la UI normal nunca habla de filas ni
+                     de otras consultas; specs/009-experiencia-espera)
 
 Uso típico en la UI (el callback `on_wait` de `turn_slot` corre en el hilo que
 espera, así que `queue_snapshot()` sin argumentos devuelve SU posición):
 
     def on_wait(waited, since):
         turno = queue_snapshot()["turn"]
-        if turno["ahead"]:
-            aviso(f"Hay {turno['ahead']} consultas antes que la tuya")
+        if modo_diagnostico and turno["ahead"]:
+            diagnostico(f"{turno['ahead']} turnos delante")
 
     with turn_slot(texto, on_wait=on_wait):
         with llm_gate.ui_progress(on_queue=mostrar_espera_medgemma):

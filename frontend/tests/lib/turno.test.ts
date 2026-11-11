@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   avisosVisibles,
   estadoInicialTurno,
-  fraseCola,
   fraseEsperaCliente,
   reducirTurno,
   turnoActivo,
@@ -62,37 +61,51 @@ describe("máquina de estados del turno", () => {
     expect(e.frase).toBe("Ya casi está…");
   });
 
-  it("cola: con posición > 1 dice cuántas consultas van antes", () => {
-    const e = aplicar([ev({ tipo: "cola", datos: { posicion: 2, en_curso: 1 } })]);
-    expect(e.frase).toBe("Hay dos consultas antes que la tuya, ya casi…");
-    expect(e.cola).toEqual({ posicion: 2, en_curso: 1 });
-  });
-
-  it("cola: con posición 1 o desconocida no da números", () => {
-    expect(fraseCola({ posicion: 1, en_curso: 1 })).toBe("Tu pregunta es la siguiente; enseguida la atiendo…");
-    expect(fraseCola({ posicion: 0, en_curso: 0 })).toBe("Tu pregunta es la siguiente; enseguida la atiendo…");
-    expect(fraseCola({ posicion: 2, en_curso: 0 })).toBe("Hay una consulta antes que la tuya, ya casi…");
-    expect(fraseCola({ posicion: 14, en_curso: 1 })).toBe("Hay 14 consultas antes que la tuya, ya casi…");
-  });
-
-  it("un progreso posterior a la cola la retira", () => {
+  it("cola es solo diagnóstico: la frase visible sigue siendo de trabajo sobre la pregunta", () => {
     const e = aplicar([
-      ev({ tipo: "cola", datos: { posicion: 3, en_curso: 1 } }),
-      ev({ tipo: "progreso", datos: { etapa: "entendiendo", frase: "Entendiendo tu pregunta", t: 4 } }),
+      ev({ tipo: "progreso", datos: { etapa: "entendiendo", frase: "Entendiendo tu pregunta", t: 0 } }),
+      ev({ tipo: "cola", datos: { posicion: 3, en_curso: 3 } }),
+      ev({ tipo: "cola", datos: { posicion: 2, en_curso: 3 } }),
     ]);
-    expect(e.cola).toBeUndefined();
     expect(e.frase).toBe("Entendiendo tu pregunta…");
+    expect(e.cola).toEqual({ posicion: 2, en_curso: 3 });
+    expect(JSON.stringify([e.frase, e.fraseEspera])).not.toMatch(/fila|cola|consultas|antes que la tuya|en curso/i);
+  });
+
+  it("la rotación de frases de la misma etapa reemplaza la frase", () => {
+    const e = aplicar([
+      ev({ tipo: "progreso", datos: { etapa: "revisando_documentacion", frase: "Revisando la documentación", t: 1 } }),
+      ev({ tipo: "progreso", datos: { etapa: "revisando_documentacion", frase: "Organizando la respuesta", t: 9 } }),
+    ]);
+    expect(e.frase).toBe("Organizando la respuesta…");
+  });
+
+  it("token acumula el borrador en vivo y respuesta lo deja para el revelado", () => {
+    const e = aplicar([
+      { tipo: "creado", turnoId: "t1" },
+      ev({ tipo: "token", datos: { texto: "Un egreso " } }),
+      ev({ tipo: "token", datos: { texto: "es la salida" } }),
+    ]);
+    expect(e.borrador).toBe("Un egreso es la salida");
+    expect(turnoActivo(e)).toBe(true);
+    const final = reducirTurno(
+      e,
+      ev({ tipo: "respuesta", datos: respuesta({ texto_markdown: "Un egreso es la salida." }) }),
+    );
+    expect(final.fase).toBe("listo");
+    expect(final.revelar).toBe(true);
+    expect(final.borrador).toBe("Un egreso es la salida");
   });
 
   it("espera del servidor ocupa el renglón secundario y desactiva el respaldo del cliente", () => {
     const e = aplicar([
       ev({
         tipo: "espera",
-        datos: { nivel: 2, frase: "Power BI está tardando en responder; sigo esperando los datos.", t: 25 },
+        datos: { nivel: 2, frase: "Las cifras de Power BI están tardando un poco; sigo pendiente.", t: 25 },
       }),
       { tipo: "tic", segundos: 95 },
     ]);
-    expect(e.fraseEspera).toBe("Power BI está tardando en responder; sigo esperando los datos.");
+    expect(e.fraseEspera).toBe("Las cifras de Power BI están tardando un poco; sigo pendiente.");
     expect(e.esperaDelServidor).toBe(true);
   });
 
@@ -100,10 +113,10 @@ describe("máquina de estados del turno", () => {
     expect(aplicar([{ tipo: "tic", segundos: 5 }]).fraseEspera).toBeUndefined();
     expect(aplicar([{ tipo: "tic", segundos: 12 }]).fraseEspera).toBe(fraseEsperaCliente(12));
     expect(fraseEsperaCliente(9)).toBeUndefined();
-    expect(fraseEsperaCliente(10)).toBe("Esto está tomando un poco más de lo normal…");
-    expect(fraseEsperaCliente(30)).toBe("Sigo trabajando en tu respuesta; gracias por la paciencia.");
-    expect(fraseEsperaCliente(55)).toBe("Sigue en marcha: no hace falta volver a enviar la pregunta.");
-    expect(fraseEsperaCliente(200)).toBe("Está tardando más de lo habitual; sigo esperando la respuesta.");
+    expect(fraseEsperaCliente(10)).toBe("Sigo trabajando en tu pregunta…");
+    expect(fraseEsperaCliente(30)).toBe("Estoy armando una respuesta completa; ya casi la tengo…");
+    expect(fraseEsperaCliente(55)).toBe("Sigo con tu pregunta; no hace falta volver a enviarla.");
+    expect(fraseEsperaCliente(200)).toBe("Me está tomando más de lo habitual, pero sigo en ello.");
   });
 
   it("tic guarda los segundos transcurridos (solo para el modo diagnóstico)", () => {
@@ -159,9 +172,7 @@ describe("máquina de estados del turno", () => {
 describe("avisos visibles", () => {
   it("respuesta degradada sin texto usa un aviso amable genérico", () => {
     const e = aplicar([ev({ tipo: "respuesta", datos: respuesta({ degradada: true }) })]);
-    expect(avisosVisibles(e)).toEqual([
-      "Esta respuesta se armó directamente con la documentación, sin la redacción habitual del asistente.",
-    ]);
+    expect(avisosVisibles(e)).toEqual(["Te muestro lo que dice la documentación."]);
   });
 
   it("usa el aviso de la respuesta y los eventos aviso sin repetir textos", () => {

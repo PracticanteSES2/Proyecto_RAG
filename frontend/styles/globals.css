@@ -189,6 +189,55 @@
   animation: aparecer var(--motion-base) var(--ease-standard) both;
 }
 
+/* ------------------------------------------------------------------ Respuesta que aparece de a poco */
+
+@keyframes parpadeo {
+  0%,
+  45% {
+    opacity: 0.7;
+  }
+  55%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Cursor sutil al final del texto mientras se escribe (borrador en vivo o revelado). Ocupa casi nada y va en
+   línea con el último párrafo: no mueve el layout. */
+.prosa--escribiendo .prosa > :last-child:not(ul, ol, .prosa__tabla)::after,
+.prosa--escribiendo .prosa > :is(ul, ol):last-child > li:last-child::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  border-radius: 1px;
+  background: var(--color-primary);
+  animation: parpadeo 1s steps(1, end) infinite;
+}
+
+/* La respuesta validada cambió respecto del borrador (salvaguarda): fundido corto, sin salto. */
+.respuesta--fundido {
+  animation: fundido 160ms var(--ease-standard) both;
+}
+
+.respuesta__extras {
+  animation: fundido var(--motion-base) var(--ease-standard) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prosa--escribiendo .prosa > :last-child::after,
+  .prosa--escribiendo .prosa > :is(ul, ol):last-child > li:last-child::after {
+    animation: none;
+    opacity: 0.6;
+  }
+  .respuesta--fundido,
+  .respuesta__extras {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pensando {
     animation: fundido 1ms 600ms both;

@@ -1,6 +1,6 @@
 """
-Servidor HTTP local que imita a Ollama (/api/tags y /api/chat sin streaming)
-para las pruebas de estabilidad. Se ejecuta en un hilo y solo escucha en
+Servidor HTTP local que imita a Ollama (/api/tags y /api/chat, con o sin
+streaming NDJSON) para las pruebas de estabilidad y de streaming. Se ejecuta en un hilo y solo escucha en
 127.0.0.1 (puerto libre elegido por el sistema).
 
 Modela lo que importa para el problema reportado:
@@ -11,6 +11,9 @@ Modela lo que importa para el problema reportado:
   * cancelación como Ollama: si el cliente CIERRA la conexión mientras la
     petición espera o se genera, se abandona y libera el hueco. Si el cliente
     deja la conexión abierta (hilo daemon abandonado), sigue generando.
+  * streaming ("stream": true): tras la espera inicial envía la respuesta por
+    palabras, una línea JSON cada `stream_chunk_s` s, con el hueco ocupado; si
+    el cliente cierra a mitad, cuenta "cancelled_streaming".
 
 `stats` cuenta peticiones recibidas, completadas, canceladas (en cola o
 generando), máximo de generaciones simultáneas y cola máxima.
@@ -58,8 +61,9 @@ class FakeOllamaServer:
         self._lock = threading.Lock()
         self.stats = {
             "received": 0, "completed": 0, "cancelled_queued": 0, "cancelled_generating": 0,
-            "active": 0, "queued": 0, "max_active": 0, "max_queued": 0,
+            "active": 0, "queued": 0, "max_active": 0, "max_queued": 0, "cancelled_streaming": 0,
         }
+        self.stream_chunk_s = 0.0
         self.events = []  # (instante, tipo, duración pedida)
         self.live = {}  # peticiones en curso (en cola o generando)
         server = self
@@ -145,6 +149,9 @@ class FakeOllamaServer:
                     handler.close_connection = True
                     return
                 time.sleep(POLL_S)
+            if request.get("stream"):
+                self._finish_stream(handler, request, sock, duration)
+                return
             self._count("completed")
             self.events.append((time.time(), "completed", duration))
         finally:
@@ -160,6 +167,46 @@ class FakeOllamaServer:
             })
         except OSError:
             handler.close_connection = True
+
+    def _finish_stream(self, handler, request, sock, duration):
+        ok = self._stream(handler, request, sock)
+        kind = "completed" if ok else "cancelled_streaming"
+        self._count(kind)
+        self.events.append((time.time(), kind, duration))
+        handler.close_connection = True
+
+    def _stream(self, handler, request, sock):
+        """Respuesta NDJSON por palabras (transferencia por trozos). False si
+        el cliente cerró la conexión a mitad."""
+        words = self.content_fn(request).split(" ")
+        model = request.get("model") or "medgemma:latest"
+
+        def chunk(payload):
+            data = (json.dumps(payload) + "\n").encode("utf-8")
+            handler.wfile.write(f"{len(data):X}\r\n".encode("ascii") + data + b"\r\n")
+            handler.wfile.flush()
+
+        try:
+            handler.send_response(200)
+            handler.send_header("Content-Type", "application/x-ndjson")
+            handler.send_header("Transfer-Encoding", "chunked")
+            handler.end_headers()
+            for index, word in enumerate(words):
+                if _client_closed(sock):
+                    return False
+                chunk({"model": model, "created_at": "2026-01-01T00:00:00Z",
+                       "message": {"role": "assistant", "content": word if index == 0 else " " + word},
+                       "done": False})
+                if self.stream_chunk_s:
+                    time.sleep(self.stream_chunk_s)
+            chunk({"model": model, "created_at": "2026-01-01T00:00:00Z",
+                   "message": {"role": "assistant", "content": ""}, "done": True,
+                   "done_reason": "stop", "eval_count": len(words)})
+            handler.wfile.write(b"0\r\n\r\n")
+            handler.wfile.flush()
+            return True
+        except OSError:
+            return False
 
     # ------------------------------------------------------------------
     def snapshot(self):
