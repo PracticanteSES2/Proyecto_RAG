@@ -51,6 +51,54 @@ describe("cliente", () => {
     await expect(vacio.obtenerConversacion("c")).rejects.toMatchObject({ tipo: "no_encontrado" });
   });
 
+  it("adapta GET /capacidades del backend real (ejemplos como textos, sin tarjetas) a lo que muestra la bienvenida", async () => {
+    const cuerpo = {
+      listo: true,
+      tableros_datos: ["Tablero Gestion Camas", "Tablero Lavanderia"],
+      tableros_documentacion: [],
+      ejemplos: ["¿Qué tableros puedo consultar?"],
+    };
+    const capacidades = await crearClienteApi("", async () => respuestaJson(cuerpo)).capacidades();
+    expect(capacidades.ejemplos).toEqual([{ texto: "¿Qué tableros puedo consultar?" }]);
+    expect(capacidades.capacidades.length).toBeGreaterThan(0);
+    expect(capacidades.capacidades[0].descripcion).toContain("2 tableros");
+  });
+
+  it("si el motor aún no está listo, la bienvenida usa los ejemplos de respaldo", async () => {
+    const cuerpo = { listo: false, tableros_datos: [], tableros_documentacion: [], ejemplos: [] };
+    const capacidades = await crearClienteApi("", async () => respuestaJson(cuerpo)).capacidades();
+    expect(capacidades.ejemplos.length).toBeGreaterThan(0);
+    expect(capacidades.capacidades.length).toBeGreaterThan(0);
+  });
+
+  it("adapta el historial real (mensajes usuario/asistente) a turnos para restaurar la conversación", async () => {
+    const respuesta = {
+      turno_id: "t1",
+      texto_markdown: "Hay 43 tableros.",
+      ruta: "portero",
+      fuentes: [],
+      enlaces_powerbi: [],
+    };
+    const cuerpo = {
+      conversacion_id: "c1",
+      creada: "2026-11-11T11:41:26-05:00",
+      actualizada: null,
+      turno_activo: null,
+      mensajes: [
+        { rol: "usuario", turno_id: "t1", texto: "¿Qué tableros hay?", via: "texto" },
+        { rol: "asistente", turno_id: "t1", respuesta, contrapregunta_vigente: false },
+        { rol: "usuario", turno_id: "t2", texto: "Opción A", via: "opcion" },
+        { rol: "asistente", turno_id: "t2", error: { mensaje: "x", codigo: "interrumpido" } },
+      ],
+    };
+    const conversacion = await crearClienteApi("", async () => respuestaJson(cuerpo)).obtenerConversacion("c1");
+    expect(conversacion.conversacion_id).toBe("c1");
+    expect(conversacion.turnos).toHaveLength(2);
+    expect(conversacion.turnos[0]).toMatchObject({ turno_id: "t1", mensaje: "¿Qué tableros hay?", respuesta });
+    expect(conversacion.turnos[1]).toMatchObject({ turno_id: "t2", mensaje: "Opción A" });
+    expect(conversacion.turnos[1].respuesta).toBeUndefined();
+  });
+
   it("exporta como texto Markdown", async () => {
     const fetchFn = vi.fn(async () => new Response("# Conversación", { status: 200 }));
     await expect(crearClienteApi("", fetchFn).exportarConversacion("c1")).resolves.toBe("# Conversación");

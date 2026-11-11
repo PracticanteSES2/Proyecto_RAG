@@ -1,12 +1,16 @@
 /**
  * Cliente tipado de la API v1. Es el único punto del frontend que habla HTTP con el backend.
  */
+import { capacidadesDesdeApi } from "./capacidades";
 import { PREFIJO_API, urlBaseApi } from "./config";
+import { conversacionDesdeApi } from "./conversaciones";
 import { abrirEventosTurno, type OpcionesEventos, type SuscripcionEventos } from "./sse";
 import type {
   Capacidades,
+  CapacidadesApi,
   ConversacionCreada,
   ConversacionGuardada,
+  HistorialApi,
   Salud,
   SolicitudCalificacion,
   SolicitudTurno,
@@ -117,7 +121,8 @@ export function crearClienteApi(base: string = urlBaseApi(), fetchFn: Fetch = (.
     enviarTurno: (conversacionId, solicitud) =>
       json<TurnoCreado>(`/conversaciones/${id(conversacionId)}/turnos`, post(solicitud)),
     eventosTurno: (turnoId, opciones) => abrirEventosTurno(url(`/turnos/${id(turnoId)}/eventos`), opciones),
-    obtenerConversacion: (conversacionId) => json<ConversacionGuardada>(`/conversaciones/${id(conversacionId)}`),
+    obtenerConversacion: async (conversacionId) =>
+      conversacionDesdeApi(await json<HistorialApi>(`/conversaciones/${id(conversacionId)}`)),
     exportarConversacion: async (conversacionId) =>
       (
         await pedir(`/conversaciones/${id(conversacionId)}/exportar?formato=md`, {
@@ -127,7 +132,7 @@ export function crearClienteApi(base: string = urlBaseApi(), fetchFn: Fetch = (.
     calificarTurno: async (turnoId, calificacion) => {
       await pedir(`/turnos/${id(turnoId)}/calificacion`, post(calificacion));
     },
-    capacidades: () => json<Capacidades>("/capacidades"),
+    capacidades: async () => capacidadesDesdeApi(await json<CapacidadesApi>("/capacidades")),
     salud: () => json<Salud>("/salud"),
   };
 }

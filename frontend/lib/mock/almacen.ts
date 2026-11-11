@@ -3,8 +3,9 @@
  * recarga de módulos de `next dev` y para que todas las rutas compartan el mismo estado.
  */
 import type {
-  Capacidades,
+  CapacidadesApi,
   ConversacionGuardada,
+  HistorialApi,
   EventoAviso,
   EventoRespuesta,
   SolicitudCalificacion,
@@ -89,6 +90,24 @@ export function conversacionGuardada(conversacionId: string): ConversacionGuarda
   };
 }
 
+/** GET /conversaciones/{id} con la misma forma que el backend real (mensajes usuario/asistente). */
+export function historialMock(conversacionId: string): HistorialApi | null {
+  const conversacion = conversacionGuardada(conversacionId);
+  if (!conversacion) return null;
+  return {
+    conversacion_id: conversacionId,
+    mensajes: conversacion.turnos.flatMap((t) => [
+      {
+        rol: "usuario" as const,
+        turno_id: t.turno_id,
+        texto: t.mensaje,
+        via: t.opcion_id ? ("opcion" as const) : ("texto" as const),
+      },
+      { rol: "asistente" as const, turno_id: t.turno_id, respuesta: t.respuesta ?? null },
+    ]),
+  };
+}
+
 export function exportarMarkdown(conversacionId: string): string | null {
   const conversacion = conversacionGuardada(conversacionId);
   if (!conversacion) return null;
@@ -112,22 +131,15 @@ export function exportarMarkdown(conversacionId: string): string | null {
   return partes.join("\n");
 }
 
-export const CAPACIDADES_MOCK: Capacidades = {
-  capacidades: [
-    {
-      titulo: "Cifras de los tableros",
-      descripcion: "Egresos, cirugías, camas, urgencias, lavandería y más, con los filtros que necesites.",
-    },
-    {
-      titulo: "Qué significa cada indicador",
-      descripcion: "Definiciones y fichas técnicas tomadas de la documentación de los tableros.",
-    },
-    { titulo: "Ir directo a Power BI", descripcion: "Te dejo el enlace a la página del tablero donde está el dato." },
-  ],
+/** Misma forma que GET /capacidades del backend real (el cliente la adapta en lib/api/capacidades.ts). */
+export const CAPACIDADES_MOCK: CapacidadesApi = {
+  listo: true,
+  tableros_datos: ["Tablero Gestion Camas", "Tablero Lavanderia", "Tablero Tiempos Urgencias"],
+  tableros_documentacion: ["Tablero Gestion Camas"],
   ejemplos: [
-    { texto: "¿Cuántos egresos hubo en marzo de 2026?", categoria: "Egresos" },
-    { texto: "Ocupación de camas en octubre", categoria: "Capacidad" },
-    { texto: "¿Qué es un egreso hospitalario?", categoria: "Documentación" },
-    { texto: "Cirugías canceladas por especialidad en 2025", categoria: "Cirugía" },
+    "¿Cuántos egresos hubo en marzo de 2026?",
+    "Ocupación de camas en octubre",
+    "¿Qué es un egreso hospitalario?",
+    "Cirugías canceladas por especialidad en 2025",
   ],
 };

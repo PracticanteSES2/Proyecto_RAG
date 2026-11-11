@@ -30,7 +30,15 @@ export interface SolicitudCalificacion {
   comentario?: string;
 }
 
-/** Supuesto: forma de GET /capacidades. */
+/** Forma real de GET /capacidades (espejo de `Capacidades` en backend/app/schemas/sistema.py). */
+export interface CapacidadesApi {
+  listo: boolean;
+  tableros_datos: string[];
+  tableros_documentacion: string[];
+  ejemplos: string[];
+}
+
+/** Lo que muestra la bienvenida; el cliente lo arma desde `CapacidadesApi` (lib/api/capacidades.ts). */
 export interface Capacidad {
   titulo: string;
   descripcion: string;
@@ -65,6 +73,26 @@ export interface TurnoGuardado {
 export interface ConversacionGuardada {
   conversacion_id: string;
   turnos: TurnoGuardado[];
+}
+
+/** Forma real de GET /conversaciones/{id} (espejo de `Historial` en backend/app/schemas/conversaciones.py). */
+export interface MensajeHistorialApi {
+  rol: "usuario" | "asistente";
+  turno_id?: string | null;
+  fecha?: string | null;
+  texto?: string | null;
+  via?: "texto" | "opcion" | null;
+  respuesta?: EventoRespuesta | null;
+  error?: { mensaje: string; codigo?: string } | null;
+  contrapregunta_vigente?: boolean;
+}
+
+export interface HistorialApi {
+  conversacion_id: string;
+  creada?: string | null;
+  actualizada?: string | null;
+  turno_activo?: string | null;
+  mensajes: MensajeHistorialApi[];
 }
 
 // ---------------------------------------------------------------- SSE

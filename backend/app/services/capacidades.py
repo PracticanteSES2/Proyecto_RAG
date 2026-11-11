@@ -26,18 +26,28 @@ def _metricas_aprobadas(raiz: Path | None) -> list[dict]:
 
 
 def _etiquetas_metricas(raiz: Path | None) -> list[tuple[str, str]]:
-    """(etiqueta, informe) de las métricas aprobadas, una por informe."""
+    """(etiqueta, informe) de las métricas aprobadas, una por informe. Se
+    descartan las que no tienen informe o cuya etiqueta no empieza por letra
+    (nombres técnicos como «%OCUPACIONHOS» no sirven de ejemplo)."""
     vistas, salida = set(), []
     for metrica in _metricas_aprobadas(raiz):
-        etiqueta, informe = str(metrica.get("label") or "").strip(), str(metrica.get("report") or "")
-        if etiqueta and informe not in vistas:
+        etiqueta, informe = str(metrica.get("label") or "").strip(), str(metrica.get("report") or "").strip()
+        if etiqueta[:1].isalpha() and informe and informe not in vistas:
             vistas.add(informe)
             salida.append((etiqueta, informe))
     return salida
 
 
-def ejemplos_preguntas(raiz: Path, tableros_documentacion: list[str]) -> list[str]:
-    ejemplos = [f"¿Cuánto fue {etiqueta.lower()} el mes pasado?" for etiqueta, _ in _etiquetas_metricas(raiz)[:3]]
+def _nombre_tablero(informe: str, tableros: list[str]) -> str:
+    """Nombre del catálogo si coincide (sin distinguir mayúsculas); si no, el del informe en tipo título."""
+    return next((t for t in tableros if t.casefold() == informe.casefold()), informe.title())
+
+
+def ejemplos_preguntas(raiz: Path, tableros_documentacion: list[str],
+                       tableros_datos: list[str] | None = None) -> list[str]:
+    tableros = list(tableros_datos or [])
+    ejemplos = [f"{etiqueta.capitalize()} del mes pasado en {_nombre_tablero(informe, tableros)}"
+                for etiqueta, informe in _etiquetas_metricas(raiz)[:3]]
     if tableros_documentacion:
         ejemplos.append(f"¿Qué muestra el tablero {tableros_documentacion[0]}?")
     ejemplos.extend(_EJEMPLOS_FIJOS)
@@ -52,7 +62,7 @@ def capacidades(instancia, raiz: Path, ejemplos_fijos: list[str] | None = None) 
         "listo": True,
         "tableros_datos": list(datos),
         "tableros_documentacion": list(documentacion),
-        "ejemplos": list(ejemplos_fijos) if ejemplos_fijos else ejemplos_preguntas(raiz, documentacion),
+        "ejemplos": list(ejemplos_fijos) if ejemplos_fijos else ejemplos_preguntas(raiz, documentacion, list(datos)),
     }
 
 

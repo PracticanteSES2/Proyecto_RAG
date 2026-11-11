@@ -2,28 +2,10 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { CAPACIDADES_RESPALDO } from "@/lib/api/capacidades";
 import type { ClienteApi } from "@/lib/api/cliente";
 import type { Capacidades } from "@/lib/api/tipos";
 import { Mascota } from "@/components/ui/Mascota";
-
-/** Contenido de respaldo si GET /capacidades no responde: el estado vacío nunca queda vacío. */
-const CAPACIDADES_RESPALDO: Capacidades = {
-  capacidades: [
-    {
-      titulo: "Cifras de los tableros",
-      descripcion: "Indicadores de los tableros de Power BI institucionales, con los filtros que necesites.",
-    },
-    {
-      titulo: "Qué significa cada indicador",
-      descripcion: "Definiciones tomadas de la documentación de los tableros.",
-    },
-    { titulo: "Ir directo a Power BI", descripcion: "Un enlace a la página del tablero donde está el dato." },
-  ],
-  ejemplos: [
-    { texto: "¿Cuántos egresos hubo el mes pasado?" },
-    { texto: "¿Qué indicadores tiene el tablero quirúrgico?" },
-  ],
-};
 
 interface Props {
   cliente: ClienteApi;
