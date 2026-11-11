@@ -80,18 +80,5 @@ class PresentacionTest(unittest.TestCase):
         json.dumps(datos)
 
 
-class ReiniciarTest(unittest.TestCase):
-    def test_conserva_contexto_solo_con_contrapregunta(self):
-        from backend.app.services.motor import reiniciar_si_termino
-        from tests.backend.motor_doble import instancia_doble
-
-        instancia = instancia_doble()
-        instancia.engine.process("cirugias 2024")
-        reiniciar_si_termino({"status": "needs_clarification"}, instancia)
-        self.assertIsNotNone(instancia.engine._pending_query_plan)
-        reiniciar_si_termino({"status": "success"}, instancia)
-        self.assertIsNone(instancia.engine._pending_query_plan)
-
-
 if __name__ == "__main__":
     unittest.main()

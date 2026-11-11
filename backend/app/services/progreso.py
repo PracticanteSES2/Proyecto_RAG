@@ -30,9 +30,10 @@ class EmisorTurno:
     (lo llaman el hilo del motor, el del reloj y el de la puerta del LLM): todo
     pasa por un candado. Nunca lanza."""
 
-    def __init__(self, publicar, traductor):
+    def __init__(self, publicar, traductor, diagnostico: bool = False):
         self._publicar = publicar
         self.traductor = traductor
+        self.diagnostico = diagnostico
         self._candado = threading.Lock()
 
     def emitir(self, sobres):
@@ -69,7 +70,7 @@ class EmisorTurno:
         """`on_queue` de llm_gate: {"position", "in_flight", "done", …}. Solo el
         evento `cola` (la interfaz lo muestra únicamente en modo diagnóstico:
         nunca se le habla al usuario de filas ni de otras consultas)."""
-        if not isinstance(evento, dict) or evento.get("done"):
+        if not self.diagnostico or not isinstance(evento, dict) or evento.get("done"):
             return
         self.evento("cola", evento_cola(evento.get("position") or 0, evento.get("in_flight") or 0)["datos"])
 

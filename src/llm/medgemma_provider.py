@@ -74,6 +74,7 @@ def _leer_stream(partes, on_token, plazo_s):
         message=SimpleNamespace(content="".join(textos)),
         done_reason=getattr(ultima, "done_reason", None),
         eval_count=getattr(ultima, "eval_count", None),
+        prompt_eval_count=getattr(ultima, "prompt_eval_count", None),
     )
 
 
@@ -303,6 +304,9 @@ class MedGemmaProvider:
             "done_reason": done_reason,
             "truncated": done_reason == "length",
             "eval_count": getattr(response, "eval_count", None),
+            # Tokens de entrada reales: calibran la estimación de
+            # src/llm/presupuesto_tokens.py (recorte contra num_ctx).
+            "prompt_eval_count": getattr(response, "prompt_eval_count", None),
         }
 
     def _fallo_por_tiempo(self, timeout, error):

@@ -7,18 +7,20 @@ from datetime import date
 from pathlib import Path
 
 from backend.app.services import cache
-from tests.backend import apoyo  # noqa: F401
+from tests.backend.apoyo import RAIZ_VACIA
 
 
 class ClaveTest(unittest.TestCase):
     def test_misma_pregunta_escrita_distinto_da_la_misma_clave(self):
         variantes = ["¿Cuántas CIRUGÍAS hubo en 2024?", "cuantas cirugias hubo en 2024",
                      "  Cuántas cirugías  hubo en 2024 "]
-        claves = {cache.clave_cache("h", cache.normalizar_pregunta(v), date(2026, 11, 10)) for v in variantes}
+        normalizadas = [cache.normalizar_pregunta(v, RAIZ_VACIA) for v in variantes]
+        claves = {cache.clave_cache("h", n, date(2026, 11, 10)) for n in normalizadas}
         self.assertEqual(len(claves), 1)
 
     def test_abreviaturas_de_chat(self):
-        self.assertEqual(cache.normalizar_pregunta("camas x estado"), cache.normalizar_pregunta("camas por estado"))
+        self.assertEqual(cache.normalizar_pregunta("camas x estado", RAIZ_VACIA),
+                         cache.normalizar_pregunta("camas por estado", RAIZ_VACIA))
 
     def test_cambia_con_fecha_huella_y_pregunta(self):
         base = cache.clave_cache("h1", "pregunta", date(2026, 11, 10))
@@ -35,8 +37,8 @@ class ReglasTest(unittest.TestCase):
         self.assertTrue(cache.puede_leer({}, None))
         self.assertFalse(cache.puede_leer({}, None, habilitada=False))
         self.assertFalse(cache.puede_leer({"opcion_id": "a"}, None))
-        self.assertFalse(cache.puede_leer({}, {"_last_success": {"metric": "x"}}))
-        self.assertFalse(cache.puede_leer({}, {"_pending_query_plan": {"q": 1}}))
+        self.assertFalse(cache.puede_leer({}, {"seguimiento": {"metric": "x"}}))
+        self.assertFalse(cache.puede_leer({}, {"pendiente": {"plan": {"q": 1}}}))
 
     def test_que_se_guarda(self):
         self.assertTrue(cache.puede_guardar(self.exito, self.respuesta, None, {}))
@@ -49,11 +51,13 @@ class ReglasTest(unittest.TestCase):
             ({"status": "error", "route": None}, self.respuesta),
             ({"status": "empty_result", "route": "powerbi"}, self.respuesta),
             (self.exito, {"degradada": True}),
+            # Truncada por num_predict y no completada (spec 011): nunca va a caché.
+            ({"status": "success", "route": "rag", "synthesis_mode": "llm", "cacheable": False}, self.respuesta),
         ]
         for result, respuesta in casos:
             with self.subTest(result=result, respuesta=respuesta):
                 self.assertFalse(cache.puede_guardar(result, respuesta, None, {}))
-        self.assertFalse(cache.puede_guardar(self.exito, self.respuesta, {"_last_success": {"m": 1}}, {}))
+        self.assertFalse(cache.puede_guardar(self.exito, self.respuesta, {"seguimiento": {"m": 1}}, {}))
         self.assertFalse(cache.puede_guardar(self.exito, self.respuesta, None, {"opcion_id": "x"}))
 
 
