@@ -77,9 +77,9 @@ export type Etapa =
   | "consultando_powerbi"
   | "revisando_documentacion"
   | "redactando"
-  | "en_cola"
   | "finalizando";
 
+/** Solo modo diagnóstico: el modo normal nunca habla de filas ni de otras consultas (specs/009-experiencia-espera). */
 export interface EventoCola {
   /** 1 = es la siguiente; 0 = desconocida. */
   posicion: number;
@@ -91,6 +91,11 @@ export interface EventoProgreso {
   frase: string;
   /** Segundos desde el inicio del turno. Solo para ordenar/medir: nunca se muestra con diagnóstico apagado. */
   t: number;
+}
+
+/** Fragmento de la respuesta que se está redactando: se AÑADE al borrador; `respuesta` lo reemplaza. */
+export interface EventoToken {
+  texto: string;
 }
 
 export interface EventoEspera {
@@ -161,6 +166,7 @@ export type EventoTurno =
   | { tipo: "cola"; datos: EventoCola }
   | { tipo: "progreso"; datos: EventoProgreso }
   | { tipo: "espera"; datos: EventoEspera }
+  | { tipo: "token"; datos: EventoToken }
   | { tipo: "respuesta"; datos: EventoRespuesta }
   | { tipo: "aviso"; datos: EventoAviso }
   | { tipo: "error"; datos: EventoError }
@@ -172,6 +178,7 @@ export const TIPOS_EVENTO: readonly TipoEvento[] = [
   "cola",
   "progreso",
   "espera",
+  "token",
   "respuesta",
   "aviso",
   "error",

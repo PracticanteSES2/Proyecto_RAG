@@ -56,12 +56,13 @@ envía un turno con `opcion_id` y se marca la opción elegida.
 
 **Escenarios de aceptación**:
 
-1. **Dado** un evento `cola` con `posicion > 1`, **entonces** se lee «Hay N consultas antes que la tuya, ya
-   casi…»; con `posicion ≤ 1`, «Tu pregunta es la siguiente; enseguida la atiendo».
+1. **Dado** un evento `cola`, **entonces** no cambia nada visible: sigue la frase de trabajo sobre la pregunta
+   (solo el modo diagnóstico lo muestra). Revisado por specs/009-experiencia-espera: nunca se habla de filas,
+   colas, otras consultas ni saturación.
 2. **Dado** un evento `espera`, **entonces** su frase aparece en el renglón secundario (más pequeño, opacidad
    0,8) con fundido de ~600 ms. Si no llega ningún `espera`, el cliente genera frases equivalentes a los 10,
    25, 50 y 90 s (respaldo).
-3. **Dado** que `POST /turnos` responde 429, **entonces** aparece «Hay muchas consultas en este momento.
+3. **Dado** que `POST /turnos` responde 429, **entonces** aparece «No pude recibir tu pregunta en este momento.
    Intenta de nuevo en unos segundos.» con botón «Reintentar».
 4. **Dado** un evento `error`, **entonces** se muestra un aviso amable no técnico con «Reintentar»; el código
    y el mensaje técnico solo se ven en modo diagnóstico.
