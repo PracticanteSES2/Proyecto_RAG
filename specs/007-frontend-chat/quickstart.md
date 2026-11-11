@@ -39,11 +39,13 @@ npm run build       # build de producción (descarga Montserrat/Mulish/JetBrains
 | «hola», «gracias» | respuesta en < 600 ms: el indicador nunca aparece |
 | cualquier pregunta | etapas de progreso → tabla, fuentes y «Abrir en Power BI ›» |
 | «ocupación», «cuál» | contrapregunta con tres opciones (envían `opcion_id`) |
-| «qué es…», «documentación» | respuesta documental degradada + evento `aviso` |
-| «cola» | eventos `cola` («Hay dos consultas antes que la tuya…») |
-| «lento» | eventos `espera` del servidor a los 10 y 25 s |
+| «qué es…», «explica» | respuesta documental que aparece de a poco (eventos `token`) |
+| «salvaguarda» | el borrador trae una cifra sin respaldo; la final la quita con un fundido |
+| «documentación» | respuesta documental extractiva + `aviso` con la nota neutra |
+| «cola» | espera larga por carga: `cola` solo en diagnóstico; a la vista, rotación de frases de trabajo |
+| «lento» | eventos `espera` del servidor a los 10 y 25 s y rotación de frases |
 | «respaldo» | espera larga sin `espera`: frases generadas por el cliente |
 | «error» | evento `error` → aviso amable con «Reintentar» |
-| «429» | `POST /turnos` responde 429 → «Hay muchas consultas…» |
+| «429» | `POST /turnos` responde 429 → «No pude recibir tu pregunta en este momento…» |
 
 Servidor caído: `curl -X POST "http://localhost:3000/api/v1/mock/caida?activa=1"` (y `activa=0` para volver).

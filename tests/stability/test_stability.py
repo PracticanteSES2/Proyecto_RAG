@@ -332,8 +332,11 @@ def test_app_shows_diagnostics_and_busy_message():
         os.environ.pop("TURN_WAIT_SECONDS", None)
     assert not app.exception, app.exception
     texts = " ".join(m.value for m in app.markdown)
-    assert "Hay otra consulta en curso" in texts, texts[-500:]
-    assert "Esperando a que termine otra consulta en curso" in texts, texts[-800:]
+    # Decisión del usuario (specs/009-experiencia-espera): nunca se habla de
+    # otras consultas; la espera se muestra como trabajo sobre la pregunta.
+    assert "no alcancé a responder tu pregunta" in texts, texts[-500:]
+    assert "Pensando en tu pregunta" in texts, texts[-800:]
+    assert "otra consulta" not in texts.lower(), texts[-800:]
     # Libre otra vez: responde normal.
     app.chat_input[0].set_value("cuanto peso hubo en lavanderia en enero de 2026").run()
     labels = [element.proto.label for element in app.get("status")]

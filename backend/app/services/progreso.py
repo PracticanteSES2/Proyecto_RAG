@@ -76,9 +76,10 @@ class EmisorTurno:
 
     def token(self, texto):
         """Trozo de la redacción en streaming (evento `token` {texto}). Lo llama
-        el hilo del motor; publicar en el almacén es seguro entre hilos."""
+        el hilo del motor. Pasa por el traductor: tras el primer token, `tic()`
+        deja de rotar frases y de emitir esperas (la respuesta ya avanza)."""
         if texto:
-            self.evento("token", {"texto": str(texto)})
+            self._llamar("token", str(texto))
 
     def evento(self, nombre, datos):
         with self._candado:
