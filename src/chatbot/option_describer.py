@@ -265,12 +265,9 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
             es_guardable=lambda raw: self._usable(raw, option),
         )
 
-    # Descripción del catálogo que basta (no hace falta el LLM): ya tiene la
-    # forma que se le pide al LLM (empieza con Cuenta, Suma, Calcula, Mide,
-    # Promedia o Muestra), al menos 6 palabras, no solo repite el nombre y
-    # distingue la opción de las demás. Hoy el catálogo casi nunca la trae (las medidas no
-    # tienen descripción), pero la documentación de los tableros sí la irá
-    # completando. OPTION_DESCRIBER_CATALOGO=off la desactiva.
+    # Descripción del catálogo que basta (sin LLM): ya tiene la forma pedida al LLM (verbo de la tarea,
+    # >= 6 palabras, no repite el nombre, distinta de las demás). Hoy casi nunca la hay (las medidas no
+    # traen descripción); la documentación la irá completando. OPTION_DESCRIBER_CATALOGO=off la desactiva.
     CATALOG_MIN_WORDS = 6
     CATALOG_VERBS = ("cuenta", "suma", "calcula", "mide", "promedia", "muestra")
 

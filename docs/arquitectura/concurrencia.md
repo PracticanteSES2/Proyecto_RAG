@@ -379,7 +379,7 @@ cache_llm.fijar_version(v)           # versión de índice/datos (el API pone su
 ```
 
 Variables: `LLM_CACHE` (on), `LLM_CACHE_TTL_S` (21600 = 6 h), `LLM_CACHE_MAX` (512 entradas en memoria),
-`LLM_CACHE_ESPERA_S` (90). Normalizador ÚNICO: `src/semantic/question_normalizer.clave_pregunta`; la caché de
+`LLM_CACHE_ESPERA_S` (90). Normalizador ÚNICO: `src/semantic/question_normalizer.clave_pregunta` (el motor lo llama sin vocabulario porque la pregunta ya llega normalizada contra el catálogo, y así la clave no paga la construcción del vocabulario en frío); la caché de
 RESPUESTAS completas del API (`backend/app/services/cache.normalizar_pregunta`) ahora lo llama, así las dos
 cachés comparten la forma canónica de la pregunta. Claves Redis distintas: `rag:cache:<huella>` (respuestas del
 API) y `rag:llm:<sha256>` (llamadas del motor).
@@ -402,6 +402,10 @@ registrado o Redis no responde, sigue en memoria con advertencia y reintenta cad
 - `agente/ux-espera` (streaming `on_token`): un acierto de caché devuelve la respuesta entera, sin tokens; la UI
   debe aceptar que llegue de golpe. Si el streaming pasa por `call_llm`, la caché sigue envolviendo esa llamada
   (el `on_token` va dentro del `lambda` de `synthesize_rag`).
-- `agente/truncado`: la caché nunca guarda truncadas; si cambia `num_predict`, cambia la clave (`max_tokens`).
+- `agente/truncado` (ya integrado): la caché envuelve solo la llamada cruda dentro de `synthesize_rag`, después de
+  `ajustar_a_contexto` (que sigue garantizando no pasar de `num_ctx`) y antes de `completar`/`_postprocess`. Una
+  cruda truncada nunca se guarda, así que una respuesta incompleta (`cacheable=False`) jamás sale de la caché; la
+  clave incluye `max_tokens` = `num_predict` del propósito (`src/llm/presupuesto_tokens.py`), de modo que cambiarlo
+  invalida lo guardado. En opciones, `_complete_answer` (corte seguro) se aplica también a lo cacheado.
 - `tools/carga` ya no importa `tests`: el motor del simulador para `--modo e2e` vive en `tools/manual/carga_e2e.py`
   (carpeta exenta) y se inyecta con `runner.correr(..., fabrica_motor=...)`.

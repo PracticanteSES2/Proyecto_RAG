@@ -15,9 +15,9 @@ Uso (síntesis RAG, descripción de opciones):
     resultado.get("cache")  # "hit" | "compartida" | ausente (llamada real)
 
 Clave = sha256(formato | versión de índice/documentación | propósito | pregunta
-normalizada con `question_normalizer.clave_pregunta` (la MISMA que usa la caché
-de respuestas del API) | huella de las fuentes | huella del prompt | modelo |
-max_tokens). Si cambia un chunk, el prompt o el modelo, la clave cambia sola.
+normalizada con `question_normalizer.clave_pregunta` (la MISMA función que usa
+la caché de respuestas del API; aquí sin vocabulario: el motor ya la normalizó)
+| huella de las fuentes | huella del prompt | modelo | max_tokens). Si cambia un chunk, el prompt o el modelo, la clave cambia sola.
 `fijar_version(v)` añade una versión explícita (p. ej. la huella de datos del
 API) para invalidar todo tras reindexar.
 
@@ -52,7 +52,7 @@ from collections import OrderedDict
 from typing import Callable, Protocol
 
 from src.chatbot.runtime_stats import STATS, env_float, env_int
-from src.semantic.question_normalizer import clave_pregunta
+from src.semantic.question_normalizer import EMPTY_VOCABULARY, clave_pregunta
 
 LOG = logging.getLogger("cache_llm")
 
@@ -148,7 +148,11 @@ def huella(*partes) -> str:
 def clave(proposito: str, pregunta: str = "", fuentes="", prompt="", modelo: str = "",
           max_tokens: int | None = None) -> str:
     """Clave de una llamada (ver el docstring del módulo)."""
-    return huella(FORMATO, _ESTADO["version"], proposito, clave_pregunta(pregunta) if pregunta else "",
+    # Sin vocabulario: la pregunta que llega al motor ya pasó por
+    # normalize_question con el catálogo (QueryEngine.process) y así la clave
+    # no paga, en frío, la construcción del vocabulario (segundos).
+    pregunta_canonica = clave_pregunta(pregunta, EMPTY_VOCABULARY) if pregunta else ""
+    return huella(FORMATO, _ESTADO["version"], proposito, pregunta_canonica,
                   huella(fuentes), huella(prompt), str(modelo or ""), max_tokens)
 
 
