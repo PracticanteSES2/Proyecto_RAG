@@ -37,5 +37,10 @@ Leyenda: [x] hecho en esta ronda · [ ] pendiente (con dueño o motivo).
 
 ## Verificación
 - [x] T050 Mojibake de `src/semantic/resolucion/__init__.py`.
-- [x] T051 Suites por área + golden master contra la foto del día.
+- [x] T051 Suites por área + golden master contra la foto del día. 2026-11-11, tras integrar `desarrollo` 1ac7ed5:
+      golden de los tres bancos (411 turnos) con foto de `desarrollo` tomada el mismo día → **0 diferencias**
+      (simulador 129/164 en ambos). Suites: 85/90; las 5 que fallan fallan igual en `desarrollo`
+      (`docs_md.test_interfaz` título sin emoji, `export.test_live_engine`, `backend.test_almacen` intermitente por
+      empate de milisegundos en `almacen_memoria`) o son latencia bajo carga (`portero.test_portero_minilm`,
+      `feedback.test_adversarial_registro`; en solitario pasan o fallan igual que la base).
 - [x] T052 Doctor `--verificar` y `--actualizar-linea-base` (sin `--forzar`).
