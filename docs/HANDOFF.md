@@ -1,3 +1,28 @@
+# Handoff — 2026-11-11 (push de `desarrollo` para el equipo del propietario)
+
+**Retomar aquí.** `desarrollo` subido a `origin/desarrollo` (incluye todo lo integrado desde el 2026-11-10:
+FastAPI, Next.js, memoria por sesión, ux-espera, rendimiento-llm, refactor del motor y documentación viva).
+`main` sin cambios.
+
+### Dos sesiones en paralelo (ver «Trabajo en curso por equipo» en CLAUDE.md)
+- **Propietario (Docker/WSL)**: `specs/014-infra-docker-wsl/` — empezar por `plan.md` §0 y `tasks.md` fase A.
+- **Equipo de desarrollo**: mensajes que no son consultas (saludos, charla, preguntas ajenas) sin MedGemma,
+  Qdrant ni Power BI → `specs/015-*`, `src/chatbot/portero*.py`, `src/chatbot/charla*.py`, `tests/portero/`.
+
+### Arreglado hoy
+- La bienvenida del chat se caía al entrar con el backend real («Cannot read properties of undefined (reading
+  'map')»): `GET /capacidades` no tenía la forma que suponía el frontend. Adaptador en
+  `frontend/lib/api/capacidades.ts`; el mock devuelve ahora la forma real.
+- Mismo problema al recargar con una conversación abierta: `GET /conversaciones/{id}` devuelve `mensajes`, no
+  `turnos`. Adaptador en `frontend/lib/api/conversaciones.ts`; mock alineado. Ambos los sustituirá el cliente
+  generado desde OpenAPI (spec 014, fase F).
+- Ejemplos de la bienvenida legibles (sin nombres técnicos como `%OCUPACIONHOS`, con el tablero nombrado):
+  `backend/app/services/capacidades.py`.
+- Vitest en Windows: con la terminal en `c:\…` (c minúscula) toda la suite falla con «failed to find the
+  current suite»; abrirla en `C:\…`.
+
+---
+
 # Handoff — 2026-11-10 (pausa de la sesión de orquestación)
 
 **Retomar aquí.** `desarrollo` local en `7824c9c`, SIN push a GitHub (el usuario quiere revisarlo antes).

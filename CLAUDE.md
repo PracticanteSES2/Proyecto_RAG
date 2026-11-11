@@ -21,6 +21,17 @@ Rules:
      al implementar, `systematic-debugging` ante fallos, `verification-before-completion` antes de dar algo por
      terminado y `requesting-code-review` al cerrar. Empezar leyendo `using-superpowers`.
 
+## Trabajo en curso por equipo (leer al abrir la sesión)
+
+- **Equipo con Docker/WSL (propietario)** — si `docker version` responde: tu trabajo es
+  `specs/014-infra-docker-wsl/` (Redis real, modo trabajador + API, carga, contenedores, cliente OpenAPI,
+  Playwright de paridad). Empieza por `plan.md` §0 y sigue la primera tarea sin `[x]` de `tasks.md`. La sesión
+  orquesta e integra; **todo el desarrollo lo hacen agentes** en worktrees `agente/<tema>`.
+- **Equipo de desarrollo (sin Docker)**: clasificación de mensajes que no son consultas (saludos, charla,
+  preguntas ajenas a los tableros) sin gastar MedGemma, Qdrant ni Power BI. Reservado: `src/chatbot/portero*.py`,
+  `src/chatbot/charla*.py`, `tests/portero/`, `specs/015-*`. La otra sesión no los toca.
+- Estado y decisiones recientes: `docs/HANDOFF.md` (la entrada de arriba es la más nueva).
+
 ## Estructura y reglas de creación
 
 Normativo para personas y agentes. Detalle, tablas y plan por fases: `docs/ARQUITECTURA.md`.
