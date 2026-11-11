@@ -153,10 +153,14 @@ Prohibido:
 3. `backend/app/api` importa `src.*` directamente (pasa por `backend/app/services/motor.py`).
 4. `tools/` importa `tests/` (excepción prevista: `tools/manual/`, que usa los arneses de `tests.real`/`tests.realistic`;
    requiere la extensión `excepto` del doctor, §12).
-5. Capas bajas importan altas: `providers`/`llm` → `chatbot` (deuda actual: `runtime_stats`, fase 1).
+5. Capas bajas importan altas: `providers`/`llm` → `chatbot` (resuelto el 2026-11-11: el estado de ejecución vive en
+   `src/comun/estadisticas.py` y `providers`/`llm` lo importan de ahí; `src/chatbot/runtime_stats.py` es solo reexporte).
 6. Frontend: `components/ui/` importa `lib/api/`, o hay `fetch` fuera de `lib/api/`, o se edita a mano `lib/api/generado/`.
 
-Ciclos actuales a romper (fases 1 y 4): `ingestion ↔ docs_md`, `semantic ↔ docs_md`, `semantic ↔ dax`.
+Ciclos rotos el 2026-11-10 (`agente/refactor-motor`): `ingestion ↔ docs_md` y `semantic ↔ docs_md` (la reindexación pasó a
+`src/catalogo/indexacion.py`), `semantic ↔ dax` (`src/dax/validacion_detalle.py`). `chatbot ↔ llm` se rompió el 2026-11-11 (`llm` importa
+`src.comun.estadisticas`). Queda solo `docs_md ↔ catalogo` a través del legado `src/docs_md/interfaz.py` (UI Streamlit que
+se borra con la paridad).
 
 ---
 
@@ -291,7 +295,7 @@ Cada fase es una rama `agente/estructura-fN`, sin cambios de comportamiento salv
 suites del área + `tests.eval.test_eval` + golden master idéntico + doctor sin bajar. Las fases que tocan
 `src/` se coordinan: **no** se ejecutan mientras otro agente edita los mismos archivos.
 
-**Fase 0 — Andamiaje (hecha en parte, 2026-11-10).** `var/` + `.gitignore` ordenado, `src/comun/rutas.py`,
+**Fase 0 — Andamiaje (hecha, 2026-11-10: `pyproject.toml`, `README.md`, constitución).** `var/` + `.gitignore` ordenado, `src/comun/rutas.py`,
 salidas redirigidas, reglas en `CLAUDE.md`. Pendiente: `pyproject.toml` en la raíz con ruff (sin cambiar código),
 `README.md` de la raíz (cómo arrancar backend, frontend y legado), llenar `.specify/memory/constitution.md`
 (hoy es la plantilla vacía) remitiendo a este documento.
@@ -304,10 +308,12 @@ salidas redirigidas, reglas en `CLAUDE.md`. Pendiente: `pyproject.toml` en la ra
    (que usará la fábrica).
 2. `runtime_stats` → `src/comun/estadisticas.py` (o `src/observabilidad/`), con reexport en
    `src/chatbot/runtime_stats.py`. Rompe `providers/llm → chatbot`. Coordinar con el agente de carga.
+   **Hecho** (2026-11-10 `providers`, 2026-11-11 `llm`).
 3. Las 15 raíces propias de `src`/`pages` pasan a `from src.comun.rutas import RAIZ_PROYECTO` (requisito de la
-   fase 5: después solo cambia `rutas.py`).
+   fase 5: después solo cambia `rutas.py`). **Hecho** en 16 módulos de `src`; quedan `pages/` y `src/ui/estilo.py` (legado).
 
-**Fase 2 — Partir `query_engine.py` (riesgo alto; el patrón ya probado en `src/semantic/resolucion/`).**
+**Fase 2 — Partir `query_engine.py` (riesgo alto; el patrón ya probado en `src/semantic/resolucion/`).** Guion listo con
+rangos actualizados, pruebas por paso y golden master: `specs/012-refactor-motor/fase2.md` (la tabla de abajo es la original).
 `QueryEngine` pasa a ser una clase compuesta por mixins en `src/chatbot/consulta/`; los métodos se **mueven sin
 cambios** (las pruebas usan ~30 privados como `engine._query_plan_failure`, que siguen existiendo). Orden, de lo
 más aislado a lo más acoplado, un commit y un golden master por paso:
@@ -334,7 +340,8 @@ cada paso y reexportar; (b) orden de resolución de métodos con mixins (ningún
 verificarlo con un script); (c) imports circulares entre mixins (cada mixin importa solo lo que usa; nada de
 `from ..query_engine import`). Meta: `query_engine.py` < 400 líneas (constructor, `process`, `close`).
 
-**Fase 3 — Utilidades canónicas (riesgo medio).** `src/comun/texto.py` (`sin_tildes`, `plegar`, `llave`,
+**Fase 3 — Utilidades canónicas (riesgo medio; hecha en `src/` salvo archivos de otros agentes, 2026-11-10: ver §11 y
+`specs/012-refactor-motor/tasks.md`).** `src/comun/texto.py` (`sin_tildes`, `plegar`, `llave`,
 `tokens`), `src/comun/json_io.py` (`leer_json`, `escribir_json_atomico`), `src/comun/registro.py`
 (configuración de logging) y `src/comun/entorno.py` (`env_int`, `env_float`, `env_bool`). Las 33 variantes
 de normalización **no son idénticas** (regex `[^a-z0-9\s]` vs `[^a-z0-9]+`, `%` conservado en
@@ -342,7 +349,7 @@ de normalización **no son idénticas** (regex `[^a-z0-9\s]` vs `[^a-z0-9]+`, `%
 reemplazo lleva prueba de equivalencia sobre el vocabulario real del catálogo y golden master idéntico. Las que
 difieren a propósito se quedan y se documentan.
 
-**Fase 4 — Separar construcción de consulta (riesgo medio).** `src/catalogo/` recibe los constructores
+**Fase 4 — Separar construcción de consulta (riesgo medio; ciclos rotos el 2026-11-10, falta mover los constructores).** `src/catalogo/` recibe los constructores
 (`model_catalog_builder`, `visual_catalog_builder`, `powerbi_catalog_manager`, `global_master_metric_builder`,
 `document_normalizer`, `semantic_merge`) y `src/ingestion/`; sus bloques `__main__` y `print` pasan a
 `tools/` (CLIs) y a `logging`. Rompe los ciclos `ingestion ↔ docs_md` y `semantic ↔ docs_md`. Mover
@@ -369,19 +376,22 @@ doctor admita la excepción `tools.manual → tests` (hoy sumaría 2 hallazgos a
 Antes de escribir una función utilitaria: `Grep` por el verbo (`normaliz`, `fold`, `plain`, `slug`, `json`,
 `raiz`, `root`) en `src/comun/` y en esta tabla. Si existe una variante, usarla o moverla a `src/comun/`.
 
-| Necesidad | Usar hoy | Variantes duplicadas encontradas (a consolidar en la fase 3) |
+| Necesidad | Usar | Notas (fase 3, 2026-11-10) |
 | --- | --- | --- |
-| Raíz del proyecto, `data/`, `var/` | `src.comun.rutas` (`RAIZ_PROYECTO`, `DATOS`, `ruta_salida`, `ruta_log`, `ruta_tmp`) | `PROJECT_ROOT`/`RAIZ` en 15 módulos de `src`/`pages` |
-| Normalizar texto para comparar (minúsculas, sin tildes, solo alfanumérico) | `src.semantic.resolucion.texto.normalize_text` (con caché) | `normalize_text` en `rag/ranking`, `semantic/source_model_router`, `master_metric_resolver`, `powerbi_catalog_manager`, `global_master_metric_builder`, `query_semantic_planner`, `chatbot/intent_parser`; `_normalize_text` en `query_engine`, `metric_resolver` |
-| Quitar tildes y minúsculas sin tocar signos | `src.semantic.question_normalizer.fold` | `fold` en `business_terms` (conserva `%`), `request_phrases`; `_fold` en `dax/column_guard`, `rag/grounding`, `semantic/detail_list`, `chatbot/detail_formatter` |
-| Texto plano en mayúsculas para rótulos | `src.rag.source_labels._plain` | `_plain` en `option_describer`, `response_formatter`, `document_parser`, `domain_cache`, `extractive`, `table_titles` |
+| Raíz del proyecto, `data/`, `var/` | `src.comun.rutas` (`RAIZ_PROYECTO`, `DATOS`, `ruta_salida`, `ruta_log`, `ruta_tmp`) | Quedan en el legado congelado: `pages/`, `src/ui/estilo.py` |
+| Comparar texto: minúsculas, sin tildes, solo `[a-z0-9]` | `src.comun.texto.normalizar(t)` · con `%`: `normalizar(t, "%")` | `semantic.resolucion.texto.normalize_text` = `normalizar(t, "%")` con caché (el más usado en el motor) |
+| Minúsculas y sin tildes, signos intactos | `src.comun.texto.plegar` | — |
+| Clave compacta de nombres (sin separadores) | `src.comun.texto.llave` | — |
+| Slug `a_b_c` | `src.comun.texto.slug` (`repositorio.slug` = `slug(t) or "pagina"`) | — |
+| Rótulos: NFKD sin combinantes, sin cambiar mayúsculas | `src.comun.texto.sin_tildes` | — |
+| Variantes que difieren a propósito (no unificar) | `dax.column_guard._fold` (casefold), `docs_md.formato.normalizar_nombre`, `semantic.document_normalizer.normalize_heading`, `semantic.request_phrases.fold` (misma longitud) | Pendientes en archivos de otros agentes: `specs/012-refactor-motor/tasks.md` T022 |
 | Tokens canónicos | `src.semantic.resolucion.texto.canonical_token(s)` | versión distinta en `query_semantic_planner` |
-| Leer JSON | `json.loads(Path.read_text(encoding="utf-8"))` | `load_json` ×5 (`filter_resolver` y `semantic_merge` idénticas), `_load_json` ×4, `_leer_json` ×2 |
-| Escribir JSON atómico | `src.docs_md.repositorio` (escritura con `os.replace`) | `catalog_utils`, `chunk_builder`, `semantic_merge`, `document_normalizer`, `visual_catalog_builder`, `tools/sync_*` |
-| Slug de nombre | `src.docs_md.repositorio.slug` | `slugify` en `document_parser`, `powerbi_catalog_manager`, `tools/import_documentation_batch`, `tools/local_data/metadata_format`, `tools/sync_powerbi_metadata` |
-| Clave canónica de fila de catálogo | — | `_canonical_key` idéntica en `global_master_metric_builder` y `visual_catalog_builder` |
-| Variables de entorno numéricas | `src.comun.entorno.env_int/env_float` (reexportadas en `src.chatbot.runtime_stats`) | — |
-| Logging | `logging.getLogger(__name__)` | 142 `print()` en 11 módulos de `src` |
+| Leer / escribir JSON | `src.comun.json_io.leer_json(ruta, defecto, bom=)` · `escribir_json(datos, ruta, atomico=, default=)` | — |
+| `None`/valor/lista → lista | `src.comun.colecciones.como_lista` | — |
+| Variables de entorno numéricas | `src.comun.entorno.env_int` / `env_float` | `src.chatbot.runtime_stats` las reexporta |
+| Estado de ejecución (contadores, filas FIFO, `turn_slot`) | `src.comun.estadisticas` | `src.chatbot.runtime_stats` es reexporte de compatibilidad |
+| Logging | `logging.getLogger(__name__)` en la librería; `src.comun.registro.configurar_registro()` en CLIs; `consola_utf8()` | `print` solo en CLIs (quedan a propósito: `docs_md.diccionario.main`, `powerbi_token.login`) |
+| Clave canónica de fila de catálogo | — | `_canonical_key` idéntica en `global_master_metric_builder` y `visual_catalog_builder` (fase 4: `src/catalogo/`) |
 
 ---
 

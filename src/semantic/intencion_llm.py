@@ -24,6 +24,7 @@ resuelven, contrapreguntarían o no saben armar una comparación de periodos) y 
 Presupuesto: a lo sumo dos llamadas (la segunda solo si el JSON salió inválido) dentro de
 INTENCION_LLM_TIEMPO_S (3 s por defecto) en total, por la puerta común `src/llm/llm_gate.py`.
 """
+import logging
 import hashlib
 import json
 import os
@@ -43,6 +44,8 @@ from src.semantic.resolucion.texto import (
     canonical_tokens,
     normalize_text,
 )
+
+logger = logging.getLogger(__name__)
 
 MODOS = ("off", "respaldo", "siempre")
 # Apagado por defecto: en el sondeo real (2026-11-04) MedGemma eligió el
@@ -268,7 +271,7 @@ def _lexical_index(builder):
         try:
             tokens |= set(builder._dictionary_tokens(metric))
         except Exception:
-            pass
+            logger.debug("sin palabras de diccionario para el indicador; el índice usa solo sus nombres", exc_info=True)
         index[key] = (metric, {token for token in tokens if len(token) >= 3})
     builder._intencion_lexical_index = index
     return index
@@ -1045,7 +1048,7 @@ def _not_a_value(builder, texto, metric, nombre):
         if builder._period_parser().parse(text):
             return "es un periodo (se toma de la pregunta)"
     except Exception:
-        pass
+        logger.debug("el analizador de periodos falló con este texto; no se toma como periodo", exc_info=True)
     tokens = {canonical_token(w) for w in words if len(w) >= 3}
     name_tokens = {t for name in (nombre, metric.get("label"), metric.get("measure"), metric.get("table"))
                    if name for t in canonical_tokens(name)}

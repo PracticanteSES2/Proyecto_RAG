@@ -1,36 +1,16 @@
 import hashlib
 import json
 import re
-import unicodedata
 from pathlib import Path
 
 from src.semantic.table_titles import title_names_value
 from src.semantic.visual_catalog_builder import read_csv_rows
+from src.comun.texto import normalizar
+from src.comun.json_io import leer_json
 
 
 def normalize_text(value):
-    value = str(value or "").lower().strip()
-
-    value = "".join(
-        char
-        for char in unicodedata.normalize(
-            "NFD",
-            value,
-        )
-        if unicodedata.category(char) != "Mn"
-    )
-
-    value = re.sub(
-        r"[^a-z0-9]+",
-        " ",
-        value,
-    )
-
-    return re.sub(
-        r"\s+",
-        " ",
-        value,
-    ).strip()
+    return normalizar(value)
 
 
 def make_id(*parts):
@@ -181,16 +161,7 @@ def _is_technical_ref(value):
 
 
 def _load_json(path, default=None):
-    path = Path(path)
-
-    if not path.exists():
-        return default
-
-    return json.loads(
-        path.read_text(
-            encoding="utf-8"
-        )
-    )
+    return leer_json(path, default)
 
 
 def build_global_master_metrics(

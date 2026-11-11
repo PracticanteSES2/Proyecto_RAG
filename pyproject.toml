@@ -1,0 +1,42 @@
+# Configuración de herramientas del proyecto (docs/ARQUITECTURA.md §7).
+#
+# Por ahora SOLO configura ruff: el estilo se verifica, no se impone con un reformateo masivo.
+# El código heredado tiene miles de avisos; el doctor (python -m tools.doctor) usa ruff como
+# información y el trinquete solo penaliza lo que crezca. Código nuevo o tocado: sin avisos.
+#
+#   .venv\Scripts\python.exe -m ruff check src/comun          # un paquete
+#   .venv\Scripts\python.exe -m ruff check --diff src/comun    # ver qué corregiría, sin tocar nada
+#
+# No correr `ruff format` ni `ruff check --fix` sobre todo el repo: mezclaría estilo con lógica
+# en los diffs y rompería el trabajo de los agentes en paralelo.
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+src = ["."]
+extend-exclude = [
+  ".claude", ".venv", "venv", "graphify-out", "data", "tableros", "var", "__data",
+  "docs_tableros", "frontend", "node_modules",
+]
+
+[tool.ruff.lint]
+# F errores · E/W estilo · I orden de imports · B bugbear · UP modernización · T201 print.
+select = ["F", "E", "W", "I", "B", "UP", "T201"]
+ignore = [
+  "E501",   # el largo lo vigila el formateador del editor; el heredado tiene líneas largas
+]
+
+[tool.ruff.lint.per-file-ignores]
+# print es legítimo en CLIs, pruebas, arneses y el legado Streamlit (docs/ARQUITECTURA.md §7).
+"tools/**" = ["T201"]
+"tests/**" = ["T201"]
+"app.py" = ["T201"]
+"pages/**" = ["T201"]
+# Reexportaciones de compatibilidad.
+"**/__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src", "tools", "tests", "backend"]
+
+[tool.ruff.format]
+quote-style = "double"

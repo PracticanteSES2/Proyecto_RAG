@@ -83,8 +83,8 @@ min_lineas_casi = 10
 nombre = "normalizar texto / quitar tildes"
 llamadas = ["unicodedata.normalize"]
 aplica_a = ["src", "backend", "pages", "app.py"]
-canonico = ""   # "src/comun/texto.py" cuando exista (fase 3)
-sugerencia = "Reutilizar la normalización existente (docs/ARQUITECTURA.md §11) o moverla a src/comun/texto.py."
+canonico = "src/comun/texto.py"
+sugerencia = "from src.comun.texto import plegar, normalizar, llave, slug, sin_tildes (docs/ARQUITECTURA.md §11); si una variante difiere a propósito, documentarlo junto a su definición."
 
 [[duplicacion.utilidades]]
 nombre = "raíz del proyecto"

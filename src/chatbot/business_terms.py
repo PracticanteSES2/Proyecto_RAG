@@ -14,9 +14,11 @@ entradas «- **CLAVE**: descripción») para:
   técnica «Filtros del tablero aplicados (...): HSUNOMBRE no es ...».
 """
 import re
-import unicodedata
 from functools import lru_cache
 from pathlib import Path
+
+from src.comun.rutas import RAIZ_PROYECTO
+from src.comun.texto import normalizar
 
 _ENTRY_RE = re.compile(r"^- \*\*(?P<key>[^*]+)\*\*:\s*(?P<desc>.*)$")
 _FRONT_RE = re.compile(r"^tablero:\s*(?P<name>.+?)\s*$", re.MULTILINE)
@@ -34,9 +36,7 @@ _NAME_PREFIX_RE = re.compile(
 
 
 def fold(text):
-    text = unicodedata.normalize("NFD", str(text or "").lower())
-    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
-    return " ".join(re.sub(r"[^a-z0-9%]+", " ", text).split())
+    return normalizar(text, "%")
 
 
 def _docs_root():
@@ -45,7 +45,7 @@ def _docs_root():
 
         return Path(raiz_documentos())
     except Exception:
-        return Path(__file__).resolve().parents[2] / "docs_tableros"
+        return RAIZ_PROYECTO / "docs_tableros"
 
 
 @lru_cache(maxsize=4)

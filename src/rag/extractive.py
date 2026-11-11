@@ -7,9 +7,9 @@ total Tabla: Descripción: … Expresión DAX: …»). Aquí se quitan esos rót
 se conservan las frases descriptivas y se arma una lista breve por fuente.
 """
 import re
-import unicodedata
 
 from src.rag.source_labels import dictionary_board, dictionary_page_label
+from src.comun.texto import plegar
 
 
 # Rótulos que abren el nombre del elemento documentado.
@@ -194,8 +194,7 @@ _ENTRY_PREFIX_RE = re.compile(r"^(?P<entry>[^:\n]{1,80}\[[^\]\n]{1,60}\]):\s*(?P
 
 
 def _plain(text):
-    text = unicodedata.normalize("NFD", str(text or "").lower())
-    return "".join(char for char in text if unicodedata.category(char) != "Mn")
+    return plegar(text)
 
 
 def _tokens(text):

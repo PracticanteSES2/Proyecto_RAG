@@ -9,7 +9,6 @@ Se guarda en data/catalog/local_build_report.json e incluye:
   - etiquetas de indicador repetidas en más de un modelo o tablero
     (redundancia real, útil para probar la desambiguación).
 """
-import json
 import re
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -17,6 +16,7 @@ from pathlib import Path
 
 from tools.local_data.metadata_format import normalize_text
 from src.semantic.visual_catalog_builder import read_csv_rows
+from src.comun.json_io import leer_json
 
 
 AUTO_DATE_PREFIXES = ("LocalDateTable_", "DateTableTemplate_")
@@ -33,10 +33,7 @@ GENERIC_TERMS = {
 
 
 def _load_json(path, default=None):
-    path = Path(path)
-    if not path.exists():
-        return default
-    return json.loads(path.read_text(encoding="utf-8"))
+    return leer_json(path, default)
 
 
 def _model_counts(model_dir):

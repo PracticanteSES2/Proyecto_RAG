@@ -103,6 +103,8 @@ def _gender(word):
     return None
 
 
+# No es src.comun.texto.plegar: devuelve una copia de la MISMA longitud (un carácter por carácter) para
+# que las posiciones de las coincidencias sirvan sobre el texto original.
 def fold(text):
     """Copia de `text` de la MISMA longitud: minúsculas, sin tildes y con
     espacios en lugar de signos (las posiciones coinciden con el original)."""

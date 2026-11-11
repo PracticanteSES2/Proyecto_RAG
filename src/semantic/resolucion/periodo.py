@@ -5,6 +5,7 @@ relacionado, la del evento que mide; r3 AI05), análisis de periodos (PeriodPars
 año/mes/rango, buckets, «estado actual» y corte del día (r5) y _periods_for_metric. Mixin de
 QueryPlanBuilder, métodos movidos sin cambios.
 """
+import logging
 import re
 
 from datetime import date, timedelta
@@ -29,6 +30,8 @@ from src.semantic.resolucion.texto import (
     normalize_text,
     TEMPORAL_WORDS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PeriodoMixin:
@@ -158,7 +161,7 @@ class PeriodoMixin:
             try:
                 temporal = self._metric_date_fields(temporal, metric, semantic_model)
             except Exception:
-                pass
+                logger.debug("no se pudieron acotar las fechas al indicador; se usan todas las temporales", exc_info=True)
         elif metric and semantic_model:
             # Ninguna fecha entre las candidatas (la tabla del indicador solo
             # tiene fechas de texto, CONSULTA_URGENCIAS): el calendario que la

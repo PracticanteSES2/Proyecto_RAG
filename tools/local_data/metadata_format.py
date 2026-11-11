@@ -22,12 +22,13 @@ Los lectores del proyecto (catalog_utils.load_csv, visual_catalog_builder.
 read_csv_rows) aceptan tanto este formato como el CSV con comas/BOM que
 escribe sync_powerbi_metadata.write_csv.
 """
-import json
 import re
-import unicodedata
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+from src.comun.texto import normalizar, slug
+from src.comun.json_io import escribir_json
 
 
 # ============================================================
@@ -35,20 +36,12 @@ from pathlib import Path
 # ============================================================
 
 def normalize_text(value):
-    value = str(value or "").strip().lower()
-    value = "".join(
-        char
-        for char in unicodedata.normalize("NFD", value)
-        if unicodedata.category(char) != "Mn"
-    )
-    value = re.sub(r"[^a-z0-9]+", " ", value)
-    return re.sub(r"\s+", " ", value).strip()
+    return normalizar(value)
 
 
 def slugify(value):
     """Misma regla que sync_powerbi_metadata.slugify (carpeta del modelo)."""
-    text = normalize_text(value)
-    return text.replace(" ", "_") or "sin_nombre"
+    return slug(value) or "sin_nombre"
 
 
 # ============================================================
@@ -562,12 +555,7 @@ def build_info_view_rows(model):
 
 
 def save_json(data, path):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    escribir_json(data, path)
 
 
 def write_sync_info(model_name, model_dir, row_counts, *, source, extra=None):

@@ -10,8 +10,9 @@ vacío. Este módulo traduce esas frases a una ventana (inicio, fin) relativa a
 hoy; None si la descripción no dice nada de su ventana.
 """
 import re
-import unicodedata
 from datetime import date, timedelta
+
+from src.comun.texto import normalizar
 
 _MONTHS = {
     "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6, "julio": 7,
@@ -25,10 +26,7 @@ _NUMBER_RE = r"\d{1,3}|" + "|".join(_NUMBERS)
 
 
 def _normalize(value):
-    value = str(value or "").lower()
-    value = "".join(c for c in unicodedata.normalize("NFD", value) if unicodedata.category(c) != "Mn")
-    value = re.sub(r"[^a-z0-9]+", " ", value)
-    return re.sub(r"\s+", " ", value).strip()
+    return normalizar(value)
 
 
 def _number(text):

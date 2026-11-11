@@ -44,6 +44,7 @@ from pathlib import Path
 from . import formato as F
 from . import pbip, repositorio as R
 from .uso import texto_uso, uso_de_campos
+from src.comun.registro import consola_utf8
 
 POR_CONFIRMAR = "Por confirmar"
 MARCA_OBSOLETA = "Obsoleta: ya no existe en el modelo."
@@ -1371,12 +1372,7 @@ def _imprimir_cobertura(c: dict, detalle: int = 8):
 
 
 def main(argv=None) -> int:
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            try:
-                stream.reconfigure(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
+    consola_utf8()
     parser = argparse.ArgumentParser(prog="python -m src.docs_md.diccionario",
                                      description="Diccionario de variables de los tableros.")
     parser.add_argument("--raiz", default=None, help="Raíz con data/ y tableros/ (por defecto DOCS_MD_DATA_ROOT o este repositorio)")

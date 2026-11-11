@@ -1,8 +1,10 @@
-"""Variables de entorno numéricas (destino de la fase 3, docs/ARQUITECTURA.md §10-§11).
+"""Lectura tolerante de variables de entorno numéricas (docs/ARQUITECTURA.md §11).
 
-`src.chatbot.runtime_stats` las reexporta con sus nombres de siempre. Un valor
-vacío, inválido o no positivo vale `default`.
+Un valor ausente, ilegible, cero o negativo vale ``default``: así un ``.env`` con un error de tipeo
+no tumba el motor ni deja un límite en cero.
 """
+from __future__ import annotations
+
 import os
 
 

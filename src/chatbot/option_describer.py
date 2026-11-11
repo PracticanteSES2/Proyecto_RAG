@@ -1,13 +1,13 @@
 import os
 import re
 import time
-import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from difflib import SequenceMatcher
 
 from src.chatbot import cache_llm
 from src.chatbot.respuesta_completa import cortar_en_limite_seguro
 from src.chatbot.runtime_stats import STATS, env_float
+from src.comun.texto import plegar
 from src.llm.llm_gate import call_llm
 from src.llm.presupuesto_tokens import num_predict
 
@@ -176,9 +176,8 @@ Cuenta las cirugías agendadas en la programación quirúrgica.
 
     @staticmethod
     def _plain(text):
-        text = unicodedata.normalize("NFD", str(text or "").lower())
-        text = "".join(char for char in text if unicodedata.category(char) != "Mn")
-        return re.sub(r"[^a-z0-9]+", " ", text)
+        # Como normalizar() pero sin strip: contradicts_filters mide posiciones de coincidencia sobre este texto.
+        return re.sub(r"[^a-z0-9]+", " ", plegar(text))
 
     def invented_concepts(self, text, option):
         """Conceptos de CONCEPT_STEMS que la descripción menciona y que no

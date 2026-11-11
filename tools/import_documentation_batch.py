@@ -1,10 +1,11 @@
 import argparse
-import json
 import re
 import shutil
-import unicodedata
 from difflib import SequenceMatcher
 from pathlib import Path
+
+from src.comun.texto import normalizar, slug
+from src.comun.json_io import escribir_json, leer_json
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
@@ -24,33 +25,19 @@ REPORT_ROOT_CANDIDATES = (
 
 
 def normalize_text(value):
-    value = str(value or "").strip().lower()
-    value = "".join(
-        c for c in unicodedata.normalize("NFD", value)
-        if unicodedata.category(c) != "Mn"
-    )
-    value = re.sub(r"[^a-z0-9]+", " ", value)
-    return re.sub(r"\s+", " ", value).strip()
+    return normalizar(value)
 
 
 def slugify(value):
-    return normalize_text(value).replace(" ", "_") or "sin_nombre"
+    return slug(value) or "sin_nombre"
 
 
 def load_json(path, default=None):
-    path = Path(path)
-    if not path.exists():
-        return {} if default is None else default
-    return json.loads(path.read_text(encoding="utf-8"))
+    return leer_json(path, {} if default is None else default)
 
 
 def save_json(data, path):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    escribir_json(data, path)
 
 
 def relative_to_project(path):

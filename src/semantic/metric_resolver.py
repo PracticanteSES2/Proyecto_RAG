@@ -1,7 +1,9 @@
-import re
-import unicodedata
 
+import logging
 from src.rag.source_labels import is_dictionary_source
+from src.comun.texto import normalizar
+
+logger = logging.getLogger(__name__)
 
 
 class MetricResolver:
@@ -92,22 +94,7 @@ class MetricResolver:
     # ========================================================
 
     def _normalize_text(self, value):
-        if not value:
-            return ""
-
-        value = str(value).lower()
-
-        value = "".join(
-            char
-            for char in unicodedata.normalize("NFD", value)
-            if unicodedata.category(char) != "Mn"
-        )
-
-        value = value.replace("_", " ")
-        value = re.sub(r"[^a-z0-9\s]", " ", value)
-        value = re.sub(r"\s+", " ", value)
-
-        return value.strip()
+        return normalizar(value)
 
     # ========================================================
     # CONSTRUIR CONSULTA SEMÁNTICA
@@ -337,15 +324,13 @@ class MetricResolver:
         # ----------------------------------------------------
 
         if self.debug:
-            print("\nCANDIDATOS DE MÉTRICA:")
+            logger.debug("\nCANDIDATOS DE MÉTRICA:")
 
             for candidate in candidates[:10]:
-                print(
-                    f"- {candidate['measure']} "
+                logger.debug(f"- {candidate['measure']} "
                     f"| dashboard={candidate.get('dashboard')} "
                     f"| vector={candidate['vector_score']:.4f} "
-                    f"| final={candidate['final_score']:.4f}"
-                )
+                    f"| final={candidate['final_score']:.4f}")
 
         # ----------------------------------------------------
         # 4. Seleccionar mejor candidato

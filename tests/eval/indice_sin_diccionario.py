@@ -4,7 +4,7 @@ Construye, FUERA del repo, dos raíces de datos para comparar la recuperación a
     <destino>/after_root   copia de <checkout principal>/data reindexada con docs_tableros (debe ser no-op)
     <destino>/before_root  la misma copia reindexada con docs_tableros SIN los _diccionario*.md
 
-Usa la función de reindexación del proyecto (src.docs_md.indexacion.reindexar_grupo, incremental).
+Usa la función de reindexación del proyecto (src.catalogo.indexacion.reindexar_grupo, incremental).
 El data/ original solo se lee.
 
     python -X utf8 -m tests.eval.indice_sin_diccionario C:/ruta/scratch
@@ -25,7 +25,7 @@ def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
         raise SystemExit(__doc__)
-    from src.docs_md.indexacion import reindexar_grupo
+    from src.catalogo.indexacion import reindexar_grupo
     from tests.realistic.harness import main_checkout
 
     destino = Path(argv[0])

@@ -4,6 +4,7 @@ _get_values / _prefetch_values / prewarm_domains (presupuesto por turno, tests/p
 valor frente a la pregunta (_value_match_score), contradicción de valores y _resolve_value. Mixin de
 QueryPlanBuilder, métodos movidos sin cambios.
 """
+import logging
 import os
 import re
 import threading
@@ -22,6 +23,8 @@ from src.semantic.resolucion.texto import (
     STOPWORDS,
     value_contradiction,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ValoresMixin:
@@ -125,7 +128,8 @@ class ValoresMixin:
                 with self._domain_cache().background():
                     self.prewarm_domains(only_open_connections=True)
             except Exception:
-                pass  # solo optimización: los dominios se consultan al necesitarlos
+                # solo optimización: los dominios se consultan al necesitarlos
+                logger.debug("precalentado de dominios en segundo plano falló", exc_info=True)
 
         thread = threading.Thread(target=run, name="precalentar-dominios", daemon=True)
         thread.start()
@@ -148,7 +152,8 @@ class ValoresMixin:
             self._domain_cache().prefetch(semantic_model, columns, limit=limit, max_batches=max_batches,
                                           lead=lead)
         except Exception:
-            pass  # el lote es solo una optimización: get() consulta columna por columna
+            # el lote es solo una optimización: get() consulta columna por columna
+            logger.debug("precarga de dominios por lote falló", exc_info=True)
 
     def _prefetch_next(self, semantic_model, fields, position, limit=None, skip=()):
         """Búsqueda incremental: antes de leer fields[position], trae en un lote

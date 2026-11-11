@@ -15,8 +15,9 @@ Se mantiene separada del retriever para poder probarla sin modelo real.
 """
 import math
 import re
-import unicodedata
 from collections import Counter, defaultdict
+
+from src.comun.texto import normalizar
 
 
 # ============================================================
@@ -24,15 +25,7 @@ from collections import Counter, defaultdict
 # ============================================================
 
 def normalize_text(text):
-    text = str(text or "").lower().strip()
-    text = "".join(
-        character
-        for character in unicodedata.normalize("NFD", text)
-        if unicodedata.category(character) != "Mn"
-    )
-    text = re.sub(r"[^a-z0-9\s]", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+    return normalizar(text)
 
 
 # Palabras vacías del español + términos de formulación de la pregunta que

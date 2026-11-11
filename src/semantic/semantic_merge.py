@@ -1,7 +1,12 @@
+import logging
 import json
-import re
-import unicodedata
 from pathlib import Path
+
+from src.comun.rutas import RAIZ_PROYECTO
+from src.comun.texto import llave
+from src.comun.json_io import leer_json
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
@@ -9,22 +14,11 @@ from pathlib import Path
 # ============================================================
 
 def normalize_name(value):
-    if not value:
-        return ""
-
-    value = str(value).strip().lower()
-    value = "".join(
-        char
-        for char in unicodedata.normalize("NFD", value)
-        if unicodedata.category(char) != "Mn"
-    )
-    value = re.sub(r"[^a-z0-9]", "", value)
-    return value
+    return llave(value)
 
 
 def load_json(path):
-    with open(path, "r", encoding="utf-8") as file:
-        return json.load(file)
+    return leer_json(path)
 
 
 def _resolve_path(path_value, project_root):
@@ -310,24 +304,21 @@ def build_semantic_catalog(
     output_path = Path(output_path)
 
     if project_root is None:
-        project_root = Path(__file__).resolve().parents[2]
+        project_root = RAIZ_PROYECTO
     project_root = Path(project_root)
 
     documents = sorted(
         semantic_documents_dir.rglob("*.json")
     )
 
-    print(
-        "Documentos semánticos encontrados:",
-        len(documents),
-    )
+    logger.info("Documentos semánticos encontrados: %s", len(documents))
 
     catalog_cache = {}
     dashboards = []
     sources = []
 
     for document_path in documents:
-        print("\nProcesando:", document_path.relative_to(semantic_documents_dir))
+        logger.info("\nProcesando: %s", document_path.relative_to(semantic_documents_dir))
         document = load_json(document_path)
 
         catalog_path = _catalog_for_document(
@@ -396,18 +387,7 @@ def build_semantic_catalog(
 
             dashboards.append(merged)
 
-            print(
-                "  →",
-                merged.get("name"),
-                "| grupo:",
-                merged.get("source_group"),
-                "| medidas relacionadas:",
-                len(merged.get("matched_measures", [])),
-                "| tablas:",
-                len(merged.get("powerbi_tables", [])),
-                "| Power BI:",
-                enrichment_status,
-            )
+            logger.info("  → %s | grupo: %s | medidas relacionadas: %s | tablas: %s | Power BI: %s", merged.get("name"), merged.get("source_group"), len(merged.get("matched_measures", [])), len(merged.get("powerbi_tables", [])), enrichment_status)
 
     unique_workspaces = {
         source.get("workspace")
@@ -447,12 +427,12 @@ def build_semantic_catalog(
             indent=2,
         )
 
-    print("\n============================")
-    print("CATÁLOGO SEMÁNTICO GENERADO")
-    print("============================")
-    print("Fuentes:", len(sources))
-    print("Tableros:", len(dashboards))
-    print("Archivo:", output_path)
+    logger.info("\n============================")
+    logger.info("CATÁLOGO SEMÁNTICO GENERADO")
+    logger.info("============================")
+    logger.info("Fuentes: %s", len(sources))
+    logger.info("Tableros: %s", len(dashboards))
+    logger.info("Archivo: %s", output_path)
 
     return semantic_catalog
 
@@ -462,7 +442,10 @@ def build_semantic_catalog(
 # ============================================================
 
 if __name__ == "__main__":
-    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    from src.comun.registro import configurar_registro
+
+    configurar_registro()
+    PROJECT_ROOT = RAIZ_PROYECTO
 
     SEMANTIC_DOCUMENTS_DIR = (
         PROJECT_ROOT / "data" / "semantic_documents"

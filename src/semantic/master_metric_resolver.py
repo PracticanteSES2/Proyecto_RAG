@@ -1,7 +1,7 @@
 import json
-import re
-import unicodedata
 from pathlib import Path
+
+from src.comun.texto import normalizar
 
 MONTHS = {
     "enero","febrero","marzo","abril","mayo","junio",
@@ -18,13 +18,7 @@ STOPWORDS = {
 
 
 def normalize_text(value):
-    value = str(value or "").lower().strip()
-    value = "".join(
-        c for c in unicodedata.normalize("NFD", value)
-        if unicodedata.category(c) != "Mn"
-    )
-    value = re.sub(r"[^a-z0-9]+", " ", value)
-    return re.sub(r"\s+", " ", value).strip()
+    return normalizar(value)
 
 
 class MasterMetricResolver:

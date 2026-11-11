@@ -1,10 +1,10 @@
 import re
-import unicodedata
 from dataclasses import dataclass, asdict
 from difflib import SequenceMatcher
 from typing import Optional
 
 from src.semantic.question_kind import descriptive_phrase
+from src.comun.texto import normalizar
 
 
 # ============================================================
@@ -148,34 +148,7 @@ class ParsedIntent:
 # ============================================================
 
 def normalize_text(text: str) -> str:
-
-    if not text:
-        return ""
-
-    text = text.lower().strip()
-
-    text = "".join(
-        character
-        for character in unicodedata.normalize(
-            "NFD",
-            text
-        )
-        if unicodedata.category(character) != "Mn"
-    )
-
-    text = re.sub(
-        r"[^a-z0-9%\s]",
-        " ",
-        text
-    )
-
-    text = re.sub(
-        r"\s+",
-        " ",
-        text
-    )
-
-    return text.strip()
+    return normalizar(text, "%")
 
 
 # ============================================================
@@ -809,17 +782,13 @@ class IntentParser:
 
 if __name__ == "__main__":
 
-    from pathlib import Path
+    from src.comun.rutas import RAIZ_PROYECTO
 
     from src.rag.retriever import (
         HybridRetriever
     )
 
-    PROJECT_ROOT = (
-        Path(__file__)
-        .resolve()
-        .parents[2]
-    )
+    PROJECT_ROOT = RAIZ_PROYECTO
 
     QDRANT_PATH = (
         PROJECT_ROOT

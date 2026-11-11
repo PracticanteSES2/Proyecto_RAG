@@ -1,32 +1,12 @@
-import json
 import re
-import unicodedata
 from pathlib import Path
+
+from src.comun.texto import normalizar
+from src.comun.json_io import leer_json
 
 
 def normalize_text(value):
-    value = str(value or "").lower().strip()
-
-    value = "".join(
-        char
-        for char in unicodedata.normalize(
-            "NFD",
-            value,
-        )
-        if unicodedata.category(char) != "Mn"
-    )
-
-    value = re.sub(
-        r"[^a-z0-9]+",
-        " ",
-        value,
-    )
-
-    return re.sub(
-        r"\s+",
-        " ",
-        value,
-    ).strip()
+    return normalizar(value)
 
 
 def _token_score(question, candidate):
@@ -268,21 +248,10 @@ class SourceModelRouter:
         path,
         default=None,
     ):
-        if (
-            path is None
-            or not Path(path).exists()
-        ):
-            return (
-                default
-                if default is not None
-                else {}
-            )
-
-        return json.loads(
-            Path(path).read_text(
-                encoding="utf-8"
-            )
-        )
+        vacio = default if default is not None else {}
+        if path is None:
+            return vacio
+        return leer_json(path, vacio)
 
     def _resolve_path(
         self,

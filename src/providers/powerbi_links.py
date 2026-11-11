@@ -31,11 +31,13 @@ from __future__ import annotations
 import json
 import os
 import re
-import unicodedata
 import urllib.parse
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from src.comun.rutas import RAIZ_PROYECTO
+from src.comun.texto import sin_tildes
+
+PROJECT_ROOT = RAIZ_PROYECTO
 DEFAULT_PATH = PROJECT_ROOT / "data" / "catalog" / "report_links.json"
 SEPARADOR = " › "
 MAX_FILTER_VALUES = 10
@@ -44,8 +46,8 @@ _cache: dict = {"path": None, "mtime": None, "data": None}
 
 
 def normalizar(texto) -> str:
-    texto = unicodedata.normalize("NFKD", str(texto or ""))
-    texto = "".join(c for c in texto if not unicodedata.combining(c))
+    # Rótulo en MAYÚSCULAS para casar nombres de página: NFKD (variante de compatibilidad), no plegar().
+    texto = sin_tildes(texto)
     texto = re.sub(r"[_\-.]+", " ", texto.upper())
     return " ".join(texto.split())
 

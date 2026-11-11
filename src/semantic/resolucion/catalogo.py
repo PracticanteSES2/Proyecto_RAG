@@ -10,6 +10,7 @@ import re
 
 from pathlib import Path
 from src.semantic.resolucion.texto import _unique_strings, normalize_text
+from src.comun.json_io import leer_json
 
 
 class CatalogoMixin:
@@ -287,9 +288,7 @@ class CatalogoMixin:
         return result
 
     def _load_json(self, path, default):
-        if not Path(path).exists():
-            return default
-        return json.loads(Path(path).read_text(encoding="utf-8"))
+        return leer_json(path, default)
 
     def _normalize_reports(self, catalog):
         reports = list(catalog.get("reports", []) or [])

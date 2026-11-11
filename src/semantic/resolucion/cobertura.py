@@ -6,6 +6,7 @@ alternative_metrics, desempates (_break_metric_tie, r3 TU10), nombres débiles y
 vocabulario del indicador (metric_covers_question). Mixin de QueryPlanBuilder, métodos movidos sin
 cambios.
 """
+import logging
 import json
 import re
 
@@ -28,6 +29,8 @@ from src.semantic.resolucion.texto import (
     normalize_text,
     STOPWORDS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CoberturaMixin:
@@ -247,7 +250,7 @@ class CoberturaMixin:
                 if text:
                     table_vocabulary.update(token for token in canonical_tokens(text) if len(token) >= 4)
         except Exception:
-            pass
+            logger.debug("sin vocabulario de páginas de la tabla del indicador", exc_info=True)
         catalog_vocabulary = self._catalog_vocabulary()
         action_vocabulary = vocabulary | {
             token for report in self._metric_reports(metric) for token in canonical_tokens(report) if len(token) >= 3
