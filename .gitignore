@@ -59,4 +59,3 @@ next-env.d.ts
 # --- Qdrant de los fixtures: bloqueo y metadatos que crea al abrirse ---
 /tests/sim/fixtures/data/vector_db/qdrant/.lock
 /tests/sim/fixtures/data/vector_db/qdrant/meta.json
-/tools/carga/salidas/

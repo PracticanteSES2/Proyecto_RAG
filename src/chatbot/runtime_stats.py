@@ -48,6 +48,12 @@ espera, así que `queue_snapshot()` sin argumentos devuelve SU posición):
 
 `STATS.snapshot()` incluye además (campos NUEVOS; los anteriores no cambian)
 "turn_queue" y "llm_queue" con capacity/in_flight/waiting (sin posición).
+
+Dónde se gasta MedGemma (campos nuevos, specs/010-rendimiento-llm):
+"llm_cost_by_purpose" {propósito: calls, prompt_chars, prompt_tokens_est,
+num_predict, prompt_eval_tokens, eval_tokens, truncated y promedios *_avg},
+"llm_avoided" {motivo: llamadas evitadas} y "llm_cache" (hits, misses, stores,
+not_stored, shared, errors) de la caché del motor (src/chatbot/cache_llm.py).
 """
 import re
 import threading
@@ -61,6 +67,13 @@ from src.comun.entorno import env_float, env_int  # noqa: F401
 
 # Latencias recientes que se promedian (llamadas al LLM).
 RECENT_LATENCIES = 20
+
+# Costo por propósito (STATS.snapshot()["llm_cost_by_purpose"]). Los tokens de
+# entrada se estiman en caracteres/4 (español con el tokenizador de Gemma: 3,5-4).
+CHARS_PER_TOKEN = 4
+_COST_FIELDS = ("calls", "prompt_chars", "prompt_tokens_est", "num_predict", "prompt_eval_tokens",
+                "eval_tokens", "truncated")
+_CACHE_EVENTS = ("hits", "misses", "stores", "not_stored", "shared", "errors")
 
 
 # ======================================================================
@@ -199,6 +212,10 @@ class RuntimeStats:
                 "saturated": 0, "errors": 0, "abandoned": 0,
             }
             self.llm_by_purpose = {}
+            # Costo por propósito (campos nuevos): prompt, num_predict y tokens.
+            self.llm_cost_by_purpose = {}
+            self.llm_avoided = {}  # motivo -> llamadas que no se hicieron
+            self.llm_cache = {key: 0 for key in _CACHE_EVENTS}
             self.llm_latencies = deque(maxlen=RECENT_LATENCIES)
             self._saturated_at = deque(maxlen=1000)  # instantes de rechazo (llm_pressure)
             self.powerbi = {"opened": 0, "reopened": 0, "queries": 0, "query_timeouts": 0,
@@ -282,6 +299,55 @@ class RuntimeStats:
             entry["saturated"] = entry.get("saturated", 0) + 1
 
     # ------------------------------------------------------------------
+    # Costo de cada llamada (dónde se gasta MedGemma) y llamadas evitadas
+    # ------------------------------------------------------------------
+
+    def llm_payload(self, purpose, messages, max_tokens):
+        """Lo que se le pide al LLM en una llamada que sí se hace: caracteres
+        del prompt, tokens estimados (caracteres/4) y `num_predict`."""
+        chars = sum(len(str(m.get("content") or "")) for m in messages or [] if isinstance(m, dict))
+        with self._lock:
+            entry = self.llm_cost_by_purpose.setdefault(purpose or "otro", dict.fromkeys(_COST_FIELDS, 0))
+            entry["calls"] += 1
+            entry["prompt_chars"] += chars
+            entry["prompt_tokens_est"] += chars // CHARS_PER_TOKEN
+            entry["num_predict"] += int(max_tokens or 0)
+
+    def llm_usage(self, purpose, result):
+        """Tokens que informa el proveedor (Ollama: prompt_eval_count y
+        eval_count) y respuestas cortadas por num_predict."""
+        if not isinstance(result, dict) or result.get("status") != "success":
+            return
+        with self._lock:
+            entry = self.llm_cost_by_purpose.setdefault(purpose or "otro", dict.fromkeys(_COST_FIELDS, 0))
+            for source, target in (("prompt_eval_count", "prompt_eval_tokens"), ("eval_count", "eval_tokens")):
+                value = result.get(source)
+                if isinstance(value, int):
+                    entry[target] += value
+            entry["truncated"] += 1 if result.get("truncated") else 0
+
+    def llm_call_avoided(self, reason, n=1):
+        """Llamadas que no llegaron al LLM porque no hacía falta (caché,
+        catálogo, reglas). `reason` = «caché: síntesis RAG», …"""
+        self._bump(self.llm_avoided, str(reason or "otro"), int(n))
+
+    def llm_cache_event(self, event):
+        """Caché de llamadas del motor (src/chatbot/cache_llm.py): hits,
+        misses, stores, not_stored, shared (petición idéntica en curso) y
+        errors (almacén caído)."""
+        self._bump(self.llm_cache, event if event in _CACHE_EVENTS else "errors")
+
+    def _cost_snapshot(self):
+        data = {}
+        for purpose, entry in self.llm_cost_by_purpose.items():
+            calls = entry.get("calls") or 0
+            data[purpose] = dict(entry, **{
+                f"{key}_avg": (round(entry[key] / calls) if calls else None)
+                for key in ("prompt_chars", "prompt_tokens_est", "num_predict")
+            })
+        return data
+
+    # ------------------------------------------------------------------
     # Power BI
     # ------------------------------------------------------------------
 
@@ -335,6 +401,9 @@ class RuntimeStats:
                     round(sum(latencies) / len(latencies), 2) if latencies else None
                 ),
                 "llm_recent_max_s": round(max(latencies), 2) if latencies else None,
+                "llm_cost_by_purpose": self._cost_snapshot(),
+                "llm_avoided": dict(self.llm_avoided),
+                "llm_cache": dict(self.llm_cache),
                 "powerbi": dict(self.powerbi),
                 "powerbi_opened_by_model": dict(self.powerbi_opened_by_model),
                 "powerbi_in_flight": dict(self.powerbi_in_flight),

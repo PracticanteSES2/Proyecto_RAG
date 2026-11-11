@@ -41,6 +41,17 @@ def _redis_disponible(url: str) -> bool:
         return False
 
 
+def _instalar_redis_del_motor(cliente, prefijo: str) -> None:
+    """`src` no importa redis: la caché de llamadas al LLM del motor y el
+    semáforo distribuido de MedGemma reciben aquí su adaptador Redis
+    (specs/010-rendimiento-llm). La puerta solo lo usa con LLM_GATE_BACKEND=redis
+    (hace falta con varios trabajadores/réplicas contra el mismo MedGemma)."""
+    from backend.app.services import cache_llm_redis, puerta_llm_redis
+
+    cache_llm_redis.instalar(cliente, prefijo=prefijo)
+    puerta_llm_redis.instalar(cliente=cliente)
+
+
 def crear_almacenes(ajustes: Ajustes, redis_api=None, redis_trabajador=None):
     """(almacén API, almacén trabajador, modo). Los clientes Redis se pueden
     inyectar (pruebas con fakeredis)."""
@@ -53,6 +64,7 @@ def crear_almacenes(ajustes: Ajustes, redis_api=None, redis_trabajador=None):
         claves = Claves(ajustes.redis_prefijo)
         redis_api = redis_api or redis.asyncio.Redis.from_url(ajustes.redis_url)
         redis_trabajador = redis_trabajador or redis.Redis.from_url(ajustes.redis_url)
+        _instalar_redis_del_motor(redis_trabajador, ajustes.redis_prefijo)
         return (AlmacenRedis(redis_api, claves),
                 AlmacenTrabajadorRedis(redis_trabajador, claves, ajustes.turno_ttl_s), "redis")
     from backend.app.services.almacen_memoria import AlmacenMemoria
@@ -82,6 +94,9 @@ def crear_trabajador(ajustes: Ajustes, almacen_trabajador, fabrica_piscina: Call
     # el primer turno no paga su construcción (segundos con docs_tableros).
     reglas_cache.normalizar_pregunta("hola", raiz)
     huella = reglas_cache.Huella(raiz, RAIZ_REPO)
+    # Versión de datos/código en las claves de la caché de llamadas del motor.
+    from src.chatbot import cache_llm
+    cache_llm.fijar_version(huella.valor())
     procesador = ProcesadorTurnos(almacen_trabajador, piscina, SerializadorEstado(ajustes.backend_secreto), ajustes,
                                   huella=huella, raiz_datos=raiz)
     return Trabajador(almacen_trabajador, procesador, piscina, ajustes, version=huella.version, huella=huella)
