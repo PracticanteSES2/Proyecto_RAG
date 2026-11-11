@@ -17,12 +17,14 @@ motor: el comportamiento de siempre, de un solo usuario.
 """
 import contextvars
 import functools
+import threading
 from contextlib import contextmanager
 
 from src.chatbot.estado_conversacion import EstadoConversacion, en_sesion
 
 _TURNO = contextvars.ContextVar("turno_motor", default=None)
 _ESCUCHA = contextvars.ContextVar("escucha_progreso_motor", default=None)
+_CANDADO_ESCUCHAS = threading.Lock()
 
 
 class _Turno:
@@ -76,9 +78,10 @@ def con_sesion(metodo):
 
     @functools.wraps(metodo)
     def envuelto(self, *args, sesion=None, progreso=None, **kwargs):
+        previa = self.progress_listener
         escucha = _ESCUCHA.set((self, progreso)) if progreso is not None else None
-        if progreso is not None:
-            self._enganchar_powerbi()
+        if escucha is not None and previa is None:
+            self._contar_escucha(+1)
         try:
             with self._turno(sesion) as (turno, nuevo):
                 cerrar = nuevo and sesion is not None
@@ -94,6 +97,8 @@ def con_sesion(metodo):
         finally:
             if escucha is not None:
                 _ESCUCHA.reset(escucha)
+                if previa is None:
+                    self._contar_escucha(-1)
 
     return envuelto
 
@@ -202,7 +207,10 @@ class SesionMotorMixin:
 
     @progress_listener.setter
     def progress_listener(self, listener):
+        previa = self.progress_listener
         _ESCUCHA.set((self, listener) if listener is not None else None)
+        if (previa is None) != (listener is None):
+            self._contar_escucha(+1 if listener is not None else -1)
 
     def set_progress_listener(self, listener):
         """Función que recibe en vivo los pasos del turno (o None), para el
@@ -210,18 +218,27 @@ class SesionMotorMixin:
         proveedor de Power BI, incluidas las de exploración de valores que hace
         el Query Plan."""
         self.progress_listener = listener
-        if listener is not None:
-            self._enganchar_powerbi()
 
-    def _enganchar_powerbi(self):
-        # El proveedor es compartido: sus avisos van al turno del hilo que
-        # consulta, y solo si ese turno tiene escucha (si no, se ignoran).
+    def _contar_escucha(self, delta):
+        """Escuchas activas en todos los hilos: el proveedor de Power BI
+        (compartido) queda enganchado mientras haya al menos una y se
+        desengancha con la última, como antes con un solo usuario."""
+        with _CANDADO_ESCUCHAS:
+            activas = max(0, self.__dict__.get("_escuchas_activas", 0) + delta)
+            self.__dict__["_escuchas_activas"] = activas
+            self._enganchar_powerbi(activas > 0)
+
+    def _enganchar_powerbi(self, enganchar):
+        # Sus avisos van al turno del hilo que consulta, y solo si ese turno
+        # tiene escucha (si no, se ignoran).
         provider = getattr(self, "powerbi_provider", None)
-        if provider is not None and hasattr(provider, "query_listener"):
-            provider.query_listener = self._on_powerbi_query
-        if provider is not None and hasattr(provider, "activity_listener"):
-            # Aperturas/reconexiones (posible ventana de inicio de sesión).
-            provider.activity_listener = self._on_powerbi_activity
+        if provider is None:
+            return
+        for atributo, despachador in (("query_listener", self._on_powerbi_query),
+                                      # Aperturas/reconexiones (posible ventana de inicio de sesión).
+                                      ("activity_listener", self._on_powerbi_activity)):
+            if hasattr(provider, atributo):
+                setattr(provider, atributo, despachador if enganchar else None)
 
     def _on_powerbi_query(self, semantic_model, dax):
         if self.progress_listener is not None:

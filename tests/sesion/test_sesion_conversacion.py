@@ -323,6 +323,31 @@ class ConcurrenciaTest(_Base):
             self.assertTrue(eventos[nombre])
         self.assertIsNone(motor.progress_listener)
 
+    def test_proveedor_enganchado_mientras_haya_una_escucha(self):
+        """Escuchas en dos hilos: el proveedor compartido sigue enganchado hasta
+        que se quita la última (y sin escucha queda desenganchado, como antes)."""
+        proveedor = self.engine.powerbi_provider
+        quitar_a, a_lista = threading.Event(), threading.Event()
+
+        def hilo_a():
+            self.engine.set_progress_listener(lambda evento: None)
+            a_lista.set()
+            quitar_a.wait(10)
+            self.engine.set_progress_listener(None)
+
+        hilo = threading.Thread(target=hilo_a)
+        hilo.start()
+        a_lista.wait(10)
+        self.engine.set_progress_listener(lambda evento: None)
+        self.engine.set_progress_listener(None)
+        self.assertIsNotNone(proveedor.query_listener)  # A sigue escuchando
+        quitar_a.set()
+        hilo.join(10)
+        self.assertIsNone(proveedor.query_listener)
+        self.assertIsNone(self.engine.progress_listener)
+        self.preguntar(A_PREGUNTA, EstadoConversacion())  # sin escucha: nada enganchado
+        self.assertIsNone(proveedor.query_listener)
+
 
 if __name__ == "__main__":
     unittest.main()
