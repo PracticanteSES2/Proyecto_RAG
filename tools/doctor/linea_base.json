@@ -1,27 +1,25 @@
 {
  "version": 2,
  "fecha": "2026-11-11",
- "puntaje_global": 65.8414,
+ "puntaje_global": 80.2393,
  "perfiles": {
   "backend": {
-   "puntaje": 67.7623,
+   "puntaje": 70.0053,
    "categorias": {
-    "estructura": 87.0268,
-    "tamano": 17.4954,
+    "estructura": 88.2353,
+    "tamano": 17.5297,
     "duplicacion": 65.6124,
     "muerto": 88.7717,
-    "capas": 65.8061,
+    "capas": 79.3772,
     "pruebas": 100.0,
-    "higiene": 45.1644,
+    "higiene": 45.3036,
     "fastapi": 100.0
    },
    "huellas": {
     "capas": {
      "capa_invertida|src/llm/gate_backends.py|src.chatbot.runtime_stats": 1,
      "capa_invertida|src/llm/llm_gate.py|src.chatbot.runtime_stats": 1,
-     "capa_invertida|src/providers/powerbi_provider.py|src.chatbot.runtime_stats": 1,
-     "importacion_prohibida|src/llm/gate_backends.py|redis": 2,
-     "importacion_prohibida|tools/carga/runner.py|tests.sim": 1
+     "capa_invertida|src/providers/powerbi_provider.py|src.chatbot.runtime_stats": 1
     },
     "duplicacion": {
      "funcion_casi_identica|src/dax/dax_generator.py|DAXGenerator._escape_column": 1,
@@ -97,7 +95,6 @@
     "estructura": {
      "salida_fuera_de_var|.gitignore|tests/docs_md/out": 1,
      "salida_fuera_de_var|.gitignore|tests/eval/out": 1,
-     "salida_fuera_de_var|.gitignore|tools/carga/salidas": 1,
      "salida_fuera_de_var|tests/real/.gitignore|tests/real/out": 1,
      "salida_fuera_de_var|tests/real/.gitignore|tests/real/out_*": 1
     },
@@ -113,8 +110,6 @@
      "except_silencioso|src/docs_md/interfaz.py|_aprobar#1": 1,
      "except_silencioso|src/ingestion/document_parser.py|configure_console_utf8#1": 1,
      "except_silencioso|src/ingestion/document_parser.py|folder_source_group#1": 1,
-     "except_silencioso|src/llm/gate_backends.py|RedisBackend.acquire#1": 1,
-     "except_silencioso|src/llm/gate_backends.py|RedisBackend.acquire#2": 1,
      "except_silencioso|src/llm/llm_gate.py|_notify#1": 1,
      "except_silencioso|src/llm/llm_gate.py|_notify#2": 1,
      "except_silencioso|src/llm/llm_gate.py|call_llm.run#1": 1,
@@ -616,7 +611,6 @@
      "complejidad|src/ingestion/document_parser.py|process_markdown_document": 1,
      "complejidad|src/ingestion/document_parser.py|resolve_document_config": 1,
      "complejidad|src/ingestion/document_parser.py|split_into_dashboards": 1,
-     "complejidad|src/llm/gate_backends.py|RedisBackend.acquire": 1,
      "complejidad|src/llm/llm_gate.py|call_llm": 1,
      "complejidad|src/llm/medgemma_provider.py|MedGemmaProvider.healthcheck": 1,
      "complejidad|src/providers/domain_cache.py|DomainCache.__init__": 1,
@@ -886,7 +880,6 @@
      "complejidad|tools/carga/metricas.py|resumen_turnos": 1,
      "complejidad|tools/carga/proveedores.py|SondaStreaming.chat": 1,
      "complejidad|tools/carga/runner.py|_Llamador.llamar": 1,
-     "complejidad|tools/carga/runner.py|correr": 1,
      "complejidad|tools/carga/simulador.py|ServidorSimulado.generate": 1,
      "complejidad|tools/doctor/cli.py|_texto_perfil": 1,
      "complejidad|tools/doctor/cli.py|_texto_verificacion": 1,
@@ -979,7 +972,6 @@
      "demasiados_parametros|src/semantic/query_plan_builder.py|QueryPlanBuilder._add_implicit_filters": 1,
      "demasiados_parametros|src/semantic/resolucion/calificativos.py|CalificativosMixin._resolve_qualifiers": 1,
      "demasiados_parametros|src/semantic/resolucion/filtros.py|FiltrosMixin._resolve_implicit_filter": 1,
-     "demasiados_parametros|tools/carga/runner.py|correr": 1,
      "funcion_larga|app.py|execute_turn": 1,
      "funcion_larga|app.py|get_display_answer": 1,
      "funcion_larga|src/chatbot/answer_synthesizer.py|AnswerSynthesizer._build_context": 1,
@@ -1241,7 +1233,6 @@
      "funcion_larga|src/semantic/visual_catalog_builder.py|PBIRVisualCatalogBuilder.build": 1,
      "funcion_larga|src/semantic/visual_catalog_builder.py|read_csv_rows": 1,
      "funcion_larga|tools/carga/proveedores.py|SondaStreaming.chat": 1,
-     "funcion_larga|tools/carga/runner.py|correr": 1,
      "funcion_larga|tools/carga/simulador.py|ServidorSimulado.generate": 1,
      "funcion_larga|tools/doctor/cli.py|main": 1,
      "funcion_larga|tools/doctor/reglas/capas.py|revisar": 1,
@@ -1291,7 +1282,7 @@
    "legado": {
     "app.py": {
      "archivos": 1,
-     "lineas": 738
+     "lineas": 732
     },
     "pages": {
      "archivos": 1,
@@ -1320,16 +1311,30 @@
    }
   },
   "frontend": {
-   "puntaje": 100.0,
+   "puntaje": 95.5904,
    "categorias": {
     "estructura": 100.0,
     "tipos": 100.0,
     "compilacion": 100.0,
     "lint": 100.0,
+    "react": 77.9519,
     "arquitectura": 100.0,
     "higiene": 100.0
    },
-   "huellas": {},
+   "huellas": {
+    "react": {
+     "react-doctor/async-await-in-loop|frontend/app/api/v1/turnos/[turnoId]/eventos/route.ts|react-doctor/async-await-in-loop#1": 1,
+     "react-doctor/async-await-in-loop|frontend/app/api/v1/turnos/[turnoId]/eventos/route.ts|react-doctor/async-await-in-loop#2": 1,
+     "react-doctor/js-set-map-lookups|frontend/lib/mock/guiones.ts|react-doctor/js-set-map-lookups#1": 1,
+     "react-doctor/js-set-map-lookups|frontend/lib/mock/guiones.ts|react-doctor/js-set-map-lookups#2": 1,
+     "react-doctor/only-export-components|frontend/components/ui/Mascota.tsx|react-doctor/only-export-components#1": 1,
+     "react-doctor/only-export-components|frontend/components/ui/Mascota.tsx|react-doctor/only-export-components#2": 1,
+     "react-doctor/prefer-html-dialog|frontend/components/ui/MenuAjustes.tsx|react-doctor/prefer-html-dialog#1": 1,
+     "react-doctor/prefer-html-dialog|frontend/components/ui/MenuAjustes.tsx|react-doctor/prefer-html-dialog#2": 1,
+     "react-doctor/rerender-memo-with-default-value|frontend/components/chat/IndicadorPensando.tsx|react-doctor/rerender-memo-with-default-value#1": 1,
+     "react-doctor/rerender-memo-with-default-value|frontend/components/chat/IndicadorPensando.tsx|react-doctor/rerender-memo-with-default-value#2": 1
+    }
+   },
    "legado": {}
   }
  }
