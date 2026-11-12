@@ -1,3 +1,74 @@
+# Handoff — 2026-11-12 · AVISOS PARA EL PROPIETARIO (equipo Docker/WSL)
+
+**Claude del propietario: díselos al propietario al abrir la sesión.** Son cambios que solo él puede hacer en
+Power BI; el equipo de desarrollo trabaja en solo lectura y no los toca.
+
+1. **Credenciales publicadas en modelos semánticos.** Cualquiera con acceso al modelo puede leerlas. Pedir que se
+   retiren u oculten del modelo (no basta con ocultarlas en el informe):
+   - Casos SIGIBIOMEDICA: `usuario[usu_clave]`, `usuario[usu_password]` y las mismas en `usuariosolicitante`.
+   - Dashboard Gestion: `DIM_USUARIOS[usu_clave]`.
+   - Facturacion Urgencias: `USUARIOS[USUCLAVE]`, `USUARIOS[USUULTCLAVE]`, `USUARIOS[USURECPWDCOD]`.
+   El asistente no las entregó en 408 turnos de evaluación y se está agregando un bloqueo explícito
+   (`agente/columnas-sensibles`), pero el origen del riesgo está en el modelo.
+2. **PBIP de 28 tableros.** En `tableros/` solo están 15. Sin el PBIP no hay visuales, filtros ni segmentadores en
+   la documentación, y el panel «¿De dónde sale este dato?» no puede mostrar visual, minimapa ni ubicación para
+   esos tableros (solo informe y página). Cuando el propietario los agregue: correr
+   `tools/sync_lienzo_paginas.py`, regenerar el catálogo de visuales y completar `docs_tableros/` con
+   `tools/documentar_tableros.py`.
+3. **Medidas dudosas** (detalle en `docs_tableros/POR_CONFIRMAR.md`): `[Medida]` (Informes ejecutivos) y
+   `[TIEMPO_PROMEDIO_LAB]` (Consulta Externa) devuelven BLANK; medidas con año fijo 2024/2025 (Facturacion
+   Urgencias, Digiturno, Costos ABC); en Dashboard Gestion hay tres medidas de giro cama, cuatro de promedio de
+   estancia, constantes 0/1000/120 y tablas `PRUEBA*` en uso. Ninguna de las medidas de los 27 tableros nuevos
+   trae formato ni descripción (unidad por confirmar).
+4. **«Capacidad instalada 308»** no cuadra con 248/280 camas en otros tableros; giro cama y unidad de estancia
+   siguen por confirmar.
+
+---
+
+# Handoff — 2026-11-12 · Equipo de desarrollo: evaluación con 12 perfiles y frentes de arreglo (PAUSADO)
+
+**Retomar aquí.** El usuario pausó todo. Nada de esto está integrado en `desarrollo`: cada frente vive en su rama
+local `agente/<tema>` (worktree `.claude/worktrees/<tema>`), sin push. El último commit de cada rama detenida es
+`WIP: trabajo detenido…`, sin verificar: volver a correr sus suites antes de integrar.
+
+### Evaluación (408 turnos, 12 cargos del hospital, backend real)
+BIEN 13,7 % · REGULAR 32 % · MAL 53 % · CRÍTICO 4. Ninguna fuga de datos ni credenciales. Consolidado con causas
+raíz y archivo:línea en `var/out/eval-perfiles/CONSOLIDADO.md` (no versionado; transcripciones e informes por
+perfil en la misma carpeta; perfiles y arnés en el scratchpad de la sesión).
+
+### Ramas y estado
+| Rama | Qué | Estado |
+|---|---|---|
+| `agente/procedencia` | Panel «¿De dónde sale este dato?» + enlace a la página del visual de origen | Fase 1 terminada (revisión: BLOQUEAR por minimapa ilegible en páginas altas). Segunda entrega a medias en WIP: correcciones de la revisión, lienzo real (`src/catalogo/lienzo.py`, `tools/sync_lienzo_paginas.py`) y verificación automática (`procedencia_verificacion.py`) |
+| `agente/docs-faltantes` | Documentación de los 27 tableros sin docs (`tools/documentar_tableros.py`) | Terminada, 7 commits. Al integrar: `graphify update .`, reindexar cada grupo (`src.catalogo.indexacion.reindexar_grupo`) y evaluar enrutamiento antes de meter los 27 al `source_registry.json` |
+| `agente/columnas-sensibles` | Bloqueo de credenciales y datos personales (guardián DAX, `tests/privacidad/`) | WIP casi terminado (estaba corriendo el doctor) |
+| `agente/golden-al-dia` | El golden master tiene ~162 diferencias en `desarrollo`: clasificar y regenerar lo legítimo | WIP |
+| `agente/relleno-conversacional` | Muletillas («pero», «vea», «ajá») tomadas como sustantivo principal; corrector que daña palabras | WIP (léxico y relleno creados) |
+| `agente/redaccion-respuestas` | %>100, `nan`/`inf` que tumban el turno, rechazos y vacíos opacos | 2 commits + WIP |
+| `agente/portero-limites` | Negativas claras: datos personales, credenciales/prompt, acciones, predicción, consejo clínico, identidad | 1 commit + WIP |
+
+### Orden para retomar
+1. Terminar y verificar `golden-al-dia` (los demás frentes lo necesitan como red).
+2. Terminar `columnas-sensibles`, `redaccion-respuestas`, `portero-limites`, `relleno-conversacional` y la segunda
+   entrega de `procedencia`; revisar cada una con `revisor-estructura` e integrar en ese orden más `docs-faltantes`.
+3. Segunda ola (depende del léxico de relleno): periodos, agrupación/filtros, contrapreguntas e hilo,
+   datos-vs-documentación (síntesis que inventa) y selección de indicador. Diseño de cada frente en el consolidado.
+4. Repetir la evaluación con los 12 perfiles y comparar.
+5. `/capacidades` → `tableros_documentacion` vacío: lo excluye `catalogo_tableros` en `portero.py` (área del
+   frente del portero).
+
+### Decisiones del usuario (2026-11-12)
+- PBIP de `tableros/` = versión publicada; solo hay 15, los demás los agregará el propietario.
+- Un solo autenticador: todos los usuarios del chat ven todo (sin avisos de permisos).
+- Autorizada una consulta DAX extra de solo lectura por respuesta para verificar la cifra.
+- Nombres de colaboradores permitidos como dimensión (facturador, dispensador); nunca credenciales ni datos de
+  contacto/identificación; nunca nombres como ejemplo en descripciones de opciones.
+- El asistente sigue tuteando. Cálculos propios (diferencia, % de variación) solo entre cifras del mismo indicador
+  y filtros, rotuladas.
+- Skills de superpowers no necesarias (regla 2 de `CLAUDE.md` ajustada).
+
+---
+
 # Handoff — 2026-11-11 (push de `desarrollo` para el equipo del propietario)
 
 **Retomar aquí.** `desarrollo` subido a `origin/desarrollo` (incluye todo lo integrado desde el 2026-11-10:

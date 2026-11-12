@@ -17,9 +17,10 @@ Rules:
 2. **Desarrollo con spec-kit + superpowers.** Al desarrollar cualquier funcionalidad o cambio:
    - spec-kit: `/speckit-specify` → `/speckit-clarify` → `/speckit-plan` → `/speckit-tasks` → `/speckit-implement`
      (`/speckit-analyze` antes de implementar).
-   - superpowers (`.claude/skills/`): `brainstorming` y `writing-plans` antes de codificar, `test-driven-development`
-     al implementar, `systematic-debugging` ante fallos, `verification-before-completion` antes de dar algo por
-     terminado y `requesting-code-review` al cerrar. Empezar leyendo `using-superpowers`.
+   - Mismo flujo de trabajo que superpowers, sin exigir las skills instaladas (el usuario confirmó el 2026-11-12
+     que no son necesarias): pensar y planear antes de codificar, prueba que falla antes del arreglo (TDD),
+     depuración sistemática ante fallos, verificación con salidas reales antes de dar algo por terminado y
+     revisión del diff (`revisor-estructura`) al cerrar.
 
 ## Trabajo en curso por equipo (leer al abrir la sesión)
 
