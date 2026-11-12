@@ -271,13 +271,31 @@ def _linea_de(d: dict) -> int:
     return 0
 
 
+def _contexto_react(nodo: dict, heredado: dict) -> dict:
+    """Regla, severidad, mensaje y ayuda de un nodo del JSON, heredando lo que traigan sus padres."""
+    ctx = dict(heredado)
+    regla = next((nodo[k] for k in _CLAVES_REGLA if isinstance(nodo.get(k), str)), None)
+    if regla:
+        ctx["regla"] = f"{nodo['plugin']}/{regla}" if isinstance(nodo.get("plugin"), str) else regla
+    for k in ("severity", "level"):
+        if nodo.get(k) is not None:
+            ctx["severidad"] = str(nodo[k]).lower()
+    for k in ("message", "title", "description"):
+        if isinstance(nodo.get(k), str):
+            ctx["mensaje"] = nodo[k]
+            break
+    if isinstance(nodo.get("help"), str):
+        ctx["ayuda"] = nodo["help"]
+    return ctx
+
+
 def parsear_react_doctor(texto: str, raiz: Path, base: Path) -> list[Hallazgo]:
     """Lector tolerante del `--json` de react-doctor (el esquema no está documentado):
     toma cada objeto con archivo y hereda regla/severidad/mensaje de sus padres."""
     datos = _json_de(texto)
     if isinstance(datos, dict) and datos.get("ok") is False:
         raise ValueError(str(datos.get("error") or datos.get("message") or "react-doctor devolvió ok: false"))
-    hallazgos, cuenta = [], Counter()
+    hallazgos, cuenta, vistos = [], Counter(), set()
 
     def visitar(nodo, heredado: dict):
         if isinstance(nodo, list):
@@ -286,24 +304,16 @@ def parsear_react_doctor(texto: str, raiz: Path, base: Path) -> list[Hallazgo]:
             return
         if not isinstance(nodo, dict):
             return
-        ctx = dict(heredado)
-        regla =next((nodo[k] for k in _CLAVES_REGLA if isinstance(nodo.get(k), str)), None)
-        if regla:
-            ctx["regla"] = f"{nodo['plugin']}/{regla}" if isinstance(nodo.get("plugin"), str) else regla
-        for k in ("severity", "level"):
-            if nodo.get(k) is not None:
-                ctx["severidad"] = str(nodo[k]).lower()
-        for k in ("message", "title", "description"):
-            if isinstance(nodo.get(k), str):
-                ctx["mensaje"] = nodo[k]
-                break
-        if isinstance(nodo.get("help"), str):
-            ctx["ayuda"] = nodo["help"]
+        ctx = _contexto_react(nodo, heredado)
         archivo = next((nodo[k] for k in _CLAVES_ARCHIVO if isinstance(nodo.get(k), str)), None)
         if archivo and ctx.get("mensaje"):
             ruta = _rel(raiz, base, archivo)
             sev = "alta" if ctx.get("severidad") in ("error", "2", "high", "critical") else "media"
             regla_txt = ctx.get("regla", "react-doctor")
+            clave = (ruta, regla_txt, _linea_de(nodo), nodo.get("column"), ctx["mensaje"])
+            if clave in vistos:  # react-doctor repite la lista en projects[] y en la raíz
+                return
+            vistos.add(clave)
             cuenta[(ruta, regla_txt)] += 1
             hallazgos.append(_h(
                 "react", regla_txt, sev, ruta, _linea_de(nodo), ctx["mensaje"],
@@ -315,7 +325,9 @@ def parsear_react_doctor(texto: str, raiz: Path, base: Path) -> list[Hallazgo]:
             if isinstance(v, (dict, list)):
                 visitar(v, ctx)
 
-    visitar(datos, {})
+    # La raíz ya trae la lista completa; recorrer también `projects` la duplicaría.
+    raiz_diag = datos.get("diagnostics") if isinstance(datos, dict) else None
+    visitar(raiz_diag if isinstance(raiz_diag, list) else datos, {})
     return hallazgos
 
 

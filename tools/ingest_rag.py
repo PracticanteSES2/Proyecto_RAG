@@ -2,17 +2,18 @@ import argparse
 import shutil
 import sys
 from pathlib import Path
-from src.comun.registro import configurar_registro, consola_utf8
-
+# Raíz del proyecto en sys.path ANTES de importar src (este script vive en tools/).
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
+from src.comun.registro import configurar_registro, consola_utf8  # noqa: E402
 
-from src.ingestion.document_parser import process_all_documents
-from src.semantic.document_normalizer import normalize_all_documents
-from src.semantic.semantic_merge import build_semantic_catalog
-from src.rag.chunk_builder import build_chunks_file
-from src.rag.embedding_indexer import build_vector_index
+from src.ingestion.document_parser import process_all_documents  # noqa: E402
+from src.semantic.document_normalizer import normalize_all_documents  # noqa: E402
+from src.semantic.semantic_merge import build_semantic_catalog  # noqa: E402
+from src.rag.chunk_builder import build_chunks_file  # noqa: E402
+from src.rag.embedding_indexer import build_vector_index  # noqa: E402
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
