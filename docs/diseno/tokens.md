@@ -270,7 +270,7 @@ MedGemma y Power BI, "Nueva conversación", exportar y "Diagnóstico del servido
 
 ```
 ┌───────────── filete de marca 4px (gradient-marca) ─────────────────────────────┐
-│ [logo horizontal]  Asistente de tableros           ● Power BI  ● MedGemma  [☾] │  ← encabezado 64px, bg, borde inferior
+│ [logo horizontal]  Asistente de Gestión Clinica           ● Power BI  ● MedGemma  [☾] │  ← encabezado 64px, bg, borde inferior
 ├──────────────┬─────────────────────────────────────────────────────────────────┤
 │ Barra lateral│                columna de chat (máx. 760px, centrada)            │
 │ surface-2    │  (avatar) ┌ burbuja asistente ┐                                  │

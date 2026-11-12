@@ -19,7 +19,7 @@ const mulish = Mulish({
 const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400"], variable: "--font-jetbrains", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Asistente de tableros · S.E.S. Hospital Universitario de Caldas",
+  title: "Asistente de Gestion Clinica · S.E.S. Hospital Universitario de Caldas",
   description: "Consulta cifras y documentación de los tableros de Power BI institucionales.",
   icons: { icon: "/marca/isotipo_ses.svg" },
 };

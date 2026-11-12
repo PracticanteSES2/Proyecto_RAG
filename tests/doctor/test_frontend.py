@@ -199,6 +199,20 @@ class LectoresExternosTests(unittest.TestCase):
         self.assertEqual([(x.archivo, x.linea, x.regla) for x in h],
                          [("frontend/app/a.tsx", 2, "rerender"), ("frontend/app/b.tsx", 5, "rerender")])
 
+    def test_react_doctor_sin_duplicados(self):
+        # react-doctor 0.9.22 repite la lista en projects[].diagnostics y en la raíz: cada hallazgo cuenta una vez.
+        d1 = {"filePath": "app/page.tsx", "line": 12, "column": 3, "rule": "no-array-index-key",
+              "severity": "error", "message": "No uses el índice como key"}
+        d2 = {"filePath": "app/page.tsx", "line": 40, "column": 3, "rule": "no-array-index-key",
+              "severity": "error", "message": "No uses el índice como key"}
+        doble = {"ok": True, "projects": [{"diagnostics": [d1, d2]}], "diagnostics": [d1, d2]}
+        h = frontend.parsear_react_doctor(json.dumps(doble), self.raiz, self.base)
+        self.assertEqual([x.linea for x in h], [12, 40])  # mismas líneas distintas se conservan
+        self.assertEqual(len({x.huella for x in h}), 2)
+        solo_proyectos = {"ok": True, "projects": [{"diagnostics": [d1, d1, d2]}]}
+        h = frontend.parsear_react_doctor(json.dumps(solo_proyectos), self.raiz, self.base)
+        self.assertEqual([x.linea for x in h], [12, 40])
+
     def test_react_doctor_error(self):
         with self.assertRaises(ValueError):
             frontend.parsear_react_doctor(json.dumps({"ok": False, "error": "no es un proyecto React"}), self.raiz, self.base)

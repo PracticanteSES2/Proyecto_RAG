@@ -330,7 +330,8 @@ class InterfazTest(unittest.TestCase):
         at.switch_page("pages/1_Documentación.py")
         at.run()
         self.assertFalse(at.exception, at.exception)
-        self.assertEqual(at.title[0].value, "📚 Documentación de tableros")
+        # Sin emoji desde la identidad del Hospital Universitario de Caldas (d9346c9).
+        self.assertEqual(at.title[0].value, "Documentación de tableros")
 
     def test_boton_proponer_desde_ver(self):
         self.at.selectbox(key="docs_pagina_ver").set_value("consultas_dia.md").run()

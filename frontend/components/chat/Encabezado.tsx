@@ -28,7 +28,7 @@ export function Encabezado({ diagnostico, puedeReiniciar, alNuevaConversacion, a
           />
           <div className="min-w-0 flex-1 leading-tight">
             <p className="flex items-center gap-2 font-heading text-base font-semibold text-fg-heading sm:text-lg">
-              <span className="truncate">Asistente de tableros</span>
+              <span className="truncate">Asistente de Gestion Clinica</span>
               {diagnostico && (
                 <span className="shrink-0 rounded-pill border border-diag-border bg-diag-bg px-2 py-0.5 font-body text-xs font-bold text-diag">
                   Diagnóstico

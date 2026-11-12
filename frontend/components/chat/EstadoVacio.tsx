@@ -58,8 +58,8 @@ export function EstadoVacio({ cliente, alPreguntar, deshabilitado = false }: Pro
         Hola, ¿qué quieres consultar hoy?
       </h1>
       <p className="mt-2 max-w-lg text-fg-muted [@media(max-height:940px)]:max-w-xl">
-        Soy el asistente de tableros del S.E.S. Hospital Universitario de Caldas. Pregúntame por cifras e indicadores
-        sin tener que entrar a Power BI.
+        Soy el asistente de Gestion Clinica del S.E.S. Hospital Universitario de Caldas. Pregúntame por cifras e
+        indicadores sin tener que entrar a Power BI.
       </p>
 
       <h2 className="mt-7 font-body text-xs font-bold tracking-wide text-fg-muted uppercase [@media(max-height:940px)]:mt-3">

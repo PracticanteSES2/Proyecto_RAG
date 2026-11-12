@@ -1,11 +1,17 @@
 import argparse
 import re
 import shutil
+import sys
 from difflib import SequenceMatcher
 from pathlib import Path
 
-from src.comun.texto import normalizar, slug
-from src.comun.json_io import escribir_json, leer_json
+# Raíz del proyecto en sys.path ANTES de importar src (este script vive en tools/).
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.comun.texto import normalizar, slug  # noqa: E402
+from src.comun.json_io import escribir_json, leer_json  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RAW_DIR = PROJECT_ROOT / "data" / "raw"

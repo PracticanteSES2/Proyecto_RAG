@@ -6,14 +6,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote
 
-from src.comun.texto import normalizar, slug
-from src.comun.registro import consola_utf8
-from src.comun.json_io import escribir_json
-
+# Raíz del proyecto en sys.path ANTES de importar src (este script vive en tools/).
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from src.providers.powerbi_provider import PowerBIProvider
+from src.comun.texto import normalizar, slug  # noqa: E402
+from src.comun.registro import consola_utf8  # noqa: E402
+from src.comun.json_io import escribir_json  # noqa: E402
+
+from src.providers.powerbi_provider import PowerBIProvider  # noqa: E402
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
