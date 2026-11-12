@@ -112,7 +112,7 @@ export function exportarMarkdown(conversacionId: string): string | null {
   const conversacion = conversacionGuardada(conversacionId);
   if (!conversacion) return null;
   const partes = [
-    "# Conversación con el Asistente de tableros",
+    "# Conversación con el Asistente de Gestion Clinica",
     "",
     `_Exportada el ${new Date().toLocaleString("es-CO")}_`,
     "",
